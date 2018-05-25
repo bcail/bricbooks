@@ -443,7 +443,7 @@ class LedgerWidget(ttk.Frame):
 
 class AddTransactionWidget(ttk.Frame):
 
-    def __init__(self, master, db_connection, reload_ledger):
+    def __init__(self, master, account, db_connection, reload_ledger):
         super().__init__(master=master, padding=(0, 0, 0, 0))
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
@@ -453,6 +453,7 @@ class AddTransactionWidget(ttk.Frame):
         self.grid_columnconfigure(5, weight=3)
         self.grid_columnconfigure(6, weight=1)
         self.grid_columnconfigure(7, weight=1)
+        self.account = account
         self.db_connection = db_connection
         self.reload_ledger = reload_ledger
         self.txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH)
@@ -489,7 +490,7 @@ class AddTransactionWidget(ttk.Frame):
         amount = Decimal(self.amount_box.get())
         description = self.description_entry.get()
         status = self.status_entry.get()
-        txn = Transaction(txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status)
+        txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status)
         SQLiteStorage.save_txn_to_db(self.db_connection, txn)
         self._clear_entries()
         self.reload_ledger()
@@ -528,21 +529,60 @@ class HeadingsWidget(ttk.Frame):
         actions_heading.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
 
 
+class AddAccount(ttk.Frame):
+
+    def __init__(self, master, db_connection, load_accounts, display_ledger):
+        super().__init__(master=master, padding=(0, 0, 0, 0))
+        self.db_connection = db_connection
+        self._load_accounts = load_accounts
+        self._display_ledger = display_ledger
+        heading = ttk.Label(self, text='Add New Account')
+        name_label = ttk.Label(self, text='Name')
+        self.name_entry = ttk.Entry(self)
+        save_button = ttk.Button(self, text='Save New Account', command=self._add)
+        heading.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        name_label.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.name_entry.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        save_button.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+    def _add(self):
+        a = Account(name=self.name_entry.get(), starting_balance=Decimal(0))
+        SQLiteStorage.save_account_to_db(self.db_connection, a)
+        self.destroy()
+        self._load_accounts()
+        self._display_ledger()
+
+
 class PFT_GUI:
 
     def __init__(self):
-        db_connection = SQLiteStorage.get_or_create_connection()
-        accounts = SQLiteStorage.get_accounts_from_db(db_connection)
+        self.db_connection = SQLiteStorage.get_or_create_connection()
 
         #root Tk application
-        root = tk.Tk()
-        root.title(TITLE)
+        self.root = tk.Tk()
+        self.root.title(TITLE)
         #make sure root container is set to resize properly
-        root.grid_columnconfigure(0, weight=1)
-        root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_rowconfigure(0, weight=1)
 
+        self._load_accounts()
+        if self.accounts:
+            self._show_ledger()
+        else:
+            self._show_add_account()
+
+        self.root.mainloop()
+
+    def _load_accounts(self):
+        self.accounts = SQLiteStorage.get_accounts_from_db(self.db_connection)
+
+    def _show_add_account(self):
+        add_account_frame = AddAccount(master=self.root, db_connection=self.db_connection, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
+        add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def _show_ledger(self):
         #this frame contains everything the user sees
-        content_frame = ttk.Frame(master=root)
+        content_frame = ttk.Frame(master=self.root)
         #two rows in content_frame: headings in row 0, ledger & scrolls in row 1
         #two columns in the content_frame: ledger in column 0, and scrollbar in column 1
         #set row 0 and column 0 to resize - don't want the vertical scrollbar to resize horizontally
@@ -557,12 +597,8 @@ class PFT_GUI:
 
         vertical_scrollbar.configure(command=canvas.yview)
 
-        if accounts:
-            ledger = Ledger(starting_balance=accounts[0].starting_balance)
-            self.ledger_widget = LedgerWidget(ledger, master=canvas, db_connection=db_connection, account_id=accounts[0].id)
-        else:
-            ledger = Ledger(starting_balance=Decimal(0))
-            self.ledger_widget = LedgerWidget(ledger, master=canvas, db_connection=db_connection, account_id=-1)
+        ledger = Ledger(starting_balance=self.accounts[0].starting_balance)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, db_connection=self.db_connection, account_id=self.accounts[0].id)
 
         self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
@@ -575,7 +611,7 @@ class PFT_GUI:
         canvas.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
         #update_idletasks has to go before configuring the scrollregion
-        root.update_idletasks()
+        self.root.update_idletasks()
         canvas.configure(scrollregion=canvas.bbox("all"))
 
         #https://stackoverflow.com/questions/16188420/python-tkinter-scrollbar-for-frame
@@ -592,10 +628,8 @@ class PFT_GUI:
 
         content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        add_txn_widget = AddTransactionWidget(master=root, db_connection=db_connection, reload_ledger=self.ledger_widget.load_ledger)
+        add_txn_widget = AddTransactionWidget(master=self.root, account=self.accounts[0], db_connection=self.db_connection, reload_ledger=self.ledger_widget.load_ledger)
         add_txn_widget.grid(row=2, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
-
-        root.mainloop()
 
 
 if __name__ == '__main__':
