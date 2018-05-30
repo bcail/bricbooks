@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal as D
 import sqlite3
+from tkinter.test.support import AbstractTkTest
 import unittest
 
 from pft import (
@@ -12,6 +13,7 @@ from pft import (
         InvalidLedgerError,
         Category,
         SQLiteStorage,
+        AddTransactionWidget,
     )
 
 
@@ -501,6 +503,22 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         records = c.fetchall()
         self.assertEqual(len(records), 1)
+
+
+class TestGUI(AbstractTkTest, unittest.TestCase):
+
+    def test_add_transaction(self):
+        conn = SQLiteStorage.setup_db(':memory:')
+        account = Account(name='Checking', starting_balance=D(0))
+        def reload_ledger(): pass
+        atw = AddTransactionWidget(master=self.root, account=account, db_connection=conn, reload_ledger=reload_ledger)
+        atw.date_entry.insert(0, '2018-01-13')
+        atw.amount_entry.insert(0, '100')
+        atw.save_button.invoke()
+        #make sure there's a transaction now
+        txns = conn.execute('SELECT amount FROM transactions').fetchall()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0][0], '10')
 
 
 if __name__ == '__main__':
