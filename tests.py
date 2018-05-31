@@ -518,7 +518,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         #make sure there's a transaction now
         txns = conn.execute('SELECT amount FROM transactions').fetchall()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0][0], '10')
+        self.assertEqual(txns[0][0], '100')
 
 
 if __name__ == '__main__':
