@@ -5,5 +5,5 @@ python:
   - "3.7-dev"
 
 script:
-    python tests.py
+    xvfb-run python tests.py
 
