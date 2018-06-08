@@ -167,18 +167,23 @@ class Ledger:
 
 class SQLiteStorage:
 
-    @staticmethod
-    def get_or_create_connection():
+    def __init__(self, conn_name=None):
+        if conn_name == ':memory:':
+            conn = self._setup_db(conn_name)
+        else:
+            conn = self._get_or_create_connection()
+        self._db_connection = conn
+
+    def _get_or_create_connection(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.join(current_dir, DATA_FILENAME)
         if os.path.exists(file_path):
             conn = sqlite3.connect(file_path)
         else:
-            conn = SQLiteStorage.setup_db(file_path)
+            conn = self._setup_db(file_path)
         return conn
 
-    @staticmethod
-    def setup_db(conn_name):
+    def _setup_db(self, conn_name):
         '''
         Initialize empty DB.
         conn_name is file name or ':memory:'
@@ -190,65 +195,58 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
         return conn
 
-    @staticmethod
-    def account_from_db(db_connection, account_id):
-        account_info = db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
+    def account_from_db(self, account_id):
+        account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
         return Account(id=account_info[0], name=account_info[1], starting_balance=Decimal(account_info[2]))
 
-    @staticmethod
-    def save_account_to_db(db_connection, account):
-        c = db_connection.cursor()
+    def save_account_to_db(self, account):
+        c = self._db_connection.cursor()
         c.execute('INSERT INTO accounts(name, starting_balance) VALUES(?, ?)', (account.name, str(account.starting_balance)))
         account.id = c.lastrowid
-        db_connection.commit()
+        self._db_connection.commit()
 
-    @staticmethod
-    def get_accounts_from_db(db_connection):
-        db_records = db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
+    def get_accounts_from_db(self):
+        db_records = self._db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
         accounts = []
         for r in db_records:
-            accounts.append(SQLiteStorage.account_from_db(db_connection, r[0]))
+            accounts.append(self.account_from_db(r[0]))
         return accounts
 
-    @staticmethod
-    def category_from_db(db_connection, category_id):
-        db_record = db_connection.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
+    def category_from_db(self, category_id):
+        db_record = self._db_connection.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
         return Category(name=db_record[0])
 
-    @staticmethod
-    def save_category_to_db(db_connection, category):
-        c = db_connection.cursor()
+    def save_category_to_db(self, category):
+        c = self._db_connection.cursor()
         if category.id:
             c.execute('UPDATE categories SET name = ? WHERE id = ?', (category.name, category.id))
         else:
             c.execute('INSERT INTO categories(name) VALUES(?)', (category.name,))
             category.id = c.lastrowid
-        db_connection.commit()
+        self._db_connection.commit()
 
-    @staticmethod
-    def txn_from_db_record(db_info=None, connection=None):
+    def txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
         id_, account_id, txn_type, txn_date, payee, amount, description, status = db_info
         year, month, day = txn_date.split('-')
         txn_date = date(int(year), int(month), int(day))
         amount = Decimal(amount)
-        account = SQLiteStorage.account_from_db(connection, account_id)
-        c = connection.cursor()
+        account = self.account_from_db(account_id)
+        c = self._db_connection.cursor()
         categories = []
         category_records = c.execute('SELECT category_id, amount FROM txn_categories WHERE txn_id = ?', (id_,))
         if category_records:
             for cat_record in category_records:
                 cat_id = cat_record[0]
-                category = SQLiteStorage.category_from_db(connection, cat_id)
+                category = self.category_from_db(cat_id)
                 categories.append((category, Decimal(cat_record[1])))
         return Transaction(account=account, amount=amount, txn_date=txn_date, txn_type=txn_type, categories=categories, payee=payee, description=description, status=status, id_=id_)
 
-    @staticmethod
-    def save_txn_to_db(db_connection, txn):
-        c = db_connection.cursor()
+    def save_txn_to_db(self, txn):
+        c = self._db_connection.cursor()
         if not txn.account.id:
-            SQLiteStorage.save_account_to_db(db_connection, txn.account)
+            self.save_account_to_db(txn.account)
         if txn.id:
             c.execute('UPDATE transactions SET account_id = ?, txn_type = ?, txn_date = ?, payee = ?, amount = ?, description = ?, status = ? WHERE id = ?',
                 (txn.account.id, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, str(txn.amount), txn.description, txn.status, txn.id))
@@ -261,18 +259,16 @@ class SQLiteStorage:
         if txn.categories:
             for category in txn.categories:
                 c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES(?, ?, ?)', (txn.id, category[0].id, str(category[1])))
-        db_connection.commit()
+        self._db_connection.commit()
 
-    @staticmethod
-    def delete_txn_from_db(db_connection, txn_id):
-        db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
-        db_connection.commit()
+    def delete_txn_from_db(self, txn_id):
+        self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
+        self._db_connection.commit()
 
-    @staticmethod
-    def load_txns_into_ledger(db_connection, account_id, ledger):
-        db_txn_records = db_connection.execute('SELECT * FROM transactions WHERE account_id = ?', (account_id,)).fetchall()
+    def load_txns_into_ledger(self, account_id, ledger):
+        db_txn_records = self._db_connection.execute('SELECT * FROM transactions WHERE account_id = ?', (account_id,)).fetchall()
         for db_txn in db_txn_records:
-            txn = SQLiteStorage.txn_from_db_record(db_info=db_txn, connection=db_connection)
+            txn = self.txn_from_db_record(db_info=db_txn)
             ledger.add_transaction(txn)
 
 
@@ -290,11 +286,11 @@ ACTIONS_WIDTH = 20
 
 class LedgerTxnWidget(ttk.Frame):
 
-    def __init__(self, txn, balance, master=None, db_connection=None, reload_function=None):
+    def __init__(self, txn, balance, master=None, storage=None, reload_function=None):
         super().__init__(master=master, padding=(0, 0, 0, 0))
         self.txn = txn
         self.balance = balance
-        self.db_connection = db_connection
+        self.storage = storage
         self.reload_function = reload_function
         self._display_txn()
 
@@ -404,22 +400,22 @@ class LedgerTxnWidget(ttk.Frame):
                 description=description,
                 status=status,
             )
-        SQLiteStorage.save_txn_to_db(self.db_connection, self.txn)
+        self.storage.save_txn_to_db(self.txn)
         self._destroy_entries()
         self._display_txn()
 
     def _delete(self):
-        SQLiteStorage.delete_txn_from_db(self.db_connection, self.txn.id)
+        self.storage.delete_txn_from_db(self.txn.id)
         self.reload_function()
 
 
 class LedgerWidget(ttk.Frame):
 
-    def __init__(self, ledger, master, db_connection, account_id):
+    def __init__(self, ledger, master, storage, account_id):
         super().__init__(master=master, padding=(0, 0, 0, 0))
         self.grid_columnconfigure(0, weight=1)
         self.ledger = ledger
-        self.db_connection = db_connection
+        self.storage = storage
         self.account_id = account_id
         self.txn_widgets = []
         self.load_ledger()
@@ -432,10 +428,10 @@ class LedgerWidget(ttk.Frame):
     def load_ledger(self):
         self._clear()
         self.txn_widgets = []
-        SQLiteStorage.load_txns_into_ledger(self.db_connection, self.account_id, self.ledger)
+        self.storage.load_txns_into_ledger(self.account_id, self.ledger)
         row = 0
         for record in self.ledger.get_records():
-            txn_widget = LedgerTxnWidget(record['txn'], record['balance'], master=self, db_connection=self.db_connection, reload_function=self.load_ledger)
+            txn_widget = LedgerTxnWidget(record['txn'], record['balance'], master=self, storage=self.storage, reload_function=self.load_ledger)
             txn_widget.grid(row=row, column=0, sticky=(tk.W, tk.E))
             self.txn_widgets.append(txn_widget)
             row += 1
@@ -443,7 +439,7 @@ class LedgerWidget(ttk.Frame):
 
 class AddTransactionWidget(ttk.Frame):
 
-    def __init__(self, master, account, db_connection, reload_ledger):
+    def __init__(self, master, account, storage, reload_ledger):
         super().__init__(master=master, padding=(0, 0, 0, 0))
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
@@ -454,7 +450,7 @@ class AddTransactionWidget(ttk.Frame):
         self.grid_columnconfigure(6, weight=1)
         self.grid_columnconfigure(7, weight=1)
         self.account = account
-        self.db_connection = db_connection
+        self.storage = storage
         self.reload_ledger = reload_ledger
         self.txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH)
         self.date_entry = ttk.Entry(self, width=DATE_WIDTH)
@@ -491,7 +487,7 @@ class AddTransactionWidget(ttk.Frame):
         description = self.description_entry.get()
         status = self.status_entry.get()
         txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status)
-        SQLiteStorage.save_txn_to_db(self.db_connection, txn)
+        self.storage.save_txn_to_db(txn)
         self._clear_entries()
         self.reload_ledger()
 
@@ -559,11 +555,14 @@ class AddAccount(ttk.Frame):
 
 class PFT_GUI:
 
-    def __init__(self):
-        self.db_connection = SQLiteStorage.get_or_create_connection()
+    def __init__(self, root=None):
+        self.storage = SQLiteStorage()
 
         #root Tk application
-        self.root = tk.Tk()
+        if root:
+            self.root = root
+        else:
+            self.root = tk.Tk()
         self.root.title(TITLE)
         #make sure root container is set to resize properly
         self.root.grid_columnconfigure(0, weight=1)
@@ -578,7 +577,7 @@ class PFT_GUI:
         self.root.mainloop()
 
     def _load_accounts(self):
-        self.accounts = SQLiteStorage.get_accounts_from_db(self.db_connection)
+        self.accounts = self.storage.get_accounts_from_db()
 
     def _show_add_account(self):
         add_account_frame = AddAccount(master=self.root, db_connection=self.db_connection, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
@@ -602,7 +601,7 @@ class PFT_GUI:
         vertical_scrollbar.configure(command=canvas.yview)
 
         ledger = Ledger(starting_balance=self.accounts[0].starting_balance)
-        self.ledger_widget = LedgerWidget(ledger, master=canvas, db_connection=self.db_connection, account_id=self.accounts[0].id)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account_id=self.accounts[0].id)
 
         self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
@@ -632,7 +631,7 @@ class PFT_GUI:
 
         content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        add_txn_widget = AddTransactionWidget(master=self.root, account=self.accounts[0], db_connection=self.db_connection, reload_ledger=self.ledger_widget.load_ledger)
+        add_txn_widget = AddTransactionWidget(master=self.root, account=self.accounts[0], storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
         add_txn_widget.grid(row=2, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
