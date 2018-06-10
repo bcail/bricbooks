@@ -305,7 +305,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_save_account_to_db(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D(100))
-        storage.save_account_to_db(account)
+        storage.save_account(account)
         #make sure we save the id to the account object
         self.assertEqual(account.id, 1)
         c = storage._db_connection.cursor()
@@ -314,12 +314,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(db_info,
                 (account.id, 'Checking', '100'))
 
-    def test_account_from_db(self):
+    def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
         c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Checking', str(D(100))))
         account_id = c.lastrowid
-        account = storage.account_from_db(account_id)
+        account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.starting_balance, D(100))
@@ -329,7 +329,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c = storage._db_connection.cursor()
         c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Checking', str(D(100))))
         c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Savings', str(D(1000))))
-        accounts = storage.get_accounts_from_db()
+        accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[0].name, 'Checking')
         self.assertEqual(accounts[1].name, 'Savings')
@@ -347,7 +347,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, cat_id, str(D('50'))))
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
-        txn = storage.txn_from_db_record(db_info=db_info)
+        txn = storage._txn_from_db_record(db_info=db_info)
         self.assertEqual(txn.id, 1)
         self.assertEqual(txn.account.name, 'Checking')
         self.assertEqual(txn.txn_type, '1234')
@@ -368,7 +368,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 (account_id, '2017-01-25', '101.00'))
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
-        txn = storage.txn_from_db_record(db_info=db_info)
+        txn = storage._txn_from_db_record(db_info=db_info)
         self.assertEqual(txn.id, 1)
         self.assertEqual(txn.txn_date, date(2017, 1, 25))
         self.assertEqual(txn.amount, D('101.00'))
@@ -377,13 +377,13 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_txn_to_db(self):
         storage = SQLiteStorage(':memory:')
         c = Category('Cat')
-        storage.save_category_to_db(c)
+        storage.save_category(c)
         c2 = Category('Dog')
-        storage.save_category_to_db(c2)
+        storage.save_category(c2)
         c3 = Category('Horse')
-        storage.save_category_to_db(c3)
+        storage.save_category(c3)
         a = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account_to_db(a)
+        storage.save_account(a)
         t = Transaction(
                 account=a,
                 amount=D('-101'),
@@ -394,7 +394,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 status=Transaction.CLEARED,
                 categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
             )
-        storage.save_txn_to_db(t)
+        storage.save_txn(t)
         #make sure we save the id to the txn object
         self.assertEqual(t.id, 1)
         c = storage._db_connection.cursor()
@@ -416,7 +416,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_date=date.today(),
                 amount=D('101'),
             )
-        storage.save_txn_to_db(t)
+        storage.save_txn(t)
         c = storage._db_connection.cursor()
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
@@ -426,11 +426,11 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_round_trip(self):
         storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account_to_db(a)
+        storage.save_account(a)
         c = Category('Cat')
-        storage.save_category_to_db(c)
+        storage.save_category(c)
         c2 = Category('Dog')
-        storage.save_category_to_db(c2)
+        storage.save_category(c2)
         #create txn & save it
         t = Transaction(
                 account=a,
@@ -438,24 +438,24 @@ class TestSQLiteStorage(unittest.TestCase):
                 amount=D('-101'),
                 categories=[(c, D('-45')), (c2, D('-56'))],
             )
-        storage.save_txn_to_db(t)
+        storage.save_txn(t)
         #read it back from the db
         cursor = storage._db_connection.cursor()
         cursor.execute('SELECT * FROM transactions')
         db_info = cursor.fetchone()
-        txn = storage.txn_from_db_record(db_info=db_info)
+        txn = storage._txn_from_db_record(db_info=db_info)
         #update it & save it to db again
         self.assertEqual(txn.txn_type, None)
         self.assertEqual(txn.payee, None)
         txn.txn_type = '123'
         txn.payee = 'Five Guys'
         txn.categories = [(c, D('-101'))]
-        storage.save_txn_to_db(txn)
+        storage.save_txn(txn)
         #verify db record
         cursor.execute('SELECT * FROM transactions')
         db_records = cursor.fetchall()
         self.assertEqual(len(db_records), 1)
-        new_txn = storage.txn_from_db_record(db_info=db_records[0])
+        new_txn = storage._txn_from_db_record(db_info=db_records[0])
         self.assertEqual(new_txn.txn_type, '123')
         self.assertEqual(new_txn.payee, 'Five Guys')
         self.assertEqual(new_txn.categories[0][0].name, 'Cat')
@@ -499,7 +499,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO transactions(txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?)',
                 ('BP', '2017-01-28', 'Subway', '46.23', 'inv #42', Transaction.CLEARED))
         txn2_id = c.lastrowid
-        storage.delete_txn_from_db(txn_id)
+        storage.delete_txn(txn_id)
         c.execute('SELECT * FROM transactions')
         records = c.fetchall()
         self.assertEqual(len(records), 1)

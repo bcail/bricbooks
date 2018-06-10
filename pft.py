@@ -195,28 +195,28 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
         return conn
 
-    def account_from_db(self, account_id):
+    def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
         return Account(id=account_info[0], name=account_info[1], starting_balance=Decimal(account_info[2]))
 
-    def save_account_to_db(self, account):
+    def save_account(self, account):
         c = self._db_connection.cursor()
         c.execute('INSERT INTO accounts(name, starting_balance) VALUES(?, ?)', (account.name, str(account.starting_balance)))
         account.id = c.lastrowid
         self._db_connection.commit()
 
-    def get_accounts_from_db(self):
+    def get_accounts(self):
         db_records = self._db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
         accounts = []
         for r in db_records:
-            accounts.append(self.account_from_db(r[0]))
+            accounts.append(self.get_account(r[0]))
         return accounts
 
-    def category_from_db(self, category_id):
+    def get_category(self, category_id):
         db_record = self._db_connection.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
         return Category(name=db_record[0])
 
-    def save_category_to_db(self, category):
+    def save_category(self, category):
         c = self._db_connection.cursor()
         if category.id:
             c.execute('UPDATE categories SET name = ? WHERE id = ?', (category.name, category.id))
@@ -225,28 +225,28 @@ class SQLiteStorage:
             category.id = c.lastrowid
         self._db_connection.commit()
 
-    def txn_from_db_record(self, db_info=None):
+    def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
         id_, account_id, txn_type, txn_date, payee, amount, description, status = db_info
         year, month, day = txn_date.split('-')
         txn_date = date(int(year), int(month), int(day))
         amount = Decimal(amount)
-        account = self.account_from_db(account_id)
+        account = self.get_account(account_id)
         c = self._db_connection.cursor()
         categories = []
         category_records = c.execute('SELECT category_id, amount FROM txn_categories WHERE txn_id = ?', (id_,))
         if category_records:
             for cat_record in category_records:
                 cat_id = cat_record[0]
-                category = self.category_from_db(cat_id)
+                category = self.get_category(cat_id)
                 categories.append((category, Decimal(cat_record[1])))
         return Transaction(account=account, amount=amount, txn_date=txn_date, txn_type=txn_type, categories=categories, payee=payee, description=description, status=status, id_=id_)
 
-    def save_txn_to_db(self, txn):
+    def save_txn(self, txn):
         c = self._db_connection.cursor()
         if not txn.account.id:
-            self.save_account_to_db(txn.account)
+            self.save_account(txn.account)
         if txn.id:
             c.execute('UPDATE transactions SET account_id = ?, txn_type = ?, txn_date = ?, payee = ?, amount = ?, description = ?, status = ? WHERE id = ?',
                 (txn.account.id, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, str(txn.amount), txn.description, txn.status, txn.id))
@@ -261,14 +261,14 @@ class SQLiteStorage:
                 c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES(?, ?, ?)', (txn.id, category[0].id, str(category[1])))
         self._db_connection.commit()
 
-    def delete_txn_from_db(self, txn_id):
+    def delete_txn(self, txn_id):
         self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
     def load_txns_into_ledger(self, account_id, ledger):
         db_txn_records = self._db_connection.execute('SELECT * FROM transactions WHERE account_id = ?', (account_id,)).fetchall()
         for db_txn in db_txn_records:
-            txn = self.txn_from_db_record(db_info=db_txn)
+            txn = self._txn_from_db_record(db_info=db_txn)
             ledger.add_transaction(txn)
 
 
@@ -400,12 +400,12 @@ class LedgerTxnWidget(ttk.Frame):
                 description=description,
                 status=status,
             )
-        self.storage.save_txn_to_db(self.txn)
+        self.storage.save_txn(self.txn)
         self._destroy_entries()
         self._display_txn()
 
     def _delete(self):
-        self.storage.delete_txn_from_db(self.txn.id)
+        self.storage.delete_txn(self.txn.id)
         self.reload_function()
 
 
@@ -487,7 +487,7 @@ class AddTransactionWidget(ttk.Frame):
         description = self.description_entry.get()
         status = self.status_entry.get()
         txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status)
-        self.storage.save_txn_to_db(txn)
+        self.storage.save_txn(txn)
         self._clear_entries()
         self.reload_ledger()
 
@@ -547,7 +547,7 @@ class AddAccount(ttk.Frame):
 
     def _add(self):
         a = Account(name=self.name_entry.get(), starting_balance=Decimal(self.starting_balance_entry.get()))
-        SQLiteStorage.save_account_to_db(self.db_connection, a)
+        SQLiteStorage.save_account(self.db_connection, a)
         self.destroy()
         self._load_accounts()
         self._display_ledger()
@@ -577,7 +577,7 @@ class PFT_GUI:
         self.root.mainloop()
 
     def _load_accounts(self):
-        self.accounts = self.storage.get_accounts_from_db()
+        self.accounts = self.storage.get_accounts()
 
     def _show_add_account(self):
         add_account_frame = AddAccount(master=self.root, db_connection=self.db_connection, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
