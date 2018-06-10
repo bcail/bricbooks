@@ -167,33 +167,25 @@ class Ledger:
 
 class SQLiteStorage:
 
-    def __init__(self, conn_name=None):
+    def __init__(self, conn_name):
+        #conn_name is either ':memory:' or the name of the data file
+        self._db_connection = sqlite3.connect(conn_name)
         if conn_name == ':memory:':
-            conn = self._setup_db(conn_name)
+            conn = self._setup_db()
         else:
-            conn = self._get_or_create_connection()
-        self._db_connection = conn
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            file_path = os.path.join(current_dir, conn_name)
+            if not os.path.exists(file_path):
+                self._setup_db()
 
-    def _get_or_create_connection(self):
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        file_path = os.path.join(current_dir, DATA_FILENAME)
-        if os.path.exists(file_path):
-            conn = sqlite3.connect(file_path)
-        else:
-            conn = self._setup_db(file_path)
-        return conn
-
-    def _setup_db(self, conn_name):
+    def _setup_db(self):
         '''
         Initialize empty DB.
-        conn_name is file name or ':memory:'
         '''
-        conn = sqlite3.connect(conn_name)
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
-        conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
-        conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
-        return conn
+        self._db_connection.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
+        self._db_connection.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
+        self._db_connection.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
+        self._db_connection.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
@@ -556,7 +548,7 @@ class AddAccount(ttk.Frame):
 class PFT_GUI:
 
     def __init__(self, root=None):
-        self.storage = SQLiteStorage()
+        self.storage = SQLiteStorage(DATA_FILENAME)
 
         #root Tk application
         if root:
