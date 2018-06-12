@@ -519,9 +519,9 @@ class HeadingsWidget(ttk.Frame):
 
 class AddAccount(ttk.Frame):
 
-    def __init__(self, master, db_connection, load_accounts, display_ledger):
+    def __init__(self, master, storage, load_accounts, display_ledger):
         super().__init__(master=master, padding=(0, 0, 0, 0))
-        self.db_connection = db_connection
+        self._storage = storage
         self._load_accounts = load_accounts
         self._display_ledger = display_ledger
         heading = ttk.Label(self, text='Add New Account')
@@ -529,17 +529,17 @@ class AddAccount(ttk.Frame):
         self.name_entry = ttk.Entry(self)
         starting_balance_label = ttk.Label(self, text='Starting Balance')
         self.starting_balance_entry = ttk.Entry(self)
-        save_button = ttk.Button(self, text='Save New Account', command=self._add)
+        self.save_button = ttk.Button(self, text='Save New Account', command=self._add)
         heading.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         name_label.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.name_entry.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
         starting_balance_label.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.starting_balance_entry.grid(row=1, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
-        save_button.grid(row=1, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
 
     def _add(self):
         a = Account(name=self.name_entry.get(), starting_balance=Decimal(self.starting_balance_entry.get()))
-        SQLiteStorage.save_account(self.db_connection, a)
+        self._storage.save_account(a)
         self.destroy()
         self._load_accounts()
         self._display_ledger()
@@ -572,7 +572,7 @@ class PFT_GUI:
         self.accounts = self.storage.get_accounts()
 
     def _show_add_account(self):
-        add_account_frame = AddAccount(master=self.root, db_connection=self.db_connection, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
+        add_account_frame = AddAccount(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self):

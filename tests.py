@@ -14,6 +14,7 @@ from pft import (
         Category,
         SQLiteStorage,
         AddTransactionWidget,
+        AddAccount,
         PFT_GUI,
     )
 
@@ -506,6 +507,19 @@ class TestSQLiteStorage(unittest.TestCase):
 
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
+
+    def test_add_account(self):
+        storage = SQLiteStorage(':memory:')
+        def load_accounts(): pass
+        def display_ledger(): pass
+        aa = AddAccount(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
+        aa.name_entry.insert(0, 'Checking')
+        aa.starting_balance_entry.insert(0, '100')
+        aa.save_button.invoke()
+        #make sure there's an account now
+        accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0][0], 'Checking')
 
     def test_add_transaction(self):
         storage = SQLiteStorage(':memory:')
