@@ -517,7 +517,7 @@ class HeadingsWidget(ttk.Frame):
         actions_heading.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
 
 
-class AddAccount(ttk.Frame):
+class AddAccountWidget(ttk.Frame):
 
     def __init__(self, master, storage, load_accounts, display_ledger):
         super().__init__(master=master, padding=(0, 0, 0, 0))
@@ -572,7 +572,7 @@ class PFT_GUI:
         self.accounts = self.storage.get_accounts()
 
     def _show_add_account(self):
-        add_account_frame = AddAccount(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
+        add_account_frame = AddAccountWidget(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self):

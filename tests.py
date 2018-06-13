@@ -14,7 +14,7 @@ from pft import (
         Category,
         SQLiteStorage,
         AddTransactionWidget,
-        AddAccount,
+        AddAccountWidget,
         PFT_GUI,
     )
 
@@ -512,7 +512,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         def load_accounts(): pass
         def display_ledger(): pass
-        aa = AddAccount(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
+        aa = AddAccountWidget(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
         aa.name_entry.insert(0, 'Checking')
         aa.starting_balance_entry.insert(0, '100')
         aa.save_button.invoke()
