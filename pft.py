@@ -169,14 +169,15 @@ class SQLiteStorage:
 
     def __init__(self, conn_name):
         #conn_name is either ':memory:' or the name of the data file
-        self._db_connection = sqlite3.connect(conn_name)
         if conn_name == ':memory:':
-            conn = self._setup_db()
+            self._db_connection = sqlite3.connect(conn_name)
         else:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             file_path = os.path.join(current_dir, conn_name)
-            if not os.path.exists(file_path):
-                self._setup_db()
+            self._db_connection = sqlite3.connect(file_path)
+        tables = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        if not tables:
+            self._setup_db()
 
     def _setup_db(self):
         '''

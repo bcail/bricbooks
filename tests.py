@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal as D
+import os
 import sqlite3
+import tempfile
 from tkinter.test.support import AbstractTkTest
 import unittest
 
@@ -298,12 +300,43 @@ class TestLedger(unittest.TestCase):
 
 class TestSQLiteStorage(unittest.TestCase):
 
-    def test_db_init(self):
+    def test_init(self):
         storage = SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
 
-    def test_save_account_to_db(self):
+    def test_init_no_file(self):
+        file_name = 'testsuite.sqlite3'
+        if os.path.exists(file_name):
+            os.remove(file_name)
+        storage = SQLiteStorage(file_name)
+        tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+
+    def test_init_empty_file(self):
+        file_name = 'testsuite.sqlite3'
+        if os.path.exists(file_name):
+            os.remove(file_name)
+        with open(file_name, 'wb') as f:
+            pass
+        storage = SQLiteStorage(file_name)
+        tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+
+    def test_init_db_already_setup(self):
+        file_name = 'testsuite.sqlite3'
+        if os.path.exists(file_name):
+            os.remove(file_name)
+        #set up file
+        init_storage = SQLiteStorage(file_name)
+        tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        #and now open it again and make sure everything's fine
+        storage = SQLiteStorage(file_name)
+        tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+
+    def test_save_account(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D(100))
         storage.save_account(account)
