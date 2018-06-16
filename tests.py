@@ -15,8 +15,9 @@ from pft import (
         InvalidLedgerError,
         Category,
         SQLiteStorage,
-        AddTransactionWidget,
         AddAccountWidget,
+        LedgerTxnWidget,
+        AddTransactionWidget,
         PFT_GUI,
     )
 
@@ -553,6 +554,12 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0][0], 'Checking')
+
+    def test_ledger_txn_widget(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        txn = Transaction(account=a, amount=D('5'), txn_date=date.today())
+        ltw = LedgerTxnWidget(txn, D(105), master=self.root)
+        self.assertEqual(ltw.balance_label.cget('text'), '105')
 
     def test_add_transaction(self):
         storage = SQLiteStorage(':memory:')
