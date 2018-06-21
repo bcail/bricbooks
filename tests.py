@@ -15,6 +15,8 @@ from pft import (
         InvalidLedgerError,
         Category,
         SQLiteStorage,
+        txn_categories_from_string,
+        txn_categories_display,
         AddAccountWidget,
         LedgerTxnWidget,
         AddTransactionWidget,
@@ -179,7 +181,6 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.categories[1][1], D('-59'))
         self.assertEqual(t.categories[2][0], c3)
         self.assertEqual(t.categories[2][1], D('3'))
-
 
     def test_invalid_category_amounts(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -573,6 +574,32 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         txns = storage._db_connection.execute('SELECT amount FROM transactions').fetchall()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0][0], '100')
+
+    def test_categories_display(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        c = Category('Cat', id_=1)
+        c2 = Category('Dog', id_=2)
+        c3 = Category('Horse', id_=3)
+        t = Transaction(
+                account=a,
+                amount=D('-101'),
+                txn_date=date.today(),
+                categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
+            )
+        self.assertEqual(txn_categories_display(t), f'{c.id}: -45, {c2.id}: -59, {c3.id}: 3')
+
+    def test_categories_from_string(self):
+        #takes string from user, parses it, and loads the category objects for passing to Transaction object
+        storage = SQLiteStorage(':memory:')
+        c = Category('Cat')
+        c2 = Category('Dog')
+        c3 = Category('Horse')
+        storage.save_category(c)
+        storage.save_category(c2)
+        storage.save_category(c3)
+        categories_string = f'{c.id}: -45, {c2.id}: -59, {c3.id}: 3'
+        categories = txn_categories_from_string(storage, categories_string)
+        self.assertEqual(categories, [(c, D('-45')), (c2, D('-59')), (c3, D('3'))])
 
 
 if __name__ == '__main__':

@@ -53,6 +53,9 @@ class Category:
         self.name = name
         self.id = id_
 
+    def __eq__(self, other_category):
+        return self.id == other_category.id
+
 
 class Transaction:
 
@@ -206,8 +209,8 @@ class SQLiteStorage:
         return accounts
 
     def get_category(self, category_id):
-        db_record = self._db_connection.execute('SELECT name FROM categories WHERE id = ?', (category_id,)).fetchone()
-        return Category(name=db_record[0])
+        db_record = self._db_connection.execute('SELECT id, name FROM categories WHERE id = ?', (category_id,)).fetchone()
+        return Category(name=db_record[1], id_=db_record[0])
 
     def save_category(self, category):
         c = self._db_connection.cursor()
@@ -275,6 +278,19 @@ DESCRIPTION_WIDTH = 45
 STATUS_WIDTH = 7
 BALANCE_WIDTH = 12
 ACTIONS_WIDTH = 20
+
+
+def txn_categories_from_string(storage, categories_str):
+    category_parts = categories_str.split(', ')
+    categories = []
+    for part in category_parts:
+        cat_id, amount = part.split(': ')
+        categories.append( (storage.get_category(cat_id), Decimal(amount)) )
+    return categories
+
+
+def txn_categories_display(txn):
+    return ', '.join([f'{c[0].id}: {c[1]}' for c in txn.categories])
 
 
 class LedgerTxnWidget(ttk.Frame):
