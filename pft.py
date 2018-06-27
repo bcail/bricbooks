@@ -283,6 +283,7 @@ AMOUNT_WIDTH = 12
 DESCRIPTION_WIDTH = 45
 STATUS_WIDTH = 7
 BALANCE_WIDTH = 12
+CATEGORIES_WIDTH = 12
 ACTIONS_WIDTH = 20
 
 
@@ -327,6 +328,8 @@ class LedgerTxnWidget(ttk.Frame):
         self.status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid")
         self.status_label['text'] = self.txn.status
         self.balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(self.balance), borderwidth=1, relief="solid")
+        self.categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
+        self.categories_label['text'] = txn_categories_display(self.txn)
         self.edit_button = ttk.Button(self, text='Edit', width=8)
         self.edit_button['command'] = self._edit
         self.delete_button = ttk.Button(self, text='Delete', width=9)
@@ -338,8 +341,9 @@ class LedgerTxnWidget(ttk.Frame):
         self.description_label.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
         self.status_label.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
         self.balance_label.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.edit_button.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.delete_button.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.categories_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.edit_button.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.delete_button.grid(row=0, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
         self.grid_columnconfigure(2, weight=3)
@@ -347,8 +351,9 @@ class LedgerTxnWidget(ttk.Frame):
         self.grid_columnconfigure(4, weight=3)
         self.grid_columnconfigure(5, weight=3)
         self.grid_columnconfigure(6, weight=3)
-        self.grid_columnconfigure(7, weight=1)
+        self.grid_columnconfigure(7, weight=3)
         self.grid_columnconfigure(8, weight=1)
+        self.grid_columnconfigure(9, weight=1)
 
     def _edit(self):
         #destroy the labels that have the current data & the edit button
@@ -522,7 +527,8 @@ class HeadingsWidget(ttk.Frame):
         self.grid_columnconfigure(4, weight=3)
         self.grid_columnconfigure(5, weight=3)
         self.grid_columnconfigure(6, weight=3)
-        self.grid_columnconfigure(7, weight=1)
+        self.grid_columnconfigure(7, weight=3)
+        self.grid_columnconfigure(8, weight=1)
         self._create_headings()
 
     def _create_headings(self):
@@ -533,6 +539,7 @@ class HeadingsWidget(ttk.Frame):
         description_heading = ttk.Label(self, text='Description', width=DESCRIPTION_WIDTH)
         status_heading = ttk.Label(self, text='Status', width=STATUS_WIDTH)
         balance_heading = ttk.Label(self, text='Balance', width=BALANCE_WIDTH)
+        categories_heading = ttk.Label(self, text='Categories', width=CATEGORIES_WIDTH)
         actions_heading = ttk.Label(self, text='Actions', width=ACTIONS_WIDTH+1)
         txn_type_heading.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         date_heading.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
@@ -541,7 +548,8 @@ class HeadingsWidget(ttk.Frame):
         description_heading.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
         status_heading.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
         balance_heading.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
-        actions_heading.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
+        categories_heading.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
+        actions_heading.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
 
 
 class AddAccountWidget(ttk.Frame):
