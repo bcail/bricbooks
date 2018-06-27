@@ -309,39 +309,43 @@ class TestLedger(unittest.TestCase):
 
 class TestSQLiteStorage(unittest.TestCase):
 
+    def setUp(self):
+        self.file_name =  'testsuite.sqlite3'
+        try:
+            os.remove(self.file_name)
+        except FileNotFoundError:
+            pass
+
+    def tearDown(self):
+        try:
+            os.remove(self.file_name)
+        except FileNotFoundError:
+            pass
+
     def test_init(self):
         storage = SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
 
     def test_init_no_file(self):
-        file_name = 'testsuite.sqlite3'
-        if os.path.exists(file_name):
-            os.remove(file_name)
-        storage = SQLiteStorage(file_name)
+        storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
 
     def test_init_empty_file(self):
-        file_name = 'testsuite.sqlite3'
-        if os.path.exists(file_name):
-            os.remove(file_name)
-        with open(file_name, 'wb') as f:
+        with open(self.file_name, 'wb') as f:
             pass
-        storage = SQLiteStorage(file_name)
+        storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
 
     def test_init_db_already_setup(self):
-        file_name = 'testsuite.sqlite3'
-        if os.path.exists(file_name):
-            os.remove(file_name)
         #set up file
-        init_storage = SQLiteStorage(file_name)
+        init_storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
         #and now open it again and make sure everything's fine
-        storage = SQLiteStorage(file_name)
+        storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
 
