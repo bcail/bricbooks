@@ -113,12 +113,18 @@ class Transaction:
         else:
             raise InvalidTransactionError('invalid type for txn_date')
 
-    def _check_categories(self, categories):
-        if not categories:
-            categories = []
+    def _check_categories(self, input_categories):
+        if not input_categories:
+            input_categories = []
         _category_total = Decimal('0')
-        for c in categories:
-            _category_total += c[1]
+        categories = []
+        for c in input_categories:
+            if isinstance(c, tuple):
+                _category_total += c[1]
+                categories.append(c)
+            elif isinstance(c, Category):
+                _category_total += self.amount
+                categories.append( (c, self.amount) )
         if abs(_category_total) > abs(self.amount):
             raise InvalidTransactionError('split categories add up to more than txn amount')
         return categories
@@ -281,11 +287,15 @@ ACTIONS_WIDTH = 20
 
 
 def txn_categories_from_string(storage, categories_str):
-    category_parts = categories_str.split(', ')
+    categories_list = categories_str.split(', ')
     categories = []
-    for part in category_parts:
-        cat_id, amount = part.split(': ')
-        categories.append( (storage.get_category(cat_id), Decimal(amount)) )
+    for category_info in categories_list:
+        if ':' in category_info:
+            cat_id, amount = category_info.split(': ')
+            categories.append( (storage.get_category(cat_id), Decimal(amount)) )
+        else:
+            cat_id = category_info
+            categories.append(storage.get_category(cat_id))
     return categories
 
 

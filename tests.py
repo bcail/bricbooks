@@ -133,6 +133,13 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.categories[0][0], c)
         self.assertEqual(t.categories[0][1], D('101'))
+        t = Transaction(
+                account=a,
+                amount=D(101),
+                txn_date=date.today(),
+                categories=[c],
+            )
+        self.assertEqual(t.categories[0][0], c)
 
     def test_split_categories(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -600,6 +607,9 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         categories_string = f'{c.id}: -45, {c2.id}: -59, {c3.id}: 3'
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [(c, D('-45')), (c2, D('-59')), (c3, D('3'))])
+        categories_string = f'{c.id}'
+        categories = txn_categories_from_string(storage, categories_string)
+        self.assertEqual(categories, [c])
 
 
 if __name__ == '__main__':
