@@ -294,8 +294,8 @@ def txn_categories_from_string(storage, categories_str):
         if ':' in category_info:
             cat_id, amount = category_info.split(': ')
             categories.append( (storage.get_category(cat_id), Decimal(amount)) )
-        else:
-            cat_id = category_info
+        elif category_info:
+            cat_id = int(category_info)
             categories.append(storage.get_category(cat_id))
     return categories
 
@@ -471,8 +471,9 @@ class AddTransactionWidget(ttk.Frame):
         self.grid_columnconfigure(3, weight=3)
         self.grid_columnconfigure(4, weight=3)
         self.grid_columnconfigure(5, weight=3)
-        self.grid_columnconfigure(6, weight=1)
+        self.grid_columnconfigure(6, weight=3)
         self.grid_columnconfigure(7, weight=1)
+        self.grid_columnconfigure(8, weight=1)
         self.account = account
         self.storage = storage
         self.reload_ledger = reload_ledger
@@ -482,6 +483,7 @@ class AddTransactionWidget(ttk.Frame):
         self.amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH)
         self.description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH)
         self.status_entry = ttk.Entry(self, width=STATUS_WIDTH)
+        self.categories_entry = ttk.Entry(self, width=CATEGORIES_WIDTH)
         self.save_button = ttk.Button(self, text='Save', command=self._save, width=BALANCE_WIDTH)
         self.spacer_label = ttk.Label(self, text='', width=ACTIONS_WIDTH)
         self.txn_type_entry.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
@@ -490,8 +492,9 @@ class AddTransactionWidget(ttk.Frame):
         self.amount_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
         self.description_entry.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
         self.status_entry.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.save_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.spacer_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.categories_entry.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.save_button.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.spacer_label.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
 
     def _clear_entries(self):
         self.txn_type_entry.delete(0, 'end')
@@ -500,6 +503,7 @@ class AddTransactionWidget(ttk.Frame):
         self.amount_entry.delete(0, 'end')
         self.description_entry.delete(0, 'end')
         self.status_entry.delete(0, 'end')
+        self.categories_entry.delete(0, 'end')
 
     def _save(self):
         txn_type = self.txn_type_entry.get()
@@ -510,7 +514,9 @@ class AddTransactionWidget(ttk.Frame):
         amount = Decimal(self.amount_entry.get())
         description = self.description_entry.get()
         status = self.status_entry.get()
-        txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status)
+        categories_str = self.categories_entry.get()
+        categories = txn_categories_from_string(self.storage, categories_str)
+        txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status, categories=categories)
         self.storage.save_txn(txn)
         self._clear_entries()
         self.reload_ledger()

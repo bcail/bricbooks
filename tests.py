@@ -614,6 +614,9 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         categories_string = f'{c.id}'
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [c])
+        categories_string = ''
+        categories = txn_categories_from_string(storage, categories_string)
+        self.assertEqual(categories, [])
 
 
 if __name__ == '__main__':
