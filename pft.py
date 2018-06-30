@@ -308,6 +308,7 @@ class LedgerTxnWidget(ttk.Frame):
 
     def __init__(self, txn, balance, master=None, storage=None, reload_function=None):
         super().__init__(master=master, padding=(0, 0, 0, 0))
+        self.master = master
         self.txn = txn
         self.balance = balance
         self.storage = storage
@@ -367,25 +368,25 @@ class LedgerTxnWidget(ttk.Frame):
         self.edit_button.destroy()
         self.delete_button.destroy()
         #create entries with the current data in them
-        self.txn_type_var = tk.StringVar()
+        self.txn_type_var = tk.StringVar(master=self.master)
         if self.txn.txn_type:
             self.txn_type_var.set(self.txn.txn_type)
         self.txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH, textvariable=self.txn_type_var)
-        self.date_var = tk.StringVar()
+        self.date_var = tk.StringVar(master=self.master)
         self.date_var.set(str(self.txn.txn_date))
         self.date_entry = ttk.Entry(self, width=DATE_WIDTH, textvariable=self.date_var)
-        self.payee_var = tk.StringVar()
+        self.payee_var = tk.StringVar(master=self.master)
         if self.txn.payee:
             self.payee_var.set(self.txn.payee)
         self.payee_entry = ttk.Entry(self, width=PAYEE_WIDTH, textvariable=self.payee_var)
-        self.amount_var = tk.StringVar()
+        self.amount_var = tk.StringVar(master=self.master)
         self.amount_var.set(str(self.txn.amount))
         self.amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH, textvariable=self.amount_var)
-        self.description_var = tk.StringVar()
+        self.description_var = tk.StringVar(master=self.master)
         if self.txn.description:
             self.description_var.set(self.txn.description)
         self.description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH, textvariable=self.description_var)
-        self.status_var = tk.StringVar()
+        self.status_var = tk.StringVar(master=self.master)
         if self.txn.status:
             self.status_var.set(self.txn.status)
         self.status_entry = ttk.Entry(self, width=STATUS_WIDTH, textvariable=self.status_var)

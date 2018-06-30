@@ -568,10 +568,21 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(accounts[0][0], 'Checking')
 
     def test_ledger_txn_widget(self):
+        storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D('100'))
         txn = Transaction(account=a, amount=D('5'), txn_date=date.today())
-        ltw = LedgerTxnWidget(txn, D(105), master=self.root)
+        ltw = LedgerTxnWidget(txn, D(105), master=self.root, storage=storage)
         self.assertEqual(ltw.balance_label.cget('text'), '105')
+        #edit txn - check amount entry is 5
+        ltw.edit_button.invoke()
+        self.assertEqual(ltw.amount_entry.get(), '5')
+        #edit txn - change amount to 25
+        ltw.amount_entry.insert(0, '2')
+        ltw.edit_save_button.invoke()
+        #make sure db record amount is updated to 25
+        txns = storage._db_connection.execute('SELECT amount FROM transactions').fetchall()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0][0], '25')
 
     def test_add_transaction(self):
         storage = SQLiteStorage(':memory:')
