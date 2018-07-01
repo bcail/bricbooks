@@ -426,8 +426,7 @@ class LedgerTxnWidget(ttk.Frame):
                 status=status,
             )
         self.storage.save_txn(self.txn)
-        self._destroy_entries()
-        self._display_txn()
+        self.reload_function()
 
     def _delete(self):
         self.storage.delete_txn(self.txn.id)
