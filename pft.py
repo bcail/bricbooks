@@ -284,7 +284,8 @@ DESCRIPTION_WIDTH = 45
 STATUS_WIDTH = 7
 BALANCE_WIDTH = 12
 CATEGORIES_WIDTH = 12
-ACTIONS_WIDTH = 20
+ACTIONS_WIDTH = 16
+PADX = 3
 
 
 def txn_categories_from_string(storage, categories_str):
@@ -331,20 +332,20 @@ class LedgerTxnWidget(ttk.Frame):
         self.balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(self.balance), borderwidth=1, relief="solid")
         self.categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
         self.categories_label['text'] = txn_categories_display(self.txn)
-        self.edit_button = ttk.Button(self, text='Edit', width=8)
+        self.edit_button = ttk.Button(self, text='Edit', width=6)
         self.edit_button['command'] = self._edit
-        self.delete_button = ttk.Button(self, text='Delete', width=9)
+        self.delete_button = ttk.Button(self, text='Delete', width=8)
         self.delete_button['command'] = self._delete
-        self.txn_type_label.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.date_label.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.payee_label.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.amount_label.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.description_label.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.status_label.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.balance_label.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.categories_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.edit_button.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.delete_button.grid(row=0, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.txn_type_label.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.date_label.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.payee_label.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.amount_label.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.description_label.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.status_label.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.balance_label.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.categories_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.edit_button.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.delete_button.grid(row=0, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
         self.grid_columnconfigure(2, weight=3)
@@ -486,15 +487,15 @@ class AddTransactionWidget(ttk.Frame):
         self.categories_entry = ttk.Entry(self, width=CATEGORIES_WIDTH)
         self.save_button = ttk.Button(self, text='Save', command=self._save, width=BALANCE_WIDTH)
         self.spacer_label = ttk.Label(self, text='', width=ACTIONS_WIDTH)
-        self.txn_type_entry.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.date_entry.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.payee_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.amount_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.description_entry.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.status_entry.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.categories_entry.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.save_button.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
-        self.spacer_label.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=5)
+        self.txn_type_entry.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.date_entry.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.payee_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.amount_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.description_entry.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.status_entry.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.categories_entry.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.save_button.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.spacer_label.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
 
     def _clear_entries(self):
         self.txn_type_entry.delete(0, 'end')
