@@ -307,7 +307,11 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger.get_records(), [])
 
 
+TABLES = [('accounts',), ('budget',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
+
+
 class TestSQLiteStorage(unittest.TestCase):
+
 
     def setUp(self):
         self.file_name =  'testsuite.sqlite3'
@@ -325,29 +329,29 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_init(self):
         storage = SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        self.assertEqual(tables, TABLES)
 
     def test_init_no_file(self):
         storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        self.assertEqual(tables, TABLES)
 
     def test_init_empty_file(self):
         with open(self.file_name, 'wb') as f:
             pass
         storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        self.assertEqual(tables, TABLES)
 
     def test_init_db_already_setup(self):
         #set up file
         init_storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        self.assertEqual(tables, TABLES)
         #and now open it again and make sure everything's fine
         storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, [('accounts',), ('categories',), ('transactions',), ('txn_categories',)])
+        self.assertEqual(tables, TABLES)
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')

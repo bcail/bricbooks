@@ -192,10 +192,13 @@ class SQLiteStorage:
         '''
         Initialize empty DB.
         '''
-        self._db_connection.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
-        self._db_connection.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
-        self._db_connection.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
-        self._db_connection.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
+        conn = self._db_connection
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
+        conn.execute('CREATE TABLE budget(id INTEGER PRIMARY KEY, name TEXT)')
+        conn.execute('CREATE TABLE budget_values(id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT)')
+        conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
+        conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
