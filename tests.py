@@ -314,8 +314,14 @@ class TestBudget(unittest.TestCase):
     def test_init(self):
         with self.assertRaises(BudgetError):
             Budget()
-        b = Budget(year=2018)
+        with self.assertRaises(BudgetError):
+            Budget(year=2018)
+        c = Category(name='Housing')
+        c2 = Category(name='Food')
+        b = Budget(year=2018, info=[(c, D(15)), (c2, D(35))])
         self.assertEqual(b.year, 2018)
+        self.assertEqual(b.info, [(c, D(15)), (c2, D(35))])
+
 
 
 TABLES = [('accounts',), ('budget',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]

@@ -177,10 +177,13 @@ class Ledger:
 
 class Budget:
 
-    def __init__(self, year=None):
+    def __init__(self, year=None, info=None):
         if not year:
             raise BudgetError('must pass in year to Budget')
         self.year = year
+        if not info:
+            raise BudgetError('must pass in category info to Budget')
+        self.info = info
 
 
 ### Storage ###
