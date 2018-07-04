@@ -14,6 +14,8 @@ from pft import (
         Ledger,
         InvalidLedgerError,
         Category,
+        Budget,
+        BudgetError,
         SQLiteStorage,
         txn_categories_from_string,
         txn_categories_display,
@@ -305,6 +307,15 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(Transaction(account=a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
         self.assertEqual(ledger.get_records(), [])
+
+
+class TestBudget(unittest.TestCase):
+
+    def test_init(self):
+        with self.assertRaises(BudgetError):
+            Budget()
+        b = Budget(year=2018)
+        self.assertEqual(b.year, 2018)
 
 
 TABLES = [('accounts',), ('budget',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]

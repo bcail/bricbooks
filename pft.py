@@ -26,6 +26,9 @@ class InvalidTransactionError(RuntimeError):
 class InvalidLedgerError(RuntimeError):
     pass
 
+class BudgetError(RuntimeError):
+    pass
+
 
 class Account:
 
@@ -170,6 +173,14 @@ class Ledger:
 
     def clear_txns(self):
         self._txns = []
+
+
+class Budget:
+
+    def __init__(self, year=None):
+        if not year:
+            raise BudgetError('must pass in year to Budget')
+        self.year = year
 
 
 ### Storage ###
