@@ -324,7 +324,7 @@ class TestBudget(unittest.TestCase):
 
 
 
-TABLES = [('accounts',), ('budget',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
+TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -572,6 +572,24 @@ class TestSQLiteStorage(unittest.TestCase):
         records = c.fetchall()
         self.assertEqual(len(records), 1)
 
+    def test_save_budget(self):
+        c = Category(name='Housing')
+        c2 = Category(name='Food')
+        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        storage = SQLiteStorage(':memory:')
+        storage.save_budget(b)
+        cursor = storage._db_connection.cursor()
+        records = cursor.execute('SELECT * FROM budgets WHERE year = 2018').fetchall()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(b.id, 1)
+        records = cursor.execute('SELECT * FROM budget_values').fetchall()
+        self.assertEqual(len(records), 2)
+        #test that old budget values are deleted
+        self.assertEqual(1, 0)
+
+    def test_load_budget(self):
+        self.assertEqual(1, 0)
+
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
 
@@ -650,6 +668,9 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         categories_string = ''
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [])
+
+    def test_budget_display(self):
+        self.assertEqual(1, 0)
 
 
 if __name__ == '__main__':

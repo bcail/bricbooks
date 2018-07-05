@@ -177,13 +177,14 @@ class Ledger:
 
 class Budget:
 
-    def __init__(self, year=None, info=None):
+    def __init__(self, year=None, info=None, id_=None):
         if not year:
             raise BudgetError('must pass in year to Budget')
         self.year = year
         if not info:
             raise BudgetError('must pass in category info to Budget')
         self.info = info
+        self.id = id_
 
 
 ### Storage ###
@@ -208,8 +209,8 @@ class SQLiteStorage:
         '''
         conn = self._db_connection
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
-        conn.execute('CREATE TABLE budget(id INTEGER PRIMARY KEY, name TEXT)')
-        conn.execute('CREATE TABLE budget_values(id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT)')
+        conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, year TEXT)')
+        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
@@ -289,6 +290,18 @@ class SQLiteStorage:
         for db_txn in db_txn_records:
             txn = self._txn_from_db_record(db_info=db_txn)
             ledger.add_transaction(txn)
+
+    def save_budget(self, budget):
+        c = self._db_connection.cursor()
+        if budget.id:
+            pass
+            #delete existing values, and then we'll add the current ones
+            #c.execute('DELETE FROM budget_values WHERE budget_id = ?', (budget.id,))
+        else:
+            c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
+            budget.id = c.lastrowid
+        for category_info in budget.info:
+            c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, category_info[0].id, str(category_info[1])))
 
 
 ### GUI ###
