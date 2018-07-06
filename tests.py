@@ -585,7 +585,11 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT * FROM budget_values').fetchall()
         self.assertEqual(len(records), 2)
         #test that old budget values are deleted
-        self.assertEqual(1, 0)
+        b = Budget(year=2018, info=[(c, D(35)), (c2, D(45))], id_=b.id)
+        storage.save_budget(b)
+        records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0][0], '35')
 
     def test_load_budget(self):
         self.assertEqual(1, 0)

@@ -294,9 +294,8 @@ class SQLiteStorage:
     def save_budget(self, budget):
         c = self._db_connection.cursor()
         if budget.id:
-            pass
             #delete existing values, and then we'll add the current ones
-            #c.execute('DELETE FROM budget_values WHERE budget_id = ?', (budget.id,))
+            c.execute('DELETE FROM budget_values WHERE budget_id = ?', (budget.id,))
         else:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
