@@ -302,6 +302,16 @@ class SQLiteStorage:
         for category_info in budget.info:
             c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, category_info[0].id, str(category_info[1])))
 
+    def get_budget(self, budget_id):
+        c = self._db_connection.cursor()
+        records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
+        year = int(records[0][0])
+        records = c.execute('SELECT category_id, amount FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
+        info = []
+        for r in records:
+            info.append((self.get_category(r[0]), Decimal(r[1])))
+        return Budget(year=year, info=info)
+
 
 ### GUI ###
 
