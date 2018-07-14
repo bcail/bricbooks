@@ -562,6 +562,16 @@ class AddTransactionWidget(ttk.Frame):
         self.reload_ledger()
 
 
+class ActionsWidget(ttk.Frame):
+
+    def __init__(self, master, show_ledger, show_budget):
+        super().__init__(master=master)
+        ledger_button = ttk.Button(master=self, text='Ledger', command=show_ledger)
+        ledger_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        budget_button = ttk.Button(master=self, text='Budget', command=show_budget)
+        budget_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+
+
 class HeadingsWidget(ttk.Frame):
 
     def __init__(self, master):
@@ -664,6 +674,10 @@ class PFT_GUI:
     def _load_accounts(self):
         self.accounts = self.storage.get_accounts()
 
+    def _show_actions(self):
+        actions_widget = ActionsWidget(master=self.content_frame, show_ledger=self._show_ledger, show_budget=self._show_budget)
+        actions_widget.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
     def _show_add_account(self):
         add_account_frame = AddAccountWidget(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -672,21 +686,19 @@ class PFT_GUI:
         if self.content_frame:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
+        self._show_actions()
         bdw = BudgetDisplayWidget(master=self.content_frame)
-        bdw.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self):
         if self.content_frame:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
-        #two rows in content_frame: headings in row 0, ledger & scrolls in row 1
-        #two columns in the content_frame: ledger in column 0, and scrollbar in column 1
-        #set row 0 and column 0 to resize - don't want the vertical scrollbar to resize horizontally
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(2, weight=1)
 
-        budget_button = ttk.Button(master=self.content_frame, text='Budget', command=self._show_budget)
+        self._show_actions()
 
         #https://stackoverflow.com/questions/1873575/how-could-i-get-a-frame-with-a-scrollbar-in-tkinter
         headings = HeadingsWidget(master=self.content_frame)
@@ -705,7 +717,6 @@ class PFT_GUI:
         #   (although it doesn't resize if it there's extra space in the window)
         ledger_window_id = canvas.create_window(0, 0, anchor=tk.NW, window=self.ledger_widget)
 
-        budget_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
         headings.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         canvas.grid(row=2, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         vertical_scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S))
