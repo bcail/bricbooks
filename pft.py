@@ -626,6 +626,16 @@ class AddAccountWidget(ttk.Frame):
         self._display_ledger()
 
 
+class BudgetDisplayWidget(ttk.Frame):
+
+    def __init__(self, master):
+        super().__init__(master=master)
+        cat_label = ttk.Label(self, text='Category')
+        amount_label = ttk.Label(self, text='Amount')
+        cat_label.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        amount_label.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+
 class PFT_GUI:
 
     def __init__(self, root=None):
@@ -640,6 +650,8 @@ class PFT_GUI:
         #make sure root container is set to resize properly
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
+        #this frame will contain everything the user sees
+        self.content_frame = None
 
         self._load_accounts()
         if self.accounts:
@@ -656,20 +668,31 @@ class PFT_GUI:
         add_account_frame = AddAccountWidget(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
+    def _show_budget(self):
+        if self.content_frame:
+            self.content_frame.destroy()
+        self.content_frame = ttk.Frame(master=self.root)
+        bdw = BudgetDisplayWidget(master=self.content_frame)
+        bdw.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
     def _show_ledger(self):
-        #this frame contains everything the user sees
-        content_frame = ttk.Frame(master=self.root)
+        if self.content_frame:
+            self.content_frame.destroy()
+        self.content_frame = ttk.Frame(master=self.root)
         #two rows in content_frame: headings in row 0, ledger & scrolls in row 1
         #two columns in the content_frame: ledger in column 0, and scrollbar in column 1
         #set row 0 and column 0 to resize - don't want the vertical scrollbar to resize horizontally
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_rowconfigure(1, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(2, weight=1)
+
+        budget_button = ttk.Button(master=self.content_frame, text='Budget', command=self._show_budget)
 
         #https://stackoverflow.com/questions/1873575/how-could-i-get-a-frame-with-a-scrollbar-in-tkinter
-        headings = HeadingsWidget(master=content_frame)
-        vertical_scrollbar = ttk.Scrollbar(master=content_frame, orient=tk.VERTICAL)
+        headings = HeadingsWidget(master=self.content_frame)
+        vertical_scrollbar = ttk.Scrollbar(master=self.content_frame, orient=tk.VERTICAL)
 
-        canvas = tk.Canvas(master=content_frame, yscrollcommand=vertical_scrollbar.set, highlightthickness=0, borderwidth=0)
+        canvas = tk.Canvas(master=self.content_frame, yscrollcommand=vertical_scrollbar.set, highlightthickness=0, borderwidth=0)
 
         vertical_scrollbar.configure(command=canvas.yview)
 
@@ -682,9 +705,10 @@ class PFT_GUI:
         #   (although it doesn't resize if it there's extra space in the window)
         ledger_window_id = canvas.create_window(0, 0, anchor=tk.NW, window=self.ledger_widget)
 
-        headings.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-        vertical_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        canvas.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        budget_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        headings.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        canvas.grid(row=2, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        vertical_scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S))
 
         #update_idletasks has to go before configuring the scrollregion
         self.root.update_idletasks()
@@ -702,10 +726,10 @@ class PFT_GUI:
             canvas.config(scrollregion="0 0 %s %s" % size)
         self.ledger_widget.bind('<Configure>', _configure_ledger_widget)
 
-        content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
+        add_txn_widget = AddTransactionWidget(master=self.content_frame, account=self.accounts[0], storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
+        add_txn_widget.grid(row=3, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        add_txn_widget = AddTransactionWidget(master=self.root, account=self.accounts[0], storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
-        add_txn_widget.grid(row=2, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
 if __name__ == '__main__':

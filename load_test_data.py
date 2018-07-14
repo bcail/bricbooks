@@ -1,5 +1,5 @@
 from decimal import Decimal as D
-from pft import SQLiteStorage, Account, Category, Transaction, DATA_FILENAME
+from pft import SQLiteStorage, Account, Category, Transaction, Budget, DATA_FILENAME
 
 
 storage = SQLiteStorage(DATA_FILENAME)
@@ -45,4 +45,7 @@ storage.save_txn(Transaction(account=a, amount=D('45'), txn_date='2018-03-17'))
 storage.save_txn(Transaction(account=a, amount=D('89'), txn_date='2018-03-18'))
 storage.save_txn(Transaction(account=a, amount=D('81'), txn_date='2018-03-19'))
 storage.save_txn(Transaction(account=a, amount=D('82'), txn_date='2018-03-14'))
+
+budget = Budget('2018', info=[(c, D(35)), (c2, D(70))])
+storage.save_budget(budget)
 

@@ -22,6 +22,7 @@ from pft import (
         AddAccountWidget,
         LedgerTxnWidget,
         AddTransactionWidget,
+        BudgetDisplayWidget,
         PFT_GUI,
     )
 
@@ -689,7 +690,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(categories, [])
 
     def test_budget_display(self):
-        self.assertEqual(1, 0)
+        bd = BudgetDisplayWidget(master=self.root)
 
 
 if __name__ == '__main__':
