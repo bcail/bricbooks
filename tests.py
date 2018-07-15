@@ -610,6 +610,22 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(budget.info[1][0].name, 'Food')
         self.assertEqual(budget.info[1][1], D(70))
 
+    def test_get_budgets(self):
+        storage = SQLiteStorage(':memory:')
+        cursor = storage._db_connection.cursor()
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
+        c_id = cursor.lastrowid
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
+        c2_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        budget_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
+        budgets = storage.get_budgets()
+        self.assertEqual(len(budgets), 1)
+        self.assertEqual(budgets[0].year, 2018)
+        self.assertEqual(budgets[0].info[0][0].name, 'Housing')
+
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
 

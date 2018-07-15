@@ -312,6 +312,15 @@ class SQLiteStorage:
             info.append((self.get_category(r[0]), Decimal(r[1])))
         return Budget(year=year, info=info)
 
+    def get_budgets(self):
+        budgets = []
+        c = self._db_connection.cursor()
+        budget_records = c.execute('SELECT id FROM budgets').fetchall()
+        for budget_record in budget_records:
+            budget_id = int(budget_records[0][0])
+            budgets.append(self.get_budget(budget_id))
+        return budgets
+
 
 ### GUI ###
 
