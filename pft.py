@@ -301,6 +301,7 @@ class SQLiteStorage:
             budget.id = c.lastrowid
         for category_info in budget.info:
             c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, category_info[0].id, str(category_info[1])))
+        self._db_connection.commit()
 
     def get_budget(self, budget_id):
         c = self._db_connection.cursor()
@@ -647,12 +648,17 @@ class AddAccountWidget(ttk.Frame):
 
 class BudgetDisplayWidget(ttk.Frame):
 
-    def __init__(self, master):
+    def __init__(self, master, budget):
         super().__init__(master=master)
         cat_label = ttk.Label(self, text='Category')
         amount_label = ttk.Label(self, text='Amount')
         cat_label.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         amount_label.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        row_index = 1
+        for cat, value in budget.info:
+            ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
+            ttk.Label(self, text=str(value)).grid(row=row_index, column=1)
+            row_index += 1
 
 
 class PFT_GUI:
@@ -673,6 +679,7 @@ class PFT_GUI:
         self.content_frame = None
 
         self._load_accounts()
+        self._load_budgets()
         if self.accounts:
             self._show_ledger()
         else:
@@ -682,6 +689,9 @@ class PFT_GUI:
 
     def _load_accounts(self):
         self.accounts = self.storage.get_accounts()
+
+    def _load_budgets(self):
+        self.budgets = self.storage.get_budgets()
 
     def _show_actions(self):
         actions_widget = ActionsWidget(master=self.content_frame, show_ledger=self._show_ledger, show_budget=self._show_budget)
@@ -696,7 +706,7 @@ class PFT_GUI:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
         self._show_actions()
-        bdw = BudgetDisplayWidget(master=self.content_frame)
+        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0])
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 

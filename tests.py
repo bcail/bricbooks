@@ -592,6 +592,18 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][0], '35')
 
+    def test_save_budget_file(self):
+        #test that save actually gets committed
+        storage = SQLiteStorage(self.file_name)
+        c = Category(name='Housing')
+        c2 = Category(name='Food')
+        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        storage.save_budget(b)
+        storage = SQLiteStorage(self.file_name)
+        cursor = storage._db_connection.cursor()
+        records = cursor.execute('SELECT * FROM budgets WHERE year = 2018').fetchall()
+        self.assertEqual(len(records), 1)
+
     def test_get_budget(self):
         storage = SQLiteStorage(':memory:')
         cursor = storage._db_connection.cursor()
@@ -706,7 +718,10 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(categories, [])
 
     def test_budget_display(self):
-        bd = BudgetDisplayWidget(master=self.root)
+        c = Category(name='Housing')
+        c2 = Category(name='Food')
+        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        bd = BudgetDisplayWidget(master=self.root, budget=b)
 
 
 if __name__ == '__main__':
