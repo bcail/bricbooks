@@ -37,6 +37,9 @@ class Account:
         self.name = name
         self.starting_balance = self._check_starting_balance(starting_balance)
 
+    def __str__(self):
+        return self.name
+
     def _check_starting_balance(self, starting_balance):
         if isinstance(starting_balance, Decimal):
             return starting_balance
@@ -584,8 +587,11 @@ class ActionsWidget(ttk.Frame):
 
 class HeadingsWidget(ttk.Frame):
 
-    def __init__(self, master):
+    def __init__(self, master, accounts, current_account, show_ledger):
         super().__init__(master=master, padding=(0, 0, 0, 0))
+        self.accounts = accounts
+        self.current_account = current_account
+        self.show_ledger = show_ledger
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
         self.grid_columnconfigure(2, weight=3)
@@ -598,6 +604,13 @@ class HeadingsWidget(ttk.Frame):
         self._create_headings()
 
     def _create_headings(self):
+        action_var = tk.StringVar()
+        self.action_combo = ttk.Combobox(self, textvariable=action_var)
+        self.action_combo['values'] = [a.name for a in self.accounts]
+        self.action_combo.set(self.current_account)
+        self.action_combo.bind('<<ComboboxSelected>>', self._update_account)
+        self.action_combo.grid(row=0, column=0)
+        row = 1
         txn_type_heading = ttk.Label(self, text='Txn Type', width=TXN_TYPE_WIDTH)
         date_heading = ttk.Label(self, text='Date', width=DATE_WIDTH)
         payee_heading = ttk.Label(self, text='Payee', width=PAYEE_WIDTH)
@@ -607,15 +620,19 @@ class HeadingsWidget(ttk.Frame):
         balance_heading = ttk.Label(self, text='Balance', width=BALANCE_WIDTH)
         categories_heading = ttk.Label(self, text='Categories', width=CATEGORIES_WIDTH)
         actions_heading = ttk.Label(self, text='Actions', width=ACTIONS_WIDTH+1)
-        txn_type_heading.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        date_heading.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-        payee_heading.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
-        amount_heading.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
-        description_heading.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
-        status_heading.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
-        balance_heading.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
-        categories_heading.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
-        actions_heading.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
+        txn_type_heading.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        date_heading.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        payee_heading.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+        amount_heading.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
+        description_heading.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        status_heading.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+        balance_heading.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+        categories_heading.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
+        actions_heading.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+    def _update_account(self, event):
+        current_account_index = self.action_combo.current()
+        self.show_ledger(current_account=self.accounts[current_account_index])
 
 
 class AddAccountWidget(ttk.Frame):
@@ -710,7 +727,10 @@ class PFT_GUI:
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _show_ledger(self):
+    def _show_ledger(self, current_account=None):
+        if not current_account:
+            current_account = self.accounts[0]
+
         if self.content_frame:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
@@ -720,15 +740,15 @@ class PFT_GUI:
         self._show_actions()
 
         #https://stackoverflow.com/questions/1873575/how-could-i-get-a-frame-with-a-scrollbar-in-tkinter
-        headings = HeadingsWidget(master=self.content_frame)
+        headings = HeadingsWidget(master=self.content_frame, accounts=self.accounts, current_account=current_account, show_ledger=self._show_ledger)
         vertical_scrollbar = ttk.Scrollbar(master=self.content_frame, orient=tk.VERTICAL)
 
         canvas = tk.Canvas(master=self.content_frame, yscrollcommand=vertical_scrollbar.set, highlightthickness=0, borderwidth=0)
 
         vertical_scrollbar.configure(command=canvas.yview)
 
-        ledger = Ledger(starting_balance=self.accounts[0].starting_balance)
-        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account_id=self.accounts[0].id)
+        ledger = Ledger(starting_balance=current_account.starting_balance)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account_id=current_account.id)
 
         self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
