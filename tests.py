@@ -280,27 +280,20 @@ class TestLedger(unittest.TestCase):
 
     def test_get_ledger_records(self):
         a = Account(name='Checking', starting_balance=D('100'))
-        ledger = Ledger(starting_balance=D('765.12'))
-        ledger.add_transaction(Transaction(account=a, amount=D('32.45'), txn_date=date(2017, 4, 5)))
-        ledger.add_transaction(Transaction(account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
-        ledger_records = ledger.get_records()
-        self.assertEqual(ledger_records[0]['txn'].amount, D('32.45'))
-        self.assertEqual(ledger_records[0]['balance'], D('797.57'))
-        self.assertEqual(ledger_records[1]['txn'].amount, D('-12'))
-        self.assertEqual(ledger_records[1]['balance'], D('785.57'))
-
-    def test_sorted_ledger_records(self):
-        a = Account(name='Checking', starting_balance=D('100'))
-        ledger = Ledger(starting_balance=D('100.12'))
+        ledger = Ledger(starting_balance=a.starting_balance)
         ledger.add_transaction(Transaction(account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
         ledger.add_transaction(Transaction(account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
         ledger.add_transaction(Transaction(account=a, amount=D('1'), txn_date=date(2017, 7, 30)))
         ledger.add_transaction(Transaction(account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_records()
         self.assertEqual(ledger_records[0]['txn'].txn_date, date(2017, 4, 25))
+        self.assertEqual(ledger_records[0]['balance'], D('110'))
         self.assertEqual(ledger_records[1]['txn'].txn_date, date(2017, 6, 5))
+        self.assertEqual(ledger_records[1]['balance'], D('98'))
         self.assertEqual(ledger_records[2]['txn'].txn_date, date(2017, 7, 30))
+        self.assertEqual(ledger_records[2]['balance'], D('99'))
         self.assertEqual(ledger_records[3]['txn'].txn_date, date(2017, 8, 5))
+        self.assertEqual(ledger_records[3]['balance'], D('131.45'))
 
     def test_clear_txns(self):
         a = Account(name='Checking', starting_balance=D('100'))
