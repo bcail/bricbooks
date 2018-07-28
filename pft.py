@@ -604,12 +604,12 @@ class HeadingsWidget(ttk.Frame):
         self._create_headings()
 
     def _create_headings(self):
-        action_var = tk.StringVar()
-        self.action_combo = ttk.Combobox(self, textvariable=action_var)
+        self.action_var = tk.StringVar() #has to have the "self.", or else the account name doesn't show in the combobox
+        self.action_combo = ttk.Combobox(self, textvariable=self.action_var)
         self.action_combo['values'] = [a.name for a in self.accounts]
-        self.action_combo.set(self.current_account)
         self.action_combo.bind('<<ComboboxSelected>>', self._update_account)
         self.action_combo.grid(row=0, column=0)
+        self.action_combo.set(self.current_account.name)
         row = 1
         txn_type_heading = ttk.Label(self, text='Txn Type', width=TXN_TYPE_WIDTH)
         date_heading = ttk.Label(self, text='Date', width=DATE_WIDTH)
