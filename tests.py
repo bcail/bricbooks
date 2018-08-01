@@ -689,7 +689,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
                 txn_date=date.today(),
                 categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
             )
-        self.assertEqual(txn_categories_display(t), f'{c.id}: -45, {c2.id}: -59, {c3.id}: 3')
+        self.assertEqual(txn_categories_display(t), '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id))
 
     def test_categories_from_string(self):
         #takes string from user, parses it, and loads the category objects for passing to Transaction object
@@ -700,10 +700,10 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_category(c)
         storage.save_category(c2)
         storage.save_category(c3)
-        categories_string = f'{c.id}: -45, {c2.id}: -59, {c3.id}: 3'
+        categories_string = '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id)
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [(c, D('-45')), (c2, D('-59')), (c3, D('3'))])
-        categories_string = f'{c.id}'
+        categories_string = str(c.id)
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [c])
         categories_string = ''

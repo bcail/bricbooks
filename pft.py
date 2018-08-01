@@ -47,9 +47,9 @@ class Account:
             try:
                 return Decimal(starting_balance)
             except InvalidOperation:
-                raise InvalidAccountError(f'invalid starting balance {starting_balance}')
+                raise InvalidAccountError('invalid starting balance %s' % starting_balance)
         else:
-            raise InvalidAccountError(f'invalid type {type(starting_balance)} for starting_balance')
+            raise InvalidAccountError('invalid type %s for starting_balance' % type(starting_balance))
         return starting_balance
 
 
@@ -93,7 +93,7 @@ class Transaction:
             try:
                 decimal_amount = Decimal(amount)
             except InvalidOperation:
-                raise InvalidTransactionError(f'invalid amount {amount}')
+                raise InvalidTransactionError('invalid amount %s' % amount)
         else:
             raise InvalidTransactionError('invalid type for amount')
 
@@ -354,7 +354,7 @@ def txn_categories_from_string(storage, categories_str):
 
 
 def txn_categories_display(txn):
-    return ', '.join([f'{c[0].id}: {c[1]}' for c in txn.categories])
+    return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in txn.categories])
 
 
 class LedgerTxnWidget(ttk.Frame):
