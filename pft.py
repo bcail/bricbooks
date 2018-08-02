@@ -9,8 +9,11 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 import os
 import sqlite3
-import tkinter as tk
-from tkinter import ttk
+try:
+    import tkinter as tk
+    from tkinter import ttk
+except ImportError:
+    raise SystemExit("error importing tkinter - please make sure it's installed")
 
 
 DATA_FILENAME = 'python_finance_tracking.sqlite3'
