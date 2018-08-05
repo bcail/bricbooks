@@ -744,10 +744,14 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(categories, [])
 
     def test_budget_display(self):
+        storage = SQLiteStorage(':memory:')
         c = Category(name='Housing')
+        storage.save_category(c)
         c2 = Category(name='Food')
+        storage.save_category(c2)
         b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
-        bd = BudgetDisplayWidget(master=self.root, budget=b)
+        storage.save_budget(b)
+        bd = BudgetDisplayWidget(master=self.root, budget=b, storage=storage)
 
 
 if __name__ == '__main__':

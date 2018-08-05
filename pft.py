@@ -681,16 +681,20 @@ class AddAccountWidget(ttk.Frame):
 
 class BudgetDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, budget):
+    def __init__(self, master, budget, storage):
         super().__init__(master=master)
         cat_label = ttk.Label(self, text='Category')
         amount_label = ttk.Label(self, text='Amount')
+        used_label = ttk.Label(self, text='Spent')
         cat_label.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         amount_label.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        used_label.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        cat_totals = storage.get_category_totals()
         row_index = 1
         for cat, value in budget.info:
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             ttk.Label(self, text=str(value)).grid(row=row_index, column=1)
+            ttk.Label(self, text=str(cat_totals[cat.id])).grid(row=row_index, column=2)
             row_index += 1
 
 
@@ -739,7 +743,7 @@ class PFT_GUI:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
         self._show_actions()
-        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0])
+        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0], storage=self.storage)
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
