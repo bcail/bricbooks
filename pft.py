@@ -328,6 +328,19 @@ class SQLiteStorage:
             budgets.append(self.get_budget(budget_id))
         return budgets
 
+    def get_category_totals(self):
+        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
+        totals = {}
+        for cat_record in category_records:
+            cat_id = cat_record[0]
+            total = Decimal(0)
+            txn_category_records = self._db_connection.execute('SELECT amount FROM txn_categories WHERE category_id = ?', (cat_id,)).fetchall()
+            for record in txn_category_records:
+                amt = Decimal(record[0])
+                total += amt
+            totals[cat_id] = total
+        return totals
+
 
 ### GUI ###
 

@@ -136,6 +136,7 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.categories[0][0], c)
         self.assertEqual(t.categories[0][1], D('101'))
+        #test passing in just a category, with no amount: assume it's for the whole amount
         t = Transaction(
                 account=a,
                 amount=D(101),
@@ -143,6 +144,7 @@ class TestTransaction(unittest.TestCase):
                 categories=[c],
             )
         self.assertEqual(t.categories[0][0], c)
+        self.assertEqual(t.categories[0][1], D(101))
 
     def test_split_categories(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -315,7 +317,6 @@ class TestBudget(unittest.TestCase):
         b = Budget(year=2018, info=[(c, D(15)), (c2, D(35))])
         self.assertEqual(b.year, 2018)
         self.assertEqual(b.info, [(c, D(15)), (c2, D(35))])
-
 
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
@@ -630,6 +631,38 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].year, 2018)
         self.assertEqual(budgets[0].info[0][0].name, 'Housing')
+
+    def test_budget_report(self):
+        #the expenses have to come from all accounts/ledgers
+        storage = SQLiteStorage(':memory:')
+        cursor = storage._db_connection.cursor()
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
+        c_id = cursor.lastrowid
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
+        c2_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        budget_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
+        cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '1000'))
+        account_id = cursor.lastrowid
+        cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Saving', '1000'))
+        account2_id = cursor.lastrowid
+        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
+                (account_id, '2017-01-25', '-101', ))
+        txn_id = cursor.lastrowid
+        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
+                (account_id, '2017-02-28', '-46.23'))
+        txn2_id = cursor.lastrowid
+        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
+                (account2_id, '2017-03-28', '-56.23'))
+        txn3_id = cursor.lastrowid
+        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, c_id, str(D('-101'))))
+        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
+        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
+        category_totals = storage.get_category_totals()
+        self.assertEqual(category_totals[c_id], D('-101'))
+        self.assertEqual(category_totals[c2_id], D('-102.46'))
 
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
