@@ -632,7 +632,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(budgets[0].year, 2018)
         self.assertEqual(budgets[0].info[0][0].name, 'Housing')
 
-    def test_budget_report(self):
+    def test_category_totals(self):
         #the expenses have to come from all accounts/ledgers
         storage = SQLiteStorage(':memory:')
         cursor = storage._db_connection.cursor()
@@ -640,10 +640,8 @@ class TestSQLiteStorage(unittest.TestCase):
         c_id = cursor.lastrowid
         cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
         c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
-        budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Transportation',))
+        c3_id = cursor.lastrowid
         cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '1000'))
         account_id = cursor.lastrowid
         cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Saving', '1000'))
@@ -657,12 +655,16 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
                 (account2_id, '2017-03-28', '-56.23'))
         txn3_id = cursor.lastrowid
+        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
+                (account_id, '2017-04-28', '-15'))
+        txn4_id = cursor.lastrowid
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, c_id, str(D('-101'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
         category_totals = storage.get_category_totals()
         self.assertEqual(category_totals[c_id], D('-101'))
         self.assertEqual(category_totals[c2_id], D('-102.46'))
+        self.assertEqual(category_totals[c3_id], D(0))
 
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
