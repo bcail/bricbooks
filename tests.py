@@ -314,9 +314,10 @@ class TestBudget(unittest.TestCase):
             Budget(year=2018)
         c = Category(name='Housing')
         c2 = Category(name='Food')
-        b = Budget(year=2018, info=[(c, D(15)), (c2, D(35))])
+        category_rows = [(c, D(15), D(0)), (c2, D(35), D(10))]
+        b = Budget(year=2018, category_rows=category_rows)
         self.assertEqual(b.year, 2018)
-        self.assertEqual(b.info, [(c, D(15)), (c2, D(35))])
+        self.assertEqual(b.category_rows, category_rows)
 
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
@@ -570,7 +571,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_save_budget(self):
         c = Category(name='Housing')
         c2 = Category(name='Food')
-        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        b = Budget(year=2018, category_rows=[(c, D(15)), (c2, D(25))])
         storage = SQLiteStorage(':memory:')
         storage.save_budget(b)
         cursor = storage._db_connection.cursor()
@@ -580,7 +581,7 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT * FROM budget_values').fetchall()
         self.assertEqual(len(records), 2)
         #test that old budget values are deleted
-        b = Budget(year=2018, info=[(c, D(35)), (c2, D(45))], id_=b.id)
+        b = Budget(year=2018, category_rows=[(c, D(35)), (c2, D(45))], id_=b.id)
         storage.save_budget(b)
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
         self.assertEqual(len(records), 2)
@@ -591,7 +592,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(self.file_name)
         c = Category(name='Housing')
         c2 = Category(name='Food')
-        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        b = Budget(year=2018, category_rows=[(c, D(15)), (c2, D(25))])
         storage.save_budget(b)
         storage = SQLiteStorage(self.file_name)
         cursor = storage._db_connection.cursor()
@@ -611,10 +612,10 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.year, 2018)
-        self.assertEqual(budget.info[0][0].name, 'Housing')
-        self.assertEqual(budget.info[0][1], D(35))
-        self.assertEqual(budget.info[1][0].name, 'Food')
-        self.assertEqual(budget.info[1][1], D(70))
+        self.assertEqual(budget.category_rows[0][0].name, 'Housing')
+        self.assertEqual(budget.category_rows[0][1], D(35))
+        self.assertEqual(budget.category_rows[1][0].name, 'Food')
+        self.assertEqual(budget.category_rows[1][1], D(70))
 
     def test_get_budgets(self):
         storage = SQLiteStorage(':memory:')
@@ -630,7 +631,7 @@ class TestSQLiteStorage(unittest.TestCase):
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].year, 2018)
-        self.assertEqual(budgets[0].info[0][0].name, 'Housing')
+        self.assertEqual(budgets[0].category_rows[0][0].name, 'Housing')
 
     def test_category_totals(self):
         #the expenses have to come from all accounts/ledgers
@@ -751,7 +752,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_category(c)
         c2 = Category(name='Food')
         storage.save_category(c2)
-        b = Budget(year=2018, info=[(c, D(15)), (c2, D(25))])
+        b = Budget(year=2018, category_rows=[(c, D(15)), (c2, D(25))])
         storage.save_budget(b)
         bd = BudgetDisplayWidget(master=self.root, budget=b, storage=storage)
 

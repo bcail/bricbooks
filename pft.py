@@ -183,13 +183,13 @@ class Ledger:
 
 class Budget:
 
-    def __init__(self, year=None, info=None, id_=None):
+    def __init__(self, year=None, category_rows=None, id_=None):
         if not year:
             raise BudgetError('must pass in year to Budget')
         self.year = year
-        if not info:
+        if not category_rows:
             raise BudgetError('must pass in category info to Budget')
-        self.info = info
+        self.category_rows = category_rows
         self.id = id_
 
 
@@ -305,7 +305,7 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
-        for category_info in budget.info:
+        for category_info in budget.category_rows:
             c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, category_info[0].id, str(category_info[1])))
         self._db_connection.commit()
 
@@ -317,7 +317,7 @@ class SQLiteStorage:
         info = []
         for r in records:
             info.append((self.get_category(r[0]), Decimal(r[1])))
-        return Budget(year=year, info=info)
+        return Budget(year=year, category_rows=info)
 
     def get_budgets(self):
         budgets = []
@@ -691,7 +691,7 @@ class BudgetDisplayWidget(ttk.Frame):
         used_label.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
         cat_totals = storage.get_category_totals()
         row_index = 1
-        for cat, value in budget.info:
+        for cat, value in budget.category_rows:
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             ttk.Label(self, text=str(value)).grid(row=row_index, column=1)
             ttk.Label(self, text=str(cat_totals[cat.id])).grid(row=row_index, column=2)
