@@ -65,6 +65,9 @@ class Category:
     def __eq__(self, other_category):
         return self.id == other_category.id
 
+    def __hash__(self):
+        return self.id
+
 
 class Transaction:
 
@@ -305,8 +308,10 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
-        for category_info in budget.category_rows:
-            c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, category_info[0].id, str(category_info[1])))
+        for cat, info in budget.category_rows.items():
+            if not cat.id:
+                self.save_category(cat)
+            c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, cat.id, str(info['budget'])))
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
@@ -314,9 +319,10 @@ class SQLiteStorage:
         records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         year = int(records[0][0])
         records = c.execute('SELECT category_id, amount FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
-        info = []
+        info = {}
         for r in records:
-            info.append((self.get_category(r[0]), Decimal(r[1])))
+            cat = self.get_category(r[0])
+            info[cat] = {'budget': Decimal(r[1])}
         return Budget(year=year, category_rows=info)
 
     def get_budgets(self):
@@ -691,9 +697,9 @@ class BudgetDisplayWidget(ttk.Frame):
         used_label.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
         cat_totals = storage.get_category_totals()
         row_index = 1
-        for cat, value in budget.category_rows:
+        for cat, info in budget.category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
-            ttk.Label(self, text=str(value)).grid(row=row_index, column=1)
+            ttk.Label(self, text=str(info['budget'])).grid(row=row_index, column=1)
             ttk.Label(self, text=str(cat_totals[cat.id])).grid(row=row_index, column=2)
             row_index += 1
 
