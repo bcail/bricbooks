@@ -589,7 +589,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_category(c2)
         category_rows = {
                 c: {'budget': D(15)},
-                c2: {'budget': D(25)}
+                c2: {'budget': D(25), 'carryover': D(10)}
             }
         b = Budget(year=2018, category_rows=category_rows)
         storage.save_budget(b)
@@ -601,7 +601,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][1], 1)
         self.assertEqual(records[0][2], 1)
-        self.assertEqual(c.id, 1)
+        self.assertEqual(records[0][3], '15')
+        self.assertEqual(records[0][4], '')
+        self.assertEqual(records[1][1], 1)
+        self.assertEqual(records[1][2], 2)
+        self.assertEqual(records[1][3], '25')
+        self.assertEqual(records[1][4], '10')
         #test that old budget values are deleted
         b = Budget(year=2018, category_rows={
                 c: {'budget': D(35)},
@@ -639,7 +644,7 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.year, 2018)
         categories = budget.category_rows.keys()
@@ -648,7 +653,9 @@ class TestSQLiteStorage(unittest.TestCase):
         category_names = [c.name for c in categories]
         self.assertEqual(sorted(category_names), ['Food', 'Housing'])
         self.assertEqual(budget.category_rows[housing]['budget'], D(35))
+        self.assertTrue('carryover' not in budget.category_rows[housing])
         self.assertEqual(budget.category_rows[food]['budget'], D(70))
+        self.assertEqual(budget.category_rows[food]['carryover'], D(15))
 
     def test_get_budgets(self):
         storage = SQLiteStorage(':memory:')

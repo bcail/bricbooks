@@ -219,7 +219,7 @@ class SQLiteStorage:
         conn = self._db_connection
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, year TEXT)')
-        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT)')
+        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
@@ -311,18 +311,22 @@ class SQLiteStorage:
         for cat, info in budget.category_rows.items():
             if not cat.id:
                 self.save_category(cat)
-            c.execute('INSERT INTO budget_values(budget_id, category_id, amount) VALUES (?, ?, ?)', (budget.id, cat.id, str(info['budget'])))
+            carryover = str(info.get('carryover', ''))
+            values = (budget.id, cat.id, str(info['budget']), carryover)
+            c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
         c = self._db_connection.cursor()
         records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         year = int(records[0][0])
-        records = c.execute('SELECT category_id, amount FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
+        records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
         info = {}
         for r in records:
             cat = self.get_category(r[0])
             info[cat] = {'budget': Decimal(r[1])}
+            if r[2]:
+                info[cat]['carryover'] = Decimal(r[2])
         return Budget(year=year, category_rows=info)
 
     def get_budgets(self):
