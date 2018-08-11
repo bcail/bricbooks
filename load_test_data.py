@@ -14,6 +14,8 @@ c = Category(name='Restaurants')
 storage.save_category(c)
 c2 = Category(name='Gas Stations')
 storage.save_category(c2)
+c3 = Category(name='Housing')
+storage.save_category(c3)
 
 storage.save_txn(Transaction(account=a, amount=D('-10'), txn_date='2018-01-01', categories=[c]))
 storage.save_txn(Transaction(account=a, amount=D('-20'), txn_date='2018-01-02'))
@@ -53,6 +55,11 @@ storage.save_txn(Transaction(account=a, amount=D('82'), txn_date='2018-03-14'))
 storage.save_txn(Transaction(account=savings, amount=D(82), txn_date='2018-03-14'))
 storage.save_txn(Transaction(account=savings, amount=D(95), txn_date='2018-03-15'))
 
-budget = Budget('2018', info=[(c, D(35)), (c2, D(70))])
+budget_categories = {
+        c: {'budget': D(35)},
+        c2: {'budget': D(70), 'carryover': D(10)},
+        c3: {'budget': D(100)},
+    }
+budget = Budget('2018', category_rows=budget_categories)
 storage.save_budget(budget)
 

@@ -693,18 +693,17 @@ class BudgetDisplayWidget(ttk.Frame):
 
     def __init__(self, master, budget, storage):
         super().__init__(master=master)
-        cat_label = ttk.Label(self, text='Category')
-        amount_label = ttk.Label(self, text='Amount')
-        used_label = ttk.Label(self, text='Spent')
-        cat_label.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-        amount_label.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
-        used_label.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Category').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Amount').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Spent').grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Carryover').grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S, tk.E))
         cat_totals = storage.get_category_totals()
         row_index = 1
         for cat, info in budget.category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             ttk.Label(self, text=str(info['budget'])).grid(row=row_index, column=1)
             ttk.Label(self, text=str(cat_totals[cat.id])).grid(row=row_index, column=2)
+            ttk.Label(self, text=str(info.get('carryover', ''))).grid(row=row_index, column=3)
             row_index += 1
 
 
