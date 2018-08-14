@@ -641,47 +641,6 @@ class TestSQLiteStorage(unittest.TestCase):
         c_id = cursor.lastrowid
         cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
         c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
-        budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
-        budget = storage.get_budget(budget_id)
-        self.assertEqual(budget.year, 2018)
-        categories = budget.category_rows.keys()
-        housing = [c for c in categories if c.id == c_id][0]
-        food = [c for c in categories if c.id == c2_id][0]
-        category_names = [c.name for c in categories]
-        self.assertEqual(sorted(category_names), ['Food', 'Housing'])
-        self.assertEqual(budget.category_rows[housing]['budget'], D(35))
-        self.assertTrue('carryover' not in budget.category_rows[housing])
-        self.assertEqual(budget.category_rows[food]['budget'], D(70))
-        self.assertEqual(budget.category_rows[food]['carryover'], D(15))
-
-    def test_get_budgets(self):
-        storage = SQLiteStorage(':memory:')
-        cursor = storage._db_connection.cursor()
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
-        c_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
-        c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
-        budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
-        budgets = storage.get_budgets()
-        self.assertEqual(len(budgets), 1)
-        self.assertEqual(budgets[0].year, 2018)
-        cat = list(budgets[0].category_rows.keys())[0]
-        self.assertEqual(cat.name, 'Housing')
-
-    def test_category_totals(self):
-        #the expenses have to come from all accounts/ledgers
-        storage = SQLiteStorage(':memory:')
-        cursor = storage._db_connection.cursor()
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
-        c_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
-        c2_id = cursor.lastrowid
         cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Transportation',))
         c3_id = cursor.lastrowid
         cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '1000'))
@@ -703,10 +662,43 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, c_id, str(D('-101'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
-        category_totals = storage.get_category_totals()
-        self.assertEqual(category_totals[c_id], D('-101'))
-        self.assertEqual(category_totals[c2_id], D('-102.46'))
-        self.assertEqual(category_totals[c3_id], D(0))
+        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        budget_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
+        budget = storage.get_budget(budget_id)
+        self.assertEqual(budget.year, 2018)
+        categories = budget.category_rows.keys()
+        housing = [c for c in categories if c.id == c_id][0]
+        food = [c for c in categories if c.id == c2_id][0]
+        transportation = [c for c in categories if c.id == c3_id][0]
+        category_names = [c.name for c in categories]
+        self.assertEqual(sorted(category_names), ['Food', 'Housing', 'Transportation'])
+        self.assertEqual(budget.category_rows[housing]['budget'], D(35))
+        self.assertTrue('carryover' not in budget.category_rows[housing])
+        self.assertEqual(budget.category_rows[food]['budget'], D(70))
+        self.assertEqual(budget.category_rows[food]['carryover'], D(15))
+
+        self.assertEqual(budget.category_rows[housing]['spent'], D('-101'))
+        self.assertEqual(budget.category_rows[food]['spent'], D('-102.46'))
+        self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
+
+    def test_get_budgets(self):
+        storage = SQLiteStorage(':memory:')
+        cursor = storage._db_connection.cursor()
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
+        c_id = cursor.lastrowid
+        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
+        c2_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        budget_id = cursor.lastrowid
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
+        budgets = storage.get_budgets()
+        self.assertEqual(len(budgets), 1)
+        self.assertEqual(budgets[0].year, 2018)
+        cat = list(budgets[0].category_rows.keys())[0]
+        self.assertEqual(cat.name, 'Housing')
 
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
@@ -788,17 +780,13 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(categories, [])
 
     def test_budget_display(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Food')
-        storage.save_category(c2)
+        c = Category(name='Housing', id_=1)
+        c2 = Category(name='Food', id_=2)
         b = Budget(year=2018, category_rows={
-            c: {'budget': D(15)},
-            c2: {'budget': D(25)},
+            c: {'budget': D(15), 'spent': D(10)},
+            c2: {'budget': D(25), 'spent': D(50)},
         })
-        storage.save_budget(b)
-        bd = BudgetDisplayWidget(master=self.root, budget=b, storage=storage)
+        bd = BudgetDisplayWidget(master=self.root, budget=b)
 
 
 if __name__ == '__main__':

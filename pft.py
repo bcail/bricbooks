@@ -62,6 +62,12 @@ class Category:
         self.name = name
         self.id = id_
 
+    def __str__(self):
+        return '%s: %s' % (self.id, self.name)
+
+    def __repr__(self):
+        return str(self)
+
     def __eq__(self, other_category):
         return self.id == other_category.id
 
@@ -320,14 +326,26 @@ class SQLiteStorage:
         c = self._db_connection.cursor()
         records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         year = int(records[0][0])
-        records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
-        info = {}
-        for r in records:
-            cat = self.get_category(r[0])
-            info[cat] = {'budget': Decimal(r[1])}
+        category_rows = {}
+        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
+        for cat_record in category_records:
+            cat_id = cat_record[0]
+            category = self.get_category(cat_id)
+            category_rows[category] = {}
+            #get total
+            total = Decimal(0)
+            txn_category_records = self._db_connection.execute('SELECT amount FROM txn_categories WHERE category_id = ?', (cat_id,)).fetchall()
+            for record in txn_category_records:
+                amt = Decimal(record[0])
+                total += amt
+            category_rows[category]['spent'] = total
+        budget_value_records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
+        for r in budget_value_records:
+            category = self.get_category(r[0])
+            category_rows[category]['budget'] = Decimal(r[1])
             if r[2]:
-                info[cat]['carryover'] = Decimal(r[2])
-        return Budget(year=year, category_rows=info)
+                category_rows[category]['carryover'] = Decimal(r[2])
+        return Budget(year=year, category_rows=category_rows)
 
     def get_budgets(self):
         budgets = []
@@ -337,19 +355,6 @@ class SQLiteStorage:
             budget_id = int(budget_records[0][0])
             budgets.append(self.get_budget(budget_id))
         return budgets
-
-    def get_category_totals(self):
-        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
-        totals = {}
-        for cat_record in category_records:
-            cat_id = cat_record[0]
-            total = Decimal(0)
-            txn_category_records = self._db_connection.execute('SELECT amount FROM txn_categories WHERE category_id = ?', (cat_id,)).fetchall()
-            for record in txn_category_records:
-                amt = Decimal(record[0])
-                total += amt
-            totals[cat_id] = total
-        return totals
 
 
 ### GUI ###
@@ -691,18 +696,17 @@ class AddAccountWidget(ttk.Frame):
 
 class BudgetDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, budget, storage):
+    def __init__(self, master, budget):
         super().__init__(master=master)
         ttk.Label(self, text='Category').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Amount').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Spent').grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Carryover').grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S, tk.E))
-        cat_totals = storage.get_category_totals()
         row_index = 1
         for cat, info in budget.category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             ttk.Label(self, text=str(info['budget'])).grid(row=row_index, column=1)
-            ttk.Label(self, text=str(cat_totals[cat.id])).grid(row=row_index, column=2)
+            ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=2)
             ttk.Label(self, text=str(info.get('carryover', ''))).grid(row=row_index, column=3)
             row_index += 1
 
@@ -752,7 +756,7 @@ class PFT_GUI:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
         self._show_actions()
-        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0], storage=self.storage)
+        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0])
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
