@@ -809,7 +809,7 @@ class PFT_GUI:
             canvas.config(scrollregion="0 0 %s %s" % size)
         self.ledger_widget.bind('<Configure>', _configure_ledger_widget)
 
-        add_txn_widget = AddTransactionWidget(master=self.content_frame, account=self.accounts[0], storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
+        add_txn_widget = AddTransactionWidget(master=self.content_frame, account=current_account, storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
         add_txn_widget.grid(row=3, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
         self.content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
