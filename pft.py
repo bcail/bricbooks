@@ -199,6 +199,9 @@ class Budget:
         if not category_rows:
             raise BudgetError('must pass in category info to Budget')
         self.category_rows = category_rows
+        for cat, info in self.category_rows.items():
+            if 'budget' in info and 'spent' in info:
+                info['remaining'] = info['budget'] - info['spent']
         self.id = id_
 
 
