@@ -664,7 +664,7 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
         cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '135'))
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.year, 2018)
@@ -674,13 +674,12 @@ class TestSQLiteStorage(unittest.TestCase):
         transportation = [c for c in categories if c.id == c3_id][0]
         category_names = [c.name for c in categories]
         self.assertEqual(sorted(category_names), ['Food', 'Housing', 'Transportation'])
-        self.assertEqual(budget.category_rows[housing]['budget'], D(35))
+        self.assertEqual(budget.category_rows[housing]['budget'], D(135))
+        self.assertEqual(budget.category_rows[housing]['spent'], D(101))
         self.assertTrue('carryover' not in budget.category_rows[housing])
         self.assertEqual(budget.category_rows[food]['budget'], D(70))
         self.assertEqual(budget.category_rows[food]['carryover'], D(15))
-
-        self.assertEqual(budget.category_rows[housing]['spent'], D('-101'))
-        self.assertEqual(budget.category_rows[food]['spent'], D('-102.46'))
+        self.assertEqual(budget.category_rows[food]['spent'], D('102.46'))
         self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
 
     def test_get_budgets(self):
