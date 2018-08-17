@@ -341,7 +341,9 @@ class SQLiteStorage:
             for record in txn_category_records:
                 amt = Decimal(record[0])
                 total += amt
-            category_rows[category]['spent'] = total * Decimal(-1)
+            if total:
+                total = total * Decimal(-1)
+            category_rows[category]['spent'] = total
         budget_value_records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
         for r in budget_value_records:
             category = self.get_category(r[0])

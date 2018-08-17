@@ -684,6 +684,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(budget.category_rows[food]['carryover'], D(15))
         self.assertEqual(budget.category_rows[food]['spent'], D('102.46'))
         self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
+        self.assertEqual(str(budget.category_rows[transportation]['spent']), '0')
 
     def test_get_budgets(self):
         storage = SQLiteStorage(':memory:')
