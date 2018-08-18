@@ -211,6 +211,7 @@ class Budget:
                 if 'spent' in info:
                     remaining = remaining - info['spent']
                 info['remaining'] = remaining
+                info['percent_available'] = (remaining / total_budget) * Decimal(100)
         self.id = id_
 
 
@@ -725,6 +726,7 @@ class BudgetDisplayWidget(ttk.Frame):
         ttk.Label(self, text='Total Budget').grid(row=0, column=4, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Spent').grid(row=0, column=5, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Remaining').grid(row=0, column=6, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Percent Available').grid(row=0, column=7, sticky=(tk.N, tk.W, tk.S, tk.E))
         row_index = 1
         for cat, info in budget.category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
@@ -734,6 +736,7 @@ class BudgetDisplayWidget(ttk.Frame):
             ttk.Label(self, text=str(info['total_budget'])).grid(row=row_index, column=4)
             ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=5)
             ttk.Label(self, text=str(info['remaining'])).grid(row=row_index, column=6)
+            ttk.Label(self, text=str(info['percent_available'])).grid(row=row_index, column=7)
             row_index += 1
 
 

@@ -326,8 +326,16 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(b.category_rows[c]['total_budget'], D(25))
         self.assertEqual(b.category_rows[c]['spent'], D(10))
         self.assertEqual(b.category_rows[c]['remaining'], D(15))
+        self.assertEqual(b.category_rows[c]['percent_available'], D(60))
         self.assertEqual(b.category_rows[c2],
-                {'budget': D(35), 'carryover': D(10), 'total_budget': D(45), 'remaining': D(45)})
+                {
+                    'budget': D(35),
+                    'carryover': D(10),
+                    'total_budget': D(45),
+                    'remaining': D(45),
+                    'percent_available': D(100),
+                }
+            )
 
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
