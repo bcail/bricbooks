@@ -335,15 +335,21 @@ class SQLiteStorage:
             cat_id = cat_record[0]
             category = self.get_category(cat_id)
             category_rows[category] = {}
-            #get total
-            total = Decimal(0)
+            #get spent & income values for each category
+            spent = Decimal(0)
+            income = Decimal(0)
             txn_category_records = self._db_connection.execute('SELECT amount FROM txn_categories WHERE category_id = ?', (cat_id,)).fetchall()
             for record in txn_category_records:
                 amt = Decimal(record[0])
-                total += amt
-            if total:
-                total = total * Decimal(-1)
-            category_rows[category]['spent'] = total
+                if amt > Decimal(0):
+                    income += amt
+                else:
+                    spent += amt
+            #spent value should be positive, even though it's negative values in the DB
+            if spent:
+                spent = spent * Decimal(-1)
+            category_rows[category]['spent'] = spent
+            category_rows[category]['income'] = income
         budget_value_records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
         for r in budget_value_records:
             category = self.get_category(r[0])

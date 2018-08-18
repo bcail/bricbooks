@@ -662,9 +662,13 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
                 (account_id, '2017-04-28', '-15'))
         txn4_id = cursor.lastrowid
+        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
+                (account_id, '2017-05-28', '15'))
+        txn5_id = cursor.lastrowid
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, c_id, str(D('-101'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
+        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn5_id, c2_id, str(D('15'))))
         cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '135'))
@@ -683,6 +687,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(budget.category_rows[food]['budget'], D(70))
         self.assertEqual(budget.category_rows[food]['carryover'], D(15))
         self.assertEqual(budget.category_rows[food]['spent'], D('102.46'))
+        self.assertEqual(budget.category_rows[food]['income'], D('15'))
         self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
         self.assertEqual(str(budget.category_rows[transportation]['spent']), '0')
 
