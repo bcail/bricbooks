@@ -339,6 +339,12 @@ class TestBudget(unittest.TestCase):
                 }
             )
 
+    def test_percent_rounding(self):
+        self.assertEqual(Budget.round_percent_available(D('1.1')), D(1))
+        self.assertEqual(Budget.round_percent_available(D('1.8')), D(2))
+        self.assertEqual(Budget.round_percent_available(D('1.5')), D(2))
+        self.assertEqual(Budget.round_percent_available(D('2.5')), D(3))
+
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
 

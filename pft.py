@@ -6,7 +6,7 @@ Architecture:
     No objects should use private/hidden members of other objects.
 '''
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import os
 import sqlite3
 try:
@@ -192,6 +192,10 @@ class Ledger:
 
 class Budget:
 
+    @staticmethod
+    def round_percent_available(percent):
+        return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
+
     def __init__(self, year=None, category_rows=None, id_=None):
         if not year:
             raise BudgetError('must pass in year to Budget')
@@ -205,7 +209,8 @@ class Budget:
             remaining = total_budget - info['spent']
             info['remaining'] = remaining
             if total_budget:
-                info['percent_available'] = (remaining / total_budget) * Decimal(100)
+                percent_available = (remaining / total_budget) * Decimal(100)
+                info['percent_available'] = Budget.round_percent_available(percent_available)
             else:
                 info['percent_available'] = Decimal(0)
         self.id = id_
@@ -737,7 +742,8 @@ class BudgetDisplayWidget(ttk.Frame):
             ttk.Label(self, text=str(info['total_budget'])).grid(row=row_index, column=4)
             ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=5)
             ttk.Label(self, text=str(info['remaining'])).grid(row=row_index, column=6)
-            ttk.Label(self, text=str(info['percent_available'])).grid(row=row_index, column=7)
+            percent_available = str(info['percent_available']) + '%'
+            ttk.Label(self, text=percent_available).grid(row=row_index, column=7)
             row_index += 1
 
 
