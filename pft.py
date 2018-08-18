@@ -200,8 +200,17 @@ class Budget:
             raise BudgetError('must pass in category info to Budget')
         self.category_rows = category_rows
         for cat, info in self.category_rows.items():
-            if 'budget' in info and 'spent' in info:
-                info['remaining'] = info['budget'] - info['spent']
+            if 'budget' in info:
+                total_budget = info['budget']
+                if 'carryover' in info:
+                    total_budget = total_budget + info['carryover']
+                if 'income' in info:
+                    total_budget = total_budget + info['income']
+                info['total_budget'] = total_budget
+                remaining = total_budget
+                if 'spent' in info:
+                    remaining = remaining - info['spent']
+                info['remaining'] = remaining
         self.id = id_
 
 

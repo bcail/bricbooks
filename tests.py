@@ -315,15 +315,19 @@ class TestBudget(unittest.TestCase):
         c = Category(name='Housing', id_=1)
         c2 = Category(name='Food', id_=2)
         category_rows = {
-                c: {'budget': D(15), 'carryover': D(0), 'spent': D(10)},
+                c: {'budget': D(15), 'carryover': D(5), 'income': D(5), 'spent': D(10)},
                 c2: {'budget': D(35), 'carryover': D(10)},
             }
         b = Budget(year=2018, category_rows=category_rows)
         self.assertEqual(b.year, 2018)
         self.assertEqual(b.category_rows[c]['budget'], D(15))
+        self.assertEqual(b.category_rows[c]['carryover'], D(5))
+        self.assertEqual(b.category_rows[c]['income'], D(5))
+        self.assertEqual(b.category_rows[c]['total_budget'], D(25))
         self.assertEqual(b.category_rows[c]['spent'], D(10))
-        self.assertEqual(b.category_rows[c]['remaining'], D(5))
-        self.assertEqual(b.category_rows[c2], {'budget': D(35), 'carryover': D(10)})
+        self.assertEqual(b.category_rows[c]['remaining'], D(15))
+        self.assertEqual(b.category_rows[c2],
+                {'budget': D(35), 'carryover': D(10), 'total_budget': D(45), 'remaining': D(45)})
 
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_categories',)]
