@@ -316,7 +316,7 @@ class TestBudget(unittest.TestCase):
         c2 = Category(name='Food', id_=2)
         category_rows = {
                 c: {'budget': D(15), 'carryover': D(5), 'income': D(5), 'spent': D(10)},
-                c2: {'budget': D(35), 'carryover': D(10)},
+                c2: {'budget': D(35), 'carryover': D(10), 'income': D(0), 'spent': D(0)},
             }
         b = Budget(year=2018, category_rows=category_rows)
         self.assertEqual(b.year, 2018)
@@ -330,8 +330,10 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(b.category_rows[c2],
                 {
                     'budget': D(35),
+                    'income': D(0),
                     'carryover': D(10),
                     'total_budget': D(45),
+                    'spent': D(0),
                     'remaining': D(45),
                     'percent_available': D(100),
                 }
@@ -603,8 +605,8 @@ class TestSQLiteStorage(unittest.TestCase):
         c2 = Category(name='Food')
         storage.save_category(c2)
         category_rows = {
-                c: {'budget': D(15)},
-                c2: {'budget': D(25), 'carryover': D(10)}
+                c: {'budget': D(15), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
+                c2: {'budget': D(25), 'income': D(0), 'carryover': D(10), 'spent': D(0)}
             }
         b = Budget(year=2018, category_rows=category_rows)
         storage.save_budget(b)
@@ -617,15 +619,15 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][1], 1)
         self.assertEqual(records[0][2], 1)
         self.assertEqual(records[0][3], '15')
-        self.assertEqual(records[0][4], '')
+        self.assertEqual(records[0][4], '0')
         self.assertEqual(records[1][1], 1)
         self.assertEqual(records[1][2], 2)
         self.assertEqual(records[1][3], '25')
         self.assertEqual(records[1][4], '10')
         #test that old budget values are deleted
         b = Budget(year=2018, category_rows={
-                c: {'budget': D(35)},
-                c2: {'budget': D(45)},
+            c: {'budget': D(35), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
+                c2: {'budget': D(45), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
             }, id_=b.id)
         storage.save_budget(b)
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
@@ -640,8 +642,8 @@ class TestSQLiteStorage(unittest.TestCase):
         c2 = Category(name='Food')
         storage.save_category(c2)
         b = Budget(year=2018, category_rows={
-            c: {'budget': D(15)},
-            c2: {'budget': D(25)},
+            c: {'budget': D(15), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
+            c2: {'budget': D(25), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
         })
         storage.save_budget(b)
         storage = SQLiteStorage(self.file_name)
@@ -693,13 +695,18 @@ class TestSQLiteStorage(unittest.TestCase):
         transportation = [c for c in categories if c.id == c3_id][0]
         category_names = [c.name for c in categories]
         self.assertEqual(sorted(category_names), ['Food', 'Housing', 'Transportation'])
+
         self.assertEqual(budget.category_rows[housing]['budget'], D(135))
+        self.assertEqual(budget.category_rows[housing]['income'], D(0))
+        self.assertEqual(budget.category_rows[housing]['carryover'], D(0))
         self.assertEqual(budget.category_rows[housing]['spent'], D(101))
-        self.assertTrue('carryover' not in budget.category_rows[housing])
+
         self.assertEqual(budget.category_rows[food]['budget'], D(70))
+        self.assertEqual(budget.category_rows[food]['income'], D('15'))
         self.assertEqual(budget.category_rows[food]['carryover'], D(15))
         self.assertEqual(budget.category_rows[food]['spent'], D('102.46'))
-        self.assertEqual(budget.category_rows[food]['income'], D('15'))
+
+        self.assertEqual(budget.category_rows[transportation]['budget'], D(0))
         self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
         self.assertEqual(str(budget.category_rows[transportation]['spent']), '0')
 
@@ -803,8 +810,8 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         c = Category(name='Housing', id_=1)
         c2 = Category(name='Food', id_=2)
         b = Budget(year=2018, category_rows={
-            c: {'budget': D(15), 'spent': D(10)},
-            c2: {'budget': D(25), 'spent': D(50)},
+            c: {'budget': D(15), 'income': D(0), 'carryover': D(0), 'spent': D(10)},
+            c2: {'budget': D(25), 'income': D(0), 'carryover': D(0), 'spent': D(50)},
         })
         bd = BudgetDisplayWidget(master=self.root, budget=b)
 

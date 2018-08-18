@@ -200,18 +200,14 @@ class Budget:
             raise BudgetError('must pass in category info to Budget')
         self.category_rows = category_rows
         for cat, info in self.category_rows.items():
-            if 'budget' in info:
-                total_budget = info['budget']
-                if 'carryover' in info:
-                    total_budget = total_budget + info['carryover']
-                if 'income' in info:
-                    total_budget = total_budget + info['income']
-                info['total_budget'] = total_budget
-                remaining = total_budget
-                if 'spent' in info:
-                    remaining = remaining - info['spent']
-                info['remaining'] = remaining
+            total_budget = info['budget'] + info['carryover'] + info['income']
+            info['total_budget'] = total_budget
+            remaining = total_budget - info['spent']
+            info['remaining'] = remaining
+            if total_budget:
                 info['percent_available'] = (remaining / total_budget) * Decimal(100)
+            else:
+                info['percent_available'] = Decimal(0)
         self.id = id_
 
 
@@ -360,12 +356,17 @@ class SQLiteStorage:
                 spent = spent * Decimal(-1)
             category_rows[category]['spent'] = spent
             category_rows[category]['income'] = income
-        budget_value_records = c.execute('SELECT category_id, amount, carryover FROM budget_values WHERE budget_id = ?', (budget_id,)).fetchall()
-        for r in budget_value_records:
-            category = self.get_category(r[0])
-            category_rows[category]['budget'] = Decimal(r[1])
-            if r[2]:
-                category_rows[category]['carryover'] = Decimal(r[2])
+            budget_records = c.execute('SELECT amount, carryover FROM budget_values WHERE budget_id = ? AND category_id = ?', (budget_id, cat_id)).fetchall()
+            if budget_records:
+                r = budget_records[0]
+                category_rows[category]['budget'] = Decimal(r[0])
+                if r[1]:
+                    category_rows[category]['carryover'] = Decimal(r[1])
+                else:
+                    category_rows[category]['carryover'] = Decimal(0)
+            else:
+                category_rows[category]['budget'] = Decimal(0)
+                category_rows[category]['carryover'] = Decimal(0)
         return Budget(year=year, category_rows=category_rows)
 
     def get_budgets(self):
@@ -731,8 +732,8 @@ class BudgetDisplayWidget(ttk.Frame):
         for cat, info in budget.category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             ttk.Label(self, text=str(info['budget'])).grid(row=row_index, column=1)
-            ttk.Label(self, text=str(info.get('income', ''))).grid(row=row_index, column=2)
-            ttk.Label(self, text=str(info.get('carryover', ''))).grid(row=row_index, column=3)
+            ttk.Label(self, text=str(info['income'])).grid(row=row_index, column=2)
+            ttk.Label(self, text=str(info['carryover'])).grid(row=row_index, column=3)
             ttk.Label(self, text=str(info['total_budget'])).grid(row=row_index, column=4)
             ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=5)
             ttk.Label(self, text=str(info['remaining'])).grid(row=row_index, column=6)
