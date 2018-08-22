@@ -265,6 +265,15 @@ class SQLiteStorage:
         db_record = self._db_connection.execute('SELECT id, name FROM categories WHERE id = ?', (category_id,)).fetchone()
         return Category(name=db_record[1], id_=db_record[0])
 
+    def get_categories(self):
+        categories = []
+        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
+        for cat_record in category_records:
+            cat_id = cat_record[0]
+            category = self.get_category(cat_id)
+            categories.append(category)
+        return categories
+
     def save_category(self, category):
         c = self._db_connection.cursor()
         if category.id:
@@ -635,12 +644,14 @@ class AddTransactionWidget(ttk.Frame):
 
 class ActionsWidget(ttk.Frame):
 
-    def __init__(self, master, show_ledger, show_budget):
+    def __init__(self, master, show_ledger, show_categories, show_budget):
         super().__init__(master=master)
         ledger_button = ttk.Button(master=self, text='Ledger', command=show_ledger)
         ledger_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
-        budget_button = ttk.Button(master=self, text='Budget', command=show_budget)
+        budget_button = ttk.Button(master=self, text='Categories', command=show_categories)
         budget_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+        budget_button = ttk.Button(master=self, text='Budget', command=show_budget)
+        budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
 
 
 class HeadingsWidget(ttk.Frame):
@@ -721,6 +732,19 @@ class AddAccountWidget(ttk.Frame):
         self._display_ledger()
 
 
+class CategoriesDisplayWidget(ttk.Frame):
+
+    def __init__(self, master, categories):
+        super().__init__(master=master)
+        ttk.Label(self, text='ID').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Label(self, text='Name').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        row = 1
+        for cat in categories:
+            ttk.Label(self, text=cat.id).grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+            ttk.Label(self, text=cat.name).grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+            row += 1
+
+
 class BudgetDisplayWidget(ttk.Frame):
 
     def __init__(self, master, budget):
@@ -780,12 +804,22 @@ class PFT_GUI:
         self.budgets = self.storage.get_budgets()
 
     def _show_actions(self):
-        actions_widget = ActionsWidget(master=self.content_frame, show_ledger=self._show_ledger, show_budget=self._show_budget)
+        actions_widget = ActionsWidget(master=self.content_frame, show_ledger=self._show_ledger,
+                show_categories=self._show_categories, show_budget=self._show_budget)
         actions_widget.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_add_account(self):
         add_account_frame = AddAccountWidget(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def _show_categories(self):
+        if self.content_frame:
+            self.content_frame.destroy()
+        self.content_frame = ttk.Frame(master=self.root)
+        self._show_actions()
+        categories = self.storage.get_categories()
+        CategoriesDisplayWidget(master=self.content_frame, categories=categories).grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):
         if self.content_frame:

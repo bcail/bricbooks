@@ -22,6 +22,7 @@ from pft import (
         AddAccountWidget,
         LedgerTxnWidget,
         AddTransactionWidget,
+        CategoriesDisplayWidget,
         BudgetDisplayWidget,
         PFT_GUI,
     )
@@ -434,6 +435,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], 1)
         self.assertEqual(records[0][1], 'Housing')
 
+    def test_get_categories(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Food')
+        storage.save_category(c2)
+        categories = storage.get_categories()
+        self.assertEqual(categories[0], c)
+        self.assertEqual(categories[1], c2)
+        self.assertEqual(len(categories), 2)
+
     def test_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
@@ -780,7 +792,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0][0], '100')
 
-    def test_categories_display(self):
+    def test_txn_categories_display(self):
         a = Account(name='Checking', starting_balance=D('100'))
         c = Category('Cat', id_=1)
         c2 = Category('Dog', id_=2)
@@ -812,7 +824,12 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [])
 
-    def test_budget_display(self):
+    def test_categories_display_widget(self):
+        c = Category(name='Housing', id_=1)
+        c2 = Category(name='Food', id_=2)
+        CategoriesDisplayWidget(master=self.root, categories=[c, c2])
+
+    def test_budget_display_widget(self):
         c = Category(name='Housing', id_=1)
         c2 = Category(name='Food', id_=2)
         b = Budget(year=2018, category_rows={
