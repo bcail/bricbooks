@@ -734,8 +734,10 @@ class AddAccountWidget(ttk.Frame):
 
 class CategoriesDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, categories):
+    def __init__(self, master, categories, storage, reload_categories):
         super().__init__(master=master)
+        self._storage = storage
+        self._reload = reload_categories
         ttk.Label(self, text='ID').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Name').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
         row = 1
@@ -743,6 +745,14 @@ class CategoriesDisplayWidget(ttk.Frame):
             ttk.Label(self, text=cat.id).grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
             ttk.Label(self, text=cat.name).grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
             row += 1
+        self.name_entry = ttk.Entry(self)
+        self.name_entry.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        ttk.Button(self, text='Add New', command=self._add).grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def _add(self):
+        c = Category(name=self.name_entry.get())
+        self._storage.save_category(c)
+        self._reload()
 
 
 class BudgetDisplayWidget(ttk.Frame):
@@ -818,7 +828,8 @@ class PFT_GUI:
         self.content_frame = ttk.Frame(master=self.root)
         self._show_actions()
         categories = self.storage.get_categories()
-        CategoriesDisplayWidget(master=self.content_frame, categories=categories).grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        cdw = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage, reload_categories=self._show_categories)
+        cdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):

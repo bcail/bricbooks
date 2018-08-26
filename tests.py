@@ -825,9 +825,12 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(categories, [])
 
     def test_categories_display_widget(self):
-        c = Category(name='Housing', id_=1)
-        c2 = Category(name='Food', id_=2)
-        CategoriesDisplayWidget(master=self.root, categories=[c, c2])
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Food')
+        storage.save_category(c2)
+        CategoriesDisplayWidget(master=self.root, categories=[c, c2], storage=storage, reload_categories=lambda x: x)
 
     def test_budget_display_widget(self):
         c = Category(name='Housing', id_=1)
