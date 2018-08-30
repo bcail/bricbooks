@@ -283,6 +283,10 @@ class SQLiteStorage:
             category.id = c.lastrowid
         self._db_connection.commit()
 
+    def delete_category(self, category_id):
+        self._db_connection.execute('DELETE FROM categories WHERE id = ?', (category_id,))
+        self._db_connection.commit()
+
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')

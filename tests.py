@@ -446,6 +446,14 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(categories[1], c2)
         self.assertEqual(len(categories), 2)
 
+    def test_delete_category(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        storage.delete_category(c.id)
+        records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
+        self.assertEqual(records, [])
+
     def test_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
