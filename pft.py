@@ -263,6 +263,8 @@ class SQLiteStorage:
 
     def get_category(self, category_id):
         db_record = self._db_connection.execute('SELECT id, name FROM categories WHERE id = ?', (category_id,)).fetchone()
+        if not db_record:
+            raise Exception(f'No category with id: {category_id}')
         return Category(name=db_record[1], id_=db_record[0])
 
     def get_categories(self):
@@ -738,16 +740,21 @@ class AddAccountWidget(ttk.Frame):
 
 class CategoriesDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, categories, storage, reload_categories):
+    def __init__(self, master, categories, storage, reload_categories, delete_category):
         super().__init__(master=master)
         self._storage = storage
         self._reload = reload_categories
+        self._delete_category = delete_category
         ttk.Label(self, text='ID').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Name').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
         row = 1
         for cat in categories:
             ttk.Label(self, text=cat.id).grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
             ttk.Label(self, text=cat.name).grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+            def f(cat_id=cat.id):
+                self._delete_category(cat_id)
+                self._reload()
+            ttk.Button(self, text='Delete', command=f).grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
             row += 1
         self.name_entry = ttk.Entry(self)
         self.name_entry.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -832,7 +839,8 @@ class PFT_GUI:
         self.content_frame = ttk.Frame(master=self.root)
         self._show_actions()
         categories = self.storage.get_categories()
-        cdw = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage, reload_categories=self._show_categories)
+        cdw = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage,
+                reload_categories=self._show_categories, delete_category=self.storage.delete_category)
         cdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 

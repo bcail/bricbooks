@@ -838,7 +838,8 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_category(c)
         c2 = Category(name='Food')
         storage.save_category(c2)
-        CategoriesDisplayWidget(master=self.root, categories=[c, c2], storage=storage, reload_categories=lambda x: x)
+        CategoriesDisplayWidget(master=self.root, categories=[c, c2], storage=storage,
+                reload_categories=lambda x: x, delete_category=lambda x: x)
 
     def test_budget_display_widget(self):
         c = Category(name='Housing', id_=1)
