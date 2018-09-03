@@ -748,13 +748,32 @@ class CategoriesDisplayWidget(ttk.Frame):
         ttk.Label(self, text='ID').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Name').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
         row = 1
+        data = {}
         for cat in categories:
+            row_data = {'row': row}
             ttk.Label(self, text=cat.id).grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-            ttk.Label(self, text=cat.name).grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
-            def f(cat_id=cat.id):
+            name_label = ttk.Label(self, text=cat.name)
+            name_label.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+            row_data['name_label'] = name_label
+            def _edit(cat_id=cat.id):
+                def _save(cat_id=cat_id):
+                    c = Category(id_=cat_id, name=data[cat_id]['name_entry'].get())
+                    self._storage.save_category(c)
+                    self._reload()
+                data[cat_id]['name_label'].destroy()
+                name_entry = ttk.Entry(self)
+                name_entry.grid(row=data[cat_id]['row'], column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+                data[cat_id]['name_entry'] = name_entry
+                data[cat_id]['edit_button']['text'] = 'Save'
+                data[cat_id]['edit_button']['command'] = _save
+            def _delete(cat_id=cat.id):
                 self._delete_category(cat_id)
                 self._reload()
-            ttk.Button(self, text='Delete', command=f).grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+            edit_button = ttk.Button(self, text='Edit', command=_edit)
+            edit_button.grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+            row_data['edit_button'] = edit_button
+            ttk.Button(self, text='Delete', command=_delete).grid(row=row, column=3, sticky=(tk.N, tk.W, tk.S, tk.E))
+            data[cat.id] = row_data
             row += 1
         self.name_entry = ttk.Entry(self)
         self.name_entry.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
