@@ -789,6 +789,14 @@ class BudgetDisplayWidget(ttk.Frame):
 
     def __init__(self, master, budget):
         super().__init__(master=master)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(2, weight=1)
+        self.grid_columnconfigure(3, weight=1)
+        self.grid_columnconfigure(4, weight=1)
+        self.grid_columnconfigure(5, weight=1)
+        self.grid_columnconfigure(6, weight=1)
+        self.grid_columnconfigure(7, weight=1)
         ttk.Label(self, text='Category').grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Amount').grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Income').grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -867,6 +875,8 @@ class PFT_GUI:
         if self.content_frame:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(1, weight=1)
         self._show_actions()
         bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0])
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
