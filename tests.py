@@ -321,14 +321,15 @@ class TestBudget(unittest.TestCase):
             }
         b = Budget(year=2018, category_rows=category_rows)
         self.assertEqual(b.year, 2018)
-        self.assertEqual(b.category_rows[c]['budget'], D(15))
-        self.assertEqual(b.category_rows[c]['carryover'], D(5))
-        self.assertEqual(b.category_rows[c]['income'], D(5))
-        self.assertEqual(b.category_rows[c]['total_budget'], D(25))
-        self.assertEqual(b.category_rows[c]['spent'], D(10))
-        self.assertEqual(b.category_rows[c]['remaining'], D(15))
-        self.assertEqual(b.category_rows[c]['percent_available'], D(60))
-        self.assertEqual(b.category_rows[c2],
+        rows = b.display_category_rows
+        self.assertEqual(rows[c]['budget'], D(15))
+        self.assertEqual(rows[c]['carryover'], D(5))
+        self.assertEqual(rows[c]['income'], D(5))
+        self.assertEqual(rows[c]['total_budget'], D(25))
+        self.assertEqual(rows[c]['spent'], D(10))
+        self.assertEqual(rows[c]['remaining'], D(15))
+        self.assertEqual(rows[c]['percent_available'], D(60))
+        self.assertEqual(rows[c2],
                 {
                     'budget': D(35),
                     'income': D(0),
@@ -656,6 +657,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 c2: {'budget': D(45), 'income': D(0), 'carryover': D(0), 'spent': D(0)},
             }, id_=b.id)
         storage.save_budget(b)
+        records = cursor.execute('SELECT * FROM budgets').fetchall()
+        self.assertEqual(len(records), 1)
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][0], '35')
@@ -714,27 +717,29 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '135'))
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
         budget = storage.get_budget(budget_id)
+        self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.year, 2018)
-        categories = budget.category_rows.keys()
+        categories = budget.display_category_rows.keys()
         housing = [c for c in categories if c.id == c_id][0]
         food = [c for c in categories if c.id == c2_id][0]
         transportation = [c for c in categories if c.id == c3_id][0]
         category_names = [c.name for c in categories]
         self.assertEqual(sorted(category_names), ['Food', 'Housing', 'Transportation'])
 
-        self.assertEqual(budget.category_rows[housing]['budget'], D(135))
-        self.assertEqual(budget.category_rows[housing]['income'], D(0))
-        self.assertEqual(budget.category_rows[housing]['carryover'], D(0))
-        self.assertEqual(budget.category_rows[housing]['spent'], D(101))
+        category_rows = budget.display_category_rows
+        self.assertEqual(category_rows[housing]['budget'], D(135))
+        self.assertEqual(category_rows[housing]['income'], D(0))
+        self.assertEqual(category_rows[housing]['carryover'], D(0))
+        self.assertEqual(category_rows[housing]['spent'], D(101))
 
-        self.assertEqual(budget.category_rows[food]['budget'], D(70))
-        self.assertEqual(budget.category_rows[food]['income'], D('15'))
-        self.assertEqual(budget.category_rows[food]['carryover'], D(15))
-        self.assertEqual(budget.category_rows[food]['spent'], D('102.46'))
+        self.assertEqual(category_rows[food]['budget'], D(70))
+        self.assertEqual(category_rows[food]['income'], D('15'))
+        self.assertEqual(category_rows[food]['carryover'], D(15))
+        self.assertEqual(category_rows[food]['spent'], D('102.46'))
 
-        self.assertEqual(budget.category_rows[transportation]['budget'], D(0))
-        self.assertEqual(budget.category_rows[transportation]['spent'], D(0))
-        self.assertEqual(str(budget.category_rows[transportation]['spent']), '0')
+        self.assertEqual(category_rows[transportation]['budget'], D(0))
+        self.assertEqual(category_rows[transportation]['spent'], D(0))
+        self.assertEqual(str(category_rows[transportation]['spent']), '0')
 
     def test_get_budgets(self):
         storage = SQLiteStorage(':memory:')
@@ -750,7 +755,7 @@ class TestSQLiteStorage(unittest.TestCase):
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].year, 2018)
-        cat = list(budgets[0].category_rows.keys())[0]
+        cat = list(budgets[0].display_category_rows.keys())[0]
         self.assertEqual(cat.name, 'Housing')
 
 
@@ -848,7 +853,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
             c: {'budget': D(15), 'income': D(0), 'carryover': D(0), 'spent': D(10)},
             c2: {'budget': D(25), 'income': D(0), 'carryover': D(0), 'spent': D(50)},
         })
-        bd = BudgetDisplayWidget(master=self.root, budget=b)
+        bd = BudgetDisplayWidget(master=self.root, budget=b, save_budget=lambda x: x, reload_budget=lambda x: x)
 
 
 if __name__ == '__main__':

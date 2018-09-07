@@ -202,8 +202,19 @@ class Budget:
         self.year = year
         if not category_rows:
             raise BudgetError('must pass in category info to Budget')
-        self.category_rows = category_rows
-        for cat, info in self.category_rows.items():
+        self._category_rows = category_rows
+        self.id = id_
+
+    def __str__(self):
+        return f'{self.id} {self.year}'
+
+    @property
+    def save_category_rows(self):
+        return self._category_rows
+
+    @property
+    def display_category_rows(self):
+        for cat, info in self._category_rows.items():
             total_budget = info['budget'] + info['carryover'] + info['income']
             info['total_budget'] = total_budget
             remaining = total_budget - info['spent']
@@ -213,7 +224,7 @@ class Budget:
                 info['percent_available'] = Budget.round_percent_available(percent_available)
             else:
                 info['percent_available'] = Decimal(0)
-        self.id = id_
+        return self._category_rows
 
 
 ### Storage ###
@@ -343,7 +354,7 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
-        for cat, info in budget.category_rows.items():
+        for cat, info in budget.save_category_rows.items():
             if not cat.id:
                 self.save_category(cat)
             carryover = str(info.get('carryover', ''))
@@ -387,7 +398,7 @@ class SQLiteStorage:
             else:
                 category_rows[category]['budget'] = Decimal(0)
                 category_rows[category]['carryover'] = Decimal(0)
-        return Budget(year=year, category_rows=category_rows)
+        return Budget(id_=budget_id, year=year, category_rows=category_rows)
 
     def get_budgets(self):
         budgets = []
@@ -787,8 +798,11 @@ class CategoriesDisplayWidget(ttk.Frame):
 
 class BudgetDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, budget):
+    def __init__(self, master, budget, save_budget, reload_budget):
         super().__init__(master=master)
+        self._budget = budget
+        self._save_budget = save_budget
+        self._reload_budget = reload_budget
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
@@ -806,17 +820,56 @@ class BudgetDisplayWidget(ttk.Frame):
         ttk.Label(self, text='Remaining').grid(row=0, column=6, sticky=(tk.N, tk.W, tk.S, tk.E))
         ttk.Label(self, text='Percent Available').grid(row=0, column=7, sticky=(tk.N, tk.W, tk.S, tk.E))
         row_index = 1
-        for cat, info in budget.category_rows.items():
+        self.data = {}
+        for cat, info in budget.display_category_rows.items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
-            ttk.Label(self, text=str(info['budget'])).grid(row=row_index, column=1)
+            budget_label = ttk.Label(self, text=str(info['budget']))
+            budget_label.grid(row=row_index, column=1)
             ttk.Label(self, text=str(info['income'])).grid(row=row_index, column=2)
-            ttk.Label(self, text=str(info['carryover'])).grid(row=row_index, column=3)
+            carryover_label = ttk.Label(self, text=str(info['carryover']))
+            carryover_label.grid(row=row_index, column=3)
             ttk.Label(self, text=str(info['total_budget'])).grid(row=row_index, column=4)
             ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=5)
             ttk.Label(self, text=str(info['remaining'])).grid(row=row_index, column=6)
             percent_available = str(info['percent_available']) + '%'
             ttk.Label(self, text=percent_available).grid(row=row_index, column=7)
+            row_data = {'budget_label': budget_label}
+            row_data['carryover_label'] = carryover_label
+            row_data['row_index'] = row_index
+            row_data['category'] = cat
+            self.data[cat.id] = row_data
             row_index += 1
+        self._edit_button = ttk.Button(self, text='Edit', command=self._edit)
+        self._edit_button.grid(row=row_index, column=0)
+
+    def _save(self):
+        category_rows = {}
+        for cat_id, data in self.data.items():
+            cat = data['category']
+            category_rows[cat] = {
+                    'budget': data['budget_entry'].get(),
+                    'carryover': data['carryover_entry'].get()
+                }
+        b = Budget(id_=self._budget.id, year=self._budget.year, category_rows=category_rows)
+        self._save_budget(b)
+        self._reload_budget()
+
+    def _edit(self):
+        for cat_id, data in self.data.items():
+            budget_val = data['budget_label']['text']
+            carryover_val = data['carryover_label']['text']
+            data['budget_label'].destroy()
+            data['carryover_label'].destroy()
+            budget_entry = ttk.Entry(self)
+            budget_entry.insert(0, budget_val)
+            budget_entry.grid(row=data['row_index'], column=1)
+            data['budget_entry'] = budget_entry
+            carryover_entry = ttk.Entry(self)
+            carryover_entry.insert(0, carryover_val)
+            carryover_entry.grid(row=data['row_index'], column=3)
+            data['carryover_entry'] = carryover_entry
+        self._edit_button['text'] = 'Save'
+        self._edit_button['command'] = self._save
 
 
 class PFT_GUI:
@@ -837,7 +890,6 @@ class PFT_GUI:
         self.content_frame = None
 
         self._load_accounts()
-        self._load_budgets()
         if self.accounts:
             self._show_ledger()
         else:
@@ -849,7 +901,7 @@ class PFT_GUI:
         self.accounts = self.storage.get_accounts()
 
     def _load_budgets(self):
-        self.budgets = self.storage.get_budgets()
+        return self.storage.get_budgets()
 
     def _show_actions(self):
         actions_widget = ActionsWidget(master=self.content_frame, show_ledger=self._show_ledger,
@@ -872,13 +924,14 @@ class PFT_GUI:
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):
+        budgets = self._load_budgets()
         if self.content_frame:
             self.content_frame.destroy()
         self.content_frame = ttk.Frame(master=self.root)
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(1, weight=1)
         self._show_actions()
-        bdw = BudgetDisplayWidget(master=self.content_frame, budget=self.budgets[0])
+        bdw = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
