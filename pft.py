@@ -206,7 +206,7 @@ class Budget:
         self.id = id_
 
     def __str__(self):
-        return f'{self.id} {self.year}'
+        return '%s %s' % (self.id, self.year)
 
     @property
     def save_category_rows(self):
