@@ -275,7 +275,7 @@ class SQLiteStorage:
     def get_category(self, category_id):
         db_record = self._db_connection.execute('SELECT id, name FROM categories WHERE id = ?', (category_id,)).fetchone()
         if not db_record:
-            raise Exception(f'No category with id: {category_id}')
+            raise Exception('No category with id: %s' % category_id)
         return Category(name=db_record[1], id_=db_record[0])
 
     def get_categories(self):
