@@ -5,9 +5,7 @@ Python Finance Tracking
 
 TODO
 ----
-- support budgets
-- add gui support for adding/editing/switching accounts
-- add gui support for viewing/editing categories
+- add gui support for adding/editing accounts
 
 PROJECT GOALS
 -------------
