@@ -20,7 +20,7 @@ from pft import (
         txn_categories_from_string,
         txn_categories_display,
         AddAccountWidget,
-        LedgerTxnWidget,
+        LedgerWidget,
         AddTransactionWidget,
         CategoriesDisplayWidget,
         BudgetDisplayWidget,
@@ -774,23 +774,27 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0][0], 'Checking')
 
-    def test_ledger_txn_widget(self):
-        def reload_ledger(): pass
+    def test_ledger_widget(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D('100'))
-        txn = Transaction(account=a, amount=D('5'), txn_date=date.today())
-        ltw = LedgerTxnWidget(txn, D(105), master=self.root, storage=storage, reload_function=reload_ledger)
-        self.assertEqual(ltw.balance_label.cget('text'), '105')
+        account = Account(name='Checking', starting_balance=D('100'))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D('5'), txn_date=date.today(), description='description')
+        storage.save_txn(txn)
+        ledger = Ledger(starting_balance=account.starting_balance)
+        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
+        self.assertEqual(ledger_widget.data[txn.id]['labels']['balance'].cget('text'), '105')
         #edit txn - check amount entry is 5
-        ltw.edit_button.invoke()
-        self.assertEqual(ltw.amount_entry.get(), '5')
-        #edit txn - change amount to 25
-        ltw.amount_entry.insert(0, '2')
-        ltw.edit_save_button.invoke()
+        ledger_widget.data[txn.id]['buttons'][0].invoke()
+        self.assertEqual(ledger_widget.data[txn.id]['entries']['amount'].get(), '5')
+        #edit txn - change amount to 25, add payee
+        ledger_widget.data[txn.id]['entries']['amount'].insert(0, '2')
+        ledger_widget.data[txn.id]['entries']['payee'].insert(0, 'Someone')
+        ledger_widget.data[txn.id]['buttons'][0].invoke()
         #make sure db record amount is updated to 25
-        txns = storage._db_connection.execute('SELECT amount FROM transactions').fetchall()
+        txns = storage._db_connection.execute('SELECT amount, payee FROM transactions').fetchall()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0][0], '25')
+        self.assertEqual(txns[0][1], 'Someone')
 
     def test_add_transaction(self):
         storage = SQLiteStorage(':memory:')

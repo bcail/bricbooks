@@ -441,48 +441,11 @@ def txn_categories_display(txn):
     return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in txn.categories])
 
 
-class LedgerTxnWidget(ttk.Frame):
+class LedgerWidget(ttk.Frame):
 
-    def __init__(self, txn, balance, master=None, storage=None, reload_function=None):
+    def __init__(self, ledger, master, storage, account, delete_txn, reload_function):
         super().__init__(master=master, padding=(0, 0, 0, 0))
-        self.master = master
-        self.txn = txn
-        self.balance = balance
-        self.storage = storage
-        self.reload_function = reload_function
-        self._display_txn()
-
-    def _display_txn(self):
-        self.txn_type_label = ttk.Label(self, width=TXN_TYPE_WIDTH, borderwidth=1, relief="solid")
-        self.txn_type_label['text'] = self.txn.txn_type or ''
-        self.date_label = ttk.Label(self, width=DATE_WIDTH, borderwidth=1, relief="solid")
-        self.date_label['text'] = str(self.txn.txn_date)
-        self.payee_label = ttk.Label(self, width=PAYEE_WIDTH, borderwidth=1, relief="solid")
-        self.payee_label['text'] = self.txn.payee or ''
-        self.amount_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid")
-        self.amount_label['text'] = str(self.txn.amount)
-        self.description_label = ttk.Label(self, width=DESCRIPTION_WIDTH, borderwidth=1, relief="solid")
-        self.description_label['text'] = self.txn.description
-        self.status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid")
-        self.status_label['text'] = self.txn.status
-        self.balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(self.balance), borderwidth=1, relief="solid")
-        self.categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
-        self.categories_label['text'] = txn_categories_display(self.txn)
-        self.edit_button = ttk.Button(self, text='Edit', width=6)
-        self.edit_button['command'] = self._edit
-        self.delete_button = ttk.Button(self, text='Delete', width=8)
-        self.delete_button['command'] = self._delete
-        self.txn_type_label.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.date_label.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.payee_label.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.amount_label.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.description_label.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.status_label.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.balance_label.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.categories_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.edit_button.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.delete_button.grid(row=0, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.grid_columnconfigure(0, weight=3)
+        self.grid_columnconfigure(0, weight=2)
         self.grid_columnconfigure(1, weight=3)
         self.grid_columnconfigure(2, weight=3)
         self.grid_columnconfigure(3, weight=3)
@@ -492,110 +455,133 @@ class LedgerTxnWidget(ttk.Frame):
         self.grid_columnconfigure(7, weight=3)
         self.grid_columnconfigure(8, weight=1)
         self.grid_columnconfigure(9, weight=1)
-
-    def _edit(self):
-        #destroy the labels that have the current data & the edit button
-        self.txn_type_label.destroy()
-        self.date_label.destroy()
-        self.payee_label.destroy()
-        self.amount_label.destroy()
-        self.description_label.destroy()
-        self.status_label.destroy()
-        self.balance_label.destroy()
-        self.edit_button.destroy()
-        self.delete_button.destroy()
-        #create entries with the current data in them
-        self.txn_type_var = tk.StringVar(master=self.master)
-        if self.txn.txn_type:
-            self.txn_type_var.set(self.txn.txn_type)
-        self.txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH, textvariable=self.txn_type_var)
-        self.date_var = tk.StringVar(master=self.master)
-        self.date_var.set(str(self.txn.txn_date))
-        self.date_entry = ttk.Entry(self, width=DATE_WIDTH, textvariable=self.date_var)
-        self.payee_var = tk.StringVar(master=self.master)
-        if self.txn.payee:
-            self.payee_var.set(self.txn.payee)
-        self.payee_entry = ttk.Entry(self, width=PAYEE_WIDTH, textvariable=self.payee_var)
-        self.amount_var = tk.StringVar(master=self.master)
-        self.amount_var.set(str(self.txn.amount))
-        self.amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH, textvariable=self.amount_var)
-        self.description_var = tk.StringVar(master=self.master)
-        if self.txn.description:
-            self.description_var.set(self.txn.description)
-        self.description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH, textvariable=self.description_var)
-        self.status_var = tk.StringVar(master=self.master)
-        if self.txn.status:
-            self.status_var.set(self.txn.status)
-        self.status_entry = ttk.Entry(self, width=STATUS_WIDTH, textvariable=self.status_var)
-        self.edit_save_button = ttk.Button(self, text='Save Edit', command=self._edit_save)
-        self.blank_label = ttk.Label(self, width=ACTIONS_WIDTH, text='')
-        self.txn_type_entry.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.date_entry.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.payee_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.amount_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.description_entry.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.status_entry.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.edit_save_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.blank_label.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
-
-    def _destroy_entries(self):
-        self.txn_type_entry.destroy()
-        self.date_entry.destroy()
-        self.payee_entry.destroy()
-        self.amount_entry.destroy()
-        self.description_entry.destroy()
-        self.status_entry.destroy()
-        self.edit_save_button.destroy()
-        self.blank_label.destroy()
-
-    def _edit_save(self):
-        txn_type = self.txn_type_var.get()
-        txn_date = self.date_var.get()
-        payee = self.payee_var.get()
-        amount = self.amount_var.get()
-        description = self.description_var.get()
-        status = self.status_var.get()
-        self.txn.update_values(
-                txn_type=txn_type,
-                txn_date=txn_date,
-                amount=amount,
-                description=description,
-                status=status,
-            )
-        self.storage.save_txn(self.txn)
-        self.reload_function()
-
-    def _delete(self):
-        self.storage.delete_txn(self.txn.id)
-        self.reload_function()
-
-
-class LedgerWidget(ttk.Frame):
-
-    def __init__(self, ledger, master, storage, account_id):
-        super().__init__(master=master, padding=(0, 0, 0, 0))
-        self.grid_columnconfigure(0, weight=1)
         self.ledger = ledger
         self.storage = storage
-        self.account_id = account_id
-        self.txn_widgets = []
+        self.account = account
+        self._reload = reload_function
+        self._delete_txn = delete_txn
+        self.data = {}
         self.load_ledger()
 
-    def _clear(self):
-        for txn_widget in self.txn_widgets:
-            txn_widget.destroy()
-        self.ledger.clear_txns()
-
     def load_ledger(self):
-        self._clear()
-        self.txn_widgets = []
-        self.storage.load_txns_into_ledger(self.account_id, self.ledger)
+        self.storage.load_txns_into_ledger(self.account.id, self.ledger)
         row = 0
         for record in self.ledger.get_records():
-            txn_widget = LedgerTxnWidget(record['txn'], record['balance'], master=self, storage=self.storage, reload_function=self.load_ledger)
-            txn_widget.grid(row=row, column=0, sticky=(tk.W, tk.E))
-            self.txn_widgets.append(txn_widget)
+            self._display_txn(record['txn'], record['balance'], row)
             row += 1
+
+    def _display_txn(self, txn, balance, row):
+
+        def _edit(txn_id=txn.id):
+
+            def _edit_save(txn_id=txn_id):
+                entries = self.data[txn_id]['entries']
+                txn_type = entries['txn_type'].get()
+                txn_date = entries['date'].get()
+                payee = entries['payee'].get()
+                amount = entries['amount'].get()
+                description = entries['description'].get()
+                status = entries['status'].get()
+                txn = self.data[txn_id]['txn']
+                txn.update_values(
+                        txn_type=txn_type,
+                        txn_date=txn_date,
+                        payee=payee,
+                        amount=amount,
+                        description=description,
+                        status=status,
+                    )
+                self.storage.save_txn(txn)
+                self._reload(self.account)
+
+            for label in self.data[txn_id]['labels'].values():
+                label.destroy()
+            self.data[txn_id]['labels'] = {}
+            for btn in self.data[txn_id]['buttons']:
+                btn.destroy()
+            self.data[txn_id]['buttons'] = []
+
+            txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH)
+            if txn.txn_type:
+                txn_type_entry.insert(0, txn.txn_type)
+            date_entry = ttk.Entry(self, width=DATE_WIDTH)
+            date_entry.insert(0, str(txn.txn_date))
+            payee_entry = ttk.Entry(self, width=PAYEE_WIDTH)
+            if txn.payee:
+                payee_entry.insert(0, txn.payee)
+            amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH)
+            amount_entry.insert(0, str(txn.amount))
+            description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH)
+            if txn.description:
+                description_entry.insert(0, txn.description)
+            status_entry = ttk.Entry(self, width=STATUS_WIDTH)
+            if txn.status:
+                status_entry.insert(0, txn.status)
+            edit_save_button = ttk.Button(self, text='Save Edit', command=_edit_save)
+            txn_type_entry.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+            date_entry.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+            payee_entry.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+            amount_entry.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
+            description_entry.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+            status_entry.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+            edit_save_button.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+            self.data[txn_id]['entries'] = {
+                    'txn_type': txn_type_entry,
+                    'date': date_entry,
+                    'payee': payee_entry,
+                    'amount': amount_entry,
+                    'description': description_entry,
+                    'status': status_entry,
+                }
+            self.data[txn_id]['buttons'] = [edit_save_button]
+
+        def _delete(txn_id=txn.id):
+            self._delete_txn(txn_id)
+            self._reload()
+
+        row_data = {'txn': txn}
+        txn_type_label = ttk.Label(self, width=TXN_TYPE_WIDTH, borderwidth=1, relief="solid")
+        txn_type_label['text'] = txn.txn_type or ''
+        date_label = ttk.Label(self, width=DATE_WIDTH, borderwidth=1, relief="solid")
+        date_label['text'] = str(txn.txn_date)
+        payee_label = ttk.Label(self, width=PAYEE_WIDTH, borderwidth=1, relief="solid")
+        payee_label['text'] = txn.payee or ''
+        amount_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid")
+        amount_label['text'] = str(txn.amount)
+        description_label = ttk.Label(self, width=DESCRIPTION_WIDTH, borderwidth=1, relief="solid")
+        description_label['text'] = txn.description
+        status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid")
+        status_label['text'] = txn.status
+        balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(balance), borderwidth=1, relief="solid")
+        categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
+        categories_label['text'] = txn_categories_display(txn)
+        edit_button = ttk.Button(self, text='Edit', width=6)
+        edit_button['command'] = _edit
+        delete_button = ttk.Button(self, text='Delete', width=8)
+        delete_button['command'] = _delete
+        txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        payee_label.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        amount_label.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        description_label.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        status_label.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        balance_label.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        categories_label.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        edit_button.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        delete_button.grid(row=row, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        row_data['labels'] = {
+                'txn_type': txn_type_label,
+                'date': date_label,
+                'payee': payee_label,
+                'amount': amount_label,
+                'description': description_label,
+                'status': status_label,
+                'balance': balance_label,
+                'categories': categories_label
+            }
+        row_data['buttons'] = [edit_button, delete_button]
+        self.data[txn.id] = row_data
 
 
 class AddTransactionWidget(ttk.Frame):
@@ -956,7 +942,7 @@ class PFT_GUI:
         vertical_scrollbar.configure(command=canvas.yview)
 
         ledger = Ledger(starting_balance=current_account.starting_balance)
-        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account_id=current_account.id)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account=current_account, delete_txn=self.storage.delete_txn, reload_function=self._show_ledger)
 
         self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
