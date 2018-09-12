@@ -742,6 +742,54 @@ class AddAccountWidget(ttk.Frame):
         self._display_ledger()
 
 
+class LedgerDisplayWidget(ttk.Frame):
+
+    def __init__(self, master, accounts, current_account, show_ledger, storage):
+        super().__init__(master=master)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        #https://stackoverflow.com/questions/1873575/how-could-i-get-a-frame-with-a-scrollbar-in-tkinter
+        headings = HeadingsWidget(master=self, accounts=accounts, current_account=current_account, show_ledger=show_ledger)
+        vertical_scrollbar = ttk.Scrollbar(master=self, orient=tk.VERTICAL)
+
+        canvas = tk.Canvas(master=self, yscrollcommand=vertical_scrollbar.set, highlightthickness=0, borderwidth=0)
+
+        vertical_scrollbar.configure(command=canvas.yview)
+
+        ledger = Ledger(starting_balance=current_account.starting_balance)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=storage, account=current_account, delete_txn=storage.delete_txn, reload_function=show_ledger)
+
+        self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W)) #necessary? this is on the canvas...
+
+        #this line has to go after the ledger_widget.grid, for the scrollbar to work
+        #   (although it doesn't resize if it there's extra space in the window)
+        ledger_window_id = canvas.create_window(0, 0, anchor=tk.NW, window=self.ledger_widget)
+
+        headings.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        canvas.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        vertical_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
+
+        #update_idletasks has to go before configuring the scrollregion
+        self.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+        #https://stackoverflow.com/questions/16188420/python-tkinter-scrollbar-for-frame
+        def _configure_canvas(event):
+            if self.ledger_widget.winfo_reqwidth() != canvas.winfo_width():
+                # update the inner frame's width to fill the canvas
+                canvas.itemconfigure(ledger_window_id, width=canvas.winfo_width())
+        canvas.bind('<Configure>', _configure_canvas)
+
+        def _configure_ledger_widget(event):
+            size = (self.ledger_widget.winfo_reqwidth(), self.ledger_widget.winfo_reqheight())
+            canvas.config(scrollregion="0 0 %s %s" % size)
+        self.ledger_widget.bind('<Configure>', _configure_ledger_widget)
+
+        add_txn_widget = AddTransactionWidget(master=self, account=current_account, storage=storage, reload_ledger=self.ledger_widget.load_ledger)
+        add_txn_widget.grid(row=2, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+
 class CategoriesDisplayWidget(ttk.Frame):
 
     def __init__(self, master, categories, storage, reload_categories, delete_category):
@@ -905,6 +953,20 @@ class PFT_GUI:
         add_account_frame = AddAccountWidget(master=self.root, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
         add_account_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
+    def _show_ledger(self, current_account=None):
+        if not current_account:
+            current_account = self.accounts[0]
+
+        if self.content_frame:
+            self.content_frame.destroy()
+        self.content_frame = ttk.Frame(master=self.root)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(1, weight=1)
+        self._show_actions()
+        ldw = LedgerDisplayWidget(master=self.content_frame, accounts=self.accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
+        ldw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
     def _show_categories(self):
         if self.content_frame:
             self.content_frame.destroy()
@@ -927,60 +989,6 @@ class PFT_GUI:
         bdw = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
         bdw.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-
-    def _show_ledger(self, current_account=None):
-        if not current_account:
-            current_account = self.accounts[0]
-
-        if self.content_frame:
-            self.content_frame.destroy()
-        self.content_frame = ttk.Frame(master=self.root)
-        self.content_frame.grid_columnconfigure(0, weight=1)
-        self.content_frame.grid_rowconfigure(2, weight=1)
-
-        self._show_actions()
-
-        #https://stackoverflow.com/questions/1873575/how-could-i-get-a-frame-with-a-scrollbar-in-tkinter
-        headings = HeadingsWidget(master=self.content_frame, accounts=self.accounts, current_account=current_account, show_ledger=self._show_ledger)
-        vertical_scrollbar = ttk.Scrollbar(master=self.content_frame, orient=tk.VERTICAL)
-
-        canvas = tk.Canvas(master=self.content_frame, yscrollcommand=vertical_scrollbar.set, highlightthickness=0, borderwidth=0)
-
-        vertical_scrollbar.configure(command=canvas.yview)
-
-        ledger = Ledger(starting_balance=current_account.starting_balance)
-        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=self.storage, account=current_account, delete_txn=self.storage.delete_txn, reload_function=self._show_ledger)
-
-        self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-
-        #this line has to go after the ledger_widget.grid, for the scrollbar to work
-        #   (although it doesn't resize if it there's extra space in the window)
-        ledger_window_id = canvas.create_window(0, 0, anchor=tk.NW, window=self.ledger_widget)
-
-        headings.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-        canvas.grid(row=2, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-        vertical_scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S))
-
-        #update_idletasks has to go before configuring the scrollregion
-        self.root.update_idletasks()
-        canvas.configure(scrollregion=canvas.bbox("all"))
-
-        #https://stackoverflow.com/questions/16188420/python-tkinter-scrollbar-for-frame
-        def _configure_canvas(event):
-            if self.ledger_widget.winfo_reqwidth() != canvas.winfo_width():
-                # update the inner frame's width to fill the canvas
-                canvas.itemconfigure(ledger_window_id, width=canvas.winfo_width())
-        canvas.bind('<Configure>', _configure_canvas)
-
-        def _configure_ledger_widget(event):
-            size = (self.ledger_widget.winfo_reqwidth(), self.ledger_widget.winfo_reqheight())
-            canvas.config(scrollregion="0 0 %s %s" % size)
-        self.ledger_widget.bind('<Configure>', _configure_ledger_widget)
-
-        add_txn_widget = AddTransactionWidget(master=self.content_frame, account=current_account, storage=self.storage, reload_ledger=self.ledger_widget.load_ledger)
-        add_txn_widget.grid(row=3, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
-
-        self.content_frame.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
 if __name__ == '__main__':
