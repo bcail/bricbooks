@@ -517,6 +517,7 @@ class LedgerWidget(ttk.Frame):
             status_entry = ttk.Entry(self, width=STATUS_WIDTH)
             if txn.status:
                 status_entry.insert(0, txn.status)
+            categories_entry = ttk.Entry(self)
             edit_save_button = ttk.Button(self, text='Save Edit', command=_edit_save)
             txn_type_entry.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
             date_entry.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
@@ -524,7 +525,8 @@ class LedgerWidget(ttk.Frame):
             amount_entry.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
             description_entry.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
             status_entry.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
-            edit_save_button.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+            categories_entry.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+            edit_save_button.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
 
             self.data[txn_id]['entries'] = {
                     'txn_type': txn_type_entry,
@@ -533,6 +535,7 @@ class LedgerWidget(ttk.Frame):
                     'amount': amount_entry,
                     'description': description_entry,
                     'status': status_entry,
+                    'categories': categories_entry,
                 }
             self.data[txn_id]['buttons'] = [edit_save_button]
 

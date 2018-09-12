@@ -778,6 +778,8 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D('100'))
         storage.save_account(account)
+        category = Category(name='Housing')
+        storage.save_category(category)
         txn = Transaction(account=account, amount=D('5'), txn_date=date.today(), description='description')
         storage.save_txn(txn)
         ledger = Ledger(starting_balance=account.starting_balance)
@@ -789,12 +791,16 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         #edit txn - change amount to 25, add payee
         ledger_widget.data[txn.id]['entries']['amount'].insert(0, '2')
         ledger_widget.data[txn.id]['entries']['payee'].insert(0, 'Someone')
+        ledger_widget.data[txn.id]['entries']['categories'].insert(0, str(category.id))
         ledger_widget.data[txn.id]['buttons'][0].invoke()
         #make sure db record amount is updated to 25
         txns = storage._db_connection.execute('SELECT amount, payee FROM transactions').fetchall()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0][0], '25')
         self.assertEqual(txns[0][1], 'Someone')
+        txn_categories = storage._db_connection.execute('SELECT amount FROM txn_categories WHERE txn_id = ? AND category_id = ?', (txn.id, category.id)).fetchall()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0][0], '25')
 
     def test_add_transaction(self):
         storage = SQLiteStorage(':memory:')
