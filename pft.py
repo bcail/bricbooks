@@ -715,7 +715,7 @@ class LedgerDisplayWidget(ttk.Frame):
         self.action_combo = ttk.Combobox(self, textvariable=self.action_var)
         self.action_combo['values'] = [a.name for a in self.accounts]
         self.action_combo.bind('<<ComboboxSelected>>', self._update_account)
-        self.action_combo.grid(row=0, column=0)
+        self.action_combo.grid(row=0, column=0, columnspan=3, sticky=(tk.W))
         self.action_combo.set(self.current_account.name)
         headings_row = 1
         ttk.Label(self, text='Txn Type', width=TXN_TYPE_WIDTH).grid(row=headings_row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
