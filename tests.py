@@ -22,10 +22,8 @@ from pft import (
         txn_categories_display,
         AddAccountWidget,
         LedgerWidget,
-        AddTransactionWidget,
         CategoriesDisplayWidget,
         BudgetDisplayWidget,
-        PFT_GUI,
     )
 
 
@@ -809,19 +807,6 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txn_categories), 1)
         self.assertEqual(txn_categories[0][0], category2.id)
         self.assertEqual(txn_categories[0][1], '25')
-
-    def test_add_transaction(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(0))
-        def reload_ledger(): pass
-        atw = AddTransactionWidget(master=self.root, account=account, storage=storage, reload_ledger=reload_ledger)
-        atw.date_entry.insert(0, '2018-01-13')
-        atw.amount_entry.insert(0, '100')
-        atw.save_button.invoke()
-        #make sure there's a transaction now
-        txns = storage._db_connection.execute('SELECT amount FROM transactions').fetchall()
-        self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0][0], '100')
 
     def test_txn_categories_display(self):
         a = Account(name='Checking', starting_balance=D('100'))

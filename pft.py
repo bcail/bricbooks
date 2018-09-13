@@ -591,67 +591,6 @@ class LedgerWidget(ttk.Frame):
         self.data[txn.id] = row_data
 
 
-class AddTransactionWidget(ttk.Frame):
-
-    def __init__(self, master, account, storage, reload_ledger):
-        super().__init__(master=master, padding=(0, 0, 0, 0))
-        self.grid_columnconfigure(0, weight=3)
-        self.grid_columnconfigure(1, weight=3)
-        self.grid_columnconfigure(2, weight=3)
-        self.grid_columnconfigure(3, weight=3)
-        self.grid_columnconfigure(4, weight=3)
-        self.grid_columnconfigure(5, weight=3)
-        self.grid_columnconfigure(6, weight=3)
-        self.grid_columnconfigure(7, weight=1)
-        self.grid_columnconfigure(8, weight=1)
-        self.account = account
-        self.storage = storage
-        self.reload_ledger = reload_ledger
-        self.txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH)
-        self.date_entry = ttk.Entry(self, width=DATE_WIDTH)
-        self.payee_entry = ttk.Entry(self, width=PAYEE_WIDTH)
-        self.amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH)
-        self.description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH)
-        self.status_entry = ttk.Entry(self, width=STATUS_WIDTH)
-        self.categories_entry = ttk.Entry(self, width=CATEGORIES_WIDTH)
-        self.save_button = ttk.Button(self, text='Save', command=self._save, width=BALANCE_WIDTH)
-        self.spacer_label = ttk.Label(self, text='', width=ACTIONS_WIDTH)
-        self.txn_type_entry.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.date_entry.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.payee_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.amount_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.description_entry.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.status_entry.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.categories_entry.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.save_button.grid(row=0, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        self.spacer_label.grid(row=0, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-
-    def _clear_entries(self):
-        self.txn_type_entry.delete(0, 'end')
-        self.date_entry.delete(0, 'end')
-        self.payee_entry.delete(0, 'end')
-        self.amount_entry.delete(0, 'end')
-        self.description_entry.delete(0, 'end')
-        self.status_entry.delete(0, 'end')
-        self.categories_entry.delete(0, 'end')
-
-    def _save(self):
-        txn_type = self.txn_type_entry.get()
-        date_val = self.date_entry.get()
-        year, month, day = date_val.split('-')
-        txn_date = date(int(year), int(month), int(day))
-        payee = self.payee_entry.get()
-        amount = Decimal(self.amount_entry.get())
-        description = self.description_entry.get()
-        status = self.status_entry.get()
-        categories_str = self.categories_entry.get()
-        categories = txn_categories_from_string(self.storage, categories_str)
-        txn = Transaction(account=self.account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status, categories=categories)
-        self.storage.save_txn(txn)
-        self._clear_entries()
-        self.reload_ledger()
-
-
 class ActionsWidget(ttk.Frame):
 
     def __init__(self, master, show_ledger, show_categories, show_budget):
@@ -699,6 +638,7 @@ class LedgerDisplayWidget(ttk.Frame):
         self.show_ledger = show_ledger
         self.accounts = accounts
         self.current_account = current_account
+        self.storage = storage
         self.grid_rowconfigure(2, weight=1)
         self.grid_columnconfigure(0, weight=3)
         self.grid_columnconfigure(1, weight=3)
@@ -711,7 +651,7 @@ class LedgerDisplayWidget(ttk.Frame):
         self.grid_columnconfigure(8, weight=1)
 
         #headings
-        self.action_var = tk.StringVar() #has to have the "self.", or else the account name doesn't show in the combobox
+        self.action_var = tk.StringVar(self) #has to have the "self.", or else the account name doesn't show in the combobox
         self.action_combo = ttk.Combobox(self, textvariable=self.action_var)
         self.action_combo['values'] = [a.name for a in self.accounts]
         self.action_combo.bind('<<ComboboxSelected>>', self._update_account)
@@ -763,8 +703,53 @@ class LedgerDisplayWidget(ttk.Frame):
             canvas.config(scrollregion="0 0 %s %s" % size)
         self.ledger_widget.bind('<Configure>', _configure_ledger_widget)
 
-        add_txn_widget = AddTransactionWidget(master=self, account=current_account, storage=storage, reload_ledger=self.ledger_widget.load_ledger)
-        add_txn_widget.grid(row=3, column=0, columnspan=9, sticky=(tk.N, tk.W, tk.S, tk.E))
+        txn_type_entry = ttk.Entry(self, width=TXN_TYPE_WIDTH)
+        date_entry = ttk.Entry(self, width=DATE_WIDTH)
+        payee_entry = ttk.Entry(self, width=PAYEE_WIDTH)
+        amount_entry = ttk.Entry(self, width=AMOUNT_WIDTH)
+        description_entry = ttk.Entry(self, width=DESCRIPTION_WIDTH)
+        status_entry = ttk.Entry(self, width=STATUS_WIDTH)
+        categories_entry = ttk.Entry(self, width=CATEGORIES_WIDTH)
+        save_button = ttk.Button(self, text='Save', command=self._save_new_txn, width=BALANCE_WIDTH)
+        add_txn_row = 3
+        txn_type_entry.grid(row=add_txn_row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        date_entry.grid(row=add_txn_row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        payee_entry.grid(row=add_txn_row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        amount_entry.grid(row=add_txn_row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        description_entry.grid(row=add_txn_row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        status_entry.grid(row=add_txn_row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        categories_entry.grid(row=add_txn_row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        save_button.grid(row=add_txn_row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        self.add_txn_data = {}
+        self.add_txn_data['entries'] = {
+                'txn_type': txn_type_entry,
+                'date': date_entry,
+                'payee': payee_entry,
+                'amount': amount_entry,
+                'description': description_entry,
+                'status': status_entry,
+                'categories': categories_entry
+            }
+
+    def _clear_add_txn_entries(self):
+        for entry in self.add_txn_data['entries'].values():
+            entry.delete(0, tk.END)
+
+    def _save_new_txn(self):
+        txn_type = self.add_txn_data['entries']['txn_type'].get()
+        date_val = self.add_txn_data['entries']['date'].get()
+        year, month, day = date_val.split('-')
+        txn_date = date(int(year), int(month), int(day))
+        payee = self.add_txn_data['entries']['payee'].get()
+        amount = Decimal(self.add_txn_data['entries']['amount'].get())
+        description = self.add_txn_data['entries']['description'].get()
+        status = self.add_txn_data['entries']['status'].get()
+        categories_str = self.add_txn_data['entries']['categories'].get()
+        categories = txn_categories_from_string(self.storage, categories_str)
+        txn = Transaction(account=self.current_account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status, categories=categories)
+        self.storage.save_txn(txn)
+        self._clear_add_txn_entries()
+        self.show_ledger()
 
     def _update_account(self, event):
         current_account_index = self.action_combo.current()
