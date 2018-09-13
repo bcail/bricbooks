@@ -421,7 +421,6 @@ STATUS_WIDTH = 7
 BALANCE_WIDTH = 12
 CATEGORIES_WIDTH = 12
 ACTIONS_WIDTH = 16
-PADX = 3
 
 
 def txn_categories_from_string(storage, categories_str):
@@ -567,16 +566,16 @@ class LedgerWidget(ttk.Frame):
         edit_button['command'] = _edit
         delete_button = ttk.Button(self, text='Delete', width=8)
         delete_button['command'] = _delete
-        txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        payee_label.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        amount_label.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        description_label.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        status_label.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        balance_label.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        categories_label.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        edit_button.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        delete_button.grid(row=row, column=9, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        payee_label.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+        amount_label.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
+        description_label.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        status_label.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+        balance_label.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+        categories_label.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
+        edit_button.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
+        delete_button.grid(row=row, column=9, sticky=(tk.N, tk.S, tk.E, tk.W))
         row_data['labels'] = {
                 'txn_type': txn_type_label,
                 'date': date_label,
@@ -712,14 +711,14 @@ class LedgerDisplayWidget(ttk.Frame):
         categories_entry = ttk.Entry(self, width=CATEGORIES_WIDTH)
         save_button = ttk.Button(self, text='Save', command=self._save_new_txn, width=BALANCE_WIDTH)
         add_txn_row = 3
-        txn_type_entry.grid(row=add_txn_row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        date_entry.grid(row=add_txn_row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        payee_entry.grid(row=add_txn_row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        amount_entry.grid(row=add_txn_row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        description_entry.grid(row=add_txn_row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        status_entry.grid(row=add_txn_row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        categories_entry.grid(row=add_txn_row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
-        save_button.grid(row=add_txn_row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W), padx=PADX)
+        txn_type_entry.grid(row=add_txn_row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        date_entry.grid(row=add_txn_row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        payee_entry.grid(row=add_txn_row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+        amount_entry.grid(row=add_txn_row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
+        description_entry.grid(row=add_txn_row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        status_entry.grid(row=add_txn_row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+        categories_entry.grid(row=add_txn_row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+        save_button.grid(row=add_txn_row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.add_txn_data = {}
         self.add_txn_data['entries'] = {
                 'txn_type': txn_type_entry,
