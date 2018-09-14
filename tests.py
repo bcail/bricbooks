@@ -760,18 +760,20 @@ class TestSQLiteStorage(unittest.TestCase):
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
 
-    def test_add_account(self):
+    def test_accounts_display_widget(self):
         storage = SQLiteStorage(':memory:')
-        def load_accounts(): pass
-        def display_ledger(): pass
-        adw = AccountsDisplayWidget(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
-        adw.name_entry.insert(0, 'Checking')
-        adw.starting_balance_entry.insert(0, '100')
-        adw.save_button.invoke()
-        #make sure there's an account now
+        acc = Account(name='Savings', starting_balance=D(5000))
+        storage.save_account(acc)
+        def show_accounts(): pass
+        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=show_accounts)
+        adw.add_account_name_entry.insert(0, 'Checking')
+        adw.add_account_starting_balance_entry.insert(0, '100')
+        adw.add_account_button.invoke()
+        #make sure there's another account now
         accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
-        self.assertEqual(len(accounts), 1)
-        self.assertEqual(accounts[0][0], 'Checking')
+        self.assertEqual(len(accounts), 2)
+        self.assertEqual(accounts[0][0], 'Savings')
+        self.assertEqual(accounts[1][0], 'Checking')
 
     def test_ledger_widget(self):
         storage = SQLiteStorage(':memory:')

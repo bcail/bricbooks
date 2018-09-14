@@ -606,30 +606,28 @@ class ActionsWidget(ttk.Frame):
 
 class AccountsDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, storage, load_accounts, display_ledger):
-        super().__init__(master=master, padding=(0, 0, 0, 0))
+    def __init__(self, master, accounts, storage, show_accounts):
+        super().__init__(master=master)
         self._storage = storage
-        self._load_accounts = load_accounts
-        self._display_ledger = display_ledger
-        heading = ttk.Label(self, text='Add New Account')
-        name_label = ttk.Label(self, text='Name')
-        self.name_entry = ttk.Entry(self)
-        starting_balance_label = ttk.Label(self, text='Starting Balance')
-        self.starting_balance_entry = ttk.Entry(self)
-        self.save_button = ttk.Button(self, text='Save New Account', command=self._add)
-        heading.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        name_label.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.name_entry.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-        starting_balance_label.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.starting_balance_entry.grid(row=1, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self._show_accounts = show_accounts
+        ttk.Label(self, text='Name').grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        ttk.Label(self, text='Starting Balance').grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        row = 1
+        for account in accounts:
+            ttk.Label(self, text=account.name).grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+            ttk.Label(self, text=str(account.starting_balance)).grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+            row += 1
+        self.add_account_name_entry = ttk.Entry(self)
+        self.add_account_name_entry.grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.add_account_starting_balance_entry = ttk.Entry(self)
+        self.add_account_starting_balance_entry.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.add_account_button = ttk.Button(self, text='Add New', command=self._add)
+        self.add_account_button.grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _add(self):
-        a = Account(name=self.name_entry.get(), starting_balance=Decimal(self.starting_balance_entry.get()))
+        a = Account(name=self.add_account_name_entry.get(), starting_balance=Decimal(self.add_account_starting_balance_entry.get()))
         self._storage.save_account(a)
-        self.destroy()
-        self._load_accounts()
-        self._display_ledger()
+        self._show_accounts()
 
 
 class LedgerDisplayWidget(ttk.Frame):
@@ -923,7 +921,8 @@ class PFT_GUI:
         self.content_frame.grid_columnconfigure(0, weight=1)
         self.content_frame.grid_rowconfigure(1, weight=1)
         self._show_actions()
-        adw = AccountsDisplayWidget(master=self.content_frame, storage=self.storage, load_accounts=self._load_accounts, display_ledger=self._show_ledger)
+        accounts = self.storage.get_accounts()
+        adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
         adw.grid(sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
