@@ -20,7 +20,7 @@ from pft import (
         SQLiteStorage,
         txn_categories_from_string,
         txn_categories_display,
-        AddAccountWidget,
+        AccountsDisplayWidget,
         LedgerWidget,
         CategoriesDisplayWidget,
         BudgetDisplayWidget,
@@ -764,10 +764,10 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         def load_accounts(): pass
         def display_ledger(): pass
-        aa = AddAccountWidget(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
-        aa.name_entry.insert(0, 'Checking')
-        aa.starting_balance_entry.insert(0, '100')
-        aa.save_button.invoke()
+        adw = AccountsDisplayWidget(master=self.root, storage=storage, load_accounts=load_accounts, display_ledger=display_ledger)
+        adw.name_entry.insert(0, 'Checking')
+        adw.starting_balance_entry.insert(0, '100')
+        adw.save_button.invoke()
         #make sure there's an account now
         accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
         self.assertEqual(len(accounts), 1)
