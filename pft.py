@@ -261,8 +261,11 @@ class SQLiteStorage:
 
     def save_account(self, account):
         c = self._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) VALUES(?, ?)', (account.name, str(account.starting_balance)))
-        account.id = c.lastrowid
+        if account.id:
+            c.execute('UPDATE accounts SET name = ?, starting_balance = ?  WHERE id = ?', (account.name, str(account.starting_balance), account.id))
+        else:
+            c.execute('INSERT INTO accounts(name, starting_balance) VALUES(?, ?)', (account.name, str(account.starting_balance)))
+            account.id = c.lastrowid
         self._db_connection.commit()
 
     def get_accounts(self):
@@ -613,9 +616,30 @@ class AccountsDisplayWidget(ttk.Frame):
         ttk.Label(self, text='Name').grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         ttk.Label(self, text='Starting Balance').grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
         row = 1
+        self.data = {}
         for account in accounts:
+            def _edit(acc_id=account.id):
+                def _save(acc_id=acc_id):
+                    a = Account(id=acc_id,
+                                name=self.data[acc_id]['entries']['name'].get(),
+                                starting_balance=self.data[acc_id]['entries']['starting_balance'].get())
+                    self._storage.save_account(a)
+                    self._show_accounts()
+                name_entry = ttk.Entry(self)
+                name_entry.insert(0, self.data[acc_id]['account'].name)
+                name_entry.grid(row=self.data[acc_id]['row'], column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+                starting_balance_entry = ttk.Entry(self)
+                starting_balance_entry.insert(0, str(self.data[acc_id]['account'].starting_balance))
+                starting_balance_entry.grid(row=self.data[acc_id]['row'], column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+                self.data[acc_id]['entries'] = {'name': name_entry, 'starting_balance': starting_balance_entry}
+                save_button = ttk.Button(self, text='Save', command=_save)
+                save_button.grid(row=self.data[acc_id]['row'], column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+                self.data[acc_id]['save_button'] = save_button
             ttk.Label(self, text=account.name).grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
             ttk.Label(self, text=str(account.starting_balance)).grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+            edit_button = ttk.Button(self, text='Edit', command=_edit)
+            edit_button.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+            self.data[account.id] = {'row': row, 'account': account, 'edit_button': edit_button}
             row += 1
         self.add_account_name_entry = ttk.Entry(self)
         self.add_account_name_entry.grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))

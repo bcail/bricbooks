@@ -404,6 +404,12 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (account.id, 'Checking', '100'))
+        account = Account(id=1, name='Savings', starting_balance=D(200))
+        storage.save_account(account)
+        c.execute('SELECT * FROM accounts')
+        db_info = c.fetchall()
+        self.assertEqual(db_info,
+                [(1, 'Savings', '200')])
 
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
@@ -774,6 +780,21 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[0][0], 'Savings')
         self.assertEqual(accounts[1][0], 'Checking')
+
+    def test_accounts_display_widget_edit(self):
+        storage = SQLiteStorage(':memory:')
+        acc = Account(name='Savings', starting_balance=D(5000))
+        storage.save_account(acc)
+        def show_accounts(): pass
+        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=show_accounts)
+        adw.data[acc.id]['edit_button'].invoke()
+        self.assertEqual(adw.data[acc.id]['entries']['name'].get(), 'Savings')
+        adw.data[acc.id]['entries']['name'].delete(0, END)
+        adw.data[acc.id]['entries']['name'].insert(0, 'Checking')
+        adw.data[acc.id]['save_button'].invoke()
+        accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0][0], 'Checking')
 
     def test_ledger_widget(self):
         storage = SQLiteStorage(':memory:')
