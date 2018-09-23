@@ -114,6 +114,52 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.status, Transaction.CLEARED)
 
+    def test_get_display_strings(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        c = Category('Cat', id_=1)
+        t = Transaction(
+                account=a,
+                txn_type='1234',
+                amount=D('101'),
+                txn_date=date.today(),
+                description='something',
+                payee='McDonalds',
+                status='C',
+                categories=[(c, D('101'))],
+            )
+        self.assertDictEqual(t.get_display_strings(),
+                {
+                    'txn_type': '1234',
+                    'debit': '',
+                    'credit': '101',
+                    'description': 'something',
+                    'txn_date': str(date.today()),
+                    'payee': 'McDonalds',
+                    'status': 'C',
+                    'categories': '1: 101',
+                }
+            )
+
+    def test_get_display_strings_sparse(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        t = Transaction(
+                account=a,
+                amount=D('-101'),
+                txn_date=date.today(),
+            )
+        self.assertDictEqual(t.get_display_strings(),
+                {
+                    'txn_type': '',
+                    'debit': '101',
+                    'credit': '',
+                    'description': '',
+                    'txn_date': str(date.today()),
+                    'payee': '',
+                    'status': '',
+                    'categories': '',
+                }
+            )
+
     def test_no_category(self):
         #uncategorized transaction
         a = Account(name='Checking', starting_balance=D('100'))
@@ -811,12 +857,12 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
         self.assertEqual(ledger_widget.data[txn.id]['labels']['categories'].cget('text'), '1: 5')
         self.assertEqual(ledger_widget.data[txn.id]['labels']['balance'].cget('text'), '105')
-        #edit txn - check amount entry is 5
+        #edit txn - check credit entry is 5
         ledger_widget.data[txn.id]['buttons'][0].invoke()
-        self.assertEqual(ledger_widget.data[txn.id]['entries']['amount'].get(), '5')
+        self.assertEqual(ledger_widget.data[txn.id]['entries']['credit'].get(), '5')
         self.assertEqual(ledger_widget.data[txn.id]['entries']['categories'].get(), '1: 5')
         #edit txn - change amount to 25, add payee
-        ledger_widget.data[txn.id]['entries']['amount'].insert(0, '2')
+        ledger_widget.data[txn.id]['entries']['credit'].insert(0, '2')
         ledger_widget.data[txn.id]['entries']['payee'].insert(0, 'Someone')
         ledger_widget.data[txn.id]['entries']['categories'].delete(0, END)
         ledger_widget.data[txn.id]['entries']['categories'].insert(0, str(category2.id))

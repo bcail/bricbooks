@@ -5,8 +5,6 @@ Python Finance Tracking
 
 TODO
 ----
-- add gui support for adding/editing accounts
-- use debit/credit columns in the GUI, instead of negative numbers for debits
 - figure out how to test more complex widgets
 
 PROJECT GOALS
