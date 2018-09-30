@@ -971,19 +971,28 @@ class PFT_GUI:
         self.content_frame.grid_columnconfigure(4, weight=1)
         self.content_frame.grid_rowconfigure(1, weight=1)
 
-    def _show_actions(self):
-        accounts_button = ttk.Button(master=self.content_frame, text='Accounts', command=self._show_accounts)
+    def _show_actions(self, display='ledger'):
+        accounts_state = ledger_state = categories_state = budget_state = tk.NORMAL
+        if display == 'accounts':
+            accounts_state = tk.DISABLED
+        elif display == 'categories':
+            categories_state = tk.DISABLED
+        elif display == 'budget':
+            budget_state = tk.DISABLED
+        else:
+            ledger_state = tk.DISABLED
+        accounts_button = ttk.Button(master=self.content_frame, text='Accounts', command=self._show_accounts, state=accounts_state)
         accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
-        ledger_button = ttk.Button(master=self.content_frame, text='Ledger', command=self._show_ledger)
+        ledger_button = ttk.Button(master=self.content_frame, text='Ledger', command=self._show_ledger, state=ledger_state)
         ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
-        budget_button = ttk.Button(master=self.content_frame, text='Categories', command=self._show_categories)
-        budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
-        budget_button = ttk.Button(master=self.content_frame, text='Budget', command=self._show_budget)
+        categories_button = ttk.Button(master=self.content_frame, text='Categories', command=self._show_categories, state=categories_state)
+        categories_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
+        budget_button = ttk.Button(master=self.content_frame, text='Budget', command=self._show_budget, state=budget_state)
         budget_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S))
 
     def _show_accounts(self):
         self._refresh_content_frame()
-        self._show_actions()
+        self._show_actions(display='accounts')
         accounts = self.storage.get_accounts()
         adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
         adw.grid(columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -1000,7 +1009,7 @@ class PFT_GUI:
 
     def _show_categories(self):
         self._refresh_content_frame()
-        self._show_actions()
+        self._show_actions(display='categories')
         categories = self.storage.get_categories()
         cdw = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage,
                 reload_categories=self._show_categories, delete_category=self.storage.delete_category)
@@ -1010,7 +1019,7 @@ class PFT_GUI:
     def _show_budget(self):
         self._refresh_content_frame()
         budgets = self._load_budgets()
-        self._show_actions()
+        self._show_actions(display='budget')
         bdw = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
         bdw.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
