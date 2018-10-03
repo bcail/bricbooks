@@ -935,14 +935,10 @@ class BudgetDisplayWidget(ttk.Frame):
 
 class PFT_GUI:
 
-    def __init__(self, root=None):
-        self.storage = SQLiteStorage(DATA_FILENAME)
+    def __init__(self, file_name):
+        self.storage = SQLiteStorage(file_name)
 
-        #root Tk application
-        if root:
-            self.root = root
-        else:
-            self.root = tk.Tk()
+        self.root = tk.Tk()
         self.root.title(TITLE)
         #make sure root container is set to resize properly
         self.root.grid_columnconfigure(0, weight=1)
@@ -1026,5 +1022,12 @@ class PFT_GUI:
 
 
 if __name__ == '__main__':
-    PFT_GUI()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file_name', dest='file_name')
+    args = parser.parse_args()
+    if args.file_name:
+        PFT_GUI(args.file_name)
+    else:
+        PFT_GUI(DATA_FILENAME)
 

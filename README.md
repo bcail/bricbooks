@@ -5,6 +5,8 @@ Python Finance Tracking
 
 TODO
 ----
+- catch exceptions and give good error messages in the UI
+- load-test the application with many transactions
 - figure out how to test more complex widgets
 
 PROJECT GOALS
