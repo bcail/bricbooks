@@ -5,7 +5,7 @@ Architecture:
     Outer Layer - Tkinter widgets (or console UI, ...). Knows about storage layer and inner objects.
     No objects should use private/hidden members of other objects.
 '''
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import os
 import sqlite3
@@ -18,6 +18,7 @@ except ImportError:
 
 DATA_FILENAME = 'python_finance_tracking.sqlite3'
 TITLE = 'Python Finance Tracking'
+DEBUG = False
 
 
 class InvalidAccountError(RuntimeError):
@@ -485,11 +486,15 @@ class LedgerWidget(ttk.Frame):
         self.load_ledger()
 
     def load_ledger(self):
+        if DEBUG:
+            print('load_ledger: %s' % datetime.now())
         self.storage.load_txns_into_ledger(self.account.id, self.ledger)
         row = 0
         for record in self.ledger.get_records():
             self._display_txn(record['txn'], record['balance'], row)
             row += 1
+        if DEBUG:
+            print('load_ledger end: %s' % datetime.now())
 
     def _display_txn(self, txn, balance, row):
 
@@ -936,6 +941,8 @@ class BudgetDisplayWidget(ttk.Frame):
 class PFT_GUI:
 
     def __init__(self, file_name):
+        if DEBUG:
+            print('PFT_GUI.__init__: %s' % datetime.now())
         self.storage = SQLiteStorage(file_name)
 
         self.root = tk.Tk()
@@ -952,6 +959,8 @@ class PFT_GUI:
         else:
             self._show_accounts()
 
+        if DEBUG:
+            print('starting mainloop: %s' % datetime.now())
         self.root.mainloop()
 
     def _load_accounts(self):
@@ -1024,8 +1033,11 @@ class PFT_GUI:
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     args = parser.parse_args()
+    if args.debug:
+        DEBUG = True
     if args.file_name:
         PFT_GUI(args.file_name)
     else:
