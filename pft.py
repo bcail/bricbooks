@@ -487,14 +487,17 @@ class LedgerWidget(ttk.Frame):
 
     def load_ledger(self):
         if DEBUG:
-            print('load_ledger: %s' % datetime.now())
+            start = datetime.now()
+            print('load_ledger: %s' % start)
         self.storage.load_txns_into_ledger(self.account.id, self.ledger)
         row = 0
         for record in self.ledger.get_records():
             self._display_txn(record['txn'], record['balance'], row)
             row += 1
         if DEBUG:
-            print('load_ledger end: %s' % datetime.now())
+            end = datetime.now()
+            print('load_ledger end: %s' % end)
+            print('load_ledger time: %s' % (end - start))
 
     def _display_txn(self, txn, balance, row):
 
