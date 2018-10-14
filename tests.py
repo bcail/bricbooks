@@ -858,7 +858,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(ledger_widget.data[txn.id]['labels']['categories'].cget('text'), '1: 5')
         self.assertEqual(ledger_widget.data[txn.id]['labels']['balance'].cget('text'), '105')
         #edit txn - check credit entry is 5
-        ledger_widget.data[txn.id]['buttons'][0].invoke()
+        ledger_widget.data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
         self.assertEqual(ledger_widget.data[txn.id]['entries']['credit'].get(), '5')
         self.assertEqual(ledger_widget.data[txn.id]['entries']['categories'].get(), '1: 5')
         #edit txn - change amount to 25, add payee

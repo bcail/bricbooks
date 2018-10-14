@@ -501,7 +501,7 @@ class LedgerWidget(ttk.Frame):
 
     def _display_txn(self, txn, balance, row):
 
-        def _edit(txn_id=txn.id):
+        def _edit(event, txn_id=txn.id):
 
             def _edit_save(txn_id=txn_id):
                 entries = self.data[txn_id]['entries']
@@ -532,6 +532,10 @@ class LedgerWidget(ttk.Frame):
                 self.storage.save_txn(txn)
                 self._reload(self.account)
 
+            def _delete(txn_id=txn_id):
+                self._delete_txn(txn_id)
+                self._reload()
+
             for label in self.data[txn_id]['labels'].values():
                 label.destroy()
             self.data[txn_id]['labels'] = {}
@@ -557,6 +561,7 @@ class LedgerWidget(ttk.Frame):
             categories_entry = ttk.Entry(self)
             categories_entry.insert(0, txn_display_strings['categories'])
             edit_save_button = ttk.Button(self, text='Save Edit', command=_edit_save)
+            delete_button = ttk.Button(self, text='Delete', width=8, command=_delete)
             txn_type_entry.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
             date_entry.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
             payee_entry.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
@@ -566,6 +571,7 @@ class LedgerWidget(ttk.Frame):
             status_entry.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
             categories_entry.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
             edit_save_button.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
+            delete_button.grid(row=row, column=9, sticky=(tk.N, tk.S, tk.E, tk.W))
 
             self.data[txn_id]['entries'] = {
                     'txn_type': txn_type_entry,
@@ -578,10 +584,6 @@ class LedgerWidget(ttk.Frame):
                     'categories': categories_entry,
                 }
             self.data[txn_id]['buttons'] = [edit_save_button]
-
-        def _delete(txn_id=txn.id):
-            self._delete_txn(txn_id)
-            self._reload()
 
         row_data = {'txn': txn}
         txn_display_strings = txn.get_display_strings()
@@ -602,21 +604,24 @@ class LedgerWidget(ttk.Frame):
         balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(balance), borderwidth=1, relief="solid")
         categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
         categories_label['text'] = txn_display_strings['categories']
-        edit_button = ttk.Button(self, text='Edit', width=6)
-        edit_button['command'] = _edit
-        delete_button = ttk.Button(self, text='Delete', width=8)
-        delete_button['command'] = _delete
+        txn_type_label.bind('<Button-1>', _edit)
         txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
+        date_label.bind('<Button-1>', _edit)
         payee_label.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+        payee_label.bind('<Button-1>', _edit)
         debit_label.grid(row=row, column=3, sticky=(tk.N, tk.S, tk.E, tk.W))
+        debit_label.bind('<Button-1>', _edit)
         credit_label.grid(row=row, column=4, sticky=(tk.N, tk.S, tk.E, tk.W))
+        credit_label.bind('<Button-1>', _edit)
         description_label.grid(row=row, column=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+        description_label.bind('<Button-1>', _edit)
         status_label.grid(row=row, column=6, sticky=(tk.N, tk.S, tk.E, tk.W))
+        status_label.bind('<Button-1>', _edit)
         balance_label.grid(row=row, column=7, sticky=(tk.N, tk.S, tk.E, tk.W))
+        balance_label.bind('<Button-1>', _edit)
         categories_label.grid(row=row, column=8, sticky=(tk.N, tk.S, tk.E, tk.W))
-        edit_button.grid(row=row, column=9, sticky=(tk.N, tk.S, tk.E, tk.W))
-        delete_button.grid(row=row, column=10, sticky=(tk.N, tk.S, tk.E, tk.W))
+        categories_label.bind('<Button-1>', _edit)
         row_data['labels'] = {
                 'txn_type': txn_type_label,
                 'date': date_label,
@@ -628,7 +633,8 @@ class LedgerWidget(ttk.Frame):
                 'balance': balance_label,
                 'categories': categories_label
             }
-        row_data['buttons'] = [edit_button, delete_button]
+        #row_data['buttons'] = [edit_button, delete_button]
+        row_data['buttons'] = []
         self.data[txn.id] = row_data
 
 
