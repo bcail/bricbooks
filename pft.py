@@ -585,24 +585,16 @@ class LedgerWidget(ttk.Frame):
             self.data[txn_id]['buttons'] = [edit_save_button]
 
         row_data = {'txn': txn}
-        txn_display_strings = txn.get_display_strings()
-        txn_type_label = ttk.Label(self, width=TXN_TYPE_WIDTH, borderwidth=1, relief="solid")
-        txn_type_label['text'] = txn_display_strings['txn_type']
-        date_label = ttk.Label(self, width=DATE_WIDTH, borderwidth=1, relief="solid")
-        date_label['text'] = txn_display_strings['txn_date']
-        payee_label = ttk.Label(self, width=PAYEE_WIDTH, borderwidth=1, relief="solid")
-        payee_label['text'] = txn_display_strings['payee']
-        description_label = ttk.Label(self, width=DESCRIPTION_WIDTH, borderwidth=1, relief="solid")
-        description_label['text'] = txn_display_strings['description']
-        categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid')
-        categories_label['text'] = txn_display_strings['categories']
-        status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid")
-        status_label['text'] = txn_display_strings['status']
-        debit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid")
-        debit_label['text'] = txn_display_strings['debit']
-        credit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid")
-        credit_label['text'] = txn_display_strings['credit']
-        balance_label = ttk.Label(self, width=BALANCE_WIDTH, text=str(balance), borderwidth=1, relief="solid")
+        tds = txn.get_display_strings()
+        txn_type_label = ttk.Label(self, width=TXN_TYPE_WIDTH, borderwidth=1, relief="solid", text=tds['txn_type'])
+        date_label = ttk.Label(self, width=DATE_WIDTH, borderwidth=1, relief="solid", text=tds['txn_date'])
+        payee_label = ttk.Label(self, width=PAYEE_WIDTH, borderwidth=1, relief="solid", text=tds['payee'])
+        description_label = ttk.Label(self, width=DESCRIPTION_WIDTH, borderwidth=1, relief="solid", text=tds['description'])
+        categories_label = ttk.Label(self, width=CATEGORIES_WIDTH, borderwidth=1, relief='solid', text=tds['categories'])
+        status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid", text=tds['status'])
+        debit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid", text=tds['debit'])
+        credit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid", text=tds['credit'])
+        balance_label = ttk.Label(self, width=BALANCE_WIDTH, borderwidth=1, relief="solid", text=str(balance))
         txn_type_label.bind('<Button-1>', _edit)
         txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
