@@ -877,6 +877,20 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txn_categories[0][0], category2.id)
         self.assertEqual(txn_categories[0][1], '25')
 
+    def test_ledger_widget_add(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D('100'))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D('5'), txn_date=date.today())
+        storage.save_txn(txn)
+        ledger = Ledger(starting_balance=account.starting_balance)
+        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
+        new_txn = Transaction(account=account, amount=D('17'), txn_date=date.today())
+        storage.save_txn(new_txn)
+        ledger_widget.display_new_txn(new_txn)
+        self.assertEqual(len(ledger_widget.data.keys()), 2)
+        self.assertEqual(ledger_widget.data[new_txn.id]['labels']['credit'].cget('text'), '17')
+
     def test_txn_categories_display(self):
         a = Account(name='Checking', starting_balance=D('100'))
         c = Category('Cat', id_=1)
