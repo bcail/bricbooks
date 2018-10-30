@@ -303,6 +303,18 @@ class TestTransaction(unittest.TestCase):
         with self.assertRaises(InvalidTransactionError):
             t.update_values(categories=[(c, D('55')), (c2, D('56'))])
 
+    def test_update_values_debit_credit(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        t = Transaction(
+                account=a,
+                amount=D('101'),
+                txn_date=date.today(),
+            )
+        t.update_values(debit='50')
+        self.assertEqual(t.amount, D('-50'))
+        t.update_values(credit='25')
+        self.assertEqual(t.amount, D('25'))
+
 
 class TestLedger(unittest.TestCase):
 

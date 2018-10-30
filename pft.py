@@ -166,9 +166,13 @@ class Transaction:
                 'categories': txn_categories_display(self),
             }
 
-    def update_values(self, amount=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
+    def update_values(self, amount=None, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
         if amount is not None:
             self.amount = self._check_amount(amount)
+        elif debit is not None:
+            self.amount = self._check_amount('-%s' % debit)
+        elif credit is not None:
+            self.amount = self._check_amount(credit)
         if txn_date is not None:
             self.txn_date = self._check_txn_date(txn_date)
         if txn_type is not None:
@@ -512,13 +516,8 @@ class LedgerWidget(ttk.Frame):
                 txn_type = entries['txn_type'].get()
                 txn_date = entries['date'].get()
                 payee = entries['payee'].get()
-                debit = entries['debit'].get()
-                credit = entries['credit'].get()
-                if debit:
-                    amt = '-%s' % debit
-                else:
-                    amt = credit
-                amount = Decimal(amt)
+                debit = entries['debit'].get() or None
+                credit = entries['credit'].get() or None
                 description = entries['description'].get()
                 status = entries['status'].get()
                 categories_str = entries['categories'].get()
@@ -528,7 +527,8 @@ class LedgerWidget(ttk.Frame):
                         txn_type=txn_type,
                         txn_date=txn_date,
                         payee=payee,
-                        amount=amount,
+                        debit=debit,
+                        credit=credit,
                         description=description,
                         status=status,
                         categories=categories,
