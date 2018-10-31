@@ -81,6 +81,22 @@ class Transaction:
     CLEARED = 'C'
     RECONCILED = 'R'
 
+    @staticmethod
+    def from_user_strings(account, credit, debit, txn_date, txn_type, categories, payee, description, status):
+        if credit:
+            amount = credit
+        elif debit:
+            amount = '-%s' % debit
+        return Transaction(
+                account=account,
+                amount=amount,
+                txn_date=txn_date,
+                categories=categories,
+                payee=payee,
+                description=description,
+                status=status
+            )
+
     def __init__(self, account=None, amount=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None, id_=None):
         self.account = self._check_account(account)
         self.amount = self._check_amount(amount)
@@ -166,13 +182,13 @@ class Transaction:
                 'categories': txn_categories_display(self),
             }
 
-    def update_values(self, amount=None, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
-        if amount is not None:
-            self.amount = self._check_amount(amount)
-        elif debit is not None:
+    def update_from_user_strings(self, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
+        if debit:
             self.amount = self._check_amount('-%s' % debit)
-        elif credit is not None:
+        elif credit:
             self.amount = self._check_amount(credit)
+        else:
+            raise InvalidTransactionError('must have debit or credit value for a transaction')
         if txn_date is not None:
             self.txn_date = self._check_txn_date(txn_date)
         if txn_type is not None:
@@ -516,14 +532,14 @@ class LedgerWidget(ttk.Frame):
                 txn_type = entries['txn_type'].get()
                 txn_date = entries['date'].get()
                 payee = entries['payee'].get()
-                debit = entries['debit'].get() or None
-                credit = entries['credit'].get() or None
+                debit = entries['debit'].get()
+                credit = entries['credit'].get()
                 description = entries['description'].get()
                 status = entries['status'].get()
                 categories_str = entries['categories'].get()
                 categories = txn_categories_from_string(self.storage, categories_str)
                 txn = self.data[txn_id]['txn']
-                txn.update_values(
+                txn.update_from_user_strings(
                         txn_type=txn_type,
                         txn_date=txn_date,
                         payee=payee,
@@ -795,22 +811,25 @@ class LedgerDisplayWidget(ttk.Frame):
 
     def _save_new_txn(self):
         txn_type = self.add_txn_data['entries']['txn_type'].get()
-        date_val = self.add_txn_data['entries']['date'].get()
-        year, month, day = date_val.split('-')
-        txn_date = date(int(year), int(month), int(day))
+        txn_date = self.add_txn_data['entries']['date'].get()
         payee = self.add_txn_data['entries']['payee'].get()
         debit = self.add_txn_data['entries']['debit'].get()
         credit = self.add_txn_data['entries']['credit'].get()
-        if debit:
-            amt = '-%s' % debit
-        else:
-            amt = credit
-        amount = Decimal(amt)
         description = self.add_txn_data['entries']['description'].get()
         status = self.add_txn_data['entries']['status'].get()
         categories_str = self.add_txn_data['entries']['categories'].get()
         categories = txn_categories_from_string(self.storage, categories_str)
-        txn = Transaction(account=self.current_account, txn_type=txn_type, amount=amount, txn_date=txn_date, payee=payee, description=description, status=status, categories=categories)
+        txn = Transaction.from_user_strings(
+                account=self.current_account,
+                txn_type=txn_type,
+                credit=credit,
+                debit=debit,
+                txn_date=txn_date,
+                payee=payee,
+                description=description,
+                status=status,
+                categories=categories
+            )
         self.storage.save_txn(txn)
         self._clear_add_txn_entries()
         self.ledger_widget.display_new_txn(txn)

@@ -114,6 +114,23 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.status, Transaction.CLEARED)
 
+    def test_txn_from_user_strings(self):
+        #construct txn from user strings, as much as possible (except account & categories)
+        a = Account(name='Checking', starting_balance=D('100'))
+        c = Category('Cat', id_=1)
+        t = Transaction.from_user_strings(
+                account=a,
+                txn_type='1234',
+                credit='101',
+                debit='',
+                txn_date='2017-10-15',
+                description='something',
+                payee='McDonalds',
+                status='C',
+                categories=[(c, D('101'))],
+            )
+        self.assertEqual(t.amount, D('101'))
+
     def test_get_display_strings(self):
         a = Account(name='Checking', starting_balance=D('100'))
         c = Category('Cat', id_=1)
@@ -263,13 +280,15 @@ class TestTransaction(unittest.TestCase):
                 payee='Wendys',
                 description='salad',
             )
-        t.update_values(
+        t.update_from_user_strings(
                 txn_type='1234',
-                amount=D('45'),
+                txn_date='2017-10-15',
+                credit='45',
             )
         self.assertEqual(t.txn_type, '1234')
         self.assertEqual(t.amount, D('45'))
         self.assertEqual(t.payee, 'Wendys')
+        self.assertEqual(t.txn_date, date(2017, 10, 15))
 
     def test_update_values_make_it_empty(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -281,7 +300,7 @@ class TestTransaction(unittest.TestCase):
                 payee='Arbys',
                 description='roast beef',
             )
-        t.update_values(payee='')
+        t.update_from_user_strings(credit='101', payee='')
         self.assertEqual(t.payee, '')
 
     def test_update_values_errors(self):
@@ -295,24 +314,24 @@ class TestTransaction(unittest.TestCase):
                 description='meal',
             )
         with self.assertRaises(InvalidTransactionError):
-            t.update_values(amount='ab')
+            t.update_from_user_strings(credit='ab')
         with self.assertRaises(InvalidTransactionError):
-            t.update_values(txn_date='ab')
+            t.update_from_user_strings(txn_date='ab')
         c = Category('Cat')
         c2 = Category('Dog')
         with self.assertRaises(InvalidTransactionError):
-            t.update_values(categories=[(c, D('55')), (c2, D('56'))])
+            t.update_from_user_strings(categories=[(c, D('55')), (c2, D('56'))])
 
     def test_update_values_debit_credit(self):
         a = Account(name='Checking', starting_balance=D('100'))
         t = Transaction(
                 account=a,
-                amount=D('101'),
+                amount='101',
                 txn_date=date.today(),
             )
-        t.update_values(debit='50')
+        t.update_from_user_strings(debit='50')
         self.assertEqual(t.amount, D('-50'))
-        t.update_values(credit='25')
+        t.update_from_user_strings(credit='25')
         self.assertEqual(t.amount, D('25'))
 
 
