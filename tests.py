@@ -3,8 +3,7 @@ from decimal import Decimal as D
 import os
 import sqlite3
 import tempfile
-from tkinter.test.support import AbstractTkTest
-from tkinter import END
+import tkinter
 import unittest
 
 from pft import (
@@ -25,6 +24,47 @@ from pft import (
         CategoriesDisplayWidget,
         BudgetDisplayWidget,
     )
+
+
+class AbstractTkTest:
+    '''Copy this from cpython source code (tkinter.test.support), because Ubuntu/Mint don't seem to package that support code.'''
+
+    @classmethod
+    def setUpClass(cls):
+        cls._old_support_default_root = tkinter._support_default_root
+        destroy_default_root()
+        tkinter.NoDefaultRoot()
+        cls.root = tkinter.Tk()
+        cls.wantobjects = cls.root.wantobjects()
+        # De-maximize main window.
+        # Some window managers can maximize new windows.
+        cls.root.wm_state('normal')
+        try:
+            cls.root.wm_attributes('-zoomed', False)
+        except tkinter.TclError:
+            pass
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.root.update_idletasks()
+        cls.root.destroy()
+        del cls.root
+        tkinter._default_root = None
+        tkinter._support_default_root = cls._old_support_default_root
+
+    def setUp(self):
+        self.root.deiconify()
+
+    def tearDown(self):
+        for w in self.root.winfo_children():
+            w.destroy()
+        self.root.withdraw()
+
+def destroy_default_root():
+    if getattr(tkinter, '_default_root', None):
+        tkinter._default_root.update_idletasks()
+        tkinter._default_root.destroy()
+        tkinter._default_root = None
 
 
 class TestAccount(unittest.TestCase):
@@ -866,7 +906,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=show_accounts)
         adw.data[acc.id]['edit_button'].invoke()
         self.assertEqual(adw.data[acc.id]['entries']['name'].get(), 'Savings')
-        adw.data[acc.id]['entries']['name'].delete(0, END)
+        adw.data[acc.id]['entries']['name'].delete(0, tkinter.END)
         adw.data[acc.id]['entries']['name'].insert(0, 'Checking')
         adw.data[acc.id]['save_button'].invoke()
         accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
@@ -895,7 +935,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         #edit txn - change amount to 25, add payee
         ledger_widget.data[txn.id]['entries']['credit'].insert(0, '2')
         ledger_widget.data[txn.id]['entries']['payee'].insert(0, 'Someone')
-        ledger_widget.data[txn.id]['entries']['categories'].delete(0, END)
+        ledger_widget.data[txn.id]['entries']['categories'].delete(0, tkinter.END)
         ledger_widget.data[txn.id]['entries']['categories'].insert(0, str(category2.id))
         ledger_widget.data[txn.id]['buttons'][0].invoke()
         #make sure db record amount is updated to 25
