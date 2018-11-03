@@ -510,9 +510,10 @@ class LedgerWidget(ttk.Frame):
             start = datetime.now()
             print('load_ledger: %s' % start)
         self.storage.load_txns_into_ledger(self.account.id, self.ledger)
+        self._current_balance = Decimal(0)
         for record in self.ledger.get_records():
             self._display_txn(record['txn'], record['balance'])
-        self._current_balance = record['balance']
+            self._current_balance = record['balance']
         if DEBUG:
             end = datetime.now()
             print('load_ledger end: %s' % end)
