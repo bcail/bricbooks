@@ -23,6 +23,7 @@ from pft import (
         LedgerWidget,
         CategoriesDisplayWidget,
         BudgetDisplayWidget,
+        PFT_GUI,
     )
 
 
@@ -469,7 +470,6 @@ TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('tr
 
 class TestSQLiteStorage(unittest.TestCase):
 
-
     def setUp(self):
         self.file_name =  'testsuite.sqlite3'
         try:
@@ -883,6 +883,19 @@ class TestSQLiteStorage(unittest.TestCase):
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
 
+    def setUp(self):
+        self.file_name =  'testsuite.sqlite3'
+        try:
+            os.remove(self.file_name)
+        except FileNotFoundError:
+            pass
+
+    def tearDown(self):
+        try:
+            os.remove(self.file_name)
+        except FileNotFoundError:
+            pass
+
     def test_accounts_display_widget(self):
         storage = SQLiteStorage(':memory:')
         acc = Account(name='Savings', starting_balance=D(5000))
@@ -1011,6 +1024,13 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
             c2: {'budget': D(25), 'income': D(0), 'carryover': D(0), 'spent': D(50)},
         })
         bd = BudgetDisplayWidget(master=self.root, budget=b, save_budget=lambda x: x, reload_budget=lambda x: x)
+
+    def test_pft_gui_empty_file_create_account_show_ledger(self):
+        pft_gui = PFT_GUI(self.file_name)
+        pft_gui.adw.add_account_name_entry.insert(0, 'Checking')
+        pft_gui.adw.add_account_starting_balance_entry.insert(0, '1000')
+        pft_gui.adw.add_account_button.invoke()
+        pft_gui._show_ledger()
 
 
 if __name__ == '__main__':

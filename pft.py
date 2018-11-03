@@ -977,18 +977,14 @@ class PFT_GUI:
         #this frame will contain everything the user sees
         self.content_frame = None
 
-        self._load_accounts()
-        if self.accounts:
+        accounts = self._get_accounts()
+        if accounts:
             self._show_ledger()
         else:
             self._show_accounts()
 
-        if DEBUG:
-            print('starting mainloop: %s' % datetime.now())
-        self.root.mainloop()
-
-    def _load_accounts(self):
-        self.accounts = self.storage.get_accounts()
+    def _get_accounts(self):
+        return self.storage.get_accounts()
 
     def _load_budgets(self):
         return self.storage.get_budgets()
@@ -1023,16 +1019,17 @@ class PFT_GUI:
         self._refresh_content_frame()
         self._show_actions(display='accounts')
         accounts = self.storage.get_accounts()
-        adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
-        adw.grid(columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
+        self.adw.grid(columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self, current_account=None):
         self._refresh_content_frame()
+        accounts = self._get_accounts()
         if not current_account:
-            current_account = self.accounts[0]
+            current_account = accounts[0]
         self._show_actions()
-        ldw = LedgerDisplayWidget(master=self.content_frame, accounts=self.accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
+        ldw = LedgerDisplayWidget(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
         ldw.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
@@ -1063,7 +1060,10 @@ if __name__ == '__main__':
     if args.debug:
         DEBUG = True
     if args.file_name:
-        PFT_GUI(args.file_name)
+        app = PFT_GUI(args.file_name)
     else:
-        PFT_GUI(DATA_FILENAME)
+        app = PFT_GUI(DATA_FILENAME)
+    if DEBUG:
+        print('starting mainloop: %s' % datetime.now())
+    app.root.mainloop()
 
