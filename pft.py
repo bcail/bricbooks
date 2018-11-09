@@ -222,10 +222,8 @@ class Ledger:
     def get_records(self):
         sorted_txns = sorted(self._txns, key=lambda t: t.txn_date)
         sorted_records = []
-        balance = self._starting_balance
         for t in sorted_txns:
-            balance = balance + t.amount
-            sorted_records.append({'txn': t, 'balance': balance})
+            sorted_records.append({'txn': t})
         return sorted_records
 
     def clear_txns(self):

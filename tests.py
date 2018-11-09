@@ -407,13 +407,9 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(Transaction(account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_records()
         self.assertEqual(ledger_records[0]['txn'].txn_date, date(2017, 4, 25))
-        self.assertEqual(ledger_records[0]['balance'], D('110'))
         self.assertEqual(ledger_records[1]['txn'].txn_date, date(2017, 6, 5))
-        self.assertEqual(ledger_records[1]['balance'], D('98'))
         self.assertEqual(ledger_records[2]['txn'].txn_date, date(2017, 7, 30))
-        self.assertEqual(ledger_records[2]['balance'], D('99'))
         self.assertEqual(ledger_records[3]['txn'].txn_date, date(2017, 8, 5))
-        self.assertEqual(ledger_records[3]['balance'], D('131.45'))
 
     def test_clear_txns(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -934,13 +930,16 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         category2 = Category(name='Food')
         storage.save_category(category)
         storage.save_category(category2)
-        txn = Transaction(account=account, amount=D('5'), txn_date=date.today(), description='description',
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today(), description='description',
                 categories=[category])
         storage.save_txn(txn)
+        txn2 = Transaction(account=account, amount=D(15), txn_date=date(2017, 1, 1))
+        storage.save_txn(txn2)
         ledger = Ledger(starting_balance=account.starting_balance)
         ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
         self.assertEqual(ledger_widget.display_data[txn.id]['labels']['categories'].cget('text'), '1: 5')
-        self.assertEqual(ledger_widget.display_data[txn.id]['labels']['balance'].cget('text'), '105')
+        self.assertEqual(ledger_widget.display_data[txn.id]['labels']['balance'].cget('text'), '120')
+        self.assertEqual(ledger_widget.display_data[txn2.id]['labels']['balance'].cget('text'), '115')
         #edit txn - check credit entry is 5
         ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
         self.assertEqual(ledger_widget.display_data[txn.id]['entries']['credit'].get(), '5')
@@ -952,8 +951,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         ledger_widget.display_data[txn.id]['entries']['categories'].insert(0, str(category2.id))
         ledger_widget.display_data[txn.id]['buttons'][0].invoke()
         #make sure db record amount is updated to 25
-        txns = storage._db_connection.execute('SELECT amount, payee FROM transactions').fetchall()
-        self.assertEqual(len(txns), 1)
+        txns = storage._db_connection.execute('SELECT amount, payee FROM transactions WHERE id = ?', (txn.id,)).fetchall()
         self.assertEqual(txns[0][0], '25')
         self.assertEqual(txns[0][1], 'Someone')
         txn_categories = storage._db_connection.execute('SELECT category_id, amount FROM txn_categories WHERE txn_id = ?', (txn.id,)).fetchall()
