@@ -531,18 +531,19 @@ class LedgerWidget(ttk.Frame):
             if txn_id not in self.display_data or self.display_data[txn_id]['row'] != index:
                 self._display_txn(self.txns[txn_id], balance, index)
 
-    def _add_txn_to_ordering(self, ordering, txn):
+    @staticmethod
+    def add_txn_to_ordering(ordering, txn, txns):
         if not ordering:
             ordering.append(txn.id)
-            return 0
+            return
         for index, txn_id in enumerate(ordering[:]):
-            if self.txns[txn_id].txn_date > txn.txn_date:
+            if txns[txn_id].txn_date > txn.txn_date:
                 ordering.insert(index, txn.id)
-        return index
+                break
 
     def display_new_txn(self, txn):
         self.txns[txn.id] = txn
-        new_txn_index = self._add_txn_to_ordering(self.ordering, txn)
+        LedgerWidget.add_txn_to_ordering(self.ordering, txn, self.txns)
         self._redisplay_txns()
 
     def _display_txn(self, txn, balance, row):

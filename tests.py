@@ -971,6 +971,18 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_txn(new_txn)
         ledger_widget.display_new_txn(new_txn)
 
+    def test_ledger_widget_ordering(self):
+        a = Account(name='c', starting_balance=D(0))
+        txn = Transaction(account=a, id_=1, txn_date=date(2017, 1, 1), amount=D(1))
+        txn2 = Transaction(account=a, id_=2, txn_date=date(2017, 2, 2), amount=D(1))
+        txn3 = Transaction(account=a, id_=3, txn_date=date(2017, 3, 3), amount=D(1))
+        txn4 = Transaction(account=a, id_=4, txn_date=date(2017, 4, 4), amount=D(1))
+        txns = {txn.id: txn, txn2.id: txn2, txn3.id: txn3, txn4.id: txn4}
+        ordering = [txn.id, txn2.id, txn3.id, txn4.id]
+        new_txn = Transaction(account=a, id_=5, txn_date=date(2017, 1, 2), amount=D(1))
+        LedgerWidget.add_txn_to_ordering(ordering, new_txn, txns)
+        self.assertEqual(ordering, [txn.id, new_txn.id, txn2.id, txn3.id, txn4.id])
+
     def test_ledger_widget_add(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D('100'))
