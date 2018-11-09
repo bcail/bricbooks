@@ -392,31 +392,39 @@ class TestLedger(unittest.TestCase):
 
     def test_add_transaction(self):
         ledger = Ledger(starting_balance=D('1'))
-        self.assertEqual(ledger._txns, [])
+        self.assertEqual(ledger._txns, {})
         a = Account(name='Checking', starting_balance=D('100'))
-        txn = Transaction(account=a, amount=D('101'), txn_date=date.today())
+        txn = Transaction(id_=1, account=a, amount=D('101'), txn_date=date.today())
         ledger.add_transaction(txn)
-        self.assertEqual(len(ledger._txns), 1)
+        self.assertEqual(ledger._txns, {1: txn})
 
-    def test_get_ledger_records(self):
+    def test_get_ledger_txns(self):
         a = Account(name='Checking', starting_balance=D('100'))
         ledger = Ledger(starting_balance=a.starting_balance)
-        ledger.add_transaction(Transaction(account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(Transaction(account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(Transaction(account=a, amount=D('1'), txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(Transaction(account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
-        ledger_records = ledger.get_records()
-        self.assertEqual(ledger_records[0]['txn'].txn_date, date(2017, 4, 25))
-        self.assertEqual(ledger_records[1]['txn'].txn_date, date(2017, 6, 5))
-        self.assertEqual(ledger_records[2]['txn'].txn_date, date(2017, 7, 30))
-        self.assertEqual(ledger_records[3]['txn'].txn_date, date(2017, 8, 5))
+        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(Transaction(id_=3, account=a, amount=D('1'), txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(Transaction(id_=4, account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
+        ledger_records = ledger.get_sorted_txns()
+        self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
+        self.assertEqual(ledger_records[1].txn_date, date(2017, 6, 5))
+        self.assertEqual(ledger_records[2].txn_date, date(2017, 7, 30))
+        self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
+
+    def test_get_txn(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        ledger = Ledger(starting_balance=a.starting_balance)
+        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
+        txn = ledger.get_txn(id=2)
+        self.assertEqual(txn.amount, D('-12'))
 
     def test_clear_txns(self):
         a = Account(name='Checking', starting_balance=D('100'))
         ledger = Ledger(starting_balance=D('100.12'))
-        ledger.add_transaction(Transaction(account=a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
-        self.assertEqual(ledger.get_records(), [])
+        self.assertEqual(ledger.get_sorted_txns(), [])
 
 
 class TestBudget(unittest.TestCase):
@@ -724,10 +732,10 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, cat2_id, str(D('46.23'))))
         ledger = Ledger(starting_balance=D('0'))
         storage.load_txns_into_ledger(account_id, ledger)
-        records = ledger.get_records()
-        self.assertEqual(len(records), 2)
-        self.assertEqual(records[0]['txn'].amount, D('101'))
-        self.assertEqual(records[1]['txn'].amount, D('46.23'))
+        txns = ledger.get_sorted_txns()
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].amount, D('101'))
+        self.assertEqual(txns[1].amount, D('46.23'))
 
     def test_delete_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
@@ -937,9 +945,12 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_txn(txn2)
         ledger = Ledger(starting_balance=account.starting_balance)
         ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
+        #self.assertEqual(ledger_widget.ordering, [txn2.id, txn.id])
         self.assertEqual(ledger_widget.display_data[txn.id]['labels']['categories'].cget('text'), '1: 5')
         self.assertEqual(ledger_widget.display_data[txn.id]['labels']['balance'].cget('text'), '120')
+        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 1)
         self.assertEqual(ledger_widget.display_data[txn2.id]['labels']['balance'].cget('text'), '115')
+        self.assertEqual(ledger_widget.display_data[txn2.id]['row'], 0)
         #edit txn - check credit entry is 5
         ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
         self.assertEqual(ledger_widget.display_data[txn.id]['entries']['credit'].get(), '5')
@@ -969,18 +980,6 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_txn(new_txn)
         ledger_widget.display_new_txn(new_txn)
 
-    def test_ledger_widget_ordering(self):
-        a = Account(name='c', starting_balance=D(0))
-        txn = Transaction(account=a, id_=1, txn_date=date(2017, 1, 1), amount=D(1))
-        txn2 = Transaction(account=a, id_=2, txn_date=date(2017, 2, 2), amount=D(1))
-        txn3 = Transaction(account=a, id_=3, txn_date=date(2017, 3, 3), amount=D(1))
-        txn4 = Transaction(account=a, id_=4, txn_date=date(2017, 4, 4), amount=D(1))
-        txns = {txn.id: txn, txn2.id: txn2, txn3.id: txn3, txn4.id: txn4}
-        ordering = [txn.id, txn2.id, txn3.id, txn4.id]
-        new_txn = Transaction(account=a, id_=5, txn_date=date(2017, 1, 2), amount=D(1))
-        LedgerWidget.add_txn_to_ordering(ordering, new_txn, txns)
-        self.assertEqual(ordering, [txn.id, new_txn.id, txn2.id, txn3.id, txn4.id])
-
     def test_ledger_widget_add(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D('100'))
@@ -995,7 +994,6 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_txn(new_txn)
         ledger_widget.display_new_txn(new_txn)
         self.assertEqual(len(ledger_widget.display_data.keys()), 3)
-        self.assertEqual(ledger_widget.ordering, [txn2.id, new_txn.id, txn.id])
         self.assertEqual(ledger_widget.display_data[new_txn.id]['labels']['credit'].cget('text'), '17')
         self.assertEqual(ledger_widget.display_data[new_txn.id]['row'], 1)
         self.assertEqual(ledger_widget.display_data[txn.id]['row'], 2)

@@ -213,21 +213,26 @@ class Ledger:
             raise InvalidLedgerError('ledger must have a starting balance')
         if not isinstance(starting_balance, Decimal):
             raise InvalidLedgerError('starting_balance must be a Decimal')
-        self._txns = []
+        self._txns = {}
         self._starting_balance = starting_balance
 
     def add_transaction(self, txn):
-        self._txns.append(txn)
+        if not txn.id:
+            raise Exception('txn must have an id')
+        self._txns[txn.id] = txn
 
-    def get_records(self):
-        sorted_txns = sorted(self._txns, key=lambda t: t.txn_date)
+    def get_sorted_txns(self):
+        sorted_txns = sorted(self._txns.values(), key=lambda t: t.txn_date)
         sorted_records = []
         for t in sorted_txns:
-            sorted_records.append({'txn': t})
+            sorted_records.append(t)
         return sorted_records
 
+    def get_txn(self, id):
+        return self._txns[id]
+
     def clear_txns(self):
-        self._txns = []
+        self._txns = {}
 
 
 class Budget:
@@ -502,9 +507,7 @@ class LedgerWidget(ttk.Frame):
         self.account = account
         self._reload = reload_function
         self._delete_txn = delete_txn
-        self.txns = {}
         self.display_data = {}
-        self.ordering = []
         self.load_ledger()
 
     def load_ledger(self):
@@ -512,9 +515,6 @@ class LedgerWidget(ttk.Frame):
             start = datetime.now()
             print('load_ledger: %s' % start)
         self.storage.load_txns_into_ledger(self.account.id, self.ledger)
-        for record in self.ledger.get_records():
-            self.txns[record['txn'].id] = record['txn']
-            self.ordering.append(record['txn'].id)
         self._redisplay_txns()
         if DEBUG:
             end = datetime.now()
@@ -524,24 +524,13 @@ class LedgerWidget(ttk.Frame):
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
         balance = self.account.starting_balance
-        for index, txn_id in enumerate(self.ordering):
-            balance += self.txns[txn_id].amount
-            if txn_id not in self.display_data or self.display_data[txn_id]['row'] != index:
-                self._display_txn(self.txns[txn_id], balance, index)
-
-    @staticmethod
-    def add_txn_to_ordering(ordering, txn, txns):
-        if not ordering:
-            ordering.append(txn.id)
-            return
-        for index, txn_id in enumerate(ordering[:]):
-            if txns[txn_id].txn_date > txn.txn_date:
-                ordering.insert(index, txn.id)
-                break
+        for index, txn in enumerate(self.ledger.get_sorted_txns()):
+            balance += txn.amount
+            if txn.id not in self.display_data or self.display_data[txn.id]['row'] != index:
+                self._display_txn(txn, balance, index)
 
     def display_new_txn(self, txn):
-        self.txns[txn.id] = txn
-        LedgerWidget.add_txn_to_ordering(self.ordering, txn, self.txns)
+        self.ledger.add_transaction(txn)
         self._redisplay_txns()
 
     def _display_txn(self, txn, balance, row):
@@ -559,7 +548,7 @@ class LedgerWidget(ttk.Frame):
                 status = entries['status'].get()
                 categories_str = entries['categories'].get()
                 categories = txn_categories_from_string(self.storage, categories_str)
-                txn = self.txns[txn_id]
+                txn = self.ledger.get_txn(txn_id)
                 txn.update_from_user_strings(
                         txn_type=txn_type,
                         txn_date=txn_date,
