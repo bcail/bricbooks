@@ -231,6 +231,9 @@ class Ledger:
     def get_txn(self, id):
         return self._txns[id]
 
+    def remove_txn(self, id):
+        del self._txns[id]
+
     def clear_txns(self):
         self._txns = {}
 
@@ -490,7 +493,7 @@ def txn_categories_display(txn):
 
 class LedgerWidget(ttk.Frame):
 
-    def __init__(self, ledger, master, storage, account, delete_txn, reload_function):
+    def __init__(self, ledger, master, storage, account):
         super().__init__(master=master, padding=(0, 0, 0, 0))
         self.grid_columnconfigure(0, weight=2)
         self.grid_columnconfigure(1, weight=2)
@@ -505,8 +508,6 @@ class LedgerWidget(ttk.Frame):
         self.ledger = ledger
         self.storage = storage
         self.account = account
-        self._reload = reload_function
-        self._delete_txn = delete_txn
         self.display_data = {}
         self.load_ledger()
 
@@ -563,8 +564,14 @@ class LedgerWidget(ttk.Frame):
                 self._redisplay_txns()
 
             def _delete(txn_id=txn_id):
-                self._delete_txn(txn_id)
-                self._reload()
+                self.storage.delete_txn(txn_id)
+                last_txn_id = self.ledger.get_sorted_txns()[-1].id
+                self.ledger.remove_txn(txn_id)
+                for label in self.display_data[last_txn_id]['labels'].values():
+                    label.destroy()
+                del self.display_data[last_txn_id]
+                del self.display_data[txn_id]
+                self._redisplay_txns()
 
             for label in self.display_data[txn_id]['labels'].values():
                 label.destroy()
@@ -614,7 +621,7 @@ class LedgerWidget(ttk.Frame):
                     'status': status_entry,
                     'categories': categories_entry,
                 }
-            self.display_data[txn_id]['buttons'] = [edit_save_button]
+            self.display_data[txn_id]['buttons'] = [edit_save_button, delete_button]
 
         row_data = {}
         tds = txn.get_display_strings()
@@ -738,7 +745,7 @@ class LedgerDisplayWidget(ttk.Frame):
         vertical_scrollbar.configure(command=canvas.yview)
 
         ledger = Ledger(starting_balance=current_account.starting_balance)
-        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=storage, account=current_account, delete_txn=storage.delete_txn, reload_function=show_ledger)
+        self.ledger_widget = LedgerWidget(ledger, master=canvas, storage=storage, account=current_account)
 
         self.ledger_widget.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W)) #necessary? this is on the canvas...
 
