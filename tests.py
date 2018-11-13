@@ -945,7 +945,6 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_txn(txn2)
         ledger = Ledger(starting_balance=account.starting_balance)
         ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
-        #self.assertEqual(ledger_widget.ordering, [txn2.id, txn.id])
         self.assertEqual(ledger_widget.display_data[txn.id]['labels']['categories'].cget('text'), '1: 5')
         self.assertEqual(ledger_widget.display_data[txn.id]['labels']['balance'].cget('text'), '120')
         self.assertEqual(ledger_widget.display_data[txn.id]['row'], 1)
@@ -998,6 +997,28 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(ledger_widget.display_data[new_txn.id]['row'], 1)
         self.assertEqual(ledger_widget.display_data[txn.id]['row'], 2)
         self.assertEqual(ledger_widget.display_data[txn2.id]['row'], 0)
+
+    def test_ledger_widget_reorder(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D('100'))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 1))
+        txn2 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 2))
+        txn3 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 3))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        storage.save_txn(txn3)
+        ledger = Ledger(starting_balance=account.starting_balance)
+        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account, delete_txn=lambda x: x, reload_function=lambda x: x)
+        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 0)
+        self.assertEqual(ledger_widget.display_data[txn3.id]['row'], 2)
+        #change date of first txn, moving it to the end
+        ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
+        ledger_widget.display_data[txn.id]['entries']['date'].delete(0, tkinter.END)
+        ledger_widget.display_data[txn.id]['entries']['date'].insert(0, '2017-01-20')
+        ledger_widget.display_data[txn.id]['buttons'][0].invoke()
+        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 2)
+        self.assertEqual(ledger_widget.display_data[txn3.id]['row'], 1)
 
     def test_txn_categories_display(self):
         a = Account(name='Checking', starting_balance=D('100'))
