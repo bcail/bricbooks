@@ -3,7 +3,7 @@ import random
 from pft import SQLiteStorage, Account, Category, Transaction, Budget, DATA_FILENAME
 
 
-def main(file_name):
+def main(file_name, many_txns=False):
     storage = SQLiteStorage(file_name)
 
     a = Account(name='Checking', starting_balance=D(1000))
@@ -53,11 +53,13 @@ def main(file_name):
     storage.save_txn(Transaction(account=a, amount=D('81'), txn_date='2018-03-19'))
     storage.save_txn(Transaction(account=a, amount=D('82'), txn_date='2018-03-14'))
 
-    for i in range(1000):
-        amt = D(random.randint(1, 500))
-        day = random.randint(1, 30)
-        txn = Transaction(account=a, amount=amt, txn_date='2018-04-%s' % day)
-        storage.save_txn(txn)
+    if many_txns:
+        print('adding 1000 random txns')
+        for i in range(1000):
+            amt = D(random.randint(1, 500))
+            day = random.randint(1, 30)
+            txn = Transaction(account=a, amount=amt, txn_date='2018-04-%s' % day)
+            storage.save_txn(txn)
 
     storage.save_txn(Transaction(account=savings, amount=D(82), txn_date='2018-03-14'))
     storage.save_txn(Transaction(account=savings, amount=D(95), txn_date='2018-03-15'))
@@ -75,11 +77,12 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-f', '--file_name', dest='file_name')
+    parser.add_argument('--many_txns', default=False, action='store_true', dest='many_txns')
     args = parser.parse_args()
     if args.file_name:
         print(f'filename: {args.file_name}')
-        main(args.file_name)
+        main(args.file_name, args.many_txns)
     else:
         print(f'using default file_name: {DATA_FILENAME}')
-        main(DATA_FILENAME)
+        main(DATA_FILENAME, args.many_txns)
 
