@@ -561,6 +561,7 @@ class LedgerWidget(ttk.Frame):
                         categories=categories,
                     )
                 self.storage.save_txn(txn)
+                del self.display_data[txn_id]
                 self._redisplay_txns()
 
             def _delete(txn_id=txn_id):
