@@ -995,6 +995,7 @@ class PFT_GUI:
         self.content_frame = self._init_content_frame(self.root)
         self._show_action_buttons(self.content_frame)
         self.main_frame = None
+        self.ledger_display_widget = None
 
         accounts = self.storage.get_accounts()
         if accounts:
@@ -1035,25 +1036,34 @@ class PFT_GUI:
             self.ledger_button['state'] = tk.DISABLED
 
     def _show_accounts(self):
-        if self.main_frame:
+        if self.main_frame and (self.main_frame == self.ledger_display_widget):
+            self.ledger_display_widget.grid_forget()
+        elif self.main_frame:
             self.main_frame.destroy()
         accounts = self.storage.get_accounts()
         self._update_action_buttons(display='accounts')
-        self.adw = self.main_frame = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
+        self.main_frame = self.adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self, current_account=None):
-        if self.main_frame:
-            self.main_frame.destroy()
         accounts = self.storage.get_accounts()
         if not current_account:
             current_account = accounts[0]
         self._update_action_buttons(display='ledger')
-        self.main_frame = LedgerDisplayWidget(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
+        if self.ledger_display_widget:
+            if self.main_frame != self.ledger_display_widget:
+                self.main_frame.destroy()
+            self.main_frame = self.ledger_display_widget
+        else:
+            if self.main_frame:
+                self.main_frame.destroy()
+            self.main_frame = self.ledger_display_widget = LedgerDisplayWidget(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_categories(self):
-        if self.main_frame:
+        if self.main_frame and (self.main_frame == self.ledger_display_widget):
+            self.ledger_display_widget.grid_forget()
+        elif self.main_frame:
             self.main_frame.destroy()
         categories = self.storage.get_categories()
         self._update_action_buttons(display='categories')
@@ -1062,7 +1072,9 @@ class PFT_GUI:
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):
-        if self.main_frame:
+        if self.main_frame and (self.main_frame == self.ledger_display_widget):
+            self.ledger_display_widget.grid_forget()
+        elif self.main_frame:
             self.main_frame.destroy()
         budgets = self.storage.get_budgets()
         self._update_action_buttons(display='budget')
