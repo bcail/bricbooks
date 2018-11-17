@@ -992,80 +992,82 @@ class PFT_GUI:
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(0, weight=1)
         #this frame will contain everything the user sees
-        self.content_frame = None
+        self.content_frame = self._init_content_frame(self.root)
+        self._show_action_buttons(self.content_frame)
+        self.main_frame = None
 
-        accounts = self._get_accounts()
+        accounts = self.storage.get_accounts()
         if accounts:
             self._show_ledger()
         else:
             self._show_accounts()
 
-    def _get_accounts(self):
-        return self.storage.get_accounts()
+        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _load_budgets(self):
-        return self.storage.get_budgets()
+    def _init_content_frame(self, root):
+        content_frame = ttk.Frame(master=root)
+        content_frame.grid_columnconfigure(4, weight=1)
+        content_frame.grid_rowconfigure(1, weight=1)
+        return content_frame
 
-    def _refresh_content_frame(self):
-        if self.content_frame:
-            self.content_frame.destroy()
-        self.content_frame = ttk.Frame(master=self.root)
-        self.content_frame.grid_columnconfigure(4, weight=1)
-        self.content_frame.grid_rowconfigure(1, weight=1)
+    def _show_action_buttons(self, master):
+        self.accounts_button = ttk.Button(master=master, text='Accounts', command=self._show_accounts)
+        self.accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        self.ledger_button = ttk.Button(master=master, text='Ledger', command=self._show_ledger)
+        self.ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+        self.categories_button = ttk.Button(master=master, text='Categories', command=self._show_categories)
+        self.categories_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
+        self.budget_button = ttk.Button(master=master, text='Budget', command=self._show_budget)
+        self.budget_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S))
 
-    def _show_actions(self, display='ledger'):
-        accounts_state = ledger_state = categories_state = budget_state = tk.NORMAL
+    def _update_action_buttons(self, display):
+        self.accounts_button['state'] = tk.NORMAL
+        self.ledger_button['state'] = tk.NORMAL
+        self.categories_button['state'] = tk.NORMAL
+        self.budget_button['state'] = tk.NORMAL
         if display == 'accounts':
-            accounts_state = tk.DISABLED
+            self.accounts_button['state'] = tk.DISABLED
         elif display == 'categories':
-            categories_state = tk.DISABLED
+            self.categories_button['state'] = tk.DISABLED
         elif display == 'budget':
-            budget_state = tk.DISABLED
+            self.budget_button['state'] = tk.DISABLED
         else:
-            ledger_state = tk.DISABLED
-        accounts_button = ttk.Button(master=self.content_frame, text='Accounts', command=self._show_accounts, state=accounts_state)
-        accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
-        ledger_button = ttk.Button(master=self.content_frame, text='Ledger', command=self._show_ledger, state=ledger_state)
-        ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
-        categories_button = ttk.Button(master=self.content_frame, text='Categories', command=self._show_categories, state=categories_state)
-        categories_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
-        budget_button = ttk.Button(master=self.content_frame, text='Budget', command=self._show_budget, state=budget_state)
-        budget_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S))
+            self.ledger_button['state'] = tk.DISABLED
 
     def _show_accounts(self):
-        self._refresh_content_frame()
-        self._show_actions(display='accounts')
+        if self.main_frame:
+            self.main_frame.destroy()
         accounts = self.storage.get_accounts()
-        self.adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
-        self.adw.grid(columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self._update_action_buttons(display='accounts')
+        self.adw = self.main_frame = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self.storage, show_accounts=self._show_accounts)
+        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self, current_account=None):
-        self._refresh_content_frame()
-        accounts = self._get_accounts()
+        if self.main_frame:
+            self.main_frame.destroy()
+        accounts = self.storage.get_accounts()
         if not current_account:
             current_account = accounts[0]
-        self._show_actions()
-        ldw = LedgerDisplayWidget(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
-        ldw.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self._update_action_buttons(display='ledger')
+        self.main_frame = LedgerDisplayWidget(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, storage=self.storage)
+        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_categories(self):
-        self._refresh_content_frame()
-        self._show_actions(display='categories')
+        if self.main_frame:
+            self.main_frame.destroy()
         categories = self.storage.get_categories()
-        cdw = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage,
+        self._update_action_buttons(display='categories')
+        self.main_frame = CategoriesDisplayWidget(master=self.content_frame, categories=categories, storage=self.storage,
                 reload_categories=self._show_categories, delete_category=self.storage.delete_category)
-        cdw.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):
-        self._refresh_content_frame()
-        budgets = self._load_budgets()
-        self._show_actions(display='budget')
-        bdw = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
-        bdw.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        if self.main_frame:
+            self.main_frame.destroy()
+        budgets = self.storage.get_budgets()
+        self._update_action_buttons(display='budget')
+        self.main_frame = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
+        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
 if __name__ == '__main__':
