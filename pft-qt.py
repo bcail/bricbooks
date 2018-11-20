@@ -18,7 +18,6 @@ class PFT_GUI_QT(QtWidgets.QWidget):
             amount_label = QtWidgets.QLabel(str(txn.amount))
             balance += txn.amount
             balance_label = QtWidgets.QLabel(str(balance))
-            balance_label.show()
             layout.addWidget(date_label, index, 0)
             layout.addWidget(amount_label, index, 1)
             layout.addWidget(balance_label, index, 2)
@@ -32,6 +31,9 @@ if __name__ == '__main__':
         main_window = PFT_GUI_QT(args.file_name)
     else:
         main_window = PFT_GUI_QT(pft.DATA_FILENAME)
-    main_window.show()
+    scroll = QtWidgets.QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setWidget(main_window)
+    scroll.show()
     app.exec_()
 
