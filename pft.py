@@ -1082,12 +1082,17 @@ class PFT_GUI:
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
-if __name__ == '__main__':
+def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    args = parse_args()
     if args.debug:
         DEBUG = True
     if args.file_name:
