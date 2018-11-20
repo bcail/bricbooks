@@ -8,6 +8,7 @@ TODO
 - catch exceptions and give good error messages in the UI
 - load-test the application with many transactions
 - add searching (for payee, description)
+- switch to Qt GUI? It can handle all Unicode chars, and has good performance - both are issues for Tkinter
 
 PROJECT GOALS
 -------------

@@ -14,13 +14,22 @@ class PFT_GUI_QT(QtWidgets.QWidget):
         balance = account.starting_balance
         layout = QtWidgets.QGridLayout()
         for index, txn in enumerate(self.ledger.get_sorted_txns()):
-            date_label = QtWidgets.QLabel(str(txn.txn_date))
-            amount_label = QtWidgets.QLabel(str(txn.amount))
+            tds = txn.get_display_strings()
+            type_label = QtWidgets.QLabel(tds['txn_type'])
+            date_label = QtWidgets.QLabel(tds['txn_date'])
+            payee_label = QtWidgets.QLabel(tds['payee'])
+            description_label = QtWidgets.QLabel(tds['description'])
+            credit_label = QtWidgets.QLabel(tds['credit'])
+            debit_label = QtWidgets.QLabel(tds['debit'])
             balance += txn.amount
             balance_label = QtWidgets.QLabel(str(balance))
-            layout.addWidget(date_label, index, 0)
-            layout.addWidget(amount_label, index, 1)
-            layout.addWidget(balance_label, index, 2)
+            layout.addWidget(type_label, index, 0)
+            layout.addWidget(date_label, index, 1)
+            layout.addWidget(payee_label, index, 2)
+            layout.addWidget(description_label, index, 3)
+            layout.addWidget(credit_label, index, 4)
+            layout.addWidget(debit_label, index, 5)
+            layout.addWidget(balance_label, index, 6)
         self.setLayout(layout)
 
 
@@ -35,5 +44,7 @@ if __name__ == '__main__':
     scroll.setWidgetResizable(True)
     scroll.setWidget(main_window)
     scroll.show()
+    title = 'Python Finance Tracking'
+    scroll.setWindowTitle(title)
     app.exec_()
 
