@@ -85,29 +85,32 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
                     self._storage.save_category(c)
                     self._reload()
                 #data[cat_id]['name_label'].destroy()
-                name_entry = ttk.Entry(self)
-                name_entry.grid(row=data[cat_id]['row'], column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+                name_entry = QtWidgets.QLineEdit()
+                layout.addWidget(name_entry, data[cat_id]['row'], 1)
                 data[cat_id]['name_entry'] = name_entry
                 data[cat_id]['edit_button']['text'] = 'Save'
                 data[cat_id]['edit_button']['command'] = _save
             def _delete(cat_id=cat.id):
-                self.storage.delete_category(cat_id)
+                self._storage.delete_category(cat_id)
                 self._reload()
             edit_button = QtWidgets.QPushButton('Edit')
-            edit_button.clicked.connect(_delete)
+            edit_button.clicked.connect(_edit)
             layout.addWidget(edit_button, row, 2)
             row_data['edit_button'] = edit_button
             delete_button = QtWidgets.QPushButton('Delete')
+            delete_button.clicked.connect(_delete)
             layout.addWidget(delete_button, row, 3)
             data[cat.id] = row_data
             row += 1
         self.name_entry = QtWidgets.QLineEdit()
         layout.addWidget(self.name_entry, row, 1)
-        layout.addWidget(QtWidgets.QPushButton('Add New'), row, 2)
+        add_button = QtWidgets.QPushButton('Add New')
+        add_button.clicked.connect(self._add)
+        layout.addWidget(add_button, row, 2)
         self.setLayout(layout)
 
     def _add(self):
-        c = pft.Category(name=self.name_entry.get())
+        c = pft.Category(name=self.name_entry.text())
         self._storage.save_category(c)
         self._reload()
 
