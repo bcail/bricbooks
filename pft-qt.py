@@ -62,6 +62,72 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         self.setLayout(layout)
 
 
+class CategoriesDisplayWidget(QtWidgets.QWidget):
+
+    def __init__(self, storage, reload_categories):
+        super().__init__()
+        self._storage = storage
+        self._reload = reload_categories
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
+        layout.addWidget(QtWidgets.QLabel('Name'), 0, 1)
+        row = 1
+        data = {}
+        categories = self._storage.get_categories()
+        for cat in categories:
+            row_data = {'row': row}
+            layout.addWidget(QtWidgets.QLabel(str(cat.id)), row, 0)
+            layout.addWidget(QtWidgets.QLabel(cat.name), row, 1)
+            #row_data['name_label'] = name_label
+            def _edit(cat_id=cat.id):
+                def _save(cat_id=cat_id):
+                    c = Category(id_=cat_id, name=data[cat_id]['name_entry'].get())
+                    self._storage.save_category(c)
+                    self._reload()
+                #data[cat_id]['name_label'].destroy()
+                name_entry = ttk.Entry(self)
+                name_entry.grid(row=data[cat_id]['row'], column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+                data[cat_id]['name_entry'] = name_entry
+                data[cat_id]['edit_button']['text'] = 'Save'
+                data[cat_id]['edit_button']['command'] = _save
+            def _delete(cat_id=cat.id):
+                self.storage.delete_category(cat_id)
+                self._reload()
+            edit_button = QtWidgets.QPushButton('Edit')
+            edit_button.clicked.connect(_delete)
+            layout.addWidget(edit_button, row, 2)
+            row_data['edit_button'] = edit_button
+            delete_button = QtWidgets.QPushButton('Delete')
+            layout.addWidget(delete_button, row, 3)
+            data[cat.id] = row_data
+            row += 1
+        self.name_entry = QtWidgets.QLineEdit()
+        layout.addWidget(self.name_entry, row, 1)
+        layout.addWidget(QtWidgets.QPushButton('Add New'), row, 2)
+        self.setLayout(layout)
+
+    def _add(self):
+        c = pft.Category(name=self.name_entry.get())
+        self._storage.save_category(c)
+        self._reload()
+
+
+class BudgetDisplayWidget(QtWidgets.QWidget):
+
+    def __init__(self):
+        super().__init__()
+        layout = QtWidgets.QGridLayout()
+        layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
+        layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
+        layout.addWidget(QtWidgets.QLabel('Income'), 0, 2)
+        layout.addWidget(QtWidgets.QLabel('Carryover'), 0, 3)
+        layout.addWidget(QtWidgets.QLabel('Total Budget'), 0, 4)
+        layout.addWidget(QtWidgets.QLabel('Spent'), 0, 5)
+        layout.addWidget(QtWidgets.QLabel('Remaining'), 0, 6)
+        layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
+        self.setLayout(layout)
+
+
 class PFT_GUI_QT(QtWidgets.QWidget):
 
     def __init__(self, file_name):
@@ -71,6 +137,7 @@ class PFT_GUI_QT(QtWidgets.QWidget):
         self.storage = pft.SQLiteStorage(file_name)
         self.main_widget = None
         self.setLayout(self.layout)
+        self._show_accounts()
 
     def _show_action_buttons(self, layout):
         accounts_button = QtWidgets.QPushButton('Accounts')
@@ -101,10 +168,18 @@ class PFT_GUI_QT(QtWidgets.QWidget):
         self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
 
     def _show_categories(self):
-        pass
+        if self.main_widget:
+            self.layout.removeWidget(self.main_widget)
+            self.main_widget.deleteLater()
+        self.main_widget = CategoriesDisplayWidget(self.storage, reload_categories=self._show_categories)
+        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
 
     def _show_budget(self):
-        pass
+        if self.main_widget:
+            self.layout.removeWidget(self.main_widget)
+            self.main_widget.deleteLater()
+        self.main_widget = BudgetDisplayWidget()
+        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
 
 
 if __name__ == '__main__':
