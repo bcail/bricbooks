@@ -104,9 +104,9 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
             row += 1
         self.name_entry = QtWidgets.QLineEdit()
         layout.addWidget(self.name_entry, row, 1)
-        add_button = QtWidgets.QPushButton('Add New')
-        add_button.clicked.connect(self._add)
-        layout.addWidget(add_button, row, 2)
+        self.add_button = QtWidgets.QPushButton('Add New')
+        self.add_button.clicked.connect(self._add)
+        layout.addWidget(self.add_button, row, 2)
         self.setLayout(layout)
 
     def _add(self):
