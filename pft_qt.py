@@ -117,18 +117,58 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
 
 class BudgetDisplayWidget(QtWidgets.QWidget):
 
-    def __init__(self):
+    def __init__(self, budget):
         super().__init__()
-        layout = QtWidgets.QGridLayout()
-        layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
-        layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
-        layout.addWidget(QtWidgets.QLabel('Income'), 0, 2)
-        layout.addWidget(QtWidgets.QLabel('Carryover'), 0, 3)
-        layout.addWidget(QtWidgets.QLabel('Total Budget'), 0, 4)
-        layout.addWidget(QtWidgets.QLabel('Spent'), 0, 5)
-        layout.addWidget(QtWidgets.QLabel('Remaining'), 0, 6)
-        layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
-        self.setLayout(layout)
+        self.layout = QtWidgets.QGridLayout()
+        self.layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
+        self.layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
+        self.layout.addWidget(QtWidgets.QLabel('Income'), 0, 2)
+        self.layout.addWidget(QtWidgets.QLabel('Carryover'), 0, 3)
+        self.layout.addWidget(QtWidgets.QLabel('Total Budget'), 0, 4)
+        self.layout.addWidget(QtWidgets.QLabel('Spent'), 0, 5)
+        self.layout.addWidget(QtWidgets.QLabel('Remaining'), 0, 6)
+        self.layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
+        row_index = 1
+        self.data = {}
+        for cat, info in budget.display_category_rows.items():
+            self.layout.addWidget(QtWidgets.QLabel(cat.name), row_index, 0)
+            budget_label = QtWidgets.QLabel(str(info['budget']))
+            self.layout.addWidget(budget_label, row_index, 1)
+            self.layout.addWidget(QtWidgets.QLabel(str(info['income'])), row_index, 2)
+            carryover_label = QtWidgets.QLabel(str(info['carryover']))
+            self.layout.addWidget(carryover_label, row_index, 3)
+            self.layout.addWidget(QtWidgets.QLabel(str(info['total_budget'])), row_index, 4)
+            self.layout.addWidget(QtWidgets.QLabel(str(info['spent'])), row_index, 5)
+            self.layout.addWidget(QtWidgets.QLabel(str(info['remaining'])), row_index, 6)
+            percent_available = str(info['percent_available']) + '%'
+            self.layout.addWidget(QtWidgets.QLabel(percent_available), row_index, 7)
+            row_data = {'budget_label': budget_label}
+            row_data['carryover_label'] = carryover_label
+            row_data['row_index'] = row_index
+            row_data['category'] = cat
+            self.data[cat.id] = row_data
+            row_index += 1
+        self._edit_button = QtWidgets.QPushButton('Edit')
+        self._edit_button.clicked.connect(self._edit)
+        self.layout.addWidget(self._edit_button, row_index, 0)
+        self.setLayout(self.layout)
+
+    def _edit(self):
+        for cat_id, data in self.data.items():
+            budget_val = data['budget_label']['text']
+            carryover_val = data['carryover_label']['text']
+            data['budget_label'].destroy()
+            data['carryover_label'].destroy()
+            budget_entry = QtWidgets.QLineEdit()
+            budget_entry.setText(budget_val)
+            self.layout.addWidget(budget_entry, data['row_index'], 1)
+            data['budget_entry'] = budget_entry
+            carryover_entry = QtWidgets.QLineEdit()
+            carryover_entry.setText(carryover_val)
+            self.layout.addWidget(carryover_entry, data['row_index'], 3)
+            data['carryover_entry'] = carryover_entry
+        self._edit_button.setText('Save')
+        self._edit_button.clicked.connect(self._save)
 
 
 class PFT_GUI_QT(QtWidgets.QWidget):
@@ -181,7 +221,8 @@ class PFT_GUI_QT(QtWidgets.QWidget):
         if self.main_widget:
             self.layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.main_widget = BudgetDisplayWidget()
+        budgets = self.storage.get_budgets()
+        self.main_widget = BudgetDisplayWidget(budgets[0])
         self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
 
 

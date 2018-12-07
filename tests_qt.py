@@ -30,6 +30,15 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(storage.get_categories()[0].name, 'Housing')
 
+    def test_budget(self):
+        c = pft.Category(name='Housing', id_=1)
+        c2 = pft.Category(name='Food', id_=2)
+        b = pft.Budget(year=2018, category_rows={
+            c: {'budget': Decimal(15), 'income': Decimal(0), 'carryover': Decimal(0), 'spent': Decimal(10)},
+            c2: {'budget': Decimal(25), 'income': Decimal(0), 'carryover': Decimal(0), 'spent': Decimal(50)},
+        })
+        dw = pft_gui.BudgetDisplayWidget(budget=b)
+
 
 if __name__ == '__main__':
     unittest.main()
