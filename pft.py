@@ -239,40 +239,76 @@ class Ledger:
 
 
 class Budget:
+    '''Budget information that's entered by the user - no defaults or calculated values, but
+    empty strings are dropped (so we can pass empty string from user form), and strings are converted
+    Decimal values. Note: all categories are passed in - if there's no budget info, it just has an empty {}.
+    '''
 
     @staticmethod
     def round_percent_available(percent):
         return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
 
-    def __init__(self, year=None, category_rows=None, id_=None):
+    def __init__(self, year=None, category_budget_info=None, id_=None, income_spending_info=None):
         if not year:
             raise BudgetError('must pass in year to Budget')
         self.year = year
-        if not category_rows:
-            raise BudgetError('must pass in category info to Budget')
-        self._category_rows = category_rows
+        self._budget_data = {}
+        for category, info in category_budget_info.items():
+            keep_info = {}
+            for key, value in info.items():
+                if value == '':
+                    pass
+                elif isinstance(value, str):
+                    keep_info[key] = Decimal(value)
+                else:
+                    keep_info[key] = value
+            self._budget_data[category] = keep_info
         self.id = id_
+        self._income_spending_info = income_spending_info
 
     def __str__(self):
         return '%s %s' % (self.id, self.year)
 
-    @property
-    def save_category_rows(self):
-        return self._category_rows
+    def get_budget_data(self):
+        return self._budget_data
 
-    @property
-    def display_category_rows(self):
-        for cat, info in self._category_rows.items():
-            total_budget = info['budget'] + info['carryover'] + info['income']
-            info['total_budget'] = total_budget
-            remaining = total_budget - info['spent']
-            info['remaining'] = remaining
-            if total_budget:
-                percent_available = (remaining / total_budget) * Decimal(100)
-                info['percent_available'] = Budget.round_percent_available(percent_available)
+    def get_report_display(self, income_spending_info=None):
+        if self._income_spending_info is None:
+            raise BudgetError('must pass in income_spending_info to get the report display')
+        report = {}
+        for category, budget_info in self._budget_data.items():
+            report_info = {}
+            report_info.update(budget_info)
+            report_info.update(self._income_spending_info.get(category, {}))
+            if 'amount' in report_info:
+                carryover = report_info.get('carryover', Decimal(0))
+                income = report_info.get('income', Decimal(0))
+                report_info['total_budget'] = report_info['amount'] + carryover + income
+                spent = report_info.get('spent', Decimal(0))
+                report_info['remaining'] = report_info['total_budget'] - spent
+                try:
+                    percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
+                    report_info['percent_available'] = Budget.round_percent_available(percent_available)
+                except InvalidOperation:
+                    report_info['percent_available'] = ''
             else:
-                info['percent_available'] = Decimal(0)
-        return self._category_rows
+                report_info['amount'] = ''
+                report_info['total_budget'] = ''
+                report_info['remaining'] = ''
+                report_info['percent_available'] = ''
+            if 'carryover' not in report_info:
+                report_info['carryover'] = ''
+            if 'income' not in report_info:
+                report_info['income'] = ''
+            if 'spent' not in report_info:
+                report_info['spent'] = ''
+            report[category] = report_info
+            for key in report_info.keys():
+                if report_info[key] == Decimal(0):
+                    report_info[key] = ''
+                else:
+                    report_info[key] = str(report_info[key])
+        return report
 
 
 ### Storage ###
@@ -405,11 +441,11 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
-        for cat, info in budget.save_category_rows.items():
+        for cat, info in budget.get_budget_data().items():
             if not cat.id:
                 self.save_category(cat)
             carryover = str(info.get('carryover', ''))
-            values = (budget.id, cat.id, str(info['budget']), carryover)
+            values = (budget.id, cat.id, str(info['amount']), carryover)
             c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', values)
         self._db_connection.commit()
 
@@ -417,12 +453,16 @@ class SQLiteStorage:
         c = self._db_connection.cursor()
         records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         year = int(records[0][0])
-        category_rows = {}
+        all_category_budget_info = {}
+        all_income_spending_info = {}
         category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
+        if not category_records:
+            raise Exception('found no categories in DB')
         for cat_record in category_records:
             cat_id = cat_record[0]
             category = self.get_category(cat_id)
-            category_rows[category] = {}
+            all_category_budget_info[category] = {}
+            all_income_spending_info[category] = {}
             #get spent & income values for each category
             spent = Decimal(0)
             income = Decimal(0)
@@ -436,20 +476,20 @@ class SQLiteStorage:
             #spent value should be positive, even though it's negative values in the DB
             if spent:
                 spent = spent * Decimal(-1)
-            category_rows[category]['spent'] = spent
-            category_rows[category]['income'] = income
+            all_income_spending_info[category]['spent'] = spent
+            all_income_spending_info[category]['income'] = income
             budget_records = c.execute('SELECT amount, carryover FROM budget_values WHERE budget_id = ? AND category_id = ?', (budget_id, cat_id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                category_rows[category]['budget'] = Decimal(r[0])
+                all_category_budget_info[category]['amount'] = Decimal(r[0])
                 if r[1]:
-                    category_rows[category]['carryover'] = Decimal(r[1])
+                    all_category_budget_info[category]['carryover'] = Decimal(r[1])
                 else:
-                    category_rows[category]['carryover'] = Decimal(0)
+                    all_category_budget_info[category]['carryover'] = Decimal(0)
             else:
-                category_rows[category]['budget'] = Decimal(0)
-                category_rows[category]['carryover'] = Decimal(0)
-        return Budget(id_=budget_id, year=year, category_rows=category_rows)
+                all_category_budget_info[category]['budget'] = Decimal(0)
+                all_category_budget_info[category]['carryover'] = Decimal(0)
+        return Budget(id_=budget_id, year=year, category_budget_info=all_category_budget_info, income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
         budgets = []
@@ -928,9 +968,9 @@ class BudgetDisplayWidget(ttk.Frame):
         ttk.Label(self, text='Percent Available').grid(row=0, column=7, sticky=(tk.N, tk.W, tk.S, tk.E))
         row_index = 1
         self.data = {}
-        for cat, info in budget.display_category_rows.items():
+        for cat, info in budget.get_report_display().items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
-            budget_label = ttk.Label(self, text=str(info['budget']))
+            budget_label = ttk.Label(self, text=str(info['amount']))
             budget_label.grid(row=row_index, column=1)
             ttk.Label(self, text=str(info['income'])).grid(row=row_index, column=2)
             carryover_label = ttk.Label(self, text=str(info['carryover']))
