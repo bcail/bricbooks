@@ -288,7 +288,7 @@ class Budget:
                 report_info['remaining'] = report_info['total_budget'] - spent
                 try:
                     percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
-                    report_info['percent_available'] = Budget.round_percent_available(percent_available)
+                    report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(percent_available))
                 except InvalidOperation:
                     report_info['percent_available'] = ''
             else:
@@ -972,14 +972,13 @@ class BudgetDisplayWidget(ttk.Frame):
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             budget_label = ttk.Label(self, text=str(info['amount']))
             budget_label.grid(row=row_index, column=1)
-            ttk.Label(self, text=str(info['income'])).grid(row=row_index, column=2)
-            carryover_label = ttk.Label(self, text=str(info['carryover']))
+            ttk.Label(self, text=info['income']).grid(row=row_index, column=2)
+            carryover_label = ttk.Label(self, text=info['carryover'])
             carryover_label.grid(row=row_index, column=3)
-            ttk.Label(self, text=str(info['total_budget'])).grid(row=row_index, column=4)
-            ttk.Label(self, text=str(info['spent'])).grid(row=row_index, column=5)
-            ttk.Label(self, text=str(info['remaining'])).grid(row=row_index, column=6)
-            percent_available = str(info['percent_available']) + '%'
-            ttk.Label(self, text=percent_available).grid(row=row_index, column=7)
+            ttk.Label(self, text=info['total_budget']).grid(row=row_index, column=4)
+            ttk.Label(self, text=info['spent']).grid(row=row_index, column=5)
+            ttk.Label(self, text=info['remaining']).grid(row=row_index, column=6)
+            ttk.Label(self, text=info['percent_available']).grid(row=row_index, column=7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row_index'] = row_index

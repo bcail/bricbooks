@@ -475,7 +475,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(c_info['total_budget'], '25')
         self.assertEqual(c_info['spent'], '10')
         self.assertEqual(c_info['remaining'], '15')
-        self.assertEqual(c_info['percent_available'], '60')
+        self.assertEqual(c_info['percent_available'], '60%')
         c2_info = budget_report[c2]
         self.assertEqual(c2_info,
                 {
@@ -497,7 +497,7 @@ class TestBudget(unittest.TestCase):
                     'total_budget': '10',
                     'spent': '',
                     'remaining': '10',
-                    'percent_available': '100',
+                    'percent_available': '100%',
                 }
             )
 
