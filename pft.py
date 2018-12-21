@@ -971,7 +971,7 @@ class BudgetDisplayWidget(ttk.Frame):
         self.data = {}
         for cat, info in budget.get_report_display().items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
-            budget_label = ttk.Label(self, text=str(info['amount']))
+            budget_label = ttk.Label(self, text=info['amount'])
             budget_label.grid(row=row_index, column=1)
             ttk.Label(self, text=info['income']).grid(row=row_index, column=2)
             carryover_label = ttk.Label(self, text=info['carryover'])

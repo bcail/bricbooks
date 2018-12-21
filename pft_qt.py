@@ -117,8 +117,11 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
 
 class BudgetDisplayWidget(QtWidgets.QWidget):
 
-    def __init__(self, budget):
+    def __init__(self, budget, storage, reload_budget):
         super().__init__()
+        self.budget = budget
+        self.storage = storage
+        self.reload_budget = reload_budget
         self.layout = QtWidgets.QGridLayout()
         self.layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
         self.layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
@@ -130,45 +133,62 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
         self.layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
         row_index = 1
         self.data = {}
-        for cat, info in budget.display_category_rows.items():
+        for cat, info in budget.get_report_display().items():
             self.layout.addWidget(QtWidgets.QLabel(cat.name), row_index, 0)
-            budget_label = QtWidgets.QLabel(str(info['budget']))
+            budget_label = QtWidgets.QLabel(info['amount'])
             self.layout.addWidget(budget_label, row_index, 1)
-            self.layout.addWidget(QtWidgets.QLabel(str(info['income'])), row_index, 2)
-            carryover_label = QtWidgets.QLabel(str(info['carryover']))
+            self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
+            carryover_label = QtWidgets.QLabel(info['carryover'])
             self.layout.addWidget(carryover_label, row_index, 3)
-            self.layout.addWidget(QtWidgets.QLabel(str(info['total_budget'])), row_index, 4)
-            self.layout.addWidget(QtWidgets.QLabel(str(info['spent'])), row_index, 5)
-            self.layout.addWidget(QtWidgets.QLabel(str(info['remaining'])), row_index, 6)
-            percent_available = str(info['percent_available']) + '%'
-            self.layout.addWidget(QtWidgets.QLabel(percent_available), row_index, 7)
+            self.layout.addWidget(QtWidgets.QLabel(info['total_budget']), row_index, 4)
+            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row_index, 5)
+            self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row_index, 6)
+            self.layout.addWidget(QtWidgets.QLabel(info['percent_available']), row_index, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row_index'] = row_index
             row_data['category'] = cat
             self.data[cat.id] = row_data
             row_index += 1
+        self.button_row_index = row_index
         self._edit_button = QtWidgets.QPushButton('Edit')
         self._edit_button.clicked.connect(self._edit)
-        self.layout.addWidget(self._edit_button, row_index, 0)
+        self.layout.addWidget(self._edit_button, self.button_row_index, 0)
         self.setLayout(self.layout)
 
+    def _save(self):
+        category_rows = {}
+        for cat_id, info in self.data.items():
+            cat = info['category']
+            category_rows[cat] = {
+                    'amount': info['budget_entry'].text(),
+                    'carryover': info['carryover_entry'].text()
+                }
+        b = pft.Budget(id_=self.budget.id, year=self.budget.year, category_budget_info=category_rows)
+        self.storage.save_budget(b)
+        self.reload_budget()
+
     def _edit(self):
-        for cat_id, data in self.data.items():
-            budget_val = data['budget_label']['text']
-            carryover_val = data['carryover_label']['text']
-            data['budget_label'].destroy()
-            data['carryover_label'].destroy()
+        for cat_id, info in self.data.items():
+            budget_val = info['budget_label'].text()
+            carryover_val = info['carryover_label'].text()
+            self.layout.removeWidget(info['budget_label'])
+            info['budget_label'].deleteLater()
+            self.layout.removeWidget(info['carryover_label'])
+            info['carryover_label'].deleteLater()
             budget_entry = QtWidgets.QLineEdit()
             budget_entry.setText(budget_val)
-            self.layout.addWidget(budget_entry, data['row_index'], 1)
-            data['budget_entry'] = budget_entry
+            self.layout.addWidget(budget_entry, info['row_index'], 1)
+            info['budget_entry'] = budget_entry
             carryover_entry = QtWidgets.QLineEdit()
             carryover_entry.setText(carryover_val)
-            self.layout.addWidget(carryover_entry, data['row_index'], 3)
-            data['carryover_entry'] = carryover_entry
-        self._edit_button.setText('Save')
-        self._edit_button.clicked.connect(self._save)
+            self.layout.addWidget(carryover_entry, info['row_index'], 3)
+            info['carryover_entry'] = carryover_entry
+        self.layout.removeWidget(self._edit_button)
+        self._edit_button.deleteLater()
+        self._save_button = QtWidgets.QPushButton('Save')
+        self._save_button.clicked.connect(self._save)
+        self.layout.addWidget(self._save_button, self.button_row_index, 0)
 
 
 class PFT_GUI_QT(QtWidgets.QWidget):
@@ -222,7 +242,7 @@ class PFT_GUI_QT(QtWidgets.QWidget):
             self.layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         budgets = self.storage.get_budgets()
-        self.main_widget = BudgetDisplayWidget(budgets[0])
+        self.main_widget = BudgetDisplayWidget(budgets[0], self.storage, self._show_budget)
         self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
 
 
