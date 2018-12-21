@@ -442,11 +442,12 @@ class SQLiteStorage:
             c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
             budget.id = c.lastrowid
         for cat, info in budget.get_budget_data().items():
-            if not cat.id:
-                self.save_category(cat)
-            carryover = str(info.get('carryover', ''))
-            values = (budget.id, cat.id, str(info['amount']), carryover)
-            c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', values)
+            if info:
+                if not cat.id:
+                    self.save_category(cat)
+                carryover = str(info.get('carryover', ''))
+                values = (budget.id, cat.id, str(info['amount']), carryover)
+                c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
@@ -945,10 +946,10 @@ class CategoriesDisplayWidget(ttk.Frame):
 
 class BudgetDisplayWidget(ttk.Frame):
 
-    def __init__(self, master, budget, save_budget, reload_budget):
+    def __init__(self, master, budget, storage, reload_budget):
         super().__init__(master=master)
         self._budget = budget
-        self._save_budget = save_budget
+        self.storage = storage
         self._reload_budget = reload_budget
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
@@ -993,11 +994,11 @@ class BudgetDisplayWidget(ttk.Frame):
         for cat_id, data in self.data.items():
             cat = data['category']
             category_rows[cat] = {
-                    'budget': data['budget_entry'].get(),
+                    'amount': data['budget_entry'].get(),
                     'carryover': data['carryover_entry'].get()
                 }
-        b = Budget(id_=self._budget.id, year=self._budget.year, category_rows=category_rows)
-        self._save_budget(b)
+        b = Budget(id_=self._budget.id, year=self._budget.year, category_budget_info=category_rows)
+        self.storage.save_budget(b)
         self._reload_budget()
 
     def _edit(self):
@@ -1117,7 +1118,7 @@ class PFT_GUI:
             self.main_frame.destroy()
         budgets = self.storage.get_budgets()
         self._update_action_buttons(display='budget')
-        self.main_frame = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], save_budget=self.storage.save_budget, reload_budget=self._show_budget)
+        self.main_frame = BudgetDisplayWidget(master=self.content_frame, budget=budgets[0], storage=self.storage, reload_budget=self._show_budget)
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 

@@ -822,6 +822,25 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][0], '35')
 
+    def test_save_budget_empty_category_info(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Food')
+        storage.save_category(c2)
+        category_rows = {
+                c: {'amount': D(15), 'carryover': D(0)},
+                c2: {},
+            }
+        b = Budget(year=2018, category_budget_info=category_rows)
+        storage.save_budget(b)
+        cursor = storage._db_connection.cursor()
+        records = cursor.execute('SELECT * FROM budgets').fetchall()
+        self.assertEqual(len(records), 1)
+        records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0][0], '15')
+
     def test_save_budget_file(self):
         #test that save actually gets committed
         storage = SQLiteStorage(self.file_name)
@@ -1108,13 +1127,26 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
                 reload_categories=lambda x: x, delete_category=lambda x: x)
 
     def test_budget_display_widget(self):
-        c = Category(name='Housing', id_=1)
-        c2 = Category(name='Food', id_=2)
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Food')
+        storage.save_category(c2)
         b = Budget(year=2018, category_budget_info={
-            c: {'budget': D(15), 'carryover': D(0),},
-            c2: {'budget': D(25), 'carryover': D(0)},
-        }, income_spending_info={})
-        bd = BudgetDisplayWidget(master=self.root, budget=b, save_budget=lambda x: x, reload_budget=lambda x: x)
+            c: {'amount': D(15), 'carryover': D(0),},
+            c2: {'amount': D(25), 'carryover': D(0)},
+        })
+        storage.save_budget(b)
+        budget = storage.get_budgets()[0]
+        self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
+        def reload_budget(): pass
+        dw = BudgetDisplayWidget(master=self.root, budget=budget, storage=storage, reload_budget=reload_budget)
+        dw._edit_button.invoke()
+        dw.data[c.id]['budget_entry'].delete(0, tkinter.END)
+        dw.data[c.id]['budget_entry'].insert(0, '30')
+        dw._edit_button.invoke()
+        budget = storage.get_budgets()[0]
+        self.assertEqual(budget.get_budget_data()[c]['amount'], D(30))
 
     def test_pft_gui_empty_file_create_account_show_ledger(self):
         pft_gui = PFT_GUI(self.file_name)
