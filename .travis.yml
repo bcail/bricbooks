@@ -7,6 +7,9 @@ python:
   - "3.6"
   - "3.7"
 
+before_install:
+    - pip install PySide2
+
 script:
-    xvfb-run python tests.py
+    - xvfb-run python tests.py
 
