@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import tkinter
 import unittest
+from PySide2 import QtWidgets, QtTest, QtCore
 
 from pft import (
         Account,
@@ -25,6 +26,7 @@ from pft import (
         BudgetDisplayWidget,
         PFT_GUI,
     )
+import pft_qt as pft_qt
 
 
 class AbstractTkTest:
@@ -1154,6 +1156,57 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         pft_gui.adw.add_account_starting_balance_entry.insert(0, '1000')
         pft_gui.adw.add_account_button.invoke()
         pft_gui._show_ledger()
+
+
+class TestQtGUI(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QtWidgets.QApplication([])
+
+    def test_pft_qt_gui(self):
+        pft_qt_gui = pft_qt.PFT_GUI_QT(':memory:')
+
+    def test_account(self):
+        storage = SQLiteStorage(':memory:')
+        dw = pft_qt.AccountsDisplayWidget(storage)
+
+    def test_ledger(self):
+        storage = SQLiteStorage(':memory:')
+        acc = Account(name='Savings', starting_balance=D(5000))
+        storage.save_account(acc)
+        dw = pft_qt.LedgerDisplayWidget(storage)
+
+    def test_categories(self):
+        storage = SQLiteStorage(':memory:')
+        self.assertEqual(storage.get_categories(), [])
+        def reload_categories(): pass
+        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories)
+        QtTest.QTest.keyClicks(dw.name_entry, 'Housing')
+        QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
+        self.assertEqual(storage.get_categories()[0].name, 'Housing')
+
+    def test_budget(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Food')
+        storage.save_category(c2)
+        b = Budget(year=2018, category_budget_info={
+            c: {'amount': D(15), 'carryover': D(0)},
+            c2: {'amount': D(25), 'carryover': D(0)},
+        })
+        storage.save_budget(b)
+        budget = storage.get_budgets()[0]
+        self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
+        def reload_budget(): pass
+        dw = pft_qt.BudgetDisplayWidget(budget=budget, storage=storage, reload_budget=reload_budget)
+        QtTest.QTest.mouseClick(dw._edit_button, QtCore.Qt.LeftButton)
+        dw.data[c.id]['budget_entry'].setText('30')
+        QtTest.QTest.mouseClick(dw._save_button, QtCore.Qt.LeftButton) #now it's the save button
+        budgets = storage.get_budgets()
+        self.assertEqual(len(budgets), 1)
+        self.assertEqual(budgets[0].get_budget_data()[c]['amount'], D(30))
 
 
 if __name__ == '__main__':
