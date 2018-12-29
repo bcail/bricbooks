@@ -11,6 +11,9 @@ class TestQtGUI(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QtWidgets.QApplication([])
 
+    def test_pft_qt_gui(self):
+        pft_qt_gui = pft_gui.PFT_GUI_QT(':memory:')
+
     def test_account(self):
         storage = pft.SQLiteStorage(':memory:')
         dw = pft_gui.AccountsDisplayWidget(storage)

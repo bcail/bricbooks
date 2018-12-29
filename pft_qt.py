@@ -191,16 +191,22 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
         self.layout.addWidget(self._save_button, self.button_row_index, 0)
 
 
-class PFT_GUI_QT(QtWidgets.QWidget):
+class PFT_GUI_QT:
 
     def __init__(self, file_name):
-        super().__init__()
+        self.parent_window = QtWidgets.QWidget()
         self.layout = QtWidgets.QGridLayout()
         self._show_action_buttons(self.layout)
         self.storage = pft.SQLiteStorage(file_name)
         self.main_widget = None
-        self.setLayout(self.layout)
+        self.parent_window.setLayout(self.layout)
         self._show_accounts()
+        self.scroll = QtWidgets.QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setWidget(self.parent_window)
+        self.scroll.show()
+        title = 'Python Finance Tracking'
+        self.scroll.setWindowTitle(title)
 
     def _show_action_buttons(self, layout):
         accounts_button = QtWidgets.QPushButton('Accounts')
@@ -250,14 +256,8 @@ if __name__ == '__main__':
     args = pft.parse_args()
     app = QtWidgets.QApplication([])
     if args.file_name:
-        main_window = PFT_GUI_QT(args.file_name)
+        gui = PFT_GUI_QT(args.file_name)
     else:
-        main_window = PFT_GUI_QT(pft.DATA_FILENAME)
-    scroll = QtWidgets.QScrollArea()
-    scroll.setWidgetResizable(True)
-    scroll.setWidget(main_window)
-    scroll.show()
-    title = 'Python Finance Tracking'
-    scroll.setWindowTitle(title)
+        gui = PFT_GUI_QT(pft.DATA_FILENAME)
     app.exec_()
 
