@@ -194,19 +194,24 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
 class PFT_GUI_QT:
 
     def __init__(self, file_name):
-        self.parent_window = QtWidgets.QWidget()
-        self.layout = QtWidgets.QGridLayout()
-        self._show_action_buttons(self.layout)
         self.storage = pft.SQLiteStorage(file_name)
+        title = 'Python Finance Tracking'
+        self.parent_window = QtWidgets.QWidget()
+        self.parent_window.setWindowTitle(title)
+        self.parent_layout = QtWidgets.QGridLayout()
+        self.parent_window.setLayout(self.parent_layout)
+        self._show_action_buttons(self.parent_layout)
+
+        self.content_area = QtWidgets.QWidget()
+        self.content_layout = QtWidgets.QGridLayout()
+        self.content_area.setLayout(self.content_layout)
         self.main_widget = None
-        self.parent_window.setLayout(self.layout)
-        self._show_accounts()
         self.scroll = QtWidgets.QScrollArea()
         self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.parent_window)
-        self.scroll.show()
-        title = 'Python Finance Tracking'
-        self.scroll.setWindowTitle(title)
+        self.scroll.setWidget(self.content_area)
+        self._show_accounts()
+        self.parent_layout.addWidget(self.scroll, 1, 0, 1, 4)
+        self.parent_window.showMaximized()
 
     def _show_action_buttons(self, layout):
         accounts_button = QtWidgets.QPushButton('Accounts')
@@ -224,32 +229,32 @@ class PFT_GUI_QT:
 
     def _show_accounts(self):
         if self.main_widget:
-            self.layout.removeWidget(self.main_widget)
+            self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self.main_widget = AccountsDisplayWidget(self.storage)
-        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
+        self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):
         if self.main_widget:
-            self.layout.removeWidget(self.main_widget)
+            self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self.main_widget = LedgerDisplayWidget(self.storage)
-        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
+        self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_categories(self):
         if self.main_widget:
-            self.layout.removeWidget(self.main_widget)
+            self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self.main_widget = CategoriesDisplayWidget(self.storage, reload_categories=self._show_categories)
-        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
+        self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_budget(self):
         if self.main_widget:
-            self.layout.removeWidget(self.main_widget)
+            self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         budgets = self.storage.get_budgets()
         self.main_widget = BudgetDisplayWidget(budgets[0], self.storage, self._show_budget)
-        self.layout.addWidget(self.main_widget, 1, 0, 1, 4)
+        self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
 if __name__ == '__main__':
