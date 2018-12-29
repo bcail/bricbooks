@@ -27,6 +27,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
 
     def __init__(self, storage):
         super().__init__()
+        account = storage.get_accounts()[0]
         layout = QtWidgets.QGridLayout()
         layout.addWidget(QtWidgets.QLabel('Txn Type'), 0, 0)
         layout.addWidget(QtWidgets.QLabel('Date'), 0, 1)
@@ -37,28 +38,38 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Debit (-)'), 0, 6)
         layout.addWidget(QtWidgets.QLabel('Credit (+)'), 0, 7)
         layout.addWidget(QtWidgets.QLabel('Balance'), 0, 8)
-        account = storage.get_accounts()[0]
+        txns_widget = QtWidgets.QWidget()
+        txns_layout = QtWidgets.QGridLayout()
         self.ledger = pft.Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, self.ledger)
         balance = account.starting_balance
         for index, txn in enumerate(self.ledger.get_sorted_txns()):
-            row = index + 1
+            row = index
             tds = txn.get_display_strings()
             type_label = QtWidgets.QLabel(tds['txn_type'])
             date_label = QtWidgets.QLabel(tds['txn_date'])
             payee_label = QtWidgets.QLabel(tds['payee'])
             description_label = QtWidgets.QLabel(tds['description'])
+            categories_label = QtWidgets.QLabel(tds['categories'])
+            status_label = QtWidgets.QLabel(tds['status'])
             credit_label = QtWidgets.QLabel(tds['credit'])
             debit_label = QtWidgets.QLabel(tds['debit'])
             balance += txn.amount
             balance_label = QtWidgets.QLabel(str(balance))
-            layout.addWidget(type_label, row, 0)
-            layout.addWidget(date_label, row, 1)
-            layout.addWidget(payee_label, row, 2)
-            layout.addWidget(description_label, row, 3)
-            layout.addWidget(credit_label, row, 4)
-            layout.addWidget(debit_label, row, 5)
-            layout.addWidget(balance_label, row, 6)
+            txns_layout.addWidget(type_label, row, 0)
+            txns_layout.addWidget(date_label, row, 1)
+            txns_layout.addWidget(payee_label, row, 2)
+            txns_layout.addWidget(description_label, row, 3)
+            txns_layout.addWidget(categories_label, row, 4)
+            txns_layout.addWidget(status_label, row, 5)
+            txns_layout.addWidget(credit_label, row, 6)
+            txns_layout.addWidget(debit_label, row, 7)
+            txns_layout.addWidget(balance_label, row, 8)
+        txns_widget.setLayout(txns_layout)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(txns_widget)
+        layout.addWidget(scroll, 1, 0, 1, 9)
         self.setLayout(layout)
 
 
@@ -206,11 +217,8 @@ class PFT_GUI_QT:
         self.content_layout = QtWidgets.QGridLayout()
         self.content_area.setLayout(self.content_layout)
         self.main_widget = None
-        self.scroll = QtWidgets.QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setWidget(self.content_area)
         self._show_accounts()
-        self.parent_layout.addWidget(self.scroll, 1, 0, 1, 4)
+        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
         self.parent_window.showMaximized()
 
     def _show_action_buttons(self, layout):
