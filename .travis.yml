@@ -7,7 +7,7 @@ python:
   - "3.6"
   - "3.7"
 
-before_install:
+install:
     - pip install PySide2
 
 script:
