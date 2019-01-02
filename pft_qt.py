@@ -29,15 +29,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         super().__init__()
         account = storage.get_accounts()[0]
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(QtWidgets.QLabel('Txn Type'), 0, 0)
-        layout.addWidget(QtWidgets.QLabel('Date'), 0, 1)
-        layout.addWidget(QtWidgets.QLabel('Payee'), 0, 2)
-        layout.addWidget(QtWidgets.QLabel('Description'), 0, 3)
-        layout.addWidget(QtWidgets.QLabel('Categories'), 0, 4)
-        layout.addWidget(QtWidgets.QLabel('Status'), 0, 5)
-        layout.addWidget(QtWidgets.QLabel('Debit (-)'), 0, 6)
-        layout.addWidget(QtWidgets.QLabel('Credit (+)'), 0, 7)
-        layout.addWidget(QtWidgets.QLabel('Balance'), 0, 8)
+        self._show_headings(layout, row=0)
         txns_widget = QtWidgets.QWidget()
         txns_layout = QtWidgets.QGridLayout()
         self.ledger = pft.Ledger(starting_balance=account.starting_balance)
@@ -71,6 +63,17 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         scroll.setWidget(txns_widget)
         layout.addWidget(scroll, 1, 0, 1, 9)
         self.setLayout(layout)
+
+    def _show_headings(self, layout, row):
+        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, 0)
+        layout.addWidget(QtWidgets.QLabel('Date'), row, 1)
+        layout.addWidget(QtWidgets.QLabel('Payee'), row, 2)
+        layout.addWidget(QtWidgets.QLabel('Description'), row, 3)
+        layout.addWidget(QtWidgets.QLabel('Categories'), row, 4)
+        layout.addWidget(QtWidgets.QLabel('Status'), row, 5)
+        layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
+        layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
+        layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
 
 
 class CategoriesDisplayWidget(QtWidgets.QWidget):
