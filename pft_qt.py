@@ -30,19 +30,10 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         account = storage.get_accounts()[0]
         layout = QtWidgets.QGridLayout()
         self._show_headings(layout, row=0)
-        self.ledger = pft.Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, self.ledger)
-        balance = account.starting_balance
-        txns_layout = QtWidgets.QGridLayout()
-        for index, txn in enumerate(self.ledger.get_sorted_txns()):
-            self._display_txn(txn, row=index, layout=txns_layout, balance=balance)
-            balance += txn.amount
-        txns_widget = QtWidgets.QWidget()
-        txns_widget.setLayout(txns_layout)
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(txns_widget)
-        layout.addWidget(scroll, 1, 0, 1, 9)
+        ledger = pft.Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, ledger)
+        txns_widget = self._get_ledger_widget(ledger)
+        layout.addWidget(txns_widget, 1, 0, 1, 9)
         self.setLayout(layout)
 
     def _show_headings(self, layout, row):
@@ -55,6 +46,19 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
         layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
+
+    def _get_ledger_widget(self, ledger):
+        balance = ledger._starting_balance
+        txns_layout = QtWidgets.QGridLayout()
+        for index, txn in enumerate(ledger.get_sorted_txns()):
+            self._display_txn(txn, row=index, layout=txns_layout, balance=balance)
+            balance += txn.amount
+        txns_widget = QtWidgets.QWidget()
+        txns_widget.setLayout(txns_layout)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(txns_widget)
+        return scroll
 
     def _display_txn(self, txn, row, layout, balance):
         tds = txn.get_display_strings()
