@@ -1173,9 +1173,21 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger(self):
         storage = SQLiteStorage(':memory:')
-        acc = Account(name='Savings', starting_balance=D(5000))
-        storage.save_account(acc)
+        account = Account(name='Checking', starting_balance=D(100))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
+        txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
         dw = pft_qt.LedgerDisplayWidget(storage)
+        dw.add_txn_widgets['date'].setText('2017-01-05')
+        dw.add_txn_widgets['debit'].setText('18')
+        QtTest.QTest.mouseClick(dw.add_txn_widgets['add_new_button'], QtCore.Qt.LeftButton)
+        ledger = Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, ledger)
+        txns = ledger.get_sorted_txns()
+        self.assertEqual(len(txns), 3)
+        self.assertEqual(txns[1].amount, D('-18'))
 
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
