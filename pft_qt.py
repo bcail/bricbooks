@@ -31,9 +31,10 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         account = storage.get_accounts()[0]
         layout = QtWidgets.QGridLayout()
         self._show_headings(layout, row=0)
-        ledger = pft.Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, ledger)
-        txns_widget = self._get_ledger_widget(ledger)
+        self.txn_display_data = {}
+        self.ledger = pft.Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, self.ledger)
+        txns_widget = self._get_ledger_widget(self.ledger)
         layout.addWidget(txns_widget, 1, 0, 1, 9)
         self.add_txn_widgets = {}
         self._show_add_txn(layout, self.add_txn_widgets, row=2)
@@ -51,17 +52,22 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
 
     def _get_ledger_widget(self, ledger):
-        balance = ledger._starting_balance
-        txns_layout = QtWidgets.QGridLayout()
-        for index, txn in enumerate(ledger.get_sorted_txns()):
-            self._display_txn(txn, row=index, layout=txns_layout, balance=balance)
-            balance += txn.amount
+        self.txns_layout = QtWidgets.QGridLayout()
+        self._redisplay_txns()
         txns_widget = QtWidgets.QWidget()
-        txns_widget.setLayout(txns_layout)
+        txns_widget.setLayout(self.txns_layout)
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(txns_widget)
         return scroll
+
+    def _redisplay_txns(self):
+        '''draw/redraw txns on the screen as needed'''
+        balance = self.ledger._starting_balance
+        for index, txn in enumerate(self.ledger.get_sorted_txns()):
+            balance += txn.amount
+            if txn.id not in self.txn_display_data or self.txn_display_data[txn.id]['row'] != index:
+                self._display_txn(txn, row=index, layout=self.txns_layout, balance=balance)
 
     def _display_txn(self, txn, row, layout, balance):
         tds = txn.get_display_strings()
@@ -83,6 +89,9 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(credit_label, row, 6)
         layout.addWidget(debit_label, row, 7)
         layout.addWidget(balance_label, row, 8)
+        self.txn_display_data[txn.id] = {
+                'row': row
+            }
 
     def _show_add_txn(self, layout, add_txn_widgets, row):
         type_entry = QtWidgets.QLineEdit()
@@ -137,6 +146,8 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
             )
         self.storage.save_txn(txn)
         self._clear_add_txn_widgets()
+        self.ledger.add_transaction(txn)
+        self._redisplay_txns()
 
     def _clear_add_txn_widgets(self):
         for w in self.add_txn_widgets.values():

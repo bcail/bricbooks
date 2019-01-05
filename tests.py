@@ -1183,12 +1183,16 @@ class TestQtGUI(unittest.TestCase):
         dw.add_txn_widgets['date'].setText('2017-01-05')
         dw.add_txn_widgets['debit'].setText('18')
         QtTest.QTest.mouseClick(dw.add_txn_widgets['add_new_button'], QtCore.Qt.LeftButton)
+        #make sure new txn was saved
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
         txns = ledger.get_sorted_txns()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].amount, D('-18'))
+        #check new txn display
         self.assertEqual(dw.add_txn_widgets['debit'].text(), '')
+        self.assertEqual(len(dw.ledger.get_sorted_txns()), 3)
+        self.assertEqual(dw.txn_display_data[txns[1].id]['row'], 1)
 
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
