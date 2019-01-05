@@ -136,6 +136,11 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
                 categories=categories
             )
         self.storage.save_txn(txn)
+        self._clear_add_txn_widgets()
+
+    def _clear_add_txn_widgets(self):
+        for w in self.add_txn_widgets.values():
+            w.setText('')
 
 
 class CategoriesDisplayWidget(QtWidgets.QWidget):

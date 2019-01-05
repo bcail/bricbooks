@@ -1188,6 +1188,7 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].amount, D('-18'))
+        self.assertEqual(dw.add_txn_widgets['debit'].text(), '')
 
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
