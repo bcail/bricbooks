@@ -90,8 +90,8 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(description_label, row, 3)
         layout.addWidget(categories_label, row, 4)
         layout.addWidget(status_label, row, 5)
-        layout.addWidget(credit_label, row, 6)
-        layout.addWidget(debit_label, row, 7)
+        layout.addWidget(debit_label, row, 6)
+        layout.addWidget(credit_label, row, 7)
         layout.addWidget(balance_label, row, 8)
         self.txn_display_data[txn.id] = {
                 'widgets': [type_label, date_label, payee_label, description_label, categories_label, status_label, credit_label, debit_label, balance_label],
@@ -117,12 +117,12 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         status_entry = QtWidgets.QLineEdit()
         add_txn_widgets['status'] = status_entry
         layout.addWidget(status_entry, row, 5)
-        credit_entry = QtWidgets.QLineEdit()
-        add_txn_widgets['credit'] = credit_entry
-        layout.addWidget(credit_entry, row, 6)
         debit_entry = QtWidgets.QLineEdit()
         add_txn_widgets['debit'] = debit_entry
-        layout.addWidget(debit_entry, row, 7)
+        layout.addWidget(debit_entry, row, 6)
+        credit_entry = QtWidgets.QLineEdit()
+        add_txn_widgets['credit'] = credit_entry
+        layout.addWidget(credit_entry, row, 7)
         add_new_button = QtWidgets.QPushButton('Add New')
         add_new_button.clicked.connect(self._save_new_txn)
         add_txn_widgets['add_new_button'] = add_new_button
