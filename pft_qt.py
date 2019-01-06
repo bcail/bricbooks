@@ -70,6 +70,10 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
                 self._display_txn(txn, row=index, layout=self.txns_layout, balance=balance)
 
     def _display_txn(self, txn, row, layout, balance):
+        if txn.id in self.txn_display_data:
+            for widget in self.txn_display_data[txn.id]['widgets']:
+                layout.removeWidget(widget)
+                widget.deleteLater()
         tds = txn.get_display_strings()
         type_label = QtWidgets.QLabel(tds['txn_type'])
         date_label = QtWidgets.QLabel(tds['txn_date'])
@@ -90,6 +94,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(debit_label, row, 7)
         layout.addWidget(balance_label, row, 8)
         self.txn_display_data[txn.id] = {
+                'widgets': [type_label, date_label, payee_label, description_label, categories_label, status_label, credit_label, debit_label, balance_label],
                 'row': row
             }
 
