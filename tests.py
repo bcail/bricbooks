@@ -1192,7 +1192,7 @@ class TestQtGUI(unittest.TestCase):
         #check new txn display
         self.assertEqual(dw.add_txn_widgets['entries']['debit'].text(), '')
         self.assertEqual(len(dw.ledger.get_sorted_txns()), 3)
-        self.assertEqual(dw.txn_display_data[txns[1].id]['row'], 1)
+        self.assertEqual(dw.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
     def test_categories(self):
         storage = SQLiteStorage(':memory:')

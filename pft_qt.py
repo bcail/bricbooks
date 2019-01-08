@@ -23,35 +23,13 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
         self.setLayout(layout)
 
 
-class LedgerDisplayWidget(QtWidgets.QWidget):
+class LedgerTxnsDisplay:
 
-    def __init__(self, storage):
-        super().__init__()
-        self.storage = storage
-        account = storage.get_accounts()[0]
-        layout = QtWidgets.QGridLayout()
-        self._show_headings(layout, row=0)
+    def __init__(self, ledger):
+        self.ledger = ledger
         self.txn_display_data = {}
-        self.ledger = pft.Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, self.ledger)
-        txns_widget = self._get_ledger_widget(self.ledger)
-        layout.addWidget(txns_widget, 1, 0, 1, 9)
-        self.add_txn_widgets = {'entries': {}, 'buttons': {}}
-        self._show_add_txn(layout, self.add_txn_widgets, row=2)
-        self.setLayout(layout)
 
-    def _show_headings(self, layout, row):
-        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, 0)
-        layout.addWidget(QtWidgets.QLabel('Date'), row, 1)
-        layout.addWidget(QtWidgets.QLabel('Payee'), row, 2)
-        layout.addWidget(QtWidgets.QLabel('Description'), row, 3)
-        layout.addWidget(QtWidgets.QLabel('Categories'), row, 4)
-        layout.addWidget(QtWidgets.QLabel('Status'), row, 5)
-        layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
-        layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
-        layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
-
-    def _get_ledger_widget(self, ledger):
+    def get_widget(self):
         self.txns_layout = QtWidgets.QGridLayout()
         self._redisplay_txns()
         txns_widget = QtWidgets.QWidget()
@@ -60,6 +38,10 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         scroll.setWidgetResizable(True)
         scroll.setWidget(txns_widget)
         return scroll
+
+    def display_new_txn(self, txn):
+        self.ledger.add_transaction(txn)
+        self._redisplay_txns()
 
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
@@ -98,6 +80,34 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
                 'row': row
             }
 
+
+class LedgerDisplayWidget(QtWidgets.QWidget):
+
+    def __init__(self, storage):
+        super().__init__()
+        self.storage = storage
+        account = storage.get_accounts()[0]
+        layout = QtWidgets.QGridLayout()
+        self._show_headings(layout, row=0)
+        self.ledger = pft.Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, self.ledger)
+        self.txns_display = LedgerTxnsDisplay(self.ledger)
+        layout.addWidget(self.txns_display.get_widget(), 1, 0, 1, 9)
+        self.add_txn_widgets = {'entries': {}, 'buttons': {}}
+        self._show_add_txn(layout, self.add_txn_widgets, row=2)
+        self.setLayout(layout)
+
+    def _show_headings(self, layout, row):
+        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, 0)
+        layout.addWidget(QtWidgets.QLabel('Date'), row, 1)
+        layout.addWidget(QtWidgets.QLabel('Payee'), row, 2)
+        layout.addWidget(QtWidgets.QLabel('Description'), row, 3)
+        layout.addWidget(QtWidgets.QLabel('Categories'), row, 4)
+        layout.addWidget(QtWidgets.QLabel('Status'), row, 5)
+        layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
+        layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
+        layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
+
     def _show_add_txn(self, layout, add_txn_widgets, row):
         entry_names = ['type', 'date', 'payee', 'description', 'categories', 'status', 'debit', 'credit']
         for index, entry_name in enumerate(entry_names):
@@ -131,9 +141,8 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
                 categories=categories
             )
         self.storage.save_txn(txn)
+        self.txns_display.display_new_txn(txn)
         self._clear_add_txn_widgets()
-        self.ledger.add_transaction(txn)
-        self._redisplay_txns()
 
     def _clear_add_txn_widgets(self):
         for w in self.add_txn_widgets['entries'].values():
