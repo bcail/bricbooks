@@ -5,8 +5,10 @@ import pft
 
 class AccountsDisplayWidget(QtWidgets.QWidget):
 
-    def __init__(self, storage):
+    def __init__(self, storage, reload_accounts):
         super().__init__()
+        self.storage = storage
+        self._reload = reload_accounts
         layout = QtWidgets.QGridLayout()
         name_label = QtWidgets.QLabel('Name')
         starting_balance_label = QtWidgets.QLabel('Starting Balance')
@@ -20,7 +22,24 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
             layout.addWidget(nl, row, 0)
             layout.addWidget(sbl, row, 1)
             row += 1
+        add_account_name = QtWidgets.QLineEdit()
+        layout.addWidget(add_account_name, row, 0)
+        add_account_starting_balance = QtWidgets.QLineEdit()
+        layout.addWidget(add_account_starting_balance, row, 1)
+        button = QtWidgets.QPushButton('Add New')
+        button.clicked.connect(self._save_new_account)
+        layout.addWidget(button, row, 2)
+        self.add_account_widgets = {
+                'entries': {'name': add_account_name, 'starting_balance': add_account_starting_balance},
+                'buttons': {'add_new': button},
+            }
         self.setLayout(layout)
+
+    def _save_new_account(self):
+        account = pft.Account(name=self.add_account_widgets['entries']['name'].text(),
+                starting_balance=self.add_account_widgets['entries']['starting_balance'].text())
+        self.storage.save_account(account)
+        self._reload()
 
 
 def set_ledger_column_widths(layout):
@@ -329,7 +348,7 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.main_widget = AccountsDisplayWidget(self.storage)
+        self.main_widget = AccountsDisplayWidget(self.storage, reload_accounts=self._show_accounts)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):

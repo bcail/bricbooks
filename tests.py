@@ -1169,7 +1169,15 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account(self):
         storage = SQLiteStorage(':memory:')
-        dw = pft_qt.AccountsDisplayWidget(storage)
+        a = Account(name='Checking', starting_balance=D(100))
+        storage.save_account(a)
+        def reload_accounts(): pass
+        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=reload_accounts)
+        dw.add_account_widgets['entries']['name'].setText('Savings')
+        dw.add_account_widgets['entries']['starting_balance'].setText('500')
+        QtTest.QTest.mouseClick(dw.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
+        accounts = storage.get_accounts()
+        self.assertEqual(len(accounts), 2)
 
     def test_ledger(self):
         storage = SQLiteStorage(':memory:')
