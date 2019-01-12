@@ -23,6 +23,18 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
         self.setLayout(layout)
 
 
+def set_ledger_column_widths(layout):
+    layout.setColumnStretch(0, 1)
+    layout.setColumnStretch(1, 1)
+    layout.setColumnStretch(2, 4)
+    layout.setColumnStretch(3, 5)
+    layout.setColumnStretch(4, 5)
+    layout.setColumnStretch(5, 1)
+    layout.setColumnStretch(6, 3)
+    layout.setColumnStretch(7, 3)
+    layout.setColumnStretch(8, 3)
+
+
 class LedgerTxnsDisplay:
 
     def __init__(self, ledger):
@@ -31,6 +43,7 @@ class LedgerTxnsDisplay:
 
     def get_widget(self):
         self.txns_layout = QtWidgets.QGridLayout()
+        set_ledger_column_widths(self.txns_layout)
         self._redisplay_txns()
         txns_widget = QtWidgets.QWidget()
         txns_widget.setLayout(self.txns_layout)
@@ -88,6 +101,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         self.storage = storage
         account = storage.get_accounts()[0]
         layout = QtWidgets.QGridLayout()
+        set_ledger_column_widths(layout)
         self._show_headings(layout, row=0)
         self.ledger = pft.Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, self.ledger)
