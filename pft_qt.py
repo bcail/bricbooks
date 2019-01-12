@@ -1,3 +1,4 @@
+from functools import partial
 import sys
 from PySide2 import QtWidgets
 import pft
@@ -14,13 +15,50 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
         starting_balance_label = QtWidgets.QLabel('Starting Balance')
         layout.addWidget(name_label, 0, 0)
         layout.addWidget(starting_balance_label, 0, 1)
+        self.accounts_widgets = {}
         accounts = storage.get_accounts()
         row = 1
         for acc in accounts:
-            nl = QtWidgets.QLabel(acc.name)
-            sbl = QtWidgets.QLabel(str(acc.starting_balance))
-            layout.addWidget(nl, row, 0)
-            layout.addWidget(sbl, row, 1)
+            name_label = QtWidgets.QLabel(acc.name)
+            starting_balance_label = QtWidgets.QLabel(str(acc.starting_balance))
+            layout.addWidget(name_label, row, 0)
+            layout.addWidget(starting_balance_label, row, 1)
+            def _edit(acc_id):
+                orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
+                orig_starting_balance = self.accounts_widgets[acc_id]['labels']['starting_balance'].text()
+                for label in self.accounts_widgets[acc_id]['labels'].values():
+                    layout.removeWidget(label)
+                    label.deleteLater()
+                name_entry = QtWidgets.QLineEdit()
+                name_entry.setText(orig_name)
+                starting_balance_entry = QtWidgets.QLineEdit()
+                starting_balance_entry.setText(orig_starting_balance)
+                row = self.accounts_widgets[acc_id]['row']
+                layout.addWidget(name_entry, row, 0)
+                layout.addWidget(starting_balance_entry, row, 1)
+                def _save(acc_id):
+                    name = self.accounts_widgets[acc_id]['entries']['name'].text()
+                    starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
+                    self.storage.save_account(pft.Account(name=name, starting_balance=starting_balance, id=acc_id))
+                    self._reload()
+                save_button = QtWidgets.QPushButton('Save')
+                save_button.clicked.connect(partial(_save, acc_id=acc_id))
+                layout.addWidget(save_button, row, 2)
+                self.accounts_widgets[acc_id]['entries'] = {
+                        'name': name_entry,
+                        'starting_balance': starting_balance_entry,
+                    }
+                self.accounts_widgets[acc_id]['buttons'] = {
+                        'save': save_button,
+                    }
+            edit_button = QtWidgets.QPushButton('Edit')
+            layout.addWidget(edit_button, row, 2)
+            self.accounts_widgets[acc.id] = {
+                    'row': row,
+                    'labels': {'name': name_label, 'starting_balance': starting_balance_label},
+                    'buttons': {'edit': edit_button}
+                }
+            edit_button.clicked.connect(partial(_edit, acc_id=acc.id))
             row += 1
         add_account_name = QtWidgets.QLineEdit()
         layout.addWidget(add_account_name, row, 0)
