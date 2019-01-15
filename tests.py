@@ -936,6 +936,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(cat.name, 'Housing')
 
 
+def fake_method():
+    pass
+
+
 class TestGUI(AbstractTkTest, unittest.TestCase):
 
     def setUp(self):
@@ -955,8 +959,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         acc = Account(name='Savings', starting_balance=D(5000))
         storage.save_account(acc)
-        def show_accounts(): pass
-        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=show_accounts)
+        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=fake_method)
         adw.add_account_name_entry.insert(0, 'Checking')
         adw.add_account_starting_balance_entry.insert(0, '100')
         adw.add_account_button.invoke()
@@ -970,8 +973,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         acc = Account(name='Savings', starting_balance=D(5000))
         storage.save_account(acc)
-        def show_accounts(): pass
-        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=show_accounts)
+        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=fake_method)
         adw.data[acc.id]['edit_button'].invoke()
         self.assertEqual(adw.data[acc.id]['entries']['name'].get(), 'Savings')
         adw.data[acc.id]['entries']['name'].delete(0, tkinter.END)
@@ -1142,8 +1144,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
-        def reload_budget(): pass
-        dw = BudgetDisplayWidget(master=self.root, budget=budget, storage=storage, reload_budget=reload_budget)
+        dw = BudgetDisplayWidget(master=self.root, budget=budget, storage=storage, reload_budget=fake_method)
         dw._edit_button.invoke()
         dw.data[c.id]['budget_entry'].delete(0, tkinter.END)
         dw.data[c.id]['budget_entry'].insert(0, '30')
@@ -1172,8 +1173,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D(100))
         storage.save_account(a)
-        def reload_accounts(): pass
-        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=reload_accounts)
+        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=fake_method)
         dw.add_account_widgets['entries']['name'].setText('Savings')
         dw.add_account_widgets['entries']['starting_balance'].setText('500')
         QtTest.QTest.mouseClick(dw.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
@@ -1184,8 +1184,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D(100))
         storage.save_account(a)
-        def reload_accounts(): pass
-        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=reload_accounts)
+        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=fake_method)
         QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['edit'], QtCore.Qt.LeftButton)
         dw.accounts_widgets[a.id]['entries']['name'].setText('Saving')
         QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['save'], QtCore.Qt.LeftButton)
@@ -1195,8 +1194,7 @@ class TestQtGUI(unittest.TestCase):
     @patch('pft_qt.set_widget_error_state')
     def test_account_exception(self, mock_method):
         storage = SQLiteStorage(':memory:')
-        def reload_accounts(): pass
-        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=reload_accounts)
+        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=fake_method)
         QtTest.QTest.mouseClick(dw.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         mock_method.assert_called_once()
 
@@ -1226,8 +1224,7 @@ class TestQtGUI(unittest.TestCase):
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])
-        def reload_categories(): pass
-        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories)
+        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
         QtTest.QTest.keyClicks(dw.name_entry, 'Housing')
         QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(storage.get_categories()[0].name, 'Housing')
@@ -1245,8 +1242,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
-        def reload_budget(): pass
-        dw = pft_qt.BudgetDisplayWidget(budget=budget, storage=storage, reload_budget=reload_budget)
+        dw = pft_qt.BudgetDisplayWidget(budget=budget, storage=storage, reload_budget=fake_method)
         QtTest.QTest.mouseClick(dw._edit_button, QtCore.Qt.LeftButton)
         dw.data[c.id]['budget_entry'].setText('30')
         QtTest.QTest.mouseClick(dw._save_button, QtCore.Qt.LeftButton) #now it's the save button
