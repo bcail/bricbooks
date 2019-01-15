@@ -4,6 +4,15 @@ from PySide2 import QtWidgets
 import pft
 
 
+ERROR_STYLE = '''QLineEdit {
+    border: 2px solid red;
+}'''
+
+
+def set_widget_error_state(widget):
+    widget.setStyleSheet(ERROR_STYLE)
+
+
 class AccountsDisplayWidget(QtWidgets.QWidget):
 
     def __init__(self, storage, reload_accounts):
@@ -39,8 +48,13 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
                 def _save(acc_id):
                     name = self.accounts_widgets[acc_id]['entries']['name'].text()
                     starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
-                    self.storage.save_account(pft.Account(name=name, starting_balance=starting_balance, id=acc_id))
-                    self._reload()
+                    try:
+                        self.storage.save_account(pft.Account(name=name, starting_balance=starting_balance, id=acc_id))
+                        self._reload()
+                    except pft.InvalidAccountNameError:
+                        set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
+                    except pft.InvalidAccountStartingBalanceError:
+                        set_widget_error_state(self.accounts_widgets[acc_id]['entries']['starting_balance'])
                 save_button = QtWidgets.QPushButton('Save')
                 save_button.clicked.connect(partial(_save, acc_id=acc_id))
                 layout.addWidget(save_button, row, 2)
@@ -74,10 +88,16 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
         self.setLayout(layout)
 
     def _save_new_account(self):
-        account = pft.Account(name=self.add_account_widgets['entries']['name'].text(),
-                starting_balance=self.add_account_widgets['entries']['starting_balance'].text())
-        self.storage.save_account(account)
-        self._reload()
+        name = self.add_account_widgets['entries']['name'].text()
+        starting_balance = self.add_account_widgets['entries']['starting_balance'].text()
+        try:
+            account = pft.Account(name=name, starting_balance=starting_balance)
+            self.storage.save_account(account)
+            self._reload()
+        except pft.InvalidAccountStartingBalanceError:
+            set_widget_error_state(self.add_account_widgets['entries']['starting_balance'])
+        except pft.InvalidAccountNameError:
+            set_widget_error_state(self.add_account_widgets['entries']['name'])
 
 
 def set_ledger_column_widths(layout):

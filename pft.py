@@ -24,6 +24,12 @@ DEBUG = False
 class InvalidAccountError(RuntimeError):
     pass
 
+class InvalidAccountNameError(InvalidAccountError):
+    pass
+
+class InvalidAccountStartingBalanceError(InvalidAccountError):
+    pass
+
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -38,6 +44,8 @@ class Account:
 
     def __init__(self, id=None, name=None, starting_balance=None):
         self.id = id
+        if not name:
+            raise InvalidAccountNameError('Account must have a name')
         self.name = name
         self.starting_balance = self._check_starting_balance(starting_balance)
 
@@ -51,9 +59,9 @@ class Account:
             try:
                 return Decimal(starting_balance)
             except InvalidOperation:
-                raise InvalidAccountError('invalid starting balance %s' % starting_balance)
+                raise InvalidAccountStartingBalanceError('invalid starting balance %s' % starting_balance)
         else:
-            raise InvalidAccountError('invalid type %s for starting_balance' % type(starting_balance))
+            raise InvalidAccountStartingBalanceError('invalid type %s for starting_balance' % type(starting_balance))
         return starting_balance
 
 

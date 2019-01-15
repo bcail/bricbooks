@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import tkinter
 import unittest
+from unittest.mock import patch
 from PySide2 import QtWidgets, QtTest, QtCore
 
 from pft import (
@@ -1190,6 +1191,14 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['save'], QtCore.Qt.LeftButton)
         self.assertEqual(len(storage.get_accounts()), 1)
         self.assertEqual(storage.get_accounts()[0].name, 'Saving')
+
+    @patch('pft_qt.set_widget_error_state')
+    def test_account_exception(self, mock_method):
+        storage = SQLiteStorage(':memory:')
+        def reload_accounts(): pass
+        dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=reload_accounts)
+        QtTest.QTest.mouseClick(dw.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
+        mock_method.assert_called_once()
 
     def test_ledger(self):
         storage = SQLiteStorage(':memory:')
