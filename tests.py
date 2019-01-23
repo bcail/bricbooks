@@ -1221,6 +1221,26 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(dw.ledger.get_sorted_txns()), 3)
         self.assertEqual(dw.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
+    def test_ledger_txn_edit(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D(100))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
+        txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        dw = pft_qt.LedgerDisplayWidget(storage)
+        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        dw.txns_display.txn_display_data[txn.id]['widgets']['entries']['credit'].setText('20')
+        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        #make sure edit was saved
+        ledger = Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, ledger)
+        txns = ledger.get_sorted_txns()
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[1].txn_date, date.today())
+        self.assertEqual(txns[1].amount, D(20))
+
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])

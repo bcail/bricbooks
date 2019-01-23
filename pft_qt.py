@@ -114,8 +114,9 @@ def set_ledger_column_widths(layout):
 
 class LedgerTxnsDisplay:
 
-    def __init__(self, ledger):
+    def __init__(self, ledger, storage):
         self.ledger = ledger
+        self.storage = storage
         self.txn_display_data = {}
 
     def get_widget(self):
@@ -143,18 +144,109 @@ class LedgerTxnsDisplay:
 
     def _display_txn(self, txn, row, layout, balance):
         if txn.id in self.txn_display_data:
-            for widget in self.txn_display_data[txn.id]['widgets']:
+            for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
                 layout.removeWidget(widget)
                 widget.deleteLater()
         tds = txn.get_display_strings()
+
+        def _edit(event, txn_id):
+
+            def _save_edit(txn_id):
+                entries = self.txn_display_data[txn_id]['widgets']['entries']
+                txn_type = entries['type'].text()
+                txn_date = entries['date'].text()
+                payee = entries['payee'].text()
+                debit = entries['debit'].text()
+                credit = entries['credit'].text()
+                description = entries['description'].text()
+                status = entries['status'].text()
+                categories_str = entries['categories'].text()
+                categories = pft.txn_categories_from_string(self.storage, categories_str)
+                txn = self.ledger.get_txn(txn_id)
+                txn.update_from_user_strings(
+                        txn_type=txn_type,
+                        txn_date=txn_date,
+                        payee=payee,
+                        debit=debit,
+                        credit=credit,
+                        description=description,
+                        status=status,
+                        categories=categories,
+                    )
+                self.storage.save_txn(txn)
+                for widget in self.txn_display_data[txn.id]['widgets']['entries'].values():
+                    layout.removeWidget(widget)
+                    widget.deleteLater()
+                for widget in self.txn_display_data[txn.id]['widgets']['buttons'].values():
+                    layout.removeWidget(widget)
+                    widget.deleteLater()
+                del self.txn_display_data[txn_id]
+                self._redisplay_txns()
+
+            row = self.txn_display_data[txn.id]['row']
+            widgets = self.txn_display_data[txn.id]['widgets']
+            type_entry = QtWidgets.QLineEdit()
+            type_entry.setText(widgets['labels']['type'].text())
+            date_entry = QtWidgets.QLineEdit()
+            date_entry.setText(widgets['labels']['date'].text())
+            payee_entry = QtWidgets.QLineEdit()
+            payee_entry.setText(widgets['labels']['payee'].text())
+            description_entry = QtWidgets.QLineEdit()
+            description_entry.setText(widgets['labels']['description'].text())
+            categories_entry = QtWidgets.QLineEdit()
+            categories_entry.setText(widgets['labels']['categories'].text())
+            status_entry = QtWidgets.QLineEdit()
+            status_entry.setText(widgets['labels']['status'].text())
+            credit_entry = QtWidgets.QLineEdit()
+            credit_entry.setText(widgets['labels']['credit'].text())
+            debit_entry = QtWidgets.QLineEdit()
+            debit_entry.setText(widgets['labels']['debit'].text())
+            for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
+                layout.removeWidget(widget)
+                widget.deleteLater()
+            self.txn_display_data[txn.id]['widgets']['labels'] = {}
+            layout.addWidget(type_entry, row, 0)
+            layout.addWidget(date_entry, row, 1)
+            layout.addWidget(payee_entry, row, 2)
+            layout.addWidget(description_entry, row, 3)
+            layout.addWidget(categories_entry, row, 4)
+            layout.addWidget(status_entry, row, 5)
+            layout.addWidget(debit_entry, row, 6)
+            layout.addWidget(credit_entry, row, 7)
+            save_edit_button = QtWidgets.QPushButton('Save Edit')
+            save_edit_button.clicked.connect(partial(_save_edit, txn_id=txn_id))
+            layout.addWidget(save_edit_button, row, 8)
+            self.txn_display_data[txn.id]['widgets']['entries'] = {
+                    'type': type_entry,
+                    'date': date_entry,
+                    'payee': payee_entry,
+                    'description': description_entry,
+                    'categories': categories_entry,
+                    'status': status_entry,
+                    'credit': credit_entry,
+                    'debit': debit_entry,
+                }
+            self.txn_display_data[txn.id]['widgets']['buttons'] = {
+                    'save_edit': save_edit_button,
+                }
+
+        edit_function = partial(_edit, txn_id=txn.id)
         type_label = QtWidgets.QLabel(tds['txn_type'])
+        type_label.mousePressEvent = edit_function
         date_label = QtWidgets.QLabel(tds['txn_date'])
+        date_label.mousePressEvent = edit_function
         payee_label = QtWidgets.QLabel(tds['payee'])
+        payee_label.mousePressEvent = edit_function
         description_label = QtWidgets.QLabel(tds['description'])
+        description_label.mousePressEvent = edit_function
         categories_label = QtWidgets.QLabel(tds['categories'])
+        categories_label.mousePressEvent = edit_function
         status_label = QtWidgets.QLabel(tds['status'])
+        status_label.mousePressEvent = edit_function
         credit_label = QtWidgets.QLabel(tds['credit'])
+        credit_label.mousePressEvent = edit_function
         debit_label = QtWidgets.QLabel(tds['debit'])
+        debit_label.mousePressEvent = edit_function
         balance_label = QtWidgets.QLabel(str(balance))
         layout.addWidget(type_label, row, 0)
         layout.addWidget(date_label, row, 1)
@@ -166,7 +258,19 @@ class LedgerTxnsDisplay:
         layout.addWidget(credit_label, row, 7)
         layout.addWidget(balance_label, row, 8)
         self.txn_display_data[txn.id] = {
-                'widgets': [type_label, date_label, payee_label, description_label, categories_label, status_label, credit_label, debit_label, balance_label],
+                'widgets': {
+                    'labels': {
+                        'type': type_label,
+                        'date': date_label,
+                        'payee': payee_label,
+                        'description': description_label,
+                        'categories': categories_label,
+                        'status': status_label,
+                        'credit': credit_label,
+                        'debit': debit_label,
+                        'balance': balance_label
+                    }
+                },
                 'row': row
             }
 
@@ -182,7 +286,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         self._show_headings(layout, row=0)
         self.ledger = pft.Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, self.ledger)
-        self.txns_display = LedgerTxnsDisplay(self.ledger)
+        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), 1, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
         self._show_add_txn(layout, self.add_txn_widgets, row=2)
