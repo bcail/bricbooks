@@ -1196,7 +1196,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=fake_method)
         QtTest.QTest.mouseClick(dw.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
-        mock_method.assert_called_once()
+        mock_method.assert_called_once_with(dw.add_account_widgets['entries']['name'])
 
     def test_ledger(self):
         storage = SQLiteStorage(':memory:')
