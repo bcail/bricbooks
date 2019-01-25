@@ -1241,6 +1241,24 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].txn_date, date.today())
         self.assertEqual(txns[1].amount, D(20))
 
+    def test_ledger_txn_delete(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D(100))
+        storage.save_account(account)
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
+        txn2 = Transaction(account=account, amount=D(23), txn_date=date(2017, 1, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        dw = pft_qt.LedgerDisplayWidget(storage)
+        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
+        #make sure txn was deleted
+        ledger = Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, ledger)
+        txns = ledger.get_sorted_txns()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].amount, D(23))
+
     def test_categories(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])

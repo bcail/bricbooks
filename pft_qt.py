@@ -183,6 +183,18 @@ class LedgerTxnsDisplay:
                 del self.txn_display_data[txn_id]
                 self._redisplay_txns()
 
+            def _delete(txn_id):
+                self.storage.delete_txn(txn_id)
+                self.ledger.remove_txn(txn_id)
+                for widget in self.txn_display_data[txn.id]['widgets']['entries'].values():
+                    layout.removeWidget(widget)
+                    widget.deleteLater()
+                for widget in self.txn_display_data[txn.id]['widgets']['buttons'].values():
+                    layout.removeWidget(widget)
+                    widget.deleteLater()
+                del self.txn_display_data[txn_id]
+                self._redisplay_txns()
+
             row = self.txn_display_data[txn.id]['row']
             widgets = self.txn_display_data[txn.id]['widgets']
             type_entry = QtWidgets.QLineEdit()
@@ -215,7 +227,14 @@ class LedgerTxnsDisplay:
             layout.addWidget(credit_entry, row, 7)
             save_edit_button = QtWidgets.QPushButton('Save Edit')
             save_edit_button.clicked.connect(partial(_save_edit, txn_id=txn_id))
-            layout.addWidget(save_edit_button, row, 8)
+            delete_button = QtWidgets.QPushButton('Delete')
+            delete_button.clicked.connect(partial(_delete, txn_id=txn_id))
+            buttons_layout = QtWidgets.QGridLayout()
+            buttons_layout.addWidget(save_edit_button, 0, 0)
+            buttons_layout.addWidget(delete_button, 0, 1)
+            buttons_widget = QtWidgets.QWidget()
+            buttons_widget.setLayout(buttons_layout)
+            layout.addWidget(buttons_widget, row, 8)
             self.txn_display_data[txn.id]['widgets']['entries'] = {
                     'type': type_entry,
                     'date': date_entry,
@@ -228,6 +247,7 @@ class LedgerTxnsDisplay:
                 }
             self.txn_display_data[txn.id]['widgets']['buttons'] = {
                     'save_edit': save_edit_button,
+                    'delete': delete_button,
                 }
 
         edit_function = partial(_edit, txn_id=txn.id)
