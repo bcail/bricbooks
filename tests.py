@@ -1185,9 +1185,9 @@ class TestQtGUI(unittest.TestCase):
         a = Account(name='Checking', starting_balance=D(100))
         storage.save_account(a)
         dw = pft_qt.AccountsDisplayWidget(storage, reload_accounts=fake_method)
-        QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['edit'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['labels']['name'], QtCore.Qt.LeftButton)
         dw.accounts_widgets[a.id]['entries']['name'].setText('Saving')
-        QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['save'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(dw.accounts_widgets[a.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
         self.assertEqual(len(storage.get_accounts()), 1)
         self.assertEqual(storage.get_accounts()[0].name, 'Saving')
 
