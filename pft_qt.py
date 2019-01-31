@@ -378,35 +378,34 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
         layout.addWidget(QtWidgets.QLabel('Name'), 0, 1)
         row = 1
-        data = {}
+        self.data = {}
         categories = self._storage.get_categories()
         for cat in categories:
             row_data = {'row': row}
-            layout.addWidget(QtWidgets.QLabel(str(cat.id)), row, 0)
-            layout.addWidget(QtWidgets.QLabel(cat.name), row, 1)
-            #row_data['name_label'] = name_label
-            def _edit(cat_id=cat.id):
-                def _save(cat_id=cat_id):
-                    c = Category(id_=cat_id, name=data[cat_id]['name_entry'].get())
+            def _edit(event, cat_id):
+                def _save(cat_id):
+                    c = pft.Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text())
                     self._storage.save_category(c)
                     self._reload()
-                #data[cat_id]['name_label'].destroy()
                 name_entry = QtWidgets.QLineEdit()
-                layout.addWidget(name_entry, data[cat_id]['row'], 1)
-                data[cat_id]['name_entry'] = name_entry
-                data[cat_id]['edit_button']['text'] = 'Save'
-                data[cat_id]['edit_button']['command'] = _save
-            def _delete(cat_id=cat.id):
+                layout.addWidget(name_entry, self.data[cat_id]['row'], 1)
+                save_edit_button = QtWidgets.QPushButton('Save Edit')
+                save_edit_button.clicked.connect(partial(_save, cat_id=cat_id))
+                layout.addWidget(save_edit_button, self.data[cat_id]['row'], 2)
+                self.data[cat_id]['entries'] = {'name': name_entry}
+                self.data[cat_id]['buttons'] = {'save_edit': save_edit_button}
+            def _delete(cat_id):
                 self._storage.delete_category(cat_id)
                 self._reload()
-            edit_button = QtWidgets.QPushButton('Edit')
-            edit_button.clicked.connect(_edit)
-            layout.addWidget(edit_button, row, 2)
-            row_data['edit_button'] = edit_button
-            delete_button = QtWidgets.QPushButton('Delete')
-            delete_button.clicked.connect(_delete)
-            layout.addWidget(delete_button, row, 3)
-            data[cat.id] = row_data
+            edit_function = partial(_edit, cat_id=cat.id)
+            id_label = QtWidgets.QLabel(str(cat.id))
+            name_label = QtWidgets.QLabel(cat.name)
+            layout.addWidget(id_label, row, 0)
+            layout.addWidget(name_label, row, 1)
+            id_label.mousePressEvent = edit_function
+            name_label.mousePressEvent = edit_function
+            row_data['labels'] = {'id': id_label, 'name': name_label}
+            self.data[cat.id] = row_data
             row += 1
         self.name_entry = QtWidgets.QLineEdit()
         layout.addWidget(self.name_entry, row, 1)

@@ -1259,13 +1259,23 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].amount, D(23))
 
-    def test_categories(self):
+    def test_categories_add(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])
         dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
         QtTest.QTest.keyClicks(dw.name_entry, 'Housing')
         QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(storage.get_categories()[0].name, 'Housing')
+
+    def test_categories_edit(self):
+        storage = SQLiteStorage(':memory:')
+        cat = Category(name='Housing')
+        storage.save_category(cat)
+        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
+        QtTest.QTest.mouseClick(dw.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
+        dw.data[cat.id]['entries']['name'].setText('Food')
+        QtTest.QTest.mouseClick(dw.data[cat.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        self.assertEqual(storage.get_categories()[0].name, 'Food')
 
     def test_budget(self):
         storage = SQLiteStorage(':memory:')
