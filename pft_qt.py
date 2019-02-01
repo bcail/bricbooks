@@ -89,6 +89,8 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
                 'entries': {'name': add_account_name, 'starting_balance': add_account_starting_balance},
                 'buttons': {'add_new': button},
             }
+        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        layout.setRowStretch(row+1, 1)
         self.setLayout(layout)
 
     def _save_new_account(self):
@@ -412,6 +414,8 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
         self.add_button = QtWidgets.QPushButton('Add New')
         self.add_button.clicked.connect(self._add)
         layout.addWidget(self.add_button, row, 2)
+        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        layout.setRowStretch(row+1, 1)
         self.setLayout(layout)
 
     def _add(self):
@@ -459,6 +463,8 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
         self._edit_button = QtWidgets.QPushButton('Edit')
         self._edit_button.clicked.connect(self._edit)
         self.layout.addWidget(self._edit_button, self.button_row_index, 0)
+        self.layout.addWidget(QtWidgets.QLabel(''), row_index+1, 0)
+        self.layout.setRowStretch(row_index+1, 1)
         self.setLayout(self.layout)
 
     def _save(self):
