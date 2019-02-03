@@ -39,6 +39,9 @@ class InvalidLedgerError(RuntimeError):
 class BudgetError(RuntimeError):
     pass
 
+class SQLiteStorageError(RuntimeError):
+    pass
+
 
 class Account:
 
@@ -392,8 +395,13 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def delete_category(self, category_id):
+        if self._get_txn_ids_for_category(category_id):
+            raise SQLiteStorageError('category has transactions')
         self._db_connection.execute('DELETE FROM categories WHERE id = ?', (category_id,))
         self._db_connection.commit()
+
+    def _get_txn_ids_for_category(self, category_id):
+        return self._db_connection.execute('SELECT txn_id FROM txn_categories WHERE category_id = ?', (category_id,)).fetchall()
 
     def _txn_from_db_record(self, db_info=None):
         if not db_info:

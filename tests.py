@@ -19,6 +19,7 @@ from pft import (
         Budget,
         BudgetError,
         SQLiteStorage,
+        SQLiteStorageError,
         txn_categories_from_string,
         txn_categories_display,
         AccountsDisplayWidget,
@@ -616,6 +617,23 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.delete_category(c.id)
         records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
         self.assertEqual(records, [])
+
+    def test_delete_category_with_txn(self):
+        storage = SQLiteStorage(':memory:')
+        a = Account(name='Checking', starting_balance=D('100'))
+        storage.save_account(a)
+        c = Category(name='Housing')
+        storage.save_category(c)
+        t = Transaction(
+                account=a,
+                amount=D('-101'),
+                txn_date=date.today(),
+                categories=[c],
+            )
+        storage.save_txn(t)
+        with self.assertRaises(SQLiteStorageError) as cm:
+            storage.delete_category(c.id)
+        self.assertEqual(str(cm.exception), 'category has transactions')
 
     def test_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
