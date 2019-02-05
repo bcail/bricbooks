@@ -389,16 +389,19 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
                     c = pft.Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text())
                     self._storage.save_category(c)
                     self._reload()
+                def _delete(cat_id):
+                    self._storage.delete_category(cat_id)
+                    self._reload()
                 name_entry = QtWidgets.QLineEdit()
                 layout.addWidget(name_entry, self.data[cat_id]['row'], 1)
                 save_edit_button = QtWidgets.QPushButton('Save Edit')
                 save_edit_button.clicked.connect(partial(_save, cat_id=cat_id))
                 layout.addWidget(save_edit_button, self.data[cat_id]['row'], 2)
+                delete_button = QtWidgets.QPushButton('Delete')
+                delete_button.clicked.connect(partial(_delete, cat_id=cat_id))
+                layout.addWidget(delete_button, self.data[cat_id]['row'], 3)
                 self.data[cat_id]['entries'] = {'name': name_entry}
-                self.data[cat_id]['buttons'] = {'save_edit': save_edit_button}
-            def _delete(cat_id):
-                self._storage.delete_category(cat_id)
-                self._reload()
+                self.data[cat_id]['buttons'] = {'save_edit': save_edit_button, 'delete': delete_button}
             edit_function = partial(_edit, cat_id=cat.id)
             id_label = QtWidgets.QLabel(str(cat.id))
             name_label = QtWidgets.QLabel(cat.name)

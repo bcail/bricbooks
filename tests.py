@@ -1295,6 +1295,15 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(dw.data[cat.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
         self.assertEqual(storage.get_categories()[0].name, 'Food')
 
+    def test_categories_delete(self):
+        storage = SQLiteStorage(':memory:')
+        cat = Category(name='Housing')
+        storage.save_category(cat)
+        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
+        QtTest.QTest.mouseClick(dw.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(dw.data[cat.id]['buttons']['delete'], QtCore.Qt.LeftButton)
+        self.assertEqual(storage.get_categories(), [])
+
     def test_budget(self):
         storage = SQLiteStorage(':memory:')
         c = Category(name='Housing')
