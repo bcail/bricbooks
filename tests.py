@@ -591,24 +591,39 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_category(self):
         storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
+        c = Category(name='Housing', is_expense=True)
         storage.save_category(c)
         self.assertEqual(c.id, 1)
         records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0][0], 1)
         self.assertEqual(records[0][1], 'Housing')
+        self.assertEqual(records[0][2], 1)
+
+    def test_update_category(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing', is_expense=True)
+        storage.save_category(c)
+        c.is_expense = False
+        storage.save_category(c)
+        records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0][0], 1)
+        self.assertEqual(records[0][1], 'Housing')
+        self.assertEqual(records[0][2], 0)
 
     def test_get_categories(self):
         storage = SQLiteStorage(':memory:')
         c = Category(name='Housing')
         storage.save_category(c)
-        c2 = Category(name='Food')
+        c2 = Category(name='Food', is_expense=False)
         storage.save_category(c2)
         categories = storage.get_categories()
         self.assertEqual(categories[0], c)
         self.assertEqual(categories[1], c2)
         self.assertEqual(len(categories), 2)
+        self.assertTrue(categories[0].is_expense)
+        self.assertFalse(categories[1].is_expense)
 
     def test_delete_category(self):
         storage = SQLiteStorage(':memory:')
