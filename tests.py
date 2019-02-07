@@ -29,6 +29,7 @@ from pft import (
         PFT_GUI,
     )
 import pft_qt as pft_qt
+import load_test_data
 
 
 class AbstractTkTest:
@@ -1339,6 +1340,13 @@ class TestQtGUI(unittest.TestCase):
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].get_budget_data()[c]['amount'], D(30))
+
+
+class TestLoadTestData(unittest.TestCase):
+
+    def test_load(self):
+        storage = SQLiteStorage(':memory:')
+        load_test_data._load_data(storage, many_txns=False)
 
 
 if __name__ == '__main__':

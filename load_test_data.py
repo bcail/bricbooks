@@ -3,9 +3,7 @@ import random
 from pft import SQLiteStorage, Account, Category, Transaction, Budget, DATA_FILENAME
 
 
-def main(file_name, many_txns=False):
-    storage = SQLiteStorage(file_name)
-
+def _load_data(storage, many_txns):
     a = Account(name='Checking', starting_balance=D(1000))
     storage.save_account(a)
 
@@ -65,12 +63,17 @@ def main(file_name, many_txns=False):
     storage.save_txn(Transaction(account=savings, amount=D(95), txn_date='2018-03-15'))
 
     budget_categories = {
-            c: {'budget': D(35), 'carryover': D(0), 'income': D(0), 'spent': D(0)},
-            c2: {'budget': D(70), 'carryover': D(10), 'income': D(0), 'spent': D(0)},
-            c3: {'budget': D(100), 'carryover': D(0), 'income': D(0), 'spent': D(0)},
+            c: {'amount': D(35), 'carryover': D(0)},
+            c2: {'amount': D(70), 'carryover': D(10)},
+            c3: {'amount': D(100), 'carryover': D(0)},
         }
-    budget = Budget('2018', category_rows=budget_categories)
+    budget = Budget('2018', category_budget_info=budget_categories)
     storage.save_budget(budget)
+
+
+def main(file_name, many_txns=False):
+    storage = SQLiteStorage(file_name)
+    _load_data(storage, many_txns)
 
 
 if __name__ == '__main__':
