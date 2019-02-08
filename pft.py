@@ -295,25 +295,31 @@ class Budget:
             if 'amount' in report_info:
                 carryover = report_info.get('carryover', Decimal(0))
                 income = report_info.get('income', Decimal(0))
-                report_info['total_budget'] = report_info['amount'] + carryover + income
-                spent = report_info.get('spent', Decimal(0))
-                report_info['remaining'] = report_info['total_budget'] - spent
-                try:
-                    percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
-                    report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(percent_available))
-                except InvalidOperation:
-                    report_info['percent_available'] = ''
+                if category.is_expense:
+                    report_info['total_budget'] = report_info['amount'] + carryover + income
+                    spent = report_info.get('spent', Decimal(0))
+                    report_info['remaining'] = report_info['total_budget'] - spent
+                    try:
+                        percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
+                        report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(percent_available))
+                    except InvalidOperation:
+                        report_info['percent_available'] = ''
+                else:
+                    report_info['remaining'] = report_info['amount'] - income
+                    percent = (income / report_info['amount']) * Decimal(100)
+                    report_info['percent'] = '{}%'.format(Budget.round_percent_available(percent))
             else:
                 report_info['amount'] = ''
                 report_info['total_budget'] = ''
                 report_info['remaining'] = ''
                 report_info['percent_available'] = ''
-            if 'carryover' not in report_info:
-                report_info['carryover'] = ''
+            if category.is_expense:
+                if 'carryover' not in report_info:
+                    report_info['carryover'] = ''
+                if 'spent' not in report_info:
+                    report_info['spent'] = ''
             if 'income' not in report_info:
                 report_info['income'] = ''
-            if 'spent' not in report_info:
-                report_info['spent'] = ''
             report[category] = report_info
             for key in report_info.keys():
                 if report_info[key] == Decimal(0):

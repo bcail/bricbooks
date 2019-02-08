@@ -461,16 +461,18 @@ class TestBudget(unittest.TestCase):
         c2 = Category(name='Food', id_=2)
         c3 = Category(name='Transportation', id_=3)
         c4 = Category(name='Something', id_=4)
+        c5 = Category(name='Wages', is_expense=False, id_=5)
         category_rows = {
                 c: {'amount': D(15), 'carryover': D(5)},
                 c2: {},
                 c3: {'amount': D(10)},
                 c4: {'amount': D(0)},
+                c5: {'amount': D(100)},
             }
         budget = Budget(year=2018, category_budget_info=category_rows)
         with self.assertRaises(BudgetError):
             budget.get_report_display()
-        income_spending_info = {c: {'income': D(5), 'spent': D(10)}, c2: {}}
+        income_spending_info = {c: {'income': D(5), 'spent': D(10)}, c2: {}, c5: {'income': D(80)}}
         budget = Budget(year=2018, category_budget_info=category_rows, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display()
         c_info = budget_report[c]
@@ -503,6 +505,15 @@ class TestBudget(unittest.TestCase):
                     'spent': '',
                     'remaining': '10',
                     'percent_available': '100%',
+                }
+            )
+        c5_info = budget_report[c5]
+        self.assertEqual(c5_info,
+                {
+                    'amount': '100',
+                    'income': '80',
+                    'percent': '80%',
+                    'remaining': '20',
                 }
             )
 
