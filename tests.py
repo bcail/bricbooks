@@ -1337,9 +1337,12 @@ class TestQtGUI(unittest.TestCase):
         storage.save_category(c)
         c2 = Category(name='Food')
         storage.save_category(c2)
+        c3 = Category(name='Wages', is_expense=False)
+        storage.save_category(c3)
         b = Budget(year=2018, category_budget_info={
             c: {'amount': D(15), 'carryover': D(0)},
             c2: {'amount': D(25), 'carryover': D(0)},
+            c3: {'amount': D(100)},
         })
         storage.save_budget(b)
         budget = storage.get_budgets()[0]

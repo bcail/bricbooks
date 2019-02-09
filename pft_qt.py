@@ -452,10 +452,14 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
             self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
             carryover_label = QtWidgets.QLabel(info['carryover'])
             self.layout.addWidget(carryover_label, row_index, 3)
-            self.layout.addWidget(QtWidgets.QLabel(info['total_budget']), row_index, 4)
-            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row_index, 5)
+            if cat.is_expense:
+                self.layout.addWidget(QtWidgets.QLabel(info['total_budget']), row_index, 4)
+                self.layout.addWidget(QtWidgets.QLabel(info['spent']), row_index, 5)
             self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row_index, 6)
-            self.layout.addWidget(QtWidgets.QLabel(info['percent_available']), row_index, 7)
+            if cat.is_expense:
+                self.layout.addWidget(QtWidgets.QLabel(info['percent_available']), row_index, 7)
+            else:
+                self.layout.addWidget(QtWidgets.QLabel(info['percent']), row_index, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row_index'] = row_index

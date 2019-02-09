@@ -312,7 +312,10 @@ class Budget:
                 report_info['amount'] = ''
                 report_info['total_budget'] = ''
                 report_info['remaining'] = ''
-                report_info['percent_available'] = ''
+                if category.is_expense:
+                    report_info['percent_available'] = ''
+                else:
+                    report_info['percent'] = ''
             if category.is_expense:
                 if 'carryover' not in report_info:
                     report_info['carryover'] = ''
