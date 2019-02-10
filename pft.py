@@ -287,7 +287,7 @@ class Budget:
     def get_report_display(self, income_spending_info=None):
         if self._income_spending_info is None:
             raise BudgetError('must pass in income_spending_info to get the report display')
-        report = {}
+        report = {'expense': {}, 'income': {}}
         for category, budget_info in self._budget_data.items():
             report_info = {}
             report_info.update(budget_info)
@@ -323,7 +323,10 @@ class Budget:
                     report_info['spent'] = ''
             if 'income' not in report_info:
                 report_info['income'] = ''
-            report[category] = report_info
+            if category.is_expense:
+                report['expense'][category] = report_info
+            else:
+                report['income'][category] = report_info
             for key in report_info.keys():
                 if report_info[key] == Decimal(0):
                     report_info[key] = ''
@@ -999,7 +1002,7 @@ class BudgetDisplayWidget(ttk.Frame):
         ttk.Label(self, text='Percent Available').grid(row=0, column=7, sticky=(tk.N, tk.W, tk.S, tk.E))
         row_index = 1
         self.data = {}
-        for cat, info in budget.get_report_display().items():
+        for cat, info in budget.get_report_display()['expense'].items():
             ttk.Label(self, text=cat.name).grid(row=row_index, column=0)
             budget_label = ttk.Label(self, text=info['amount'])
             budget_label.grid(row=row_index, column=1)

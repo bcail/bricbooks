@@ -475,7 +475,7 @@ class TestBudget(unittest.TestCase):
         income_spending_info = {c: {'income': D(5), 'spent': D(10)}, c2: {}, c5: {'income': D(80)}}
         budget = Budget(year=2018, category_budget_info=category_rows, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display()
-        c_info = budget_report[c]
+        c_info = budget_report['expense'][c]
         self.assertEqual(c_info['amount'], '15')
         self.assertEqual(c_info['carryover'], '5')
         self.assertEqual(c_info['income'], '5')
@@ -483,7 +483,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(c_info['spent'], '10')
         self.assertEqual(c_info['remaining'], '15')
         self.assertEqual(c_info['percent_available'], '60%')
-        c2_info = budget_report[c2]
+        c2_info = budget_report['expense'][c2]
         self.assertEqual(c2_info,
                 {
                     'amount': '',
@@ -495,7 +495,7 @@ class TestBudget(unittest.TestCase):
                     'percent_available': '',
                 }
             )
-        c3_info = budget_report[c3]
+        c3_info = budget_report['expense'][c3]
         self.assertEqual(c3_info,
                 {
                     'amount': '10',
@@ -507,7 +507,7 @@ class TestBudget(unittest.TestCase):
                     'percent_available': '100%',
                 }
             )
-        c5_info = budget_report[c5]
+        c5_info = budget_report['income'][c5]
         self.assertEqual(c5_info,
                 {
                     'amount': '100',
@@ -909,11 +909,11 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_budget(self):
         storage = SQLiteStorage(':memory:')
         cursor = storage._db_connection.cursor()
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
+        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Housing', 1))
         c_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
+        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Food', 1))
         c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Transportation',))
+        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Transportation', 1))
         c3_id = cursor.lastrowid
         cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '1000'))
         account_id = cursor.lastrowid
@@ -949,7 +949,7 @@ class TestSQLiteStorage(unittest.TestCase):
         food = storage.get_category(c2_id)
         transportation = storage.get_category(c3_id)
 
-        report_display = budget.get_report_display()
+        report_display = budget.get_report_display()['expense']
         self.assertEqual(report_display[housing]['amount'], '135')
         self.assertEqual(report_display[housing]['carryover'], '')
         self.assertEqual(report_display[housing]['income'], '')
@@ -966,9 +966,9 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_budget_reports(self):
         storage = SQLiteStorage(':memory:')
         cursor = storage._db_connection.cursor()
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Housing',))
+        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Housing', 1))
         c_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name) VALUES (?)', ('Food',))
+        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Food', 1))
         c2_id = cursor.lastrowid
         cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
         budget_id = cursor.lastrowid
@@ -977,7 +977,7 @@ class TestSQLiteStorage(unittest.TestCase):
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].year, 2018)
-        cat = list(budgets[0].get_report_display().keys())[0]
+        cat = list(budgets[0].get_report_display()['expense'].keys())[0]
         self.assertEqual(cat.name, 'Housing')
 
 
