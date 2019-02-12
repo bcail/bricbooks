@@ -441,14 +441,14 @@ class TestBudget(unittest.TestCase):
         c2 = Category(name='Food', id_=2)
         c3 = Category(name='Transportation', id_=3)
         category_rows = {
-                c: {'amount': D(15), 'carryover': D(5)},
+                c: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
                 c2: {'amount': '35', 'carryover': ''},
                 c3: {},
             }
         b = Budget(year=2018, category_budget_info=category_rows)
         self.assertEqual(b.year, 2018)
         self.assertEqual(b.get_budget_data(),
-                {c: {'amount': D(15), 'carryover': D(5)}, c2: {'amount': D(35)}, c3: {}})
+                {c: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'}, c2: {'amount': D(35)}, c3: {}})
 
     def test_percent_rounding(self):
         self.assertEqual(Budget.round_percent_available(D('1.1')), D(1))
@@ -839,7 +839,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c2 = Category(name='Food')
         storage.save_category(c2)
         category_rows = {
-                c: {'amount': D(15), 'carryover': D(0)},
+                c: {'amount': D(15), 'carryover': D(0), 'notes': 'hello'},
                 c2: {'amount': D(25), 'carryover': D(10)}
             }
         b = Budget(year=2018, category_budget_info=category_rows)
@@ -854,6 +854,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][2], 1)
         self.assertEqual(records[0][3], '15')
         self.assertEqual(records[0][4], '0')
+        self.assertEqual(records[0][5], 'hello')
         self.assertEqual(records[1][1], 1)
         self.assertEqual(records[1][2], 2)
         self.assertEqual(records[1][3], '25')
@@ -940,7 +941,7 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn5_id, c2_id, str(D('15'))))
         cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '135'))
+        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, c_id, '135', 'hello'))
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
@@ -954,6 +955,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(report_display[housing]['carryover'], '')
         self.assertEqual(report_display[housing]['income'], '')
         self.assertEqual(report_display[housing]['spent'], '101')
+        self.assertEqual(report_display[housing]['notes'], 'hello')
 
         self.assertEqual(report_display[food]['amount'], '70')
         self.assertEqual(report_display[food]['carryover'], '15')

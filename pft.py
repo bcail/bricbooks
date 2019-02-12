@@ -270,6 +270,8 @@ class Budget:
             for key, value in info.items():
                 if value == '':
                     pass
+                elif key == 'notes':
+                    keep_info[key] = value
                 elif isinstance(value, str):
                     keep_info[key] = Decimal(value)
                 else:
@@ -358,7 +360,7 @@ class SQLiteStorage:
         conn = self._db_connection
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, year TEXT)')
-        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT)')
+        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
@@ -479,8 +481,9 @@ class SQLiteStorage:
                 if not cat.id:
                     self.save_category(cat)
                 carryover = str(info.get('carryover', ''))
-                values = (budget.id, cat.id, str(info['amount']), carryover)
-                c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', values)
+                notes = info.get('notes', '')
+                values = (budget.id, cat.id, str(info['amount']), carryover, notes)
+                c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
@@ -512,7 +515,7 @@ class SQLiteStorage:
                 spent = spent * Decimal(-1)
             all_income_spending_info[category]['spent'] = spent
             all_income_spending_info[category]['income'] = income
-            budget_records = c.execute('SELECT amount, carryover FROM budget_values WHERE budget_id = ? AND category_id = ?', (budget_id, cat_id)).fetchall()
+            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND category_id = ?', (budget_id, cat_id)).fetchall()
             if budget_records:
                 r = budget_records[0]
                 all_category_budget_info[category]['amount'] = Decimal(r[0])
@@ -520,6 +523,8 @@ class SQLiteStorage:
                     all_category_budget_info[category]['carryover'] = Decimal(r[1])
                 else:
                     all_category_budget_info[category]['carryover'] = Decimal(0)
+                if r[2]:
+                    all_category_budget_info[category]['notes'] = r[2]
             else:
                 all_category_budget_info[category]['budget'] = Decimal(0)
                 all_category_budget_info[category]['carryover'] = Decimal(0)
