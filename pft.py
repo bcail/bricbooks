@@ -43,6 +43,15 @@ class SQLiteStorageError(RuntimeError):
     pass
 
 
+def get_date(val):
+    if isinstance(val, str):
+        year, month, day = val.split('-')
+        return date(int(year), int(month), int(day))
+    if isinstance(val, date):
+        return val
+    raise RuntimeError('invalid date')
+
+
 class Account:
 
     def __init__(self, id=None, name=None, starting_balance=None):
@@ -152,16 +161,10 @@ class Transaction:
     def _check_txn_date(self, txn_date):
         if not txn_date:
             raise InvalidTransactionError('transaction must have a txn_date')
-        if isinstance(txn_date, date):
-            return txn_date
-        elif isinstance(txn_date, str):
-            try:
-                year, month, day = txn_date.split('-')
-                return date(int(year), int(month), int(day))
-            except ValueError:
-                raise InvalidTransactionError('invalid txn_date')
-        else:
-            raise InvalidTransactionError('invalid type for txn_date')
+        try:
+            return get_date(txn_date)
+        except Exception:
+            raise InvalidTransactionError('invalid txn_date')
 
     def _check_categories(self, input_categories):
         if not input_categories:
@@ -260,10 +263,15 @@ class Budget:
     def round_percent_available(percent):
         return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
 
-    def __init__(self, year=None, category_budget_info=None, id_=None, income_spending_info=None):
-        if not year:
-            raise BudgetError('must pass in year to Budget')
-        self.year = year
+    def __init__(self, year=None, start_date=None, end_date=None, category_budget_info=None, id_=None, income_spending_info=None):
+        if start_date and end_date:
+            self.start_date = get_date(start_date)
+            self.end_date = get_date(end_date)
+        elif year:
+            self.start_date = date(int(year), 1, 1)
+            self.end_date = date(int(year), 12, 31)
+        else:
+            raise BudgetError('must pass in dates')
         self._budget_data = {}
         for category, info in category_budget_info.items():
             keep_info = {}
@@ -281,7 +289,7 @@ class Budget:
         self._income_spending_info = income_spending_info
 
     def __str__(self):
-        return '%s %s' % (self.id, self.year)
+        return '%s %s-%s' % (self.id, self.start_date, self.end_date)
 
     def get_budget_data(self):
         return self._budget_data
@@ -359,7 +367,7 @@ class SQLiteStorage:
         '''
         conn = self._db_connection
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
-        conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, year TEXT)')
+        conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
@@ -426,8 +434,7 @@ class SQLiteStorage:
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
         id_, account_id, txn_type, txn_date, payee, amount, description, status = db_info
-        year, month, day = txn_date.split('-')
-        txn_date = date(int(year), int(month), int(day))
+        txn_date = get_date(txn_date)
         amount = Decimal(amount)
         account = self.get_account(account_id)
         c = self._db_connection.cursor()
@@ -474,7 +481,7 @@ class SQLiteStorage:
             #delete existing values, and then we'll add the current ones
             c.execute('DELETE FROM budget_values WHERE budget_id = ?', (budget.id,))
         else:
-            c.execute('INSERT INTO budgets(year) VALUES(?)', (budget.year,))
+            c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
             budget.id = c.lastrowid
         for cat, info in budget.get_budget_data().items():
             if info:
@@ -488,8 +495,9 @@ class SQLiteStorage:
 
     def get_budget(self, budget_id):
         c = self._db_connection.cursor()
-        records = c.execute('SELECT year FROM budgets WHERE id = ?', (budget_id,)).fetchall()
-        year = int(records[0][0])
+        records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (budget_id,)).fetchall()
+        start_date = get_date(records[0][0])
+        end_date = get_date(records[0][1])
         all_category_budget_info = {}
         all_income_spending_info = {}
         category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
@@ -528,7 +536,8 @@ class SQLiteStorage:
             else:
                 all_category_budget_info[category]['budget'] = Decimal(0)
                 all_category_budget_info[category]['carryover'] = Decimal(0)
-        return Budget(id_=budget_id, year=year, category_budget_info=all_category_budget_info, income_spending_info=all_income_spending_info)
+        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, category_budget_info=all_category_budget_info,
+                income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
         budgets = []
@@ -1035,7 +1044,8 @@ class BudgetDisplayWidget(ttk.Frame):
                     'amount': data['budget_entry'].get(),
                     'carryover': data['carryover_entry'].get()
                 }
-        b = Budget(id_=self._budget.id, year=self._budget.year, category_budget_info=category_rows)
+        b = Budget(id_=self._budget.id, start_date=self._budget.start_date, end_date=self._budget.end_date,
+                category_budget_info=category_rows)
         self.storage.save_budget(b)
         self._reload_budget()
 

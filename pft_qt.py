@@ -495,7 +495,7 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
                     'amount': info['budget_entry'].text(),
                     'carryover': info['carryover_entry'].text()
                 }
-        b = pft.Budget(id_=self.budget.id, year=self.budget.year, category_budget_info=category_rows)
+        b = pft.Budget(id_=self.budget.id, start_date=self.budget.start_date, end_date=self.budget.end_date, category_budget_info=category_rows)
         self.storage.save_budget(b)
         self.reload_budget()
 

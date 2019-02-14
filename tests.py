@@ -9,6 +9,7 @@ from unittest.mock import patch
 from PySide2 import QtWidgets, QtTest, QtCore
 
 from pft import (
+        get_date,
         Account,
         InvalidAccountError,
         Transaction,
@@ -73,6 +74,15 @@ def destroy_default_root():
         tkinter._default_root = None
 
 
+class TestUtils(unittest.TestCase):
+
+    def test_get_date(self):
+        self.assertEqual(get_date(date(2018, 1, 1)), date(2018, 1, 1))
+        self.assertEqual(get_date('2018-01-01'), date(2018, 1, 1))
+        with self.assertRaises(RuntimeError):
+            get_date(10)
+
+
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
@@ -125,7 +135,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'transaction must have a txn_date')
         with self.assertRaises(InvalidTransactionError) as cm:
             Transaction(account=a, amount=D('101'), txn_date=10)
-        self.assertEqual(str(cm.exception), 'invalid type for txn_date')
+        self.assertEqual(str(cm.exception), 'invalid txn_date')
 
     def test_txn_date(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -434,9 +444,20 @@ class TestLedger(unittest.TestCase):
 
 class TestBudget(unittest.TestCase):
 
-    def test_init(self):
-        with self.assertRaises(BudgetError):
+    def test_init_dates(self):
+        with self.assertRaises(BudgetError) as cm:
             Budget()
+        self.assertEqual(str(cm.exception), 'must pass in dates')
+        b = Budget(year=2018, category_budget_info={})
+        self.assertEqual(b.start_date, date(2018, 1, 1))
+        self.assertEqual(b.end_date, date(2018, 12, 31))
+        b = Budget(year='2018', category_budget_info={})
+        self.assertEqual(b.start_date, date(2018, 1, 1))
+        b = Budget(start_date=date(2018, 1, 15), end_date=date(2019, 1, 14), category_budget_info={})
+        self.assertEqual(b.start_date, date(2018, 1, 15))
+        self.assertEqual(b.end_date, date(2019, 1, 14))
+
+    def test_init(self):
         c = Category(name='Housing', id_=1)
         c2 = Category(name='Food', id_=2)
         c3 = Category(name='Transportation', id_=3)
@@ -446,7 +467,6 @@ class TestBudget(unittest.TestCase):
                 c3: {},
             }
         b = Budget(year=2018, category_budget_info=category_rows)
-        self.assertEqual(b.year, 2018)
         self.assertEqual(b.get_budget_data(),
                 {c: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'}, c2: {'amount': D(35)}, c3: {}})
 
@@ -845,7 +865,7 @@ class TestSQLiteStorage(unittest.TestCase):
         b = Budget(year=2018, category_budget_info=category_rows)
         storage.save_budget(b)
         cursor = storage._db_connection.cursor()
-        records = cursor.execute('SELECT * FROM budgets WHERE year = 2018').fetchall()
+        records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(b.id, 1)
         records = cursor.execute('SELECT * FROM budget_values').fetchall()
@@ -904,7 +924,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_budget(b)
         storage = SQLiteStorage(self.file_name)
         cursor = storage._db_connection.cursor()
-        records = cursor.execute('SELECT * FROM budgets WHERE year = 2018').fetchall()
+        records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
 
     def test_get_budget(self):
@@ -939,13 +959,14 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
         cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn5_id, c2_id, str(D('15'))))
-        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, c_id, '135', 'hello'))
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
-        self.assertEqual(budget.year, 2018)
+        self.assertEqual(budget.start_date, date(2018, 1, 1))
+        self.assertEqual(budget.end_date, date(2018, 12, 31))
         housing = storage.get_category(c_id)
         food = storage.get_category(c2_id)
         transportation = storage.get_category(c3_id)
@@ -972,13 +993,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c_id = cursor.lastrowid
         cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Food', 1))
         c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budgets (year) VALUES (?)', ('2018',))
+        cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c_id, '35'))
         cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount) VALUES (?, ?, ?)', (budget_id, c2_id, '70'))
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
-        self.assertEqual(budgets[0].year, 2018)
+        self.assertEqual(budgets[0].start_date, date(2018, 1, 1))
+        self.assertEqual(budgets[0].end_date, date(2018, 12, 31))
         cat = list(budgets[0].get_report_display()['expense'].keys())[0]
         self.assertEqual(cat.name, 'Housing')
 
