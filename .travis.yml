@@ -14,5 +14,5 @@ install:
   - pip install PySide2==5.12.1
 
 script:
-  - QT_DEBUG_PLUGINS=1 xvfb-run python tests.py
+  - xvfb-run python tests.py
 
