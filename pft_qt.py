@@ -541,24 +541,39 @@ class PFT_GUI_QT:
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
         self.parent_window.showMaximized()
 
+    def _update_action_buttons(self, display):
+        self.accounts_button.setEnabled(True)
+        self.ledger_button.setEnabled(True)
+        self.categories_button.setEnabled(True)
+        self.budget_button.setEnabled(True)
+        if display == 'accounts':
+            self.accounts_button.setEnabled(False)
+        elif display == 'categories':
+            self.categories_button.setEnabled(False)
+        elif display == 'budget':
+            self.budget_button.setEnabled(False)
+        else:
+            self.ledger_button.setEnabled(False)
+
     def _show_action_buttons(self, layout):
-        accounts_button = QtWidgets.QPushButton('Accounts')
-        accounts_button.clicked.connect(self._show_accounts)
-        layout.addWidget(accounts_button, 0, 0)
-        ledger_button = QtWidgets.QPushButton('Ledger')
-        ledger_button.clicked.connect(self._show_ledger)
-        layout.addWidget(ledger_button, 0, 1)
-        categories_button = QtWidgets.QPushButton('Categories')
-        categories_button.clicked.connect(self._show_categories)
-        layout.addWidget(categories_button, 0, 2)
-        budget_button = QtWidgets.QPushButton('Budget')
-        budget_button.clicked.connect(self._show_budget)
-        layout.addWidget(budget_button, 0, 3)
+        self.accounts_button = QtWidgets.QPushButton('Accounts')
+        self.accounts_button.clicked.connect(self._show_accounts)
+        layout.addWidget(self.accounts_button, 0, 0)
+        self.ledger_button = QtWidgets.QPushButton('Ledger')
+        self.ledger_button.clicked.connect(self._show_ledger)
+        layout.addWidget(self.ledger_button, 0, 1)
+        self.categories_button = QtWidgets.QPushButton('Categories')
+        self.categories_button.clicked.connect(self._show_categories)
+        layout.addWidget(self.categories_button, 0, 2)
+        self.budget_button = QtWidgets.QPushButton('Budget')
+        self.budget_button.clicked.connect(self._show_budget)
+        layout.addWidget(self.budget_button, 0, 3)
 
     def _show_accounts(self):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
+        self._update_action_buttons('accounts')
         self.main_widget = AccountsDisplayWidget(self.storage, reload_accounts=self._show_accounts)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -566,6 +581,7 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
+        self._update_action_buttons('ledger')
         self.main_widget = LedgerDisplayWidget(self.storage)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -573,6 +589,7 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
+        self._update_action_buttons(display='categories')
         self.main_widget = CategoriesDisplayWidget(self.storage, reload_categories=self._show_categories)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -580,6 +597,7 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
+        self._update_action_buttons(display='budget')
         budgets = self.storage.get_budgets()
         self.main_widget = BudgetDisplayWidget(budgets[0], self.storage, self._show_budget)
         self.content_layout.addWidget(self.main_widget, 0, 0)
