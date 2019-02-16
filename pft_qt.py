@@ -274,6 +274,7 @@ class LedgerTxnsDisplay:
         debit_label = QtWidgets.QLabel(tds['debit'])
         debit_label.mousePressEvent = edit_function
         balance_label = QtWidgets.QLabel(str(balance))
+        balance_label.mousePressEvent = edit_function
         layout.addWidget(type_label, row, 0)
         layout.addWidget(date_label, row, 1)
         layout.addWidget(payee_label, row, 2)
@@ -537,7 +538,11 @@ class PFT_GUI_QT:
         self.content_layout = QtWidgets.QGridLayout()
         self.content_area.setLayout(self.content_layout)
         self.main_widget = None
-        self._show_accounts()
+        accounts = self.storage.get_accounts()
+        if accounts:
+            self._show_ledger()
+        else:
+            self._show_accounts()
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
         self.parent_window.showMaximized()
 
