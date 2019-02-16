@@ -83,9 +83,9 @@ if __name__ == '__main__':
     parser.add_argument('--many_txns', default=False, action='store_true', dest='many_txns')
     args = parser.parse_args()
     if args.file_name:
-        print(f'filename: {args.file_name}')
+        print('filename: %s' % args.file_name)
         main(args.file_name, args.many_txns)
     else:
-        print(f'using default file_name: {DATA_FILENAME}')
+        print('using default file_name: %s' % DATA_FILENAME)
         main(DATA_FILENAME, args.many_txns)
 
