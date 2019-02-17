@@ -566,6 +566,7 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         storage._db_connection.close()
+        os.remove(self.file_name)
 
     def test_init_empty_file(self):
         with open(self.file_name, 'wb') as f:
@@ -574,6 +575,7 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         storage._db_connection.close()
+        os.remove(self.file_name)
 
     def test_init_db_already_setup(self):
         #set up file
@@ -581,11 +583,13 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         init_storage._db_connection.close()
+        os.remove(self.file_name)
         #and now open it again and make sure everything's fine
         storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         storage._db_connection.close()
+        os.remove(self.file_name)
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')
