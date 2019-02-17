@@ -1021,19 +1021,6 @@ def fake_method():
 
 class TestGUI(AbstractTkTest, unittest.TestCase):
 
-    def setUp(self):
-        self.file_name =  'testsuite.sqlite3'
-        try:
-            os.remove(self.file_name)
-        except FileNotFoundError:
-            pass
-
-    def tearDown(self):
-        try:
-            os.remove(self.file_name)
-        except FileNotFoundError:
-            pass
-
     def test_accounts_display_widget(self):
         storage = SQLiteStorage(':memory:')
         acc = Account(name='Savings', starting_balance=D(5000))
@@ -1232,7 +1219,7 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(budget.get_budget_data()[c]['amount'], D(30))
 
     def test_pft_gui_empty_file_create_account_show_ledger(self):
-        pft_gui = PFT_GUI(self.file_name)
+        pft_gui = PFT_GUI(':memory:')
         pft_gui.adw.add_account_name_entry.insert(0, 'Checking')
         pft_gui.adw.add_account_starting_balance_entry.insert(0, '1000')
         pft_gui.adw.add_account_button.invoke()
