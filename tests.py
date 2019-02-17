@@ -929,7 +929,6 @@ class TestSQLiteStorage(unittest.TestCase):
             c2: {'amount': D(25), 'carryover': D(0)},
         })
         storage.save_budget(b)
-        storage._db_connection.close()
         storage = SQLiteStorage(self.file_name)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
