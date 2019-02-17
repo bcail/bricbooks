@@ -1,0 +1,12 @@
+environment:
+    matrix:
+        - PYTHON: "C:\\Python36-x64"
+
+install:
+    - "%PYTHON%\\python.exe -m pip install PySide2==5.12.0"
+
+build: off
+
+test_script:
+    - "build.cmd %PYTHON%\\python.exe tests.py"
+
