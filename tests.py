@@ -586,6 +586,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        init_storage._db_connection.close()
         storage._db_connection.close()
         os.remove(self.file_name)
 
