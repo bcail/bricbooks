@@ -565,6 +565,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        storage._db_connection.close()
 
     def test_init_empty_file(self):
         with open(self.file_name, 'wb') as f:
@@ -572,16 +573,19 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        storage._db_connection.close()
 
     def test_init_db_already_setup(self):
         #set up file
         init_storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        init_storage._db_connection.close()
         #and now open it again and make sure everything's fine
         storage = SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        storage._db_connection.close()
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')
@@ -922,10 +926,12 @@ class TestSQLiteStorage(unittest.TestCase):
             c2: {'amount': D(25), 'carryover': D(0)},
         })
         storage.save_budget(b)
+        storage._db_connection.close()
         storage = SQLiteStorage(self.file_name)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
+        storage._db_connection.close()
 
     def test_get_budget(self):
         storage = SQLiteStorage(':memory:')
