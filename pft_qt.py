@@ -148,15 +148,45 @@ class LedgerTxnsDisplay:
             if txn.id not in self.txn_display_data or self.txn_display_data[txn.id]['row'] != index:
                 self._display_txn(txn, row=index, layout=self.txns_layout, balance=balance)
 
-    def _delete(self, txn_id, layout, txn_widgets):
-        self.storage.delete_txn(txn_id)
-        self.ledger.remove_txn(txn_id)
+    def _remove_edit_widgets(self, txn_widgets, layout):
         for widget in txn_widgets['entries'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
         for widget in txn_widgets['buttons'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
+
+    def _delete(self, txn_id, layout, txn_widgets):
+        self.storage.delete_txn(txn_id)
+        self.ledger.remove_txn(txn_id)
+        self._remove_edit_widgets(txn_widgets, layout)
+        del self.txn_display_data[txn_id]
+        self._redisplay_txns()
+
+    def _save_edit(self, txn_id, layout):
+        entries = self.txn_display_data[txn_id]['widgets']['entries']
+        txn_type = entries['type'].text()
+        txn_date = entries['date'].text()
+        payee = entries['payee'].text()
+        debit = entries['debit'].text()
+        credit = entries['credit'].text()
+        description = entries['description'].text()
+        status = entries['status'].text()
+        categories_str = entries['categories'].text()
+        categories = pft.txn_categories_from_string(self.storage, categories_str)
+        txn = self.ledger.get_txn(txn_id)
+        txn.update_from_user_strings(
+                txn_type=txn_type,
+                txn_date=txn_date,
+                payee=payee,
+                debit=debit,
+                credit=credit,
+                description=description,
+                status=status,
+                categories=categories,
+            )
+        self.storage.save_txn(txn)
+        self._remove_edit_widgets(self.txn_display_data[txn_id]['widgets'], layout)
         del self.txn_display_data[txn_id]
         self._redisplay_txns()
 
@@ -168,38 +198,6 @@ class LedgerTxnsDisplay:
         tds = txn.get_display_strings()
 
         def _edit(event, txn_id):
-
-            def _save_edit(txn_id):
-                entries = self.txn_display_data[txn_id]['widgets']['entries']
-                txn_type = entries['type'].text()
-                txn_date = entries['date'].text()
-                payee = entries['payee'].text()
-                debit = entries['debit'].text()
-                credit = entries['credit'].text()
-                description = entries['description'].text()
-                status = entries['status'].text()
-                categories_str = entries['categories'].text()
-                categories = pft.txn_categories_from_string(self.storage, categories_str)
-                txn = self.ledger.get_txn(txn_id)
-                txn.update_from_user_strings(
-                        txn_type=txn_type,
-                        txn_date=txn_date,
-                        payee=payee,
-                        debit=debit,
-                        credit=credit,
-                        description=description,
-                        status=status,
-                        categories=categories,
-                    )
-                self.storage.save_txn(txn)
-                for widget in self.txn_display_data[txn.id]['widgets']['entries'].values():
-                    layout.removeWidget(widget)
-                    widget.deleteLater()
-                for widget in self.txn_display_data[txn.id]['widgets']['buttons'].values():
-                    layout.removeWidget(widget)
-                    widget.deleteLater()
-                del self.txn_display_data[txn_id]
-                self._redisplay_txns()
 
             row = self.txn_display_data[txn.id]['row']
             widgets = self.txn_display_data[txn.id]['widgets']
@@ -232,7 +230,7 @@ class LedgerTxnsDisplay:
             layout.addWidget(debit_entry, row, 6)
             layout.addWidget(credit_entry, row, 7)
             save_edit_button = QtWidgets.QPushButton('Save Edit')
-            save_edit_button.clicked.connect(partial(_save_edit, txn_id=txn_id))
+            save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
             delete_button = QtWidgets.QPushButton('Delete')
             delete_button.clicked.connect(partial(self._delete, txn_id=txn_id, layout=layout, txn_widgets=self.txn_display_data[txn_id]['widgets']))
             buttons_layout = QtWidgets.QGridLayout()
