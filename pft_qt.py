@@ -148,6 +148,18 @@ class LedgerTxnsDisplay:
             if txn.id not in self.txn_display_data or self.txn_display_data[txn.id]['row'] != index:
                 self._display_txn(txn, row=index, layout=self.txns_layout, balance=balance)
 
+    def _delete(self, txn_id, layout, txn_widgets):
+        self.storage.delete_txn(txn_id)
+        self.ledger.remove_txn(txn_id)
+        for widget in txn_widgets['entries'].values():
+            layout.removeWidget(widget)
+            widget.deleteLater()
+        for widget in txn_widgets['buttons'].values():
+            layout.removeWidget(widget)
+            widget.deleteLater()
+        del self.txn_display_data[txn_id]
+        self._redisplay_txns()
+
     def _display_txn(self, txn, row, layout, balance):
         if txn.id in self.txn_display_data:
             for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
@@ -180,18 +192,6 @@ class LedgerTxnsDisplay:
                         categories=categories,
                     )
                 self.storage.save_txn(txn)
-                for widget in self.txn_display_data[txn.id]['widgets']['entries'].values():
-                    layout.removeWidget(widget)
-                    widget.deleteLater()
-                for widget in self.txn_display_data[txn.id]['widgets']['buttons'].values():
-                    layout.removeWidget(widget)
-                    widget.deleteLater()
-                del self.txn_display_data[txn_id]
-                self._redisplay_txns()
-
-            def _delete(txn_id):
-                self.storage.delete_txn(txn_id)
-                self.ledger.remove_txn(txn_id)
                 for widget in self.txn_display_data[txn.id]['widgets']['entries'].values():
                     layout.removeWidget(widget)
                     widget.deleteLater()
@@ -234,7 +234,7 @@ class LedgerTxnsDisplay:
             save_edit_button = QtWidgets.QPushButton('Save Edit')
             save_edit_button.clicked.connect(partial(_save_edit, txn_id=txn_id))
             delete_button = QtWidgets.QPushButton('Delete')
-            delete_button.clicked.connect(partial(_delete, txn_id=txn_id))
+            delete_button.clicked.connect(partial(self._delete, txn_id=txn_id, layout=layout, txn_widgets=self.txn_display_data[txn_id]['widgets']))
             buttons_layout = QtWidgets.QGridLayout()
             buttons_layout.addWidget(save_edit_button, 0, 0)
             buttons_layout.addWidget(delete_button, 0, 1)
