@@ -157,6 +157,8 @@ class LedgerTxnsDisplay:
             widget.deleteLater()
 
     def _delete(self, txn_id, layout, txn_widgets):
+        #delete from storage, remove it from ledger, delete the edit widgets, delete the display info
+        #   & then redisplay any txns necessary
         self.storage.delete_txn(txn_id)
         self.ledger.remove_txn(txn_id)
         self._remove_edit_widgets(txn_widgets, layout)
@@ -164,6 +166,8 @@ class LedgerTxnsDisplay:
         self._redisplay_txns()
 
     def _save_edit(self, txn_id, layout):
+        #get data from widgets, update the txn, save it, delete the edit widgets, delete the display info
+        #   & then redisplay any txns necessary
         entries = self.txn_display_data[txn_id]['widgets']['entries']
         txn_type = entries['type'].text()
         txn_date = entries['date'].text()
@@ -190,71 +194,72 @@ class LedgerTxnsDisplay:
         del self.txn_display_data[txn_id]
         self._redisplay_txns()
 
+    def _edit(self, event, txn_id, layout):
+        #create edit entries using initial values from labels, delete labels,
+        #   add edit entries to layout, add save/delete buttons, and set txn_display_data
+        row = self.txn_display_data[txn_id]['row']
+        widgets = self.txn_display_data[txn_id]['widgets']
+        type_entry = QtWidgets.QLineEdit()
+        type_entry.setText(widgets['labels']['type'].text())
+        date_entry = QtWidgets.QLineEdit()
+        date_entry.setText(widgets['labels']['date'].text())
+        payee_entry = QtWidgets.QLineEdit()
+        payee_entry.setText(widgets['labels']['payee'].text())
+        description_entry = QtWidgets.QLineEdit()
+        description_entry.setText(widgets['labels']['description'].text())
+        categories_entry = QtWidgets.QLineEdit()
+        categories_entry.setText(widgets['labels']['categories'].text())
+        status_entry = QtWidgets.QLineEdit()
+        status_entry.setText(widgets['labels']['status'].text())
+        credit_entry = QtWidgets.QLineEdit()
+        credit_entry.setText(widgets['labels']['credit'].text())
+        debit_entry = QtWidgets.QLineEdit()
+        debit_entry.setText(widgets['labels']['debit'].text())
+        for widget in self.txn_display_data[txn_id]['widgets']['labels'].values():
+            layout.removeWidget(widget)
+            widget.deleteLater()
+        self.txn_display_data[txn_id]['widgets']['labels'] = {}
+        layout.addWidget(type_entry, row, 0)
+        layout.addWidget(date_entry, row, 1)
+        layout.addWidget(payee_entry, row, 2)
+        layout.addWidget(description_entry, row, 3)
+        layout.addWidget(categories_entry, row, 4)
+        layout.addWidget(status_entry, row, 5)
+        layout.addWidget(debit_entry, row, 6)
+        layout.addWidget(credit_entry, row, 7)
+        save_edit_button = QtWidgets.QPushButton('Save Edit')
+        save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
+        delete_button = QtWidgets.QPushButton('Delete')
+        delete_button.clicked.connect(partial(self._delete, txn_id=txn_id, layout=layout, txn_widgets=self.txn_display_data[txn_id]['widgets']))
+        buttons_layout = QtWidgets.QGridLayout()
+        buttons_layout.addWidget(save_edit_button, 0, 0)
+        buttons_layout.addWidget(delete_button, 0, 1)
+        buttons_widget = QtWidgets.QWidget()
+        buttons_widget.setLayout(buttons_layout)
+        layout.addWidget(buttons_widget, row, 8)
+        self.txn_display_data[txn_id]['widgets']['entries'] = {
+                'type': type_entry,
+                'date': date_entry,
+                'payee': payee_entry,
+                'description': description_entry,
+                'categories': categories_entry,
+                'status': status_entry,
+                'credit': credit_entry,
+                'debit': debit_entry,
+            }
+        self.txn_display_data[txn_id]['widgets']['buttons'] = {
+                'save_edit': save_edit_button,
+                'delete': delete_button,
+            }
+
     def _display_txn(self, txn, row, layout, balance):
+        #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
         if txn.id in self.txn_display_data:
             for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
                 layout.removeWidget(widget)
                 widget.deleteLater()
         tds = txn.get_display_strings()
-
-        def _edit(event, txn_id):
-
-            row = self.txn_display_data[txn.id]['row']
-            widgets = self.txn_display_data[txn.id]['widgets']
-            type_entry = QtWidgets.QLineEdit()
-            type_entry.setText(widgets['labels']['type'].text())
-            date_entry = QtWidgets.QLineEdit()
-            date_entry.setText(widgets['labels']['date'].text())
-            payee_entry = QtWidgets.QLineEdit()
-            payee_entry.setText(widgets['labels']['payee'].text())
-            description_entry = QtWidgets.QLineEdit()
-            description_entry.setText(widgets['labels']['description'].text())
-            categories_entry = QtWidgets.QLineEdit()
-            categories_entry.setText(widgets['labels']['categories'].text())
-            status_entry = QtWidgets.QLineEdit()
-            status_entry.setText(widgets['labels']['status'].text())
-            credit_entry = QtWidgets.QLineEdit()
-            credit_entry.setText(widgets['labels']['credit'].text())
-            debit_entry = QtWidgets.QLineEdit()
-            debit_entry.setText(widgets['labels']['debit'].text())
-            for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-                layout.removeWidget(widget)
-                widget.deleteLater()
-            self.txn_display_data[txn.id]['widgets']['labels'] = {}
-            layout.addWidget(type_entry, row, 0)
-            layout.addWidget(date_entry, row, 1)
-            layout.addWidget(payee_entry, row, 2)
-            layout.addWidget(description_entry, row, 3)
-            layout.addWidget(categories_entry, row, 4)
-            layout.addWidget(status_entry, row, 5)
-            layout.addWidget(debit_entry, row, 6)
-            layout.addWidget(credit_entry, row, 7)
-            save_edit_button = QtWidgets.QPushButton('Save Edit')
-            save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
-            delete_button = QtWidgets.QPushButton('Delete')
-            delete_button.clicked.connect(partial(self._delete, txn_id=txn_id, layout=layout, txn_widgets=self.txn_display_data[txn_id]['widgets']))
-            buttons_layout = QtWidgets.QGridLayout()
-            buttons_layout.addWidget(save_edit_button, 0, 0)
-            buttons_layout.addWidget(delete_button, 0, 1)
-            buttons_widget = QtWidgets.QWidget()
-            buttons_widget.setLayout(buttons_layout)
-            layout.addWidget(buttons_widget, row, 8)
-            self.txn_display_data[txn.id]['widgets']['entries'] = {
-                    'type': type_entry,
-                    'date': date_entry,
-                    'payee': payee_entry,
-                    'description': description_entry,
-                    'categories': categories_entry,
-                    'status': status_entry,
-                    'credit': credit_entry,
-                    'debit': debit_entry,
-                }
-            self.txn_display_data[txn.id]['widgets']['buttons'] = {
-                    'save_edit': save_edit_button,
-                    'delete': delete_button,
-                }
-
-        edit_function = partial(_edit, txn_id=txn.id)
+        edit_function = partial(self._edit, txn_id=txn.id, layout=layout)
         type_label = QtWidgets.QLabel(tds['txn_type'])
         type_label.mousePressEvent = edit_function
         date_label = QtWidgets.QLabel(tds['txn_date'])
