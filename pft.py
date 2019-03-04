@@ -236,10 +236,13 @@ class Ledger:
             raise Exception('txn must have an id')
         self._txns[txn.id] = txn
 
-    def get_sorted_txns(self):
+    def get_sorted_txns_with_balance(self):
         sorted_txns = sorted(self._txns.values(), key=lambda t: t.txn_date)
+        balance = self._starting_balance
         sorted_records = []
         for t in sorted_txns:
+            balance = balance + t.amount
+            t.balance = balance
             sorted_records.append(t)
         return sorted_records
 
@@ -612,17 +615,15 @@ class LedgerWidget(ttk.Frame):
 
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
-        balance = self.account.starting_balance
-        for index, txn in enumerate(self.ledger.get_sorted_txns()):
-            balance += txn.amount
+        for index, txn in enumerate(self.ledger.get_sorted_txns_with_balance()):
             if txn.id not in self.display_data or self.display_data[txn.id]['row'] != index:
-                self._display_txn(txn, balance, index)
+                self._display_txn(txn, index)
 
     def display_new_txn(self, txn):
         self.ledger.add_transaction(txn)
         self._redisplay_txns()
 
-    def _display_txn(self, txn, balance, row):
+    def _display_txn(self, txn, row):
 
         def _edit(event, txn_id=txn.id):
 
@@ -654,7 +655,7 @@ class LedgerWidget(ttk.Frame):
 
             def _delete(txn_id=txn_id):
                 self.storage.delete_txn(txn_id)
-                last_txn_id = self.ledger.get_sorted_txns()[-1].id
+                last_txn_id = self.ledger.get_sorted_txns_with_balance()[-1].id
                 self.ledger.remove_txn(txn_id)
                 for label in self.display_data[last_txn_id]['labels'].values():
                     label.destroy()
@@ -722,7 +723,7 @@ class LedgerWidget(ttk.Frame):
         status_label = ttk.Label(self, width=STATUS_WIDTH, borderwidth=1, relief="solid", text=tds['status'])
         debit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid", text=tds['debit'])
         credit_label = ttk.Label(self, width=AMOUNT_WIDTH, borderwidth=1, relief="solid", text=tds['credit'])
-        balance_label = ttk.Label(self, width=BALANCE_WIDTH, borderwidth=1, relief="solid", text=str(balance))
+        balance_label = ttk.Label(self, width=BALANCE_WIDTH, borderwidth=1, relief="solid", text=str(txn.balance))
         txn_type_label.bind('<Button-1>', _edit)
         txn_type_label.grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         date_label.grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))

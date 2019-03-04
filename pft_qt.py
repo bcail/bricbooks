@@ -142,11 +142,9 @@ class LedgerTxnsDisplay:
 
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
-        balance = self.ledger._starting_balance
-        for index, txn in enumerate(self.ledger.get_sorted_txns()):
-            balance += txn.amount
+        for index, txn in enumerate(self.ledger.get_sorted_txns_with_balance()):
             if txn.id not in self.txn_display_data or self.txn_display_data[txn.id]['row'] != index:
-                self._display_txn(txn, row=index, layout=self.txns_layout, balance=balance)
+                self._display_txn(txn, row=index, layout=self.txns_layout)
 
     def _remove_edit_widgets(self, txn_widgets, layout):
         for widget in txn_widgets['entries'].values():
@@ -252,7 +250,7 @@ class LedgerTxnsDisplay:
                 'delete': delete_button,
             }
 
-    def _display_txn(self, txn, row, layout, balance):
+    def _display_txn(self, txn, row, layout):
         #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
         if txn.id in self.txn_display_data:
             for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
@@ -276,7 +274,7 @@ class LedgerTxnsDisplay:
         credit_label.mousePressEvent = edit_function
         debit_label = QtWidgets.QLabel(tds['debit'])
         debit_label.mousePressEvent = edit_function
-        balance_label = QtWidgets.QLabel(str(balance))
+        balance_label = QtWidgets.QLabel(str(txn.balance))
         balance_label.mousePressEvent = edit_function
         layout.addWidget(type_label, row, 0)
         layout.addWidget(date_label, row, 1)

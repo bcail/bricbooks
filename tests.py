@@ -420,11 +420,15 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
         ledger.add_transaction(Transaction(id_=3, account=a, amount=D('1'), txn_date=date(2017, 7, 30)))
         ledger.add_transaction(Transaction(id_=4, account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
-        ledger_records = ledger.get_sorted_txns()
+        ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
+        self.assertEqual(ledger_records[0].balance, D('110'))
         self.assertEqual(ledger_records[1].txn_date, date(2017, 6, 5))
+        self.assertEqual(ledger_records[1].balance, D('98'))
         self.assertEqual(ledger_records[2].txn_date, date(2017, 7, 30))
+        self.assertEqual(ledger_records[2].balance, D('99'))
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
+        self.assertEqual(ledger_records[3].balance, D('131.45'))
 
     def test_get_txn(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -439,7 +443,7 @@ class TestLedger(unittest.TestCase):
         ledger = Ledger(starting_balance=D('100.12'))
         ledger.add_transaction(Transaction(id_=1, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
-        self.assertEqual(ledger.get_sorted_txns(), [])
+        self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
 
 
 class TestBudget(unittest.TestCase):
@@ -833,7 +837,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, cat2_id, str(D('46.23'))))
         ledger = Ledger(starting_balance=D('0'))
         storage.load_txns_into_ledger(account_id, ledger)
-        txns = ledger.get_sorted_txns()
+        txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].amount, D('101'))
         self.assertEqual(txns[1].amount, D('46.23'))
@@ -1269,12 +1273,12 @@ class TestQtGUI(unittest.TestCase):
         #make sure new txn was saved
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
-        txns = ledger.get_sorted_txns()
+        txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].amount, D('-18'))
         #check new txn display
         self.assertEqual(dw.add_txn_widgets['entries']['debit'].text(), '')
-        self.assertEqual(len(dw.ledger.get_sorted_txns()), 3)
+        self.assertEqual(len(dw.ledger.get_sorted_txns_with_balance()), 3)
         self.assertEqual(dw.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
     def test_ledger_txn_edit(self):
@@ -1302,7 +1306,7 @@ class TestQtGUI(unittest.TestCase):
         #make sure edit was saved
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
-        txns = ledger.get_sorted_txns()
+        txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].amount, D(20))
@@ -1330,7 +1334,7 @@ class TestQtGUI(unittest.TestCase):
         #make sure txn was deleted
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
-        txns = ledger.get_sorted_txns()
+        txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].amount, D(23))
 
