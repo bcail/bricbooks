@@ -143,8 +143,14 @@ class LedgerTxnsDisplay:
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
         for index, txn in enumerate(self.ledger.get_sorted_txns_with_balance()):
-            if txn.id not in self.txn_display_data or self.txn_display_data[txn.id]['row'] != index:
+            if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
                 self._display_txn(txn, row=index, layout=self.txns_layout)
+            else:
+                try:
+                    if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != txn.balance:
+                        self._display_txn(txn, row=index, layout=self.txns_layout)
+                except KeyError:
+                    pass
 
     def _remove_edit_widgets(self, txn_widgets, layout):
         for widget in txn_widgets['entries'].values():
