@@ -79,10 +79,11 @@ class Account:
 
 class Category:
 
-    def __init__(self, name, is_expense=True, id_=None):
+    def __init__(self, name, is_expense=True, id_=None, parent=None):
         self.name = name
         self.id = id_
         self.is_expense = is_expense
+        self.parent = parent
 
     def __str__(self):
         return '%s: %s' % (self.id, self.name)
@@ -372,7 +373,7 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
-        conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER)')
+        conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
 
@@ -397,10 +398,14 @@ class SQLiteStorage:
         return accounts
 
     def get_category(self, category_id):
-        db_record = self._db_connection.execute('SELECT id, name, is_expense FROM categories WHERE id = ?', (category_id,)).fetchone()
+        db_record = self._db_connection.execute('SELECT id, name, is_expense, parent_id FROM categories WHERE id = ?', (category_id,)).fetchone()
         if not db_record:
             raise Exception('No category with id: %s' % category_id)
-        return Category(name=db_record[1], is_expense=bool(db_record[2]), id_=db_record[0])
+        if db_record[3]:
+            parent = self.get_category(db_record[3])
+        else:
+            parent = None
+        return Category(name=db_record[1], is_expense=bool(db_record[2]), id_=db_record[0], parent=parent)
 
     def get_categories(self):
         categories = []
@@ -417,10 +422,14 @@ class SQLiteStorage:
             expense_val = 1
         else:
             expense_val = 0
-        if category.id:
-            c.execute('UPDATE categories SET name = ?, is_expense = ? WHERE id = ?', (category.name, category.is_expense, category.id))
+        if category.parent:
+            parent_val = category.parent.id
         else:
-            c.execute('INSERT INTO categories(name, is_expense) VALUES(?, ?)', (category.name, expense_val))
+            parent_val = None
+        if category.id:
+            c.execute('UPDATE categories SET name = ?, is_expense = ?, parent_id = ? WHERE id = ?', (category.name, category.is_expense, parent_val, category.id))
+        else:
+            c.execute('INSERT INTO categories(name, is_expense, parent_id) VALUES(?, ?, ?)', (category.name, expense_val, parent_val))
             category.id = c.lastrowid
         self._db_connection.commit()
 
