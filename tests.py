@@ -98,13 +98,21 @@ class TestAccount(unittest.TestCase):
 class TestCategory(unittest.TestCase):
 
     def test_init(self):
-        c = Category('Restaurants')
+        c = Category('Restaurants', id_=1)
         self.assertEqual(c.name, 'Restaurants')
+        self.assertEqual(str(c), '1 - Restaurants')
+        c = Category('Restaurants')
+        self.assertEqual(str(c), 'Restaurants')
 
     def test_parent(self):
         parent = Category('Restaurants')
         child = Category('McDonalds', parent=parent)
         self.assertEqual(child.parent, parent)
+
+    def test_user_id(self):
+        c = Category('Restaurants', user_id='400')
+        self.assertEqual(c.user_id, '400')
+        self.assertEqual(str(c), '400 - Restaurants')
 
 
 class TestTransaction(unittest.TestCase):
@@ -632,7 +640,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_category(self):
         storage = SQLiteStorage(':memory:')
-        parent = Category(name='Restaurants', is_expense=True)
+        parent = Category(name='Restaurants', is_expense=True, user_id='400')
         child = Category(name='McDonalds', is_expense=True, parent=parent)
         storage.save_category(parent)
         storage.save_category(child)
@@ -644,10 +652,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][1], 'Restaurants')
         self.assertEqual(records[0][2], 1)
         self.assertEqual(records[0][3], None)
+        self.assertEqual(records[0][4], '400')
         self.assertEqual(records[1][0], 2)
         self.assertEqual(records[1][1], 'McDonalds')
         self.assertEqual(records[1][2], 1)
         self.assertEqual(records[1][3], 1)
+        self.assertEqual(records[1][4], None)
 
     def test_update_category(self):
         storage = SQLiteStorage(':memory:')
@@ -665,7 +675,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         c = Category(name='Housing')
         storage.save_category(c)
-        c2 = Category(name='Wages', is_expense=False)
+        c2 = Category(name='Wages', is_expense=False, user_id='400')
         storage.save_category(c2)
         c3 = Category(name='Base Salary', is_expense=False, parent=c2)
         storage.save_category(c3)
@@ -679,6 +689,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertFalse(categories[2].is_expense)
         self.assertTrue(categories[0].parent is None)
         self.assertEqual(categories[2].parent, c2)
+        self.assertTrue(categories[0].user_id is None)
+        self.assertEqual(categories[1].user_id, '400')
 
     def test_delete_category(self):
         storage = SQLiteStorage(':memory:')
