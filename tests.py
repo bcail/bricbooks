@@ -1377,15 +1377,30 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(storage.get_categories()[0].name, 'Housing')
 
+    def test_categories_add_user_id(self):
+        storage = SQLiteStorage(':memory:')
+        self.assertEqual(storage.get_categories(), [])
+        dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
+        dw.user_id_entry.setText('400')
+        dw.name_entry.setText('Housing')
+        QtTest.QTest.mouseClick(dw.add_button, QtCore.Qt.LeftButton)
+        cat = storage.get_categories()[0]
+        self.assertEqual(cat.name, 'Housing')
+        self.assertEqual(cat.user_id, '400')
+
     def test_categories_edit(self):
         storage = SQLiteStorage(':memory:')
         cat = Category(name='Housing')
         storage.save_category(cat)
         dw = pft_qt.CategoriesDisplayWidget(storage, reload_categories=fake_method)
         QtTest.QTest.mouseClick(dw.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
+        self.assertEqual(dw.data[cat.id]['entries']['name'].text(), 'Housing')
+        dw.data[cat.id]['entries']['user_id'].setText('400')
         dw.data[cat.id]['entries']['name'].setText('Food')
         QtTest.QTest.mouseClick(dw.data[cat.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
-        self.assertEqual(storage.get_categories()[0].name, 'Food')
+        cat = storage.get_categories()[0]
+        self.assertEqual(cat.name, 'Food')
+        self.assertEqual(cat.user_id, '400')
 
     def test_categories_delete(self):
         storage = SQLiteStorage(':memory:')
