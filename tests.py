@@ -692,6 +692,31 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(categories[0].user_id is None)
         self.assertEqual(categories[1].user_id, '400')
 
+    def test_get_parent_categories(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Wages')
+        storage.save_category(c2)
+        c3 = Category(name='Base Salary', parent=c2)
+        storage.save_category(c3)
+        categories = storage.get_parent_categories()
+        self.assertEqual(len(categories), 2)
+        self.assertEqual(categories[0].name, 'Housing')
+        self.assertEqual(categories[1].name, 'Wages')
+
+    def test_get_child_categories(self):
+        storage = SQLiteStorage(':memory:')
+        c = Category(name='Housing')
+        storage.save_category(c)
+        c2 = Category(name='Wages')
+        storage.save_category(c2)
+        c3 = Category(name='Base Salary', parent=c2)
+        storage.save_category(c3)
+        categories = storage.get_child_categories(parent=c2)
+        self.assertEqual(len(categories), 1)
+        self.assertEqual(categories[0].name, 'Base Salary')
+
     def test_delete_category(self):
         storage = SQLiteStorage(':memory:')
         c = Category(name='Housing')
