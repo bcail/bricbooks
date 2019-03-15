@@ -98,7 +98,10 @@ class Category:
         return str(self)
 
     def __eq__(self, other_category):
-        return self.id == other_category.id
+        if other_category:
+            return self.id == other_category.id
+        else:
+            return False
 
     def __hash__(self):
         return self.id
@@ -415,7 +418,7 @@ class SQLiteStorage:
 
     def get_categories(self):
         categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
+        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY user_id, id').fetchall()
         for cat_record in category_records:
             cat_id = cat_record[0]
             category = self.get_category(cat_id)
@@ -424,7 +427,7 @@ class SQLiteStorage:
 
     def get_parent_categories(self):
         categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id IS NULL ORDER BY id').fetchall()
+        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id IS NULL ORDER BY user_id, id').fetchall()
         for cat_record in category_records:
             cat_id = cat_record[0]
             category = self.get_category(cat_id)
@@ -433,7 +436,7 @@ class SQLiteStorage:
 
     def get_child_categories(self, parent):
         categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id = ? ORDER BY id', (parent.id,)).fetchall()
+        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id = ? ORDER BY user_id, id', (parent.id,)).fetchall()
         for cat_record in category_records:
             cat_id = cat_record[0]
             category = self.get_category(cat_id)
