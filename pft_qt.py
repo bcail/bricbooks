@@ -311,22 +311,38 @@ class LedgerTxnsDisplay:
 
 class LedgerDisplayWidget(QtWidgets.QWidget):
 
-    def __init__(self, storage):
+    def __init__(self, storage, show_ledger, current_account=None):
         super().__init__()
         self.storage = storage
-        account = storage.get_accounts()[0]
+        self._show_ledger = show_ledger
+        if not current_account:
+            current_account = storage.get_accounts()[0]
+        self._current_account = current_account
         layout = QtWidgets.QGridLayout()
         set_ledger_column_widths(layout)
-        self._show_headings(layout, row=0)
-        self.ledger = pft.Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, self.ledger)
+        new_row = self._show_headings(layout, row=0)
+        self.ledger = pft.Ledger(starting_balance=current_account.starting_balance)
+        storage.load_txns_into_ledger(current_account.id, self.ledger)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
-        layout.addWidget(self.txns_display.get_widget(), 1, 0, 1, 9)
+        layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
-        self._show_add_txn(layout, self.add_txn_widgets, row=2)
+        self._show_add_txn(layout, self.add_txn_widgets, row=new_row+1)
         self.setLayout(layout)
 
+    def _update_account(self, index):
+        self._show_ledger(self.storage.get_accounts()[index])
+
     def _show_headings(self, layout, row):
+        self.action_combo = QtWidgets.QComboBox()
+        current_index = 0
+        for index, a in enumerate(self.storage.get_accounts()):
+            if a.id == self._current_account.id:
+                current_index = index
+            self.action_combo.addItem(a.name)
+        self.action_combo.setCurrentIndex(current_index)
+        self.action_combo.currentIndexChanged.connect(self._update_account)
+        layout.addWidget(self.action_combo, row, 0)
+        row += 1
         layout.addWidget(QtWidgets.QLabel('Txn Type'), row, 0)
         layout.addWidget(QtWidgets.QLabel('Date'), row, 1)
         layout.addWidget(QtWidgets.QLabel('Payee'), row, 2)
@@ -336,6 +352,7 @@ class LedgerDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
         layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
+        return row
 
     def _show_add_txn(self, layout, add_txn_widgets, row):
         entry_names = ['type', 'date', 'payee', 'description', 'categories', 'status', 'debit', 'credit']
@@ -603,12 +620,12 @@ class PFT_GUI_QT:
         self.main_widget = AccountsDisplayWidget(self.storage, reload_accounts=self._show_accounts)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
-    def _show_ledger(self):
+    def _show_ledger(self, current_account=None):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('ledger')
-        self.main_widget = LedgerDisplayWidget(self.storage)
+        self.main_widget = LedgerDisplayWidget(self.storage, show_ledger=self._show_ledger, current_account=current_account)
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_categories(self):
