@@ -13,19 +13,21 @@ def set_widget_error_state(widget):
     widget.setStyleSheet(ERROR_STYLE)
 
 
-class AccountsDisplayWidget(QtWidgets.QWidget):
+class AccountsDisplay:
 
     def __init__(self, storage, reload_accounts):
-        super().__init__()
         self.storage = storage
         self._reload = reload_accounts
+
+    def get_widget(self):
+        main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         name_label = QtWidgets.QLabel('Name')
         starting_balance_label = QtWidgets.QLabel('Starting Balance')
         layout.addWidget(name_label, 0, 0)
         layout.addWidget(starting_balance_label, 0, 1)
         self.accounts_widgets = {}
-        accounts = storage.get_accounts()
+        accounts = self.storage.get_accounts()
         row = 1
         for acc in accounts:
 
@@ -91,7 +93,8 @@ class AccountsDisplayWidget(QtWidgets.QWidget):
             }
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
-        self.setLayout(layout)
+        main_widget.setLayout(layout)
+        return main_widget
 
     def _save_new_account(self):
         name = self.add_account_widgets['entries']['name'].text()
@@ -617,7 +620,7 @@ class PFT_GUI_QT:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('accounts')
-        self.main_widget = AccountsDisplayWidget(self.storage, reload_accounts=self._show_accounts)
+        self.main_widget = AccountsDisplay(self.storage, reload_accounts=self._show_accounts).get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self, current_account=None):
