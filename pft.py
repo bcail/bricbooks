@@ -64,6 +64,9 @@ class Account:
     def __str__(self):
         return self.name
 
+    def __eq__(self, other_account):
+        return self.id == other_account.id
+
     def _check_starting_balance(self, starting_balance):
         if isinstance(starting_balance, Decimal):
             return starting_balance

@@ -312,31 +312,34 @@ class LedgerTxnsDisplay:
             }
 
 
-class LedgerDisplayWidget(QtWidgets.QWidget):
+class LedgerDisplay:
 
     def __init__(self, storage, show_ledger, current_account=None):
-        super().__init__()
         self.storage = storage
         self._show_ledger = show_ledger
         if not current_account:
             current_account = storage.get_accounts()[0]
         self._current_account = current_account
+
+    def get_widget(self):
+        self.widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
-        self.ledger = pft.Ledger(starting_balance=current_account.starting_balance)
-        storage.load_txns_into_ledger(current_account.id, self.ledger)
+        self.ledger = pft.Ledger(starting_balance=self._current_account.starting_balance)
+        self.storage.load_txns_into_ledger(self._current_account.id, self.ledger)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
         self._show_add_txn(layout, self.add_txn_widgets, row=new_row+1)
-        self.setLayout(layout)
+        self.widget.setLayout(layout)
+        return self.widget
 
     def _update_account(self, index):
         self._show_ledger(self.storage.get_accounts()[index])
 
     def _show_headings(self, layout, row):
-        self.action_combo = QtWidgets.QComboBox()
+        self.action_combo = QtWidgets.QComboBox(parent=self.widget)
         current_index = 0
         for index, a in enumerate(self.storage.get_accounts()):
             if a.id == self._current_account.id:
@@ -628,7 +631,8 @@ class PFT_GUI_QT:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('ledger')
-        self.main_widget = LedgerDisplayWidget(self.storage, show_ledger=self._show_ledger, current_account=current_account)
+        self.ledger_display = LedgerDisplay(self.storage, show_ledger=self._show_ledger, current_account=current_account)
+        self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_categories(self):

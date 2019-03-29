@@ -5,7 +5,7 @@ import sqlite3
 import tempfile
 import tkinter
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 from PySide2 import QtWidgets, QtTest, QtCore
 
 from pft import (
@@ -1317,7 +1317,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(accounts_display.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         mock_method.assert_called_once_with(accounts_display.add_account_widgets['entries']['name'])
 
-    def test_ledger(self):
+    def test_ledger_add(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D(100))
         storage.save_account(account)
@@ -1325,10 +1325,11 @@ class TestQtGUI(unittest.TestCase):
         txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        dw = pft_qt.LedgerDisplayWidget(storage, show_ledger=fake_method)
-        dw.add_txn_widgets['entries']['date'].setText('2017-01-05')
-        dw.add_txn_widgets['entries']['debit'].setText('18')
-        QtTest.QTest.mouseClick(dw.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
+        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        ledger_display.add_txn_widgets['entries']['date'].setText('2017-01-05')
+        ledger_display.add_txn_widgets['entries']['debit'].setText('18')
+        QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
@@ -1336,9 +1337,46 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].amount, D('-18'))
         #check new txn display
-        self.assertEqual(dw.add_txn_widgets['entries']['debit'].text(), '')
-        self.assertEqual(len(dw.ledger.get_sorted_txns_with_balance()), 3)
-        self.assertEqual(dw.txns_display.txn_display_data[txns[1].id]['row'], 1)
+        self.assertEqual(ledger_display.add_txn_widgets['entries']['debit'].text(), '')
+        self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)
+
+    def test_ledger_choose_account(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D(100))
+        account2 = Account(name='Savings', starting_balance=D(100))
+        storage.save_account(account)
+        storage.save_account(account2)
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
+        txn2 = Transaction(account=account2, amount=D(5), txn_date=date(2017, 1, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method, current_account=account2)
+        ledger_display.get_widget()
+        self.assertEqual(ledger_display._current_account, account2)
+        self.assertEqual(ledger_display.action_combo.currentIndex(), 1)
+        self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
+
+    def test_ledger_switch_account(self):
+        show_ledger_mock = Mock()
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D(100))
+        account2 = Account(name='Savings', starting_balance=D(100))
+        storage.save_account(account)
+        storage.save_account(account2)
+        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
+        txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
+        txn3 = Transaction(account=account2, amount=D(5), txn_date=date(2018, 1, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        storage.save_txn(txn3)
+        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=show_ledger_mock)
+        ledger_display.get_widget()
+        self.assertEqual(ledger_display._current_account, account)
+        self.assertEqual(ledger_display.action_combo.currentIndex(), 0)
+        self.assertEqual(ledger_display.action_combo.currentText(), 'Checking')
+        ledger_display.action_combo.setCurrentIndex(1)
+        show_ledger_mock.assert_called_once_with(account2)
 
     def test_ledger_txn_edit(self):
         storage = SQLiteStorage(':memory:')
@@ -1352,16 +1390,17 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         storage.save_txn(txn4)
-        dw = pft_qt.LedgerDisplayWidget(storage, show_ledger=fake_method)
-        self.assertEqual(dw.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
-        self.assertEqual(dw.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '122')
-        self.assertEqual(dw.txns_display.txn_display_data[txn2.id]['row'], 1)
-        self.assertEqual(dw.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '147')
-        self.assertEqual(dw.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '157')
-        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        dw.txns_display.txn_display_data[txn2.id]['widgets']['entries']['date'].setText('2017-12-31')
-        dw.txns_display.txn_display_data[txn2.id]['widgets']['entries']['credit'].setText('20')
-        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '122')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 1)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '147')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '157')
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['date'].setText('2017-12-31')
+        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['credit'].setText('20')
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure edit was saved
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
@@ -1370,14 +1409,14 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].amount, D(20))
         #check display with edits
-        self.assertEqual(dw.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
-        self.assertEqual(dw.txns_display.txn_display_data[txn.id]['row'], 0)
-        self.assertEqual(dw.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '130')
-        self.assertEqual(dw.txns_display.txn_display_data[txn3.id]['row'], 1)
-        self.assertEqual(dw.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '150')
-        self.assertEqual(dw.txns_display.txn_display_data[txn2.id]['row'], 2)
-        self.assertEqual(dw.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '160')
-        self.assertEqual(dw.txns_display.txn_display_data[txn4.id]['row'], 3)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '130')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['row'], 1)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '150')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 2)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '160')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
@@ -1387,9 +1426,10 @@ class TestQtGUI(unittest.TestCase):
         txn2 = Transaction(account=account, amount=D(23), txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        dw = pft_qt.LedgerDisplayWidget(storage, show_ledger=fake_method)
-        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(dw.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
+        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
         ledger = Ledger(starting_balance=account.starting_balance)
         storage.load_txns_into_ledger(account.id, ledger)
