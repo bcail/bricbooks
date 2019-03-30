@@ -401,12 +401,14 @@ class LedgerDisplay:
             w.setText('')
 
 
-class CategoriesDisplayWidget(QtWidgets.QWidget):
+class CategoriesDisplay:
 
     def __init__(self, storage, reload_categories):
-        super().__init__()
         self._storage = storage
         self._reload = reload_categories
+
+    def get_widget(self):
+        self.main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, 1)
@@ -463,7 +465,8 @@ class CategoriesDisplayWidget(QtWidgets.QWidget):
         layout.addWidget(self.add_button, row, 3)
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
-        self.setLayout(layout)
+        self.main_widget.setLayout(layout)
+        return self.main_widget
 
     def _add(self):
         user_id = self.user_id_entry.text() or None
@@ -640,7 +643,8 @@ class PFT_GUI_QT:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons(display='categories')
-        self.main_widget = CategoriesDisplayWidget(self.storage, reload_categories=self._show_categories)
+        self.categories_display = CategoriesDisplay(self.storage, reload_categories=self._show_categories)
+        self.main_widget = self.categories_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_budget(self):
