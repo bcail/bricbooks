@@ -49,7 +49,7 @@ class AccountsDisplay:
                     name = self.accounts_widgets[acc_id]['entries']['name'].text()
                     starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
                     try:
-                        self.storage.save_account(pft.Account(name=name, starting_balance=starting_balance, id=acc_id))
+                        self.storage.save_account(pft.Account(name=name, starting_balance=starting_balance, id_=acc_id))
                         self._reload()
                     except pft.InvalidAccountNameError:
                         set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])

@@ -54,8 +54,8 @@ def get_date(val):
 
 class Account:
 
-    def __init__(self, id=None, name=None, starting_balance=None):
-        self.id = id
+    def __init__(self, id_=None, name=None, starting_balance=None):
+        self.id = id_
         if not name:
             raise InvalidAccountNameError('Account must have a name')
         self.name = name
@@ -65,7 +65,10 @@ class Account:
         return self.name
 
     def __eq__(self, other_account):
-        return self.id == other_account.id
+        if self.id:
+            return self.id == other_account.id
+        else:
+            return self.name == other_account.name
 
     def _check_starting_balance(self, starting_balance):
         if isinstance(starting_balance, Decimal):
@@ -101,10 +104,14 @@ class Category:
         return str(self)
 
     def __eq__(self, other_category):
-        if other_category:
-            return self.id == other_category.id
-        else:
+        if not other_category:
             return False
+        if self.id or other_category.id:
+            return self.id == other_category.id
+        if self.name == other_category.name:
+            if self.parent == other_category.parent:
+                return True
+        return False
 
     def __hash__(self):
         return self.id
@@ -259,11 +266,11 @@ class Ledger:
             sorted_records.append(t)
         return sorted_records
 
-    def get_txn(self, id):
-        return self._txns[id]
+    def get_txn(self, id_):
+        return self._txns[id_]
 
-    def remove_txn(self, id):
-        del self._txns[id]
+    def remove_txn(self, id_):
+        del self._txns[id_]
 
     def clear_txns(self):
         self._txns = {}
@@ -391,7 +398,7 @@ class SQLiteStorage:
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
-        return Account(id=account_info[0], name=account_info[1], starting_balance=Decimal(account_info[2]))
+        return Account(id_=account_info[0], name=account_info[1], starting_balance=Decimal(account_info[2]))
 
     def save_account(self, account):
         c = self._db_connection.cursor()
@@ -812,7 +819,7 @@ class AccountsDisplayWidget(ttk.Frame):
         for account in accounts:
             def _edit(acc_id=account.id):
                 def _save(acc_id=acc_id):
-                    a = Account(id=acc_id,
+                    a = Account(id_=acc_id,
                                 name=self.data[acc_id]['entries']['name'].get(),
                                 starting_balance=self.data[acc_id]['entries']['starting_balance'].get())
                     self._storage.save_account(a)

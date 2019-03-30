@@ -94,6 +94,14 @@ class TestAccount(unittest.TestCase):
         with self.assertRaises(InvalidAccountError):
             Account(name='Checking', starting_balance=123.1)
 
+    def test_eq(self):
+        a = Account(name='Checking', starting_balance=D(100))
+        a2 = Account(name='Savings', starting_balance=D(100))
+        self.assertNotEqual(a, a2)
+        self.assertEqual(a, a)
+        a3 = Account(name='Checking', starting_balance=D(100))
+        self.assertEqual(a, a3)
+
 
 class TestCategory(unittest.TestCase):
 
@@ -103,6 +111,17 @@ class TestCategory(unittest.TestCase):
         self.assertEqual(str(c), '1 - Restaurants')
         c = Category('Restaurants')
         self.assertEqual(str(c), 'Restaurants')
+
+    def test_eq(self):
+        c = Category('Restaurants')
+        c2 = Category('Housing')
+        self.assertNotEqual(c, c2) #different name
+        c3 = Category('Restaurants', id_=2)
+        self.assertNotEqual(c, c3) #different id_
+        c4 = Category('Restaurants')
+        self.assertEqual(c, c4) #same id (None), same name
+        c5 = Category('Restaurants', parent=c2)
+        self.assertNotEqual(c, c5)
 
     def test_parent(self):
         parent = Category('Restaurants')
@@ -448,7 +467,7 @@ class TestLedger(unittest.TestCase):
         ledger = Ledger(starting_balance=a.starting_balance)
         ledger.add_transaction(Transaction(id_=1, account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
         ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
-        txn = ledger.get_txn(id=2)
+        txn = ledger.get_txn(id_=2)
         self.assertEqual(txn.amount, D('-12'))
 
     def test_clear_txns(self):
@@ -611,7 +630,7 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (account.id, 'Checking', '100'))
-        account = Account(id=1, name='Savings', starting_balance=D(200))
+        account = Account(id_=1, name='Savings', starting_balance=D(200))
         storage.save_account(account)
         c.execute('SELECT * FROM accounts')
         db_info = c.fetchall()
