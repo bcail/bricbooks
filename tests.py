@@ -23,55 +23,9 @@ from pft import (
         SQLiteStorageError,
         txn_categories_from_string,
         txn_categories_display,
-        AccountsDisplayWidget,
-        LedgerWidget,
-        CategoriesDisplayWidget,
-        BudgetDisplayWidget,
-        PFT_GUI,
     )
 import pft_qt as pft_qt
 import load_test_data
-
-
-class AbstractTkTest:
-    '''Copy this from cpython source code (tkinter.test.support), because Ubuntu/Mint don't seem to package that support code.'''
-
-    @classmethod
-    def setUpClass(cls):
-        cls._old_support_default_root = tkinter._support_default_root
-        destroy_default_root()
-        tkinter.NoDefaultRoot()
-        cls.root = tkinter.Tk()
-        cls.wantobjects = cls.root.wantobjects()
-        # De-maximize main window.
-        # Some window managers can maximize new windows.
-        cls.root.wm_state('normal')
-        try:
-            cls.root.wm_attributes('-zoomed', False)
-        except tkinter.TclError:
-            pass
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.root.update_idletasks()
-        cls.root.destroy()
-        del cls.root
-        tkinter._default_root = None
-        tkinter._support_default_root = cls._old_support_default_root
-
-    def setUp(self):
-        self.root.deiconify()
-
-    def tearDown(self):
-        for w in self.root.winfo_children():
-            w.destroy()
-        self.root.withdraw()
-
-def destroy_default_root():
-    if getattr(tkinter, '_default_root', None):
-        tkinter._default_root.update_idletasks()
-        tkinter._default_root.destroy()
-        tkinter._default_root = None
 
 
 class TestUtils(unittest.TestCase):
@@ -1088,142 +1042,7 @@ def fake_method():
     pass
 
 
-class TestGUI(AbstractTkTest, unittest.TestCase):
-
-    def test_accounts_display_widget(self):
-        storage = SQLiteStorage(':memory:')
-        acc = Account(name='Savings', starting_balance=D(5000))
-        storage.save_account(acc)
-        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=fake_method)
-        adw.add_account_name_entry.insert(0, 'Checking')
-        adw.add_account_starting_balance_entry.insert(0, '100')
-        adw.add_account_button.invoke()
-        #make sure there's another account now
-        accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
-        self.assertEqual(len(accounts), 2)
-        self.assertEqual(accounts[0][0], 'Savings')
-        self.assertEqual(accounts[1][0], 'Checking')
-
-    def test_accounts_display_widget_edit(self):
-        storage = SQLiteStorage(':memory:')
-        acc = Account(name='Savings', starting_balance=D(5000))
-        storage.save_account(acc)
-        adw = AccountsDisplayWidget(master=self.root, accounts=[acc], storage=storage, show_accounts=fake_method)
-        adw.data[acc.id]['edit_button'].invoke()
-        self.assertEqual(adw.data[acc.id]['entries']['name'].get(), 'Savings')
-        adw.data[acc.id]['entries']['name'].delete(0, tkinter.END)
-        adw.data[acc.id]['entries']['name'].insert(0, 'Checking')
-        adw.data[acc.id]['save_button'].invoke()
-        accounts = storage._db_connection.execute('SELECT name FROM accounts').fetchall()
-        self.assertEqual(len(accounts), 1)
-        self.assertEqual(accounts[0][0], 'Checking')
-
-    def test_ledger_widget(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account(account)
-        category = Category(name='Housing')
-        category2 = Category(name='Food')
-        storage.save_category(category)
-        storage.save_category(category2)
-        txn = Transaction(account=account, amount=D(5), txn_date=date.today(), description='description',
-                categories=[category])
-        storage.save_txn(txn)
-        txn2 = Transaction(account=account, amount=D(15), txn_date=date(2017, 1, 1))
-        storage.save_txn(txn2)
-        ledger = Ledger(starting_balance=account.starting_balance)
-        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account)
-        self.assertEqual(ledger_widget.display_data[txn.id]['labels']['categories'].cget('text'), '1: 5')
-        self.assertEqual(ledger_widget.display_data[txn.id]['labels']['balance'].cget('text'), '120')
-        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 1)
-        self.assertEqual(ledger_widget.display_data[txn2.id]['labels']['balance'].cget('text'), '115')
-        self.assertEqual(ledger_widget.display_data[txn2.id]['row'], 0)
-        #edit txn - check credit entry is 5
-        ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
-        self.assertEqual(ledger_widget.display_data[txn.id]['entries']['credit'].get(), '5')
-        self.assertEqual(ledger_widget.display_data[txn.id]['entries']['categories'].get(), '1: 5')
-        #edit txn - change amount to 25, add payee
-        ledger_widget.display_data[txn.id]['entries']['credit'].insert(0, '2')
-        ledger_widget.display_data[txn.id]['entries']['payee'].insert(0, 'Someone')
-        ledger_widget.display_data[txn.id]['entries']['categories'].delete(0, tkinter.END)
-        ledger_widget.display_data[txn.id]['entries']['categories'].insert(0, str(category2.id))
-        ledger_widget.display_data[txn.id]['buttons'][0].invoke()
-        #make sure db record amount is updated to 25
-        txns = storage._db_connection.execute('SELECT amount, payee FROM transactions WHERE id = ?', (txn.id,)).fetchall()
-        self.assertEqual(txns[0][0], '25')
-        self.assertEqual(txns[0][1], 'Someone')
-        txn_categories = storage._db_connection.execute('SELECT category_id, amount FROM txn_categories WHERE txn_id = ?', (txn.id,)).fetchall()
-        self.assertEqual(len(txn_categories), 1)
-        self.assertEqual(txn_categories[0][0], category2.id)
-        self.assertEqual(txn_categories[0][1], '25')
-
-    def test_ledger_widget_empty_add(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account(account)
-        ledger = Ledger(starting_balance=account.starting_balance)
-        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account)
-        new_txn = Transaction(account=account, amount=D('17'), txn_date=date(2017, 5, 1))
-        storage.save_txn(new_txn)
-        ledger_widget.display_new_txn(new_txn)
-
-    def test_ledger_widget_add(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D('5'), txn_date=date.today())
-        txn2 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        ledger = Ledger(starting_balance=account.starting_balance)
-        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account)
-        new_txn = Transaction(account=account, amount=D('17'), txn_date=date(2017, 5, 1))
-        storage.save_txn(new_txn)
-        ledger_widget.display_new_txn(new_txn)
-        self.assertEqual(len(ledger_widget.display_data.keys()), 3)
-        self.assertEqual(ledger_widget.display_data[new_txn.id]['labels']['credit'].cget('text'), '17')
-        self.assertEqual(ledger_widget.display_data[new_txn.id]['row'], 1)
-        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 2)
-        self.assertEqual(ledger_widget.display_data[txn2.id]['row'], 0)
-
-    def test_ledger_widget_reorder(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 1))
-        txn2 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 2))
-        txn3 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 3))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        storage.save_txn(txn3)
-        ledger = Ledger(starting_balance=account.starting_balance)
-        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account)
-        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 0)
-        self.assertEqual(ledger_widget.display_data[txn3.id]['row'], 2)
-        #change date of first txn, moving it to the end
-        ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
-        ledger_widget.display_data[txn.id]['entries']['date'].delete(0, tkinter.END)
-        ledger_widget.display_data[txn.id]['entries']['date'].insert(0, '2017-01-20')
-        ledger_widget.display_data[txn.id]['buttons'][0].invoke()
-        self.assertEqual(ledger_widget.display_data[txn.id]['row'], 2)
-        self.assertEqual(ledger_widget.display_data[txn3.id]['row'], 1)
-
-    def test_ledger_widget_delete(self):
-        storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D('100'))
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 1))
-        txn2 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 2))
-        txn3 = Transaction(account=account, amount=D('5'), txn_date=date(2017, 1, 3))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        storage.save_txn(txn3)
-        ledger = Ledger(starting_balance=account.starting_balance)
-        ledger_widget = LedgerWidget(ledger, master=self.root, storage=storage, account=account)
-        ledger_widget.display_data[txn.id]['labels']['txn_type'].event_generate('<Button-1>', x=0, y=0)
-        ledger_widget.display_data[txn.id]['buttons'][1].invoke()
-        self.assertTrue(txn.id not in ledger_widget.display_data)
-        self.assertEqual(ledger_widget.display_data[txn2.id]['row'], 0)
+class TestGUIUtils(unittest.TestCase):
 
     def test_txn_categories_display(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -1256,43 +1075,6 @@ class TestGUI(AbstractTkTest, unittest.TestCase):
         categories_string = ''
         categories = txn_categories_from_string(storage, categories_string)
         self.assertEqual(categories, [])
-
-    def test_categories_display_widget(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Food')
-        storage.save_category(c2)
-        CategoriesDisplayWidget(master=self.root, categories=[c, c2], storage=storage,
-                reload_categories=lambda x: x, delete_category=lambda x: x)
-
-    def test_budget_display_widget(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Food')
-        storage.save_category(c2)
-        b = Budget(year=2018, category_budget_info={
-            c: {'amount': D(15), 'carryover': D(0),},
-            c2: {'amount': D(25), 'carryover': D(0)},
-        })
-        storage.save_budget(b)
-        budget = storage.get_budgets()[0]
-        self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
-        dw = BudgetDisplayWidget(master=self.root, budget=budget, storage=storage, reload_budget=fake_method)
-        dw._edit_button.invoke()
-        dw.data[c.id]['budget_entry'].delete(0, tkinter.END)
-        dw.data[c.id]['budget_entry'].insert(0, '30')
-        dw._edit_button.invoke()
-        budget = storage.get_budgets()[0]
-        self.assertEqual(budget.get_budget_data()[c]['amount'], D(30))
-
-    def test_pft_gui_empty_file_create_account_show_ledger(self):
-        pft_gui = PFT_GUI(':memory:')
-        pft_gui.adw.add_account_name_entry.insert(0, 'Checking')
-        pft_gui.adw.add_account_starting_balance_entry.insert(0, '1000')
-        pft_gui.adw.add_account_button.invoke()
-        pft_gui._show_ledger()
 
 
 class TestQtGUI(unittest.TestCase):
