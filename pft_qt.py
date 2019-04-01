@@ -339,7 +339,7 @@ class LedgerDisplay:
         self._show_ledger(self.storage.get_accounts()[index])
 
     def _show_headings(self, layout, row):
-        self.action_combo = QtWidgets.QComboBox(parent=self.widget)
+        self.action_combo = QtWidgets.QComboBox()
         current_index = 0
         for index, a in enumerate(self.storage.get_accounts()):
             if a.id == self._current_account.id:
@@ -475,13 +475,15 @@ class CategoriesDisplay:
         self._reload()
 
 
-class BudgetDisplayWidget(QtWidgets.QWidget):
+class BudgetDisplay:
 
     def __init__(self, budget, storage, reload_budget):
-        super().__init__()
         self.budget = budget
         self.storage = storage
         self.reload_budget = reload_budget
+
+    def get_widget(self):
+        self.main_widget = QtWidgets.QWidget()
         self.layout = QtWidgets.QGridLayout()
         self.layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
         self.layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
@@ -493,7 +495,7 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
         self.layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
         row_index = 1
         self.data = {}
-        budget_report = budget.get_report_display()
+        budget_report = self.budget.get_report_display()
         for cat, info in budget_report['income'].items():
             self.layout.addWidget(QtWidgets.QLabel(cat.name), row_index, 0)
             budget_label = QtWidgets.QLabel(info['amount'])
@@ -533,7 +535,8 @@ class BudgetDisplayWidget(QtWidgets.QWidget):
         self.layout.addWidget(self._edit_button, self.button_row_index, 0)
         self.layout.addWidget(QtWidgets.QLabel(''), row_index+1, 0)
         self.layout.setRowStretch(row_index+1, 1)
-        self.setLayout(self.layout)
+        self.main_widget.setLayout(self.layout)
+        return self.main_widget
 
     def _save(self):
         category_rows = {}
@@ -653,7 +656,8 @@ class PFT_GUI_QT:
             self.main_widget.deleteLater()
         self._update_action_buttons(display='budget')
         budgets = self.storage.get_budgets()
-        self.main_widget = BudgetDisplayWidget(budgets[0], self.storage, self._show_budget)
+        self.budget_display = BudgetDisplay(budgets[0], self.storage, self._show_budget)
+        self.main_widget = self.budget_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 

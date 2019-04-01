@@ -1518,10 +1518,11 @@ class TestQtGUI(unittest.TestCase):
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
-        dw = pft_qt.BudgetDisplayWidget(budget=budget, storage=storage, reload_budget=fake_method)
-        QtTest.QTest.mouseClick(dw._edit_button, QtCore.Qt.LeftButton)
-        dw.data[c.id]['budget_entry'].setText('30')
-        QtTest.QTest.mouseClick(dw._save_button, QtCore.Qt.LeftButton) #now it's the save button
+        budget_display = pft_qt.BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
+        budget_display.get_widget()
+        QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
+        budget_display.data[c.id]['budget_entry'].setText('30')
+        QtTest.QTest.mouseClick(budget_display._save_button, QtCore.Qt.LeftButton) #now it's the save button
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].get_budget_data()[c]['amount'], D(30))
