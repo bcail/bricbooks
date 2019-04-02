@@ -23,8 +23,13 @@ from pft import (
         SQLiteStorageError,
         txn_categories_from_string,
         txn_categories_display,
+        AccountsDisplay,
+        LedgerTxnsDisplay,
+        LedgerDisplay,
+        CategoriesDisplay,
+        BudgetDisplay,
+        PFT_GUI_QT,
     )
-import pft_qt as pft_qt
 import load_test_data
 
 
@@ -1084,13 +1089,13 @@ class TestQtGUI(unittest.TestCase):
         cls.app = QtWidgets.QApplication([])
 
     def test_pft_qt_gui(self):
-        pft_qt_gui = pft_qt.PFT_GUI_QT(':memory:')
+        pft_qt_gui = PFT_GUI_QT(':memory:')
 
     def test_account(self):
         storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D(100))
         storage.save_account(a)
-        accounts_display = pft_qt.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         accounts_display.add_account_widgets['entries']['name'].setText('Savings')
         accounts_display.add_account_widgets['entries']['starting_balance'].setText('500')
@@ -1102,7 +1107,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         a = Account(name='Checking', starting_balance=D(100))
         storage.save_account(a)
-        accounts_display = pft_qt.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.accounts_widgets[a.id]['labels']['name'], QtCore.Qt.LeftButton)
         accounts_display.accounts_widgets[a.id]['entries']['name'].setText('Saving')
@@ -1110,10 +1115,10 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(storage.get_accounts()), 1)
         self.assertEqual(storage.get_accounts()[0].name, 'Saving')
 
-    @patch('pft_qt.set_widget_error_state')
+    @patch('pft.set_widget_error_state')
     def test_account_exception(self, mock_method):
         storage = SQLiteStorage(':memory:')
-        accounts_display = pft_qt.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         mock_method.assert_called_once_with(accounts_display.add_account_widgets['entries']['name'])
@@ -1126,7 +1131,7 @@ class TestQtGUI(unittest.TestCase):
         txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         ledger_display.add_txn_widgets['entries']['date'].setText('2017-01-05')
         ledger_display.add_txn_widgets['entries']['debit'].setText('18')
@@ -1152,7 +1157,7 @@ class TestQtGUI(unittest.TestCase):
         txn2 = Transaction(account=account2, amount=D(5), txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method, current_account=account2)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method, current_account=account2)
         ledger_display.get_widget()
         self.assertEqual(ledger_display._current_account, account2)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 1)
@@ -1171,7 +1176,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
-        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=show_ledger_mock)
+        ledger_display = LedgerDisplay(storage, show_ledger=show_ledger_mock)
         ledger_display.get_widget()
         self.assertEqual(ledger_display._current_account, account)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 0)
@@ -1191,7 +1196,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         storage.save_txn(txn4)
-        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '122')
@@ -1227,7 +1232,7 @@ class TestQtGUI(unittest.TestCase):
         txn2 = Transaction(account=account, amount=D(23), txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft_qt.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
@@ -1241,7 +1246,7 @@ class TestQtGUI(unittest.TestCase):
     def test_categories_add(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])
-        categories_display = pft_qt.CategoriesDisplay(storage, reload_categories=fake_method)
+        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
         categories_display.get_widget()
         QtTest.QTest.keyClicks(categories_display.name_entry, 'Housing')
         QtTest.QTest.mouseClick(categories_display.add_button, QtCore.Qt.LeftButton)
@@ -1250,7 +1255,7 @@ class TestQtGUI(unittest.TestCase):
     def test_categories_add_user_id(self):
         storage = SQLiteStorage(':memory:')
         self.assertEqual(storage.get_categories(), [])
-        categories_display = pft_qt.CategoriesDisplay(storage, reload_categories=fake_method)
+        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
         categories_display.get_widget()
         categories_display.user_id_entry.setText('400')
         categories_display.name_entry.setText('Housing')
@@ -1263,7 +1268,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         cat = Category(name='Housing')
         storage.save_category(cat)
-        categories_display = pft_qt.CategoriesDisplay(storage, reload_categories=fake_method)
+        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
         categories_display.get_widget()
         QtTest.QTest.mouseClick(categories_display.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
         self.assertEqual(categories_display.data[cat.id]['entries']['name'].text(), 'Housing')
@@ -1278,7 +1283,7 @@ class TestQtGUI(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         cat = Category(name='Housing')
         storage.save_category(cat)
-        categories_display = pft_qt.CategoriesDisplay(storage, reload_categories=fake_method)
+        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
         categories_display.get_widget()
         QtTest.QTest.mouseClick(categories_display.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(categories_display.data[cat.id]['buttons']['delete'], QtCore.Qt.LeftButton)
@@ -1300,7 +1305,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
-        budget_display = pft_qt.BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
+        budget_display = BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
         budget_display.get_widget()
         QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
         budget_display.data[c.id]['budget_entry'].setText('30')
