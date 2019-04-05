@@ -10,12 +10,38 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from functools import partial
 import os
 import sqlite3
-from PySide2 import QtWidgets
 
 
 DATA_FILENAME = 'python_finance_tracking.sqlite3'
 TITLE = 'Python Finance Tracking'
-DEBUG = False
+PYSIDE2_VERSION = '5.12.2'
+
+
+def install_qt_for_python():
+    install = input("couldn't import Qt for Python module - OK to download & install it (Y/n)?")
+    if install.lower() != 'n':
+        import sys
+        import subprocess
+        cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION, '--user']
+        try:
+            print('installing Qt for Python (PySide2)')
+            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print('Error installing Qt for Python')
+            if e.stdout:
+                print(e.stdout.decode('utf8'))
+            if e.stderr:
+                print(e.stderr.decode('utf8'))
+            sys.exit(1)
+        print(result.stdout.decode('utf8'))
+        print('Please restart %s now.' % TITLE)
+        sys.exit(0)
+
+
+try:
+    from PySide2 import QtWidgets
+except ImportError:
+    install_qt_for_python()
 
 
 class InvalidAccountError(RuntimeError):
@@ -1287,7 +1313,6 @@ class PFT_GUI_QT:
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     args = parser.parse_args()
     return args
