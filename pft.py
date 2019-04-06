@@ -21,7 +21,7 @@ PYSIDE2_VERSION = '5.12.2'
 
 def _do_qt_install():
     print('installing Qt for Python (PySide2)')
-    cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION, '--user']
+    cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION]
     try:
         result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(result.stdout.decode('utf8'))
