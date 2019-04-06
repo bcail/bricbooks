@@ -11,7 +11,7 @@ before_install:
   - sudo apt-get install -y libxcb1 xvfb libxkbcommon-x11-0
 
 install:
-  - pip install PySide2==5.12.0
+  - python pft.py --install_qt
 
 script:
   - xvfb-run python tests.py

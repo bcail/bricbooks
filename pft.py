@@ -10,6 +10,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from functools import partial
 import os
 import sqlite3
+import subprocess
+import sys
 
 
 DATA_FILENAME = 'python_finance_tracking.sqlite3'
@@ -17,15 +19,18 @@ TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.12.2'
 
 
+def _do_qt_install():
+    cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION, '--user']
+    result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print(result.stdout.decode('utf8'))
+
+
 def install_qt_for_python():
     install = input("couldn't import Qt for Python module - OK to download & install it (Y/n)?")
     if install.lower() != 'n':
-        import sys
-        import subprocess
-        cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION, '--user']
+        print('installing Qt for Python (PySide2)')
         try:
-            print('installing Qt for Python (PySide2)')
-            result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            _do_qt_install()
         except subprocess.CalledProcessError as e:
             print('Error installing Qt for Python')
             if e.stdout:
@@ -33,7 +38,6 @@ def install_qt_for_python():
             if e.stderr:
                 print(e.stderr.decode('utf8'))
             sys.exit(1)
-        print(result.stdout.decode('utf8'))
         print('Please restart %s now.' % TITLE)
         sys.exit(0)
 
@@ -41,7 +45,7 @@ def install_qt_for_python():
 try:
     from PySide2 import QtWidgets
 except ImportError:
-    install_qt_for_python()
+    pass
 
 
 class InvalidAccountError(RuntimeError):
@@ -1313,6 +1317,7 @@ class PFT_GUI_QT:
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('--install_qt', dest='install_qt', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     args = parser.parse_args()
     return args
@@ -1320,6 +1325,15 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
+    if args.install_qt:
+        _do_qt_install()
+        sys.exit(0)
+
+    try:
+        from PySide2 import QtWidgets
+    except ImportError:
+        install_qt_for_python()
+
     app = QtWidgets.QApplication([])
     if args.file_name:
         gui = PFT_GUI_QT(args.file_name)
