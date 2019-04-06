@@ -20,24 +20,24 @@ PYSIDE2_VERSION = '5.12.2'
 
 
 def _do_qt_install():
+    print('installing Qt for Python (PySide2)')
     cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION, '--user']
-    result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print(result.stdout.decode('utf8'))
+    try:
+        result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(result.stdout.decode('utf8'))
+    except subprocess.CalledProcessError as e:
+        print('Error installing Qt for Python')
+        if e.stdout:
+            print(e.stdout.decode('utf8'))
+        if e.stderr:
+            print(e.stderr.decode('utf8'))
+        sys.exit(1)
 
 
 def install_qt_for_python():
     install = input("couldn't import Qt for Python module - OK to download & install it (Y/n)?")
     if install.lower() != 'n':
-        print('installing Qt for Python (PySide2)')
-        try:
-            _do_qt_install()
-        except subprocess.CalledProcessError as e:
-            print('Error installing Qt for Python')
-            if e.stdout:
-                print(e.stdout.decode('utf8'))
-            if e.stderr:
-                print(e.stderr.decode('utf8'))
-            sys.exit(1)
+        _do_qt_install()
         print('Please restart %s now.' % TITLE)
         sys.exit(0)
 
