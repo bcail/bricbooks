@@ -1228,8 +1228,7 @@ class BudgetDisplay:
 
 class PFT_GUI_QT:
 
-    def __init__(self, file_name):
-        self.storage = SQLiteStorage(file_name)
+    def __init__(self, file_name=None):
         title = 'Python Finance Tracking'
         self.parent_window = QtWidgets.QWidget()
         self.parent_window.setWindowTitle(title)
@@ -1240,14 +1239,22 @@ class PFT_GUI_QT:
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
         self.content_area.setLayout(self.content_layout)
+        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
+        self.parent_window.showMaximized()
+
         self.main_widget = None
+        if not file_name:
+            file_name = self._get_file_name()
+        self.storage = SQLiteStorage(file_name)
         accounts = self.storage.get_accounts()
         if accounts:
             self._show_ledger()
         else:
             self._show_accounts()
-        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
-        self.parent_window.showMaximized()
+
+    def _get_file_name(self):
+        file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
+        return file_name
 
     def _update_action_buttons(self, display):
         self.accounts_button.setEnabled(True)
@@ -1338,6 +1345,6 @@ if __name__ == '__main__':
     if args.file_name:
         gui = PFT_GUI_QT(args.file_name)
     else:
-        gui = PFT_GUI_QT(DATA_FILENAME)
+        gui = PFT_GUI_QT()
     app.exec_()
 
