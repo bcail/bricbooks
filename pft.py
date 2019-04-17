@@ -1234,7 +1234,6 @@ class PFT_GUI_QT:
         self.parent_window.setWindowTitle(title)
         self.parent_layout = QtWidgets.QGridLayout()
         self.parent_window.setLayout(self.parent_layout)
-        self._show_action_buttons(self.parent_layout)
 
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
@@ -1243,18 +1242,25 @@ class PFT_GUI_QT:
         self.parent_window.showMaximized()
 
         self.main_widget = None
-        if not file_name:
-            file_name = self._get_file_name()
+        if file_name:
+            self._show_action_buttons(self.parent_layout)
+            self.storage = SQLiteStorage(file_name)
+            accounts = self.storage.get_accounts()
+            if accounts:
+                self._show_ledger()
+            else:
+                self._show_accounts()
+        else:
+            self._show_action_buttons(self.parent_layout, file_loaded=False)
+
+    def _open_file(self):
+        file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
         self.storage = SQLiteStorage(file_name)
         accounts = self.storage.get_accounts()
         if accounts:
             self._show_ledger()
         else:
             self._show_accounts()
-
-    def _get_file_name(self):
-        file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
-        return file_name
 
     def _update_action_buttons(self, display):
         self.accounts_button.setEnabled(True)
@@ -1270,19 +1276,27 @@ class PFT_GUI_QT:
         else:
             self.ledger_button.setEnabled(False)
 
-    def _show_action_buttons(self, layout):
+    def _show_action_buttons(self, layout, file_loaded=True):
+        self.open_button = QtWidgets.QPushButton('Open')
+        self.open_button.clicked.connect(self._open_file)
+        layout.addWidget(self.open_button, 0, 0)
         self.accounts_button = QtWidgets.QPushButton('Accounts')
         self.accounts_button.clicked.connect(self._show_accounts)
-        layout.addWidget(self.accounts_button, 0, 0)
+        layout.addWidget(self.accounts_button, 0, 1)
         self.ledger_button = QtWidgets.QPushButton('Ledger')
         self.ledger_button.clicked.connect(self._show_ledger)
-        layout.addWidget(self.ledger_button, 0, 1)
+        layout.addWidget(self.ledger_button, 0, 2)
         self.categories_button = QtWidgets.QPushButton('Categories')
         self.categories_button.clicked.connect(self._show_categories)
-        layout.addWidget(self.categories_button, 0, 2)
+        layout.addWidget(self.categories_button, 0, 3)
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
-        layout.addWidget(self.budget_button, 0, 3)
+        layout.addWidget(self.budget_button, 0, 4)
+        if not file_loaded:
+            self.accounts_button.setEnabled(False)
+            self.ledger_button.setEnabled(False)
+            self.categories_button.setEnabled(False)
+            self.budget_button.setEnabled(False)
 
     def _show_accounts(self):
         if self.main_widget:
