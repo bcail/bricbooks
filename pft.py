@@ -1242,25 +1242,30 @@ class PFT_GUI_QT:
         self.parent_window.showMaximized()
 
         self.main_widget = None
+        self._show_action_buttons(self.parent_layout, file_loaded=False)
         if file_name:
-            self._show_action_buttons(self.parent_layout)
-            self.storage = SQLiteStorage(file_name)
-            accounts = self.storage.get_accounts()
-            if accounts:
-                self._show_ledger()
-            else:
-                self._show_accounts()
-        else:
-            self._show_action_buttons(self.parent_layout, file_loaded=False)
+            self._load_db(file_name)
 
-    def _open_file(self):
-        file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
-        self.storage = SQLiteStorage(file_name)
+    def _load_db(self, file_name):
+        try:
+            self.storage = SQLiteStorage(file_name)
+        except sqlite3.DatabaseError as e:
+            if 'file is not a database' in str(e):
+                msgbox = QtWidgets.QMessageBox()
+                msgbox.setText('File %s is not a database' % file_name)
+                msgbox.exec_()
+                return
+            raise
         accounts = self.storage.get_accounts()
         if accounts:
             self._show_ledger()
         else:
             self._show_accounts()
+
+    def _open_file(self):
+        file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
+        if file_name:
+            self._load_db(file_name)
 
     def _update_action_buttons(self, display):
         self.accounts_button.setEnabled(True)
