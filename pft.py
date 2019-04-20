@@ -1011,7 +1011,7 @@ class LedgerDisplay:
         layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
         layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
-        return row
+        return row + 1
 
     def _show_add_txn(self, layout, add_txn_widgets, row):
         entry_names = ['type', 'date', 'payee', 'description', 'categories', 'status', 'debit', 'credit']
@@ -1238,7 +1238,7 @@ class PFT_GUI_QT:
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
         self.content_area.setLayout(self.content_layout)
-        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 4)
+        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 6)
         self.parent_window.showMaximized()
 
         self.main_widget = None
