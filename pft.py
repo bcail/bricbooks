@@ -1262,6 +1262,11 @@ class PFT_GUI_QT:
         else:
             self._show_accounts()
 
+    def _new_file(self):
+        file_name = QtWidgets.QFileDialog.getSaveFileName()[0]
+        if file_name:
+            self._load_db(file_name)
+
     def _open_file(self):
         file_name = QtWidgets.QFileDialog.getOpenFileName()[0]
         if file_name:
@@ -1282,21 +1287,24 @@ class PFT_GUI_QT:
             self.ledger_button.setEnabled(False)
 
     def _show_action_buttons(self, layout, file_loaded=True):
+        self.new_button = QtWidgets.QPushButton('New')
+        self.new_button.clicked.connect(self._new_file)
+        layout.addWidget(self.new_button, 0, 0)
         self.open_button = QtWidgets.QPushButton('Open')
         self.open_button.clicked.connect(self._open_file)
-        layout.addWidget(self.open_button, 0, 0)
+        layout.addWidget(self.open_button, 0, 1)
         self.accounts_button = QtWidgets.QPushButton('Accounts')
         self.accounts_button.clicked.connect(self._show_accounts)
-        layout.addWidget(self.accounts_button, 0, 1)
+        layout.addWidget(self.accounts_button, 0, 2)
         self.ledger_button = QtWidgets.QPushButton('Ledger')
         self.ledger_button.clicked.connect(self._show_ledger)
-        layout.addWidget(self.ledger_button, 0, 2)
+        layout.addWidget(self.ledger_button, 0, 3)
         self.categories_button = QtWidgets.QPushButton('Categories')
         self.categories_button.clicked.connect(self._show_categories)
-        layout.addWidget(self.categories_button, 0, 3)
+        layout.addWidget(self.categories_button, 0, 4)
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
-        layout.addWidget(self.budget_button, 0, 4)
+        layout.addWidget(self.budget_button, 0, 5)
         if not file_loaded:
             self.accounts_button.setEnabled(False)
             self.ledger_button.setEnabled(False)
@@ -1308,7 +1316,8 @@ class PFT_GUI_QT:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('accounts')
-        self.main_widget = AccountsDisplay(self.storage, reload_accounts=self._show_accounts).get_widget()
+        self.accounts_display = AccountsDisplay(self.storage, reload_accounts=self._show_accounts)
+        self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self, current_account=None):
