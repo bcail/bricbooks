@@ -1060,9 +1060,38 @@ class CategoriesDisplay:
         self._storage = storage
         self._reload = reload_categories
 
+    def _delete(self, cat_id):
+        self._storage.delete_category(cat_id)
+        self._reload()
+
+    def _save_edit(self, cat_id):
+        user_id = self.data[cat_id]['entries']['user_id'].text() or None
+        c = Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text(), user_id=user_id)
+        self._storage.save_category(c)
+        self._reload()
+
+    def _edit(self, event, cat_id, layout):
+        user_id_entry = QtWidgets.QLineEdit()
+        user_id_entry.setText(self.data[cat_id]['labels']['user_id'].text())
+        name_entry = QtWidgets.QLineEdit()
+        name_entry.setText(self.data[cat_id]['labels']['name'].text())
+        layout.addWidget(user_id_entry, self.data[cat_id]['row'], 1)
+        layout.addWidget(name_entry, self.data[cat_id]['row'], 2)
+        save_edit_button = QtWidgets.QPushButton('Save Edit')
+        save_edit_button.clicked.connect(partial(self._save_edit, cat_id=cat_id))
+        layout.addWidget(save_edit_button, self.data[cat_id]['row'], 3)
+        delete_button = QtWidgets.QPushButton('Delete')
+        delete_button.clicked.connect(partial(self._delete, cat_id=cat_id))
+        layout.addWidget(delete_button, self.data[cat_id]['row'], 4)
+        self.data[cat_id]['entries'] = {'user_id': user_id_entry, 'name': name_entry}
+        self.data[cat_id]['buttons'] = {'save_edit': save_edit_button, 'delete': delete_button}
+
     def get_widget(self):
         self.main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
+        layout.setColumnStretch(0, 1)
+        layout.setColumnStretch(1, 5)
+        layout.setColumnStretch(2, 15)
         layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, 1)
         layout.addWidget(QtWidgets.QLabel('Name'), 0, 2)
@@ -1071,30 +1100,7 @@ class CategoriesDisplay:
         categories = self._storage.get_categories()
         for cat in categories:
             row_data = {'row': row}
-            def _edit(event, cat_id):
-                def _save(cat_id):
-                    user_id = self.data[cat_id]['entries']['user_id'].text() or None
-                    c = Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text(), user_id=user_id)
-                    self._storage.save_category(c)
-                    self._reload()
-                def _delete(cat_id):
-                    self._storage.delete_category(cat_id)
-                    self._reload()
-                user_id_entry = QtWidgets.QLineEdit()
-                user_id_entry.setText(self.data[cat_id]['labels']['user_id'].text())
-                name_entry = QtWidgets.QLineEdit()
-                name_entry.setText(self.data[cat_id]['labels']['name'].text())
-                layout.addWidget(user_id_entry, self.data[cat_id]['row'], 1)
-                layout.addWidget(name_entry, self.data[cat_id]['row'], 2)
-                save_edit_button = QtWidgets.QPushButton('Save Edit')
-                save_edit_button.clicked.connect(partial(_save, cat_id=cat_id))
-                layout.addWidget(save_edit_button, self.data[cat_id]['row'], 3)
-                delete_button = QtWidgets.QPushButton('Delete')
-                delete_button.clicked.connect(partial(_delete, cat_id=cat_id))
-                layout.addWidget(delete_button, self.data[cat_id]['row'], 4)
-                self.data[cat_id]['entries'] = {'user_id': user_id_entry, 'name': name_entry}
-                self.data[cat_id]['buttons'] = {'save_edit': save_edit_button, 'delete': delete_button}
-            edit_function = partial(_edit, cat_id=cat.id)
+            edit_function = partial(self._edit, cat_id=cat.id, layout=layout)
             id_label = QtWidgets.QLabel(str(cat.id))
             if cat.user_id:
                 user_id_label = QtWidgets.QLabel(cat.user_id)
