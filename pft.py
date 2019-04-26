@@ -1066,24 +1066,41 @@ class CategoriesDisplay:
 
     def _save_edit(self, cat_id):
         user_id = self.data[cat_id]['entries']['user_id'].text() or None
-        c = Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text(), user_id=user_id)
+        parent = self.data[cat_id]['parent_combo'].currentData()
+        c = Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text(), user_id=user_id, parent=parent)
         self._storage.save_category(c)
         self._reload()
 
     def _edit(self, event, cat_id, layout):
         user_id_entry = QtWidgets.QLineEdit()
         user_id_entry.setText(self.data[cat_id]['labels']['user_id'].text())
+        current_cat_name = self.data[cat_id]['labels']['name'].text()
         name_entry = QtWidgets.QLineEdit()
-        name_entry.setText(self.data[cat_id]['labels']['name'].text())
+        name_entry.setText(current_cat_name)
+
+        parent_combo = QtWidgets.QComboBox()
+        current_index = 0
+        edit_category = self.data[cat_id]['cat']
+        parent_combo.addItem('-------', None)
+        for index, cat in enumerate(self._storage.get_categories()):
+            if edit_category.parent:
+                if edit_category.parent.id == cat.id:
+                    current_index = index + 1
+            if cat.name != current_cat_name:
+                parent_combo.addItem(cat.name, cat)
+        parent_combo.setCurrentIndex(current_index)
+
         layout.addWidget(user_id_entry, self.data[cat_id]['row'], 1)
         layout.addWidget(name_entry, self.data[cat_id]['row'], 2)
+        layout.addWidget(parent_combo, self.data[cat_id]['row'], 3)
         save_edit_button = QtWidgets.QPushButton('Save Edit')
         save_edit_button.clicked.connect(partial(self._save_edit, cat_id=cat_id))
-        layout.addWidget(save_edit_button, self.data[cat_id]['row'], 3)
+        layout.addWidget(save_edit_button, self.data[cat_id]['row'], 4)
         delete_button = QtWidgets.QPushButton('Delete')
         delete_button.clicked.connect(partial(self._delete, cat_id=cat_id))
-        layout.addWidget(delete_button, self.data[cat_id]['row'], 4)
+        layout.addWidget(delete_button, self.data[cat_id]['row'], 5)
         self.data[cat_id]['entries'] = {'user_id': user_id_entry, 'name': name_entry}
+        self.data[cat_id]['parent_combo'] = parent_combo
         self.data[cat_id]['buttons'] = {'save_edit': save_edit_button, 'delete': delete_button}
 
     def get_widget(self):
@@ -1092,14 +1109,16 @@ class CategoriesDisplay:
         layout.setColumnStretch(0, 1)
         layout.setColumnStretch(1, 5)
         layout.setColumnStretch(2, 15)
+        layout.setColumnStretch(3, 15)
         layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, 1)
         layout.addWidget(QtWidgets.QLabel('Name'), 0, 2)
+        layout.addWidget(QtWidgets.QLabel('Parent Category'), 0, 3)
         row = 1
         self.data = {}
         categories = self._storage.get_categories()
         for cat in categories:
-            row_data = {'row': row}
+            row_data = {'row': row, 'cat': cat}
             edit_function = partial(self._edit, cat_id=cat.id, layout=layout)
             id_label = QtWidgets.QLabel(str(cat.id))
             if cat.user_id:
@@ -1107,9 +1126,15 @@ class CategoriesDisplay:
             else:
                 user_id_label = QtWidgets.QLabel()
             name_label = QtWidgets.QLabel(cat.name)
+            if cat.parent:
+                parent_name = cat.parent.name
+            else:
+                parent_name = ''
+            parent_label = QtWidgets.QLabel(parent_name)
             layout.addWidget(id_label, row, 0)
             layout.addWidget(user_id_label, row, 1)
             layout.addWidget(name_label, row, 2)
+            layout.addWidget(parent_label, row, 3)
             id_label.mousePressEvent = edit_function
             name_label.mousePressEvent = edit_function
             row_data['labels'] = {'id': id_label, 'user_id': user_id_label, 'name': name_label}
@@ -1119,9 +1144,14 @@ class CategoriesDisplay:
         layout.addWidget(self.user_id_entry, row, 1)
         self.name_entry = QtWidgets.QLineEdit()
         layout.addWidget(self.name_entry, row, 2)
+        self.add_parent_combo = QtWidgets.QComboBox()
+        self.add_parent_combo.addItem('-------', None)
+        for index, cat in enumerate(self._storage.get_categories()):
+            self.add_parent_combo.addItem(cat.name, cat)
+        layout.addWidget(self.add_parent_combo, row, 3)
         self.add_button = QtWidgets.QPushButton('Add New')
         self.add_button.clicked.connect(self._add)
-        layout.addWidget(self.add_button, row, 3)
+        layout.addWidget(self.add_button, row, 4)
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
         self.main_widget.setLayout(layout)
@@ -1129,7 +1159,7 @@ class CategoriesDisplay:
 
     def _add(self):
         user_id = self.user_id_entry.text() or None
-        c = Category(name=self.name_entry.text(), user_id=user_id)
+        c = Category(name=self.name_entry.text(), user_id=user_id, parent=self.add_parent_combo.currentData())
         self._storage.save_category(c)
         self._reload()
 
