@@ -22,7 +22,6 @@ from pft import (
         SQLiteStorage,
         SQLiteStorageError,
         txn_categories_from_string,
-        txn_categories_display,
         AccountsDisplay,
         LedgerTxnsDisplay,
         LedgerDisplay,
@@ -223,6 +222,19 @@ class TestTransaction(unittest.TestCase):
                     'categories': '',
                 }
             )
+
+    def test_txn_categories_display(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        c = Category('Cat', id_=1)
+        c2 = Category('Dog', id_=2)
+        c3 = Category('Horse', id_=3)
+        t = Transaction(
+                account=a,
+                amount=D('-101'),
+                txn_date=date.today(),
+                categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
+            )
+        self.assertEqual(t._categories_display(), '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id))
 
     def test_no_category(self):
         #uncategorized transaction
@@ -1048,19 +1060,6 @@ def fake_method():
 
 
 class TestGUIUtils(unittest.TestCase):
-
-    def test_txn_categories_display(self):
-        a = Account(name='Checking', starting_balance=D('100'))
-        c = Category('Cat', id_=1)
-        c2 = Category('Dog', id_=2)
-        c3 = Category('Horse', id_=3)
-        t = Transaction(
-                account=a,
-                amount=D('-101'),
-                txn_date=date.today(),
-                categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
-            )
-        self.assertEqual(txn_categories_display(t), '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id))
 
     def test_categories_from_string(self):
         #takes string from user, parses it, and loads the category objects for passing to Transaction object

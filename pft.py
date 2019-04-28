@@ -229,6 +229,9 @@ class Transaction:
             raise InvalidTransactionError('split categories add up to more than txn amount')
         return categories
 
+    def _categories_display(self):
+        return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in self.categories])
+
     def get_display_strings(self):
         if self.amount < Decimal(0):
             debit = str(self.amount * Decimal('-1'))
@@ -244,7 +247,7 @@ class Transaction:
                 'txn_date': str(self.txn_date),
                 'payee': self.payee or '',
                 'status': self.status or '',
-                'categories': txn_categories_display(self),
+                'categories': self._categories_display(),
             }
 
     def update_from_user_strings(self, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
@@ -656,10 +659,6 @@ def txn_categories_from_string(storage, categories_str):
             cat_id = int(category_info)
             categories.append(storage.get_category(cat_id))
     return categories
-
-
-def txn_categories_display(txn):
-    return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in txn.categories])
 
 
 def set_widget_error_state(widget):
