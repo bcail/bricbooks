@@ -120,9 +120,7 @@ class Category:
         self.user_id = user_id
 
     def __str__(self):
-        if self.id:
-            return '%s - %s' % (self.id, self.name)
-        elif self.user_id:
+        if self.user_id:
             return '%s - %s' % (self.user_id, self.name)
         else:
             return self.name
@@ -230,6 +228,8 @@ class Transaction:
         return categories
 
     def _categories_display(self):
+        if len(self.categories) == 1:
+            return str(self.categories[0][0])
         return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in self.categories])
 
     def get_display_strings(self):

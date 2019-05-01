@@ -66,7 +66,7 @@ class TestCategory(unittest.TestCase):
     def test_init(self):
         c = Category('Restaurants', id_=1)
         self.assertEqual(c.name, 'Restaurants')
-        self.assertEqual(str(c), '1 - Restaurants')
+        self.assertEqual(str(c), 'Restaurants')
         c = Category('Restaurants')
         self.assertEqual(str(c), 'Restaurants')
 
@@ -199,7 +199,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'McDonalds',
                     'status': 'C',
-                    'categories': '1: 101',
+                    'categories': 'Cat',
                 }
             )
 
@@ -235,6 +235,13 @@ class TestTransaction(unittest.TestCase):
                 categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
             )
         self.assertEqual(t._categories_display(), '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id))
+        t = Transaction(
+                account=a,
+                amount=D(100),
+                txn_date=date.today(),
+                categories=[c]
+            )
+        self.assertEqual(t._categories_display(), 'Cat')
 
     def test_no_category(self):
         #uncategorized transaction
