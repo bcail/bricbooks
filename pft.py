@@ -835,8 +835,7 @@ class LedgerTxnsDisplay:
         credit = entries['credit'].text()
         description = entries['description'].text()
         status = entries['status'].text()
-        categories_str = entries['categories'].text()
-        categories = txn_categories_from_string(self.storage, categories_str)
+        categories = [entries['categories'].currentData()]
         txn = self.ledger.get_txn(txn_id)
         txn.update_from_user_strings(
                 txn_type=txn_type,
@@ -857,6 +856,7 @@ class LedgerTxnsDisplay:
         #create edit entries using initial values from labels, delete labels,
         #   add edit entries to layout, add save/delete buttons, and set txn_display_data
         row = self.txn_display_data[txn_id]['row']
+        txn = self.txn_display_data[txn_id]['txn']
         widgets = self.txn_display_data[txn_id]['widgets']
         type_entry = QtWidgets.QLineEdit()
         type_entry.setText(widgets['labels']['type'].text())
@@ -866,8 +866,16 @@ class LedgerTxnsDisplay:
         payee_entry.setText(widgets['labels']['payee'].text())
         description_entry = QtWidgets.QLineEdit()
         description_entry.setText(widgets['labels']['description'].text())
-        categories_entry = QtWidgets.QLineEdit()
-        categories_entry.setText(widgets['labels']['categories'].text())
+        categories_entry = QtWidgets.QComboBox()
+        categories_entry.addItem('---------', None)
+        current_index = 0
+        for index, category in enumerate(self.storage.get_categories()):
+            #find correct category in the list if txn has a category
+            if txn.categories:
+                if category == txn.categories[0][0]:
+                    current_index = index + 1
+            categories_entry.addItem(category.name, category)
+        categories_entry.setCurrentIndex(current_index)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
         credit_entry = QtWidgets.QLineEdit()
@@ -960,7 +968,8 @@ class LedgerTxnsDisplay:
                         'balance': balance_label
                     }
                 },
-                'row': row
+                'row': row,
+                'txn': txn,
             }
 
 
