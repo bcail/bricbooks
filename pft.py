@@ -216,6 +216,8 @@ class Transaction:
             input_categories = []
         _category_total = Decimal('0')
         categories = []
+        if isinstance(input_categories, Category):
+            input_categories = [input_categories]
         for c in input_categories:
             if isinstance(c, tuple):
                 _category_total += c[1]
