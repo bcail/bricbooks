@@ -274,6 +274,15 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.categories[0][0], c)
         self.assertEqual(t.categories[0][1], D(101))
+        #test passing category not in a list
+        t = Transaction(
+                account=a,
+                amount=D(101),
+                txn_date=date.today(),
+                categories=c,
+            )
+        self.assertEqual(t.categories[0][0], c)
+        self.assertEqual(t.categories[0][1], D(101))
 
     def test_split_categories(self):
         a = Account(name='Checking', starting_balance=D('100'))
