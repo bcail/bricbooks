@@ -873,10 +873,13 @@ class LedgerTxnsDisplay:
         current_index = 0
         for index, category in enumerate(self.storage.get_categories()):
             #find correct category in the list if txn has a category
-            if txn.categories:
+            if txn.categories and len(txn.categories) == 1:
                 if category == txn.categories[0][0]:
                     current_index = index + 1
             categories_entry.addItem(category.name, category)
+        if txn.categories and len(txn.categories) > 1:
+            categories_entry.addItem('multiple', txn.categories)
+            current_index = index + 2
         categories_entry.setCurrentIndex(current_index)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
