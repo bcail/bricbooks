@@ -837,7 +837,7 @@ class LedgerTxnsDisplay:
         credit = entries['credit'].text()
         description = entries['description'].text()
         status = entries['status'].text()
-        categories = [entries['categories'].currentData()]
+        categories = [entries['categories_combo'].currentData()]
         txn = self.ledger.get_txn(txn_id)
         txn.update_from_user_strings(
                 txn_type=txn_type,
@@ -854,6 +854,34 @@ class LedgerTxnsDisplay:
         del self.txn_display_data[txn_id]
         self._redisplay_txns()
 
+    def _split_transaction(self, txn_id):
+        print(f'splits for {txn_id}')
+        txn = self.ledger.get_txn(txn_id)
+        categories = txn.categories #TODO get real categories here...
+
+    def _get_categories_widgets(self, txn):
+        layout = QtWidgets.QGridLayout()
+        categories_combo = QtWidgets.QComboBox()
+        categories_combo.addItem('---------', None)
+        current_index = 0
+        for index, category in enumerate(self.storage.get_categories()):
+            #find correct category in the list if txn has a category
+            if txn.categories and len(txn.categories) == 1:
+                if category == txn.categories[0][0]:
+                    current_index = index + 1
+            categories_combo.addItem(category.name, category)
+        if txn.categories and len(txn.categories) > 1:
+            categories_combo.addItem('multiple', txn.categories)
+            current_index = index + 2
+        categories_combo.setCurrentIndex(current_index)
+        layout.addWidget(categories_combo, 0, 0)
+        split_button = QtWidgets.QPushButton('Split')
+        split_button.clicked.connect(partial(self._split_transaction, txn_id=txn.id))
+        layout.addWidget(split_button)
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+        return widget, categories_combo
+
     def _edit(self, event, txn_id, layout):
         #create edit entries using initial values from labels, delete labels,
         #   add edit entries to layout, add save/delete buttons, and set txn_display_data
@@ -868,19 +896,7 @@ class LedgerTxnsDisplay:
         payee_entry.setText(widgets['labels']['payee'].text())
         description_entry = QtWidgets.QLineEdit()
         description_entry.setText(widgets['labels']['description'].text())
-        categories_entry = QtWidgets.QComboBox()
-        categories_entry.addItem('---------', None)
-        current_index = 0
-        for index, category in enumerate(self.storage.get_categories()):
-            #find correct category in the list if txn has a category
-            if txn.categories and len(txn.categories) == 1:
-                if category == txn.categories[0][0]:
-                    current_index = index + 1
-            categories_entry.addItem(category.name, category)
-        if txn.categories and len(txn.categories) > 1:
-            categories_entry.addItem('multiple', txn.categories)
-            current_index = index + 2
-        categories_entry.setCurrentIndex(current_index)
+        categories_entry, categories_combo = self._get_categories_widgets(txn)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
         credit_entry = QtWidgets.QLineEdit()
@@ -915,6 +931,7 @@ class LedgerTxnsDisplay:
                 'payee': payee_entry,
                 'description': description_entry,
                 'categories': categories_entry,
+                'categories_combo': categories_combo,
                 'status': status_entry,
                 'credit': credit_entry,
                 'debit': debit_entry,
