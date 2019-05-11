@@ -775,6 +775,26 @@ def set_ledger_column_widths(layout):
     layout.setColumnStretch(8, 3)
 
 
+def get_categories_for_split_transaction(txn_id, categories):
+    #get amounts for different categories in a split transaction
+    txn_categories = []
+    split_editor = QtWidgets.QDialog()
+    layout = QtWidgets.QGridLayout()
+    row = 0
+    for cat in categories:
+        layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
+        layout.addWidget(QtWidgets.QLineEdit(), row, 1)
+        row += 1
+    ok_button = QtWidgets.QPushButton('Done')
+    cancel_button = QtWidgets.QPushButton('Cancel')
+    layout.addWidget(ok_button, row, 0)
+    layout.addWidget(cancel_button, row, 1)
+    split_editor.setLayout(layout)
+    val = split_editor.exec_()
+    split_editor.show()
+    return txn_categories
+
+
 class LedgerTxnsDisplay:
 
     def __init__(self, ledger, storage):
@@ -854,29 +874,34 @@ class LedgerTxnsDisplay:
         del self.txn_display_data[txn_id]
         self._redisplay_txns()
 
-    def _split_transaction(self, txn_id):
-        print(f'splits for {txn_id}')
-        txn = self.ledger.get_txn(txn_id)
-        categories = txn.categories #TODO get real categories here...
+    def _split_transaction(self, txn_id, multiple_entry_index):
+        txn_categories = get_categories_for_split_transaction(txn_id, self.storage.get_categories())
+        categories_combo = self.txn_display_data[txn_id]['widgets']['entries']['categories_combo']
+        categories_combo.setCurrentIndex(multiple_entry_index)
+        categories_combo.setItemData(multiple_entry_index, txn_categories)
 
     def _get_categories_widgets(self, txn):
         layout = QtWidgets.QGridLayout()
         categories_combo = QtWidgets.QComboBox()
         categories_combo.addItem('---------', None)
         current_index = 0
+        index = 0
         for index, category in enumerate(self.storage.get_categories()):
             #find correct category in the list if txn has a category
             if txn.categories and len(txn.categories) == 1:
                 if category == txn.categories[0][0]:
                     current_index = index + 1
             categories_combo.addItem(category.name, category)
+        multiple_entry_index = index + 2
+        current_categories = []
         if txn.categories and len(txn.categories) > 1:
-            categories_combo.addItem('multiple', txn.categories)
-            current_index = index + 2
+            current_categories = txn.categories
+            current_index = multiple_entry_index
+        categories_combo.addItem('multiple', txn.categories)
         categories_combo.setCurrentIndex(current_index)
         layout.addWidget(categories_combo, 0, 0)
         split_button = QtWidgets.QPushButton('Split')
-        split_button.clicked.connect(partial(self._split_transaction, txn_id=txn.id))
+        split_button.clicked.connect(partial(self._split_transaction, txn_id=txn.id, multiple_entry_index=multiple_entry_index))
         layout.addWidget(split_button)
         widget = QtWidgets.QWidget()
         widget.setLayout(layout)
