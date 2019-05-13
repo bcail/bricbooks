@@ -1239,6 +1239,32 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '160')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
+    def test_ledger_txn_edit_category(self):
+        storage = SQLiteStorage(':memory:')
+        account = Account(name='Checking', starting_balance=D(100))
+        storage.save_account(account)
+        cat = Category(name='Housing')
+        cat2 = Category(name='Restaurants')
+        storage.save_category(cat)
+        storage.save_category(cat2)
+        txn = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 3))
+        txn2 = Transaction(account=account, amount=D(17), txn_date=date(2017, 5, 2))
+        storage.save_txn(txn)
+        storage.save_txn(txn2)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        #activate editing
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        #select a category
+        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['categories_combo'].setCurrentIndex(2)
+        #save the change
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        #make sure new category was saved
+        ledger = Ledger(starting_balance=account.starting_balance)
+        storage.load_txns_into_ledger(account.id, ledger)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(txns[1].categories[0][0].name, 'Restaurants')
+
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
         account = Account(name='Checking', starting_balance=D(100))
