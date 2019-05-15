@@ -365,6 +365,22 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.payee, 'Wendys')
         self.assertEqual(t.txn_date, date(2017, 10, 15))
 
+    def test_update_values_categories(self):
+        a = Account(name='Checking', starting_balance=D('100'))
+        c = Category('Cat')
+        c2 = Category('Dog')
+        t = Transaction(
+                account=a,
+                amount=D('101'),
+                txn_date=date.today(),
+            )
+        t.update_from_user_strings(
+                txn_date=date.today(),
+                credit='101',
+                categories=[[c, '50'], [c2, '51']]
+            )
+        self.assertEqual(t.categories, [(c, D(50)), (c2, D(51))])
+
     def test_update_values_make_it_empty(self):
         a = Account(name='Checking', starting_balance=D('100'))
         t = Transaction(

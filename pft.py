@@ -219,12 +219,15 @@ class Transaction:
         if isinstance(input_categories, Category):
             input_categories = [input_categories]
         for c in input_categories:
-            if isinstance(c, tuple):
-                _category_total += c[1]
-                categories.append(c)
+            if isinstance(c, tuple) or isinstance(c, list):
+                category_amt = Decimal(c[1])
+                _category_total += category_amt
+                categories.append( (c[0], category_amt) )
             elif isinstance(c, Category):
                 _category_total += self.amount
                 categories.append( (c, self.amount) )
+            else:
+                raise InvalidTransactionError('unhandled txn_categories')
         if abs(_category_total) > abs(self.amount):
             raise InvalidTransactionError('split categories add up to more than txn amount')
         return categories
@@ -781,17 +784,27 @@ def get_categories_for_split_transaction(txn_id, categories):
     split_editor = QtWidgets.QDialog()
     layout = QtWidgets.QGridLayout()
     row = 0
+    entries = {}
     for cat in categories:
         layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
-        layout.addWidget(QtWidgets.QLineEdit(), row, 1)
+        amount_entry = QtWidgets.QLineEdit()
+        entries[cat.id] = (amount_entry, cat)
+        layout.addWidget(amount_entry, row, 1)
         row += 1
+    def get_txn_categories(entries, txn_categories, split_editor):
+        for value in entries.values():
+            #value is amount_entry, category
+            text = value[0].text()
+            if text:
+                txn_categories.append([value[1], text])
+        split_editor.accept()
     ok_button = QtWidgets.QPushButton('Done')
+    ok_button.clicked.connect(partial(get_txn_categories, entries=entries, txn_categories=txn_categories, split_editor=split_editor))
     cancel_button = QtWidgets.QPushButton('Cancel')
     layout.addWidget(ok_button, row, 0)
     layout.addWidget(cancel_button, row, 1)
     split_editor.setLayout(layout)
     val = split_editor.exec_()
-    split_editor.show()
     return txn_categories
 
 
@@ -857,7 +870,7 @@ class LedgerTxnsDisplay:
         credit = entries['credit'].text()
         description = entries['description'].text()
         status = entries['status'].text()
-        categories = [entries['categories_combo'].currentData()]
+        categories = entries['categories_combo'].currentData()
         txn = self.ledger.get_txn(txn_id)
         txn.update_from_user_strings(
                 txn_type=txn_type,
