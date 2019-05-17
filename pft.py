@@ -803,6 +803,7 @@ def get_categories_for_split_transaction(txn_id, categories):
     ok_button = QtWidgets.QPushButton('Done')
     ok_button.clicked.connect(partial(get_txn_categories, entries=entries, txn_categories=txn_categories, split_editor=split_editor))
     cancel_button = QtWidgets.QPushButton('Cancel')
+    cancel_button.clicked.connect(split_editor.reject)
     layout.addWidget(ok_button, row, 0)
     layout.addWidget(cancel_button, row, 1)
     split_editor.setLayout(layout)
