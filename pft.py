@@ -803,6 +803,9 @@ class SplitTransactionEditor:
         for cat in self._all_categories:
             layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
             amount_entry = QtWidgets.QLineEdit()
+            for txn_cat in self._initial_txn_categories:
+                if cat == txn_cat[0]:
+                    amount_entry.setText(str(txn_cat[1]))
             self._entries[cat.id] = (amount_entry, cat)
             layout.addWidget(amount_entry, row, 1)
             row += 1
