@@ -780,35 +780,44 @@ def set_ledger_column_widths(layout):
     layout.setColumnStretch(8, 3)
 
 
-def get_categories_for_split_transaction(txn_id, categories):
-    #get amounts for different categories in a split transaction
-    txn_categories = []
-    split_editor = QtWidgets.QDialog()
-    layout = QtWidgets.QGridLayout()
-    row = 0
-    entries = {}
-    for cat in categories:
-        layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
-        amount_entry = QtWidgets.QLineEdit()
-        entries[cat.id] = (amount_entry, cat)
-        layout.addWidget(amount_entry, row, 1)
-        row += 1
-    def get_txn_categories(entries, txn_categories, split_editor):
-        for value in entries.values():
+class SplitTransactionEditor:
+
+    def __init__(self, all_categories, initial_txn_categories):
+        self._all_categories = all_categories
+        self._initial_txn_categories = initial_txn_categories
+        self._final_txn_categories = []
+        self._entries = {}
+
+    def _get_txn_categories(self, split_editor):
+        for value in self._entries.values():
             #value is amount_entry, category
             text = value[0].text()
             if text:
-                txn_categories.append([value[1], text])
+                self._final_txn_categories.append([value[1], text])
         split_editor.accept()
-    ok_button = QtWidgets.QPushButton('Done')
-    ok_button.clicked.connect(partial(get_txn_categories, entries=entries, txn_categories=txn_categories, split_editor=split_editor))
-    cancel_button = QtWidgets.QPushButton('Cancel')
-    cancel_button.clicked.connect(split_editor.reject)
-    layout.addWidget(ok_button, row, 0)
-    layout.addWidget(cancel_button, row, 1)
-    split_editor.setLayout(layout)
-    val = split_editor.exec_()
-    return txn_categories
+
+    def _show_split_editor(self):
+        split_editor = QtWidgets.QDialog()
+        layout = QtWidgets.QGridLayout()
+        row = 0
+        for cat in self._all_categories:
+            layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
+            amount_entry = QtWidgets.QLineEdit()
+            self._entries[cat.id] = (amount_entry, cat)
+            layout.addWidget(amount_entry, row, 1)
+            row += 1
+        ok_button = QtWidgets.QPushButton('Done')
+        ok_button.clicked.connect(partial(self._get_txn_categories, split_editor=split_editor))
+        cancel_button = QtWidgets.QPushButton('Cancel')
+        cancel_button.clicked.connect(split_editor.reject)
+        layout.addWidget(ok_button, row, 0)
+        layout.addWidget(cancel_button, row, 1)
+        split_editor.setLayout(layout)
+        split_editor.exec_()
+
+    def get_categories_for_split_transaction(self):
+        self._show_split_editor()
+        return self._final_txn_categories
 
 
 class LedgerTxnsDisplay:
@@ -891,7 +900,8 @@ class LedgerTxnsDisplay:
         self._redisplay_txns()
 
     def _split_transaction(self, txn_id, multiple_entry_index):
-        txn_categories = get_categories_for_split_transaction(txn_id, self.storage.get_categories())
+        split_transaction_editor = SplitTransactionEditor(self.storage.get_categories(), self.txn_display_data[txn_id]['txn'].categories)
+        txn_categories = split_transaction_editor.get_categories_for_split_transaction()
         categories_combo = self.txn_display_data[txn_id]['widgets']['entries']['categories_combo']
         categories_combo.setCurrentIndex(multiple_entry_index)
         categories_combo.setItemData(multiple_entry_index, txn_categories)
