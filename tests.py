@@ -234,7 +234,7 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
                 categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
             )
-        self.assertEqual(t._categories_display(), '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id))
+        self.assertEqual(t._categories_display(), 'multiple')
         t = Transaction(
                 account=a,
                 amount=D(100),

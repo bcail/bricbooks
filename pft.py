@@ -235,7 +235,9 @@ class Transaction:
     def _categories_display(self):
         if len(self.categories) == 1:
             return str(self.categories[0][0])
-        return ', '.join(['%s: %s' % (c[0].id, c[1]) for c in self.categories])
+        elif not self.categories:
+            return ''
+        return 'multiple'
 
     def get_display_strings(self):
         if self.amount < Decimal(0):
