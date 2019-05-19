@@ -94,10 +94,12 @@ class TestCategory(unittest.TestCase):
 
 class TestTransaction(unittest.TestCase):
 
-    def test_invalid_txn_amount(self):
+    def test_account_required(self):
         with self.assertRaises(InvalidTransactionError) as cm:
             Transaction()
         self.assertEqual(str(cm.exception), 'transaction must belong to an account')
+
+    def test_invalid_txn_amount(self):
         a = Account(name='Checking', starting_balance=D('100'))
         with self.assertRaises(InvalidTransactionError) as cm:
             Transaction(account=a, amount=101.1)
@@ -307,12 +309,12 @@ class TestTransaction(unittest.TestCase):
                 account=a,
                 amount=D('-101'),
                 txn_date=date.today(),
-                categories=[(c, D('-45')), (c2, D('-56'))],
+                categories=[(c, D('45')), (c2, D('56'))],
             )
         self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('-45'))
+        self.assertEqual(t.categories[0][1], D('45'))
         self.assertEqual(t.categories[1][0], c2)
-        self.assertEqual(t.categories[1][1], D('-56'))
+        self.assertEqual(t.categories[1][1], D('56'))
 
     def test_mixed_split_categories(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -323,14 +325,14 @@ class TestTransaction(unittest.TestCase):
                 account=a,
                 amount=D('-101'),
                 txn_date=date.today(),
-                categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
+                categories=[(c, D('45')), (c2, D('59')), (c3, D('-3'))],
             )
         self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('-45'))
+        self.assertEqual(t.categories[0][1], D('45'))
         self.assertEqual(t.categories[1][0], c2)
-        self.assertEqual(t.categories[1][1], D('-59'))
+        self.assertEqual(t.categories[1][1], D('59'))
         self.assertEqual(t.categories[2][0], c3)
-        self.assertEqual(t.categories[2][1], D('3'))
+        self.assertEqual(t.categories[2][1], D('-3'))
 
     def test_invalid_category_amounts(self):
         a = Account(name='Checking', starting_balance=D('100'))
@@ -342,6 +344,14 @@ class TestTransaction(unittest.TestCase):
                 amount=D('101'),
                 txn_date=date.today(),
                 categories=[(c, D('55')), (c2, D('56'))],
+            )
+        self.assertEqual(str(cm.exception), 'split categories add up to more than txn amount')
+        with self.assertRaises(InvalidTransactionError) as cm:
+            Transaction(
+                account=a,
+                amount=D('-101'),
+                txn_date=date.today(),
+                categories=[(c, D('55')), (c2, D('53'))],
             )
         self.assertEqual(str(cm.exception), 'split categories add up to more than txn amount')
 
@@ -375,8 +385,6 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
             )
         t.update_from_user_strings(
-                txn_date=date.today(),
-                credit='101',
                 categories=[[c, '50'], [c2, '51']]
             )
         self.assertEqual(t.categories, [(c, D(50)), (c2, D(51))])

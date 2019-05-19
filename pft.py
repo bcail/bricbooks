@@ -262,8 +262,6 @@ class Transaction:
             self.amount = self._check_amount('-%s' % debit)
         elif credit:
             self.amount = self._check_amount(credit)
-        else:
-            raise InvalidTransactionError('must have debit or credit value for a transaction')
         if txn_date is not None:
             self.txn_date = self._check_txn_date(txn_date)
         if txn_type is not None:
