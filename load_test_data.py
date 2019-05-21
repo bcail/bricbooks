@@ -30,7 +30,7 @@ def _load_data(storage, many_txns):
     storage.save_txn(Transaction(account=a, amount=D('-180'), txn_date='2018-02-12'))
     storage.save_txn(Transaction(account=a, amount=D('80.13'), txn_date='2018-02-13'))
     storage.save_txn(Transaction(account=a, amount=D('-50'), txn_date='2018-02-14'))
-    storage.save_txn(Transaction(account=a, amount=D('-70'), txn_date='2018-02-15', categories=[(c, D('-15')), (c2, D('-55'))]))
+    storage.save_txn(Transaction(account=a, amount=D('-70'), txn_date='2018-02-15', categories=[(c, D('15')), (c2, D('55'))]))
     storage.save_txn(Transaction(account=a, amount=D('-10'), txn_date='2018-02-16'))
     storage.save_txn(Transaction(account=a, amount=D('-20'), txn_date='2018-02-17'))
     storage.save_txn(Transaction(account=a, amount=D('-40'), txn_date='2018-02-18'))
