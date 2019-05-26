@@ -1280,7 +1280,7 @@ class TestQtGUI(unittest.TestCase):
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         #select a category
-        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['categories_combo'].setCurrentIndex(2)
+        ledger_display.txns_display.txn_display_data[txn2.id]['categories_display']._categories_combo.setCurrentIndex(2)
         #save the change
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure new category was saved
