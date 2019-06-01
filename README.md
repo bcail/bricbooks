@@ -8,9 +8,11 @@ Python Finance Tracking
 TODO
 ----
 - catch exceptions and give good error messages in the UI
-- load-test the application with many transactions
-- add searching (for payee, description)
-- switch to Qt GUI? It can handle all Unicode chars, and has good performance - both are issues for Tkinter
+- add scheduled transactions
+
+ARCHITECTURE DECISIONS
+----------------------
+- use Qt (even though it adds a dependency), because it handles Unicode better, and has better performance, than Tkinter (it's also an easy pip install on most computers)
 
 PROJECT GOALS
 -------------
