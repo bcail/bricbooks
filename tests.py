@@ -488,6 +488,14 @@ class TestLedger(unittest.TestCase):
         ledger.clear_txns()
         self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
 
+    def test_get_payees(self):
+        a = Account(name='Checking', starting_balance=D(100))
+        ledger = Ledger(starting_balance=a.starting_balance)
+        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='McDonalds'))
+        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
+        ledger.add_transaction(Transaction(id_=3, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
+        self.assertEqual(ledger.get_payees(), ['Burger King', 'McDonalds'])
+
 
 class TestBudget(unittest.TestCase):
 

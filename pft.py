@@ -310,6 +310,13 @@ class Ledger:
     def clear_txns(self):
         self._txns = {}
 
+    def get_payees(self):
+        payees = set()
+        for txn in self._txns.values():
+            if txn.payee:
+                payees.add(txn.payee)
+        return sorted(list(payees))
+
 
 class Budget:
     '''Budget information that's entered by the user - no defaults or calculated values, but
@@ -1081,7 +1088,7 @@ class LedgerDisplay:
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
-        self._show_add_txn(layout, self.add_txn_widgets, row=new_row+1)
+        self._show_add_txn(layout, self.add_txn_widgets, payees=self.ledger.get_payees(), row=new_row+1)
         self.widget.setLayout(layout)
         return self.widget
 
@@ -1110,7 +1117,7 @@ class LedgerDisplay:
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
         return row + 1
 
-    def _show_add_txn(self, layout, add_txn_widgets, row):
+    def _show_add_txn(self, layout, add_txn_widgets, payees, row):
         entry_names = ['type', 'date']
         for column_index, entry_name in enumerate(entry_names):
             entry = QtWidgets.QLineEdit()
@@ -1119,6 +1126,8 @@ class LedgerDisplay:
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
+        for payee in payees:
+            payee_entry.addItem(payee)
         add_txn_widgets['payee'] = payee_entry
         layout.addWidget(payee_entry, row, 2)
         description_entry = QtWidgets.QLineEdit()
