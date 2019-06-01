@@ -1111,11 +1111,19 @@ class LedgerDisplay:
         return row + 1
 
     def _show_add_txn(self, layout, add_txn_widgets, row):
-        entry_names = ['type', 'date', 'payee', 'description']
+        entry_names = ['type', 'date']
         for column_index, entry_name in enumerate(entry_names):
             entry = QtWidgets.QLineEdit()
             add_txn_widgets['entries'][entry_name] = entry
             layout.addWidget(entry, row, column_index)
+        payee_entry = QtWidgets.QComboBox()
+        payee_entry.setEditable(True)
+        payee_entry.addItem('')
+        add_txn_widgets['payee'] = payee_entry
+        layout.addWidget(payee_entry, row, 2)
+        description_entry = QtWidgets.QLineEdit()
+        add_txn_widgets['entries']['description'] = description_entry
+        layout.addWidget(description_entry, row, 3)
         txn_categories_display = TxnCategoriesDisplay(self.storage)
         layout.addWidget(txn_categories_display.get_widget(), row, 4)
         add_txn_widgets['categories_display'] = txn_categories_display
@@ -1134,7 +1142,7 @@ class LedgerDisplay:
     def _save_new_txn(self):
         txn_type = self.add_txn_widgets['entries']['type'].text()
         txn_date = self.add_txn_widgets['entries']['date'].text()
-        payee = self.add_txn_widgets['entries']['payee'].text()
+        payee = self.add_txn_widgets['payee'].currentText()
         description = self.add_txn_widgets['entries']['description'].text()
         categories = self.add_txn_widgets['categories_display'].get_categories()
         status = self.add_txn_widgets['entries']['status'].text()
@@ -1158,6 +1166,7 @@ class LedgerDisplay:
     def _clear_add_txn_widgets(self):
         for widget in self.add_txn_widgets['entries'].values():
             widget.setText('')
+        self.add_txn_widgets['payee'].setCurrentText('')
 
 
 class CategoriesDisplay:
