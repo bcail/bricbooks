@@ -1234,10 +1234,9 @@ class CategoriesDisplay:
         layout.setColumnStretch(1, 5)
         layout.setColumnStretch(2, 15)
         layout.setColumnStretch(3, 15)
-        layout.addWidget(QtWidgets.QLabel('ID'), 0, 0)
-        layout.addWidget(QtWidgets.QLabel('User ID'), 0, 1)
-        layout.addWidget(QtWidgets.QLabel('Name'), 0, 2)
-        layout.addWidget(QtWidgets.QLabel('Parent Category'), 0, 3)
+        layout.addWidget(QtWidgets.QLabel('User ID'), 0, 0)
+        layout.addWidget(QtWidgets.QLabel('Name'), 0, 1)
+        layout.addWidget(QtWidgets.QLabel('Parent Category'), 0, 2)
         row = 1
         self.data = {}
         categories = self._storage.get_categories()
@@ -1255,27 +1254,26 @@ class CategoriesDisplay:
             else:
                 parent_name = ''
             parent_label = QtWidgets.QLabel(parent_name)
-            layout.addWidget(id_label, row, 0)
-            layout.addWidget(user_id_label, row, 1)
-            layout.addWidget(name_label, row, 2)
-            layout.addWidget(parent_label, row, 3)
+            layout.addWidget(user_id_label, row, 0)
+            layout.addWidget(name_label, row, 1)
+            layout.addWidget(parent_label, row, 2)
             id_label.mousePressEvent = edit_function
             name_label.mousePressEvent = edit_function
-            row_data['labels'] = {'id': id_label, 'user_id': user_id_label, 'name': name_label}
+            row_data['labels'] = {'user_id': user_id_label, 'name': name_label}
             self.data[cat.id] = row_data
             row += 1
         self.user_id_entry = QtWidgets.QLineEdit()
-        layout.addWidget(self.user_id_entry, row, 1)
+        layout.addWidget(self.user_id_entry, row, 0)
         self.name_entry = QtWidgets.QLineEdit()
-        layout.addWidget(self.name_entry, row, 2)
+        layout.addWidget(self.name_entry, row, 1)
         self.add_parent_combo = QtWidgets.QComboBox()
         self.add_parent_combo.addItem('-------', None)
         for index, cat in enumerate(self._storage.get_categories()):
             self.add_parent_combo.addItem(cat.name, cat)
-        layout.addWidget(self.add_parent_combo, row, 3)
+        layout.addWidget(self.add_parent_combo, row, 2)
         self.add_button = QtWidgets.QPushButton('Add New')
         self.add_button.clicked.connect(self._add)
-        layout.addWidget(self.add_button, row, 4)
+        layout.addWidget(self.add_button, row, 3)
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
         self.main_widget.setLayout(layout)
