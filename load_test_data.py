@@ -1,6 +1,9 @@
 from decimal import Decimal as D
 import random
-from pft import SQLiteStorage, Account, Category, Transaction, Budget, DATA_FILENAME
+from pft import SQLiteStorage, Account, Category, Transaction, Budget
+
+
+DEFAULT_DATA_FILENAME = 'data.sqlite3'
 
 
 def _load_data(storage, many_txns):
@@ -86,6 +89,6 @@ if __name__ == '__main__':
         print('filename: %s' % args.file_name)
         main(args.file_name, args.many_txns)
     else:
-        print('using default file_name: %s' % DATA_FILENAME)
-        main(DATA_FILENAME, args.many_txns)
+        print('using default file_name: %s' % DEFAULT_DATA_FILENAME)
+        main(DEFAULT_DATA_FILENAME, args.many_txns)
 

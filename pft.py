@@ -14,7 +14,6 @@ import subprocess
 import sys
 
 
-DATA_FILENAME = 'python_finance_tracking.sqlite3'
 TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.12.2'
 
