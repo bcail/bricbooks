@@ -3,7 +3,6 @@ from decimal import Decimal as D
 import os
 import sqlite3
 import tempfile
-import tkinter
 import unittest
 from unittest.mock import patch, Mock
 from PySide2 import QtWidgets, QtTest, QtCore
