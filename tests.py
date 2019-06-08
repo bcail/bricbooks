@@ -33,7 +33,7 @@ import load_test_data
 
 
 def get_test_account():
-    return Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(100))
+    return Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
 
 
 class TestUtils(unittest.TestCase):
@@ -48,8 +48,8 @@ class TestUtils(unittest.TestCase):
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
-        a = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D('100'))
-        self.assertEqual(a.type, pft.ASSET_TYPE)
+        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D('100'))
+        self.assertEqual(a.type, pft.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.starting_balance, D('100'))
 
@@ -63,15 +63,15 @@ class TestAccount(unittest.TestCase):
 
     def test_starting_balance(self):
         with self.assertRaises(InvalidAccountError) as cm:
-            Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=123.1)
+            Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=123.1)
         self.assertEqual(str(cm.exception), "Invalid type <class 'float'> for starting_balance")
 
     def test_eq(self):
-        a = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(100))
-        a2 = Account(type_=pft.ASSET_TYPE, name='Savings', starting_balance=D(100))
+        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        a2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(100))
+        a3 = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
         self.assertEqual(a, a3)
 
 
@@ -635,38 +635,38 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(100))
-        storage.save_account(account)
+        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        storage.save_account(a)
         #make sure we save the id to the account object
-        self.assertEqual(account.id, 1)
+        self.assertEqual(a.id, 1)
         c = storage._db_connection.cursor()
         c.execute('SELECT * FROM accounts')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (account.id, pft.ASSET_TYPE, 'Checking', '100'))
-        account = Account(id_=1, type_=pft.ASSET_TYPE, name='Savings', starting_balance=D(200))
-        storage.save_account(account)
+                (a.id, pft.AccountType.ASSET.value, 'Checking', '100'))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(200))
+        storage.save_account(a)
         c.execute('SELECT * FROM accounts')
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(1, pft.ASSET_TYPE, 'Savings', '200')])
+                [(1, pft.AccountType.ASSET.value, 'Savings', '200')])
 
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Checking', str(D(100))))
         account_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
-        self.assertEqual(account.type, pft.ASSET_TYPE)
+        self.assertEqual(account.type, pft.AccountType.ASSET)
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.starting_balance, D(100))
 
     def test_get_accounts(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', str(D(100))))
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Savings', str(D(1000))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Savings', str(D(1000))))
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[0].name, 'Checking')
@@ -778,11 +778,11 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
+        a = get_test_account()
+        storage.save_account(a)
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.EQUITY_TYPE, 'Checking', '100'))
-        account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
-                (account_id, '1234', '2017-01-25', 'Burger King', '101.00', 'inv #1', Transaction.CLEARED))
+                (a.id, '1234', '2017-01-25', 'Burger King', '101.00', 'inv #1', Transaction.CLEARED))
         txn_id = c.lastrowid
         c.execute('INSERT INTO categories(name) VALUES (?)', ('Cat',))
         cat_id = c.lastrowid
@@ -803,11 +803,11 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_sparse_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
+        a = get_test_account()
+        storage.save_account(a)
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', '100'))
-        account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account_id, '2017-01-25', '101.00'))
+                (a.id, '2017-01-25', '101.00'))
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         txn = storage._txn_from_db_record(db_info=db_info)
@@ -905,19 +905,19 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_load_txns_into_ledger(self):
         storage = SQLiteStorage(':memory:')
+        a = get_test_account()
+        storage.save_account(a)
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=100)
+        storage.save_account(savings)
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', '100'))
-        account_id = c.lastrowid
-        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Savings', '1000'))
-        savings_account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
-                (account_id, 'BP', '2017-01-25', 'Pizza Hut', '101.00', 'inv #1', Transaction.CLEARED))
+                (a.id, 'BP', '2017-01-25', 'Pizza Hut', '101.00', 'inv #1', Transaction.CLEARED))
         txn_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
-                (account_id, 'BP', '2017-01-28', 'Subway', '46.23', 'inv #42', Transaction.CLEARED))
+                (a.id, 'BP', '2017-01-28', 'Subway', '46.23', 'inv #42', Transaction.CLEARED))
         txn2_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
-                (savings_account_id, 'BP', '2017-01-28', 'Subway', '6.53', 'inv #42', Transaction.CLEARED))
+                (savings.id, 'BP', '2017-01-28', 'Subway', '6.53', 'inv #42', Transaction.CLEARED))
         savings_txn_id = c.lastrowid
         c.execute('INSERT INTO categories(name) VALUES (?)', ('Cat',))
         cat_id = c.lastrowid
@@ -926,7 +926,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, cat_id, str(D('101'))))
         c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, cat2_id, str(D('46.23'))))
         ledger = Ledger(starting_balance=D('0'))
-        storage.load_txns_into_ledger(account_id, ledger)
+        storage.load_txns_into_ledger(a.id, ledger)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].amount, D('101'))

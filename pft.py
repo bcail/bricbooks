@@ -7,6 +7,7 @@ Architecture:
 '''
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from enum import Enum
 from functools import partial
 import os
 import sqlite3
@@ -16,18 +17,13 @@ import sys
 
 TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.12.2'
-EQUITY_TYPE = 1
-ASSET_TYPE = 2
-LIABILITY_TYPE = 3
-INCOME_TYPE = 4
-EXPENSE_TYPE = 5
-ACCOUNT_TYPES = [
-        EQUITY_TYPE,
-        ASSET_TYPE,
-        LIABILITY_TYPE,
-        INCOME_TYPE,
-        EXPENSE_TYPE,
-    ]
+
+class AccountType(Enum):
+    ASSET = 0
+    LIABILITY = 1
+    EQUITY = 2
+    INCOME = 3
+    EXPENSE = 4
 
 
 def _do_qt_install():
@@ -112,7 +108,7 @@ class Account:
             return self.name == other_account.name
 
     def _check_type(self, type_):
-        if type_ not in ACCOUNT_TYPES:
+        if not isinstance(type_, AccountType):
             raise InvalidAccountError('Invalid account type "%s"' % type_)
         return type_
 
@@ -461,7 +457,7 @@ class SQLiteStorage:
         account_info = self._db_connection.execute('SELECT id, type, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
         return Account(
                 id_=account_info[0],
-                type_=account_info[1],
+                type_=AccountType(account_info[1]),
                 name=account_info[2],
                 starting_balance=Decimal(account_info[3])
             )
@@ -470,9 +466,9 @@ class SQLiteStorage:
         c = self._db_connection.cursor()
         if account.id:
             c.execute('UPDATE accounts SET type = ?, name = ?, starting_balance = ?  WHERE id = ?',
-                    (account.type, account.name, str(account.starting_balance), account.id))
+                    (account.type.value, account.name, str(account.starting_balance), account.id))
         else:
-            c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES(?, ?, ?)', (account.type, account.name, str(account.starting_balance)))
+            c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES(?, ?, ?)', (account.type.value, account.name, str(account.starting_balance)))
             account.id = c.lastrowid
         self._db_connection.commit()
 

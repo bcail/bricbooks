@@ -8,10 +8,10 @@ DEFAULT_DATA_FILENAME = 'data.sqlite3'
 
 
 def _load_data(storage, many_txns):
-    a = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(1000))
+    a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(1000))
     storage.save_account(a)
 
-    savings = Account(type_=pft.ASSET_TYPE, name='Saving', starting_balance=D(1000))
+    savings = Account(type_=pft.AccountType.ASSET, name='Saving', starting_balance=D(1000))
     storage.save_account(savings)
 
     c = Category(name='Restaurants')
