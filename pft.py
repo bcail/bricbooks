@@ -16,6 +16,18 @@ import sys
 
 TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.12.2'
+EQUITY_TYPE = 1
+ASSET_TYPE = 2
+LIABILITY_TYPE = 3
+INCOME_TYPE = 4
+EXPENSE_TYPE = 5
+ACCOUNT_TYPES = [
+        EQUITY_TYPE,
+        ASSET_TYPE,
+        LIABILITY_TYPE,
+        INCOME_TYPE,
+        EXPENSE_TYPE,
+    ]
 
 
 def _do_qt_install():
@@ -80,10 +92,13 @@ def get_date(val):
 
 class Account:
 
-    def __init__(self, id_=None, name=None, starting_balance=None):
+    def __init__(self, id_=None, type_=None, name=None, starting_balance=None):
         self.id = id_
+        if not type_:
+            raise InvalidAccountError('Account must have a type')
         if not name:
             raise InvalidAccountNameError('Account must have a name')
+        self.type = self._check_type(type_)
         self.name = name
         self.starting_balance = self._check_starting_balance(starting_balance)
 
@@ -96,6 +111,11 @@ class Account:
         else:
             return self.name == other_account.name
 
+    def _check_type(self, type_):
+        if type_ not in ACCOUNT_TYPES:
+            raise InvalidAccountError('Invalid account type "%s"' % type_)
+        return type_
+
     def _check_starting_balance(self, starting_balance):
         if isinstance(starting_balance, Decimal):
             return starting_balance
@@ -103,9 +123,9 @@ class Account:
             try:
                 return Decimal(starting_balance)
             except InvalidOperation:
-                raise InvalidAccountStartingBalanceError('invalid starting balance %s' % starting_balance)
+                raise InvalidAccountStartingBalanceError('Invalid starting balance %s' % starting_balance)
         else:
-            raise InvalidAccountStartingBalanceError('invalid type %s for starting_balance' % type(starting_balance))
+            raise InvalidAccountStartingBalanceError('Invalid type %s for starting_balance' % type(starting_balance))
         return starting_balance
 
 
