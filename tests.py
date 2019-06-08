@@ -433,6 +433,9 @@ class TestTransaction(unittest.TestCase):
 
 class TestLedger(unittest.TestCase):
 
+    def setUp(self):
+        self.a = get_test_account()
+
     def test_init(self):
         with self.assertRaises(InvalidLedgerError) as cm:
             Ledger()
@@ -448,18 +451,16 @@ class TestLedger(unittest.TestCase):
     def test_add_transaction(self):
         ledger = Ledger(starting_balance=D('1'))
         self.assertEqual(ledger._txns, {})
-        a = Account(name='Checking', starting_balance=D('100'))
-        txn = Transaction(id_=1, account=a, amount=D('101'), txn_date=date.today())
+        txn = Transaction(id_=1, account=self.a, amount=D('101'), txn_date=date.today())
         ledger.add_transaction(txn)
         self.assertEqual(ledger._txns, {1: txn})
 
     def test_get_ledger_txns(self):
-        a = Account(name='Checking', starting_balance=D('100'))
-        ledger = Ledger(starting_balance=a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(Transaction(id_=3, account=a, amount=D('1'), txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(Transaction(id_=4, account=a, amount=D('10'), txn_date=date(2017, 4, 25)))
+        ledger = Ledger(starting_balance=self.a.starting_balance)
+        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('-12'), txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(Transaction(id_=3, account=self.a, amount=D('1'), txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(Transaction(id_=4, account=self.a, amount=D('10'), txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
         self.assertEqual(ledger_records[0].balance, D('110'))
@@ -471,26 +472,23 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].balance, D('131.45'))
 
     def test_get_txn(self):
-        a = Account(name='Checking', starting_balance=D('100'))
-        ledger = Ledger(starting_balance=a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('-12'), txn_date=date(2017, 6, 5)))
+        ledger = Ledger(starting_balance=self.a.starting_balance)
+        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('-12'), txn_date=date(2017, 6, 5)))
         txn = ledger.get_txn(id_=2)
         self.assertEqual(txn.amount, D('-12'))
 
     def test_clear_txns(self):
-        a = Account(name='Checking', starting_balance=D('100'))
         ledger = Ledger(starting_balance=D('100.12'))
-        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
         self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
 
     def test_get_payees(self):
-        a = Account(name='Checking', starting_balance=D(100))
-        ledger = Ledger(starting_balance=a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='McDonalds'))
-        ledger.add_transaction(Transaction(id_=2, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
-        ledger.add_transaction(Transaction(id_=3, account=a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
+        ledger = Ledger(starting_balance=self.a.starting_balance)
+        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='McDonalds'))
+        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
+        ledger.add_transaction(Transaction(id_=3, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
         self.assertEqual(ledger.get_payees(), ['Burger King', 'McDonalds'])
 
 
@@ -637,7 +635,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
+        account = Account(type_=pft.ASSET_TYPE, name='Checking', starting_balance=D(100))
         storage.save_account(account)
         #make sure we save the id to the account object
         self.assertEqual(account.id, 1)
@@ -645,29 +643,30 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (account.id, 'Checking', '100'))
-        account = Account(id_=1, name='Savings', starting_balance=D(200))
+                (account.id, pft.ASSET_TYPE, 'Checking', '100'))
+        account = Account(id_=1, type_=pft.ASSET_TYPE, name='Savings', starting_balance=D(200))
         storage.save_account(account)
         c.execute('SELECT * FROM accounts')
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(1, 'Savings', '200')])
+                [(1, pft.ASSET_TYPE, 'Savings', '200')])
 
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', str(D(100))))
         account_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
+        self.assertEqual(account.type, pft.ASSET_TYPE)
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.starting_balance, D(100))
 
     def test_get_accounts(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Checking', str(D(100))))
-        c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Savings', str(D(1000))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.ASSET_TYPE, 'Savings', str(D(1000))))
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[0].name, 'Checking')
@@ -762,7 +761,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_delete_category_with_txn(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D('100'))
+        a = get_test_account()
         storage.save_account(a)
         c = Category(name='Housing')
         storage.save_category(c)
@@ -780,7 +779,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) VALUES (?, ?)', ('Checking', '100'))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.EQUITY_TYPE, 'Checking', '100'))
         account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
                 (account_id, '1234', '2017-01-25', 'Burger King', '101.00', 'inv #1', Transaction.CLEARED))
@@ -805,7 +804,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_sparse_txn_from_db(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '100'))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', '100'))
         account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
                 (account_id, '2017-01-25', '101.00'))
@@ -825,7 +824,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_category(c2)
         c3 = Category('Horse')
         storage.save_category(c3)
-        a = Account(name='Checking', starting_balance=D('100'))
+        a = get_test_account()
         storage.save_account(a)
         t = Transaction(
                 account=a,
@@ -853,7 +852,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_sparse_txn_to_db(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D('100'))
+        a = get_test_account()
         t = Transaction(
                 account=a,
                 txn_date=date.today(),
@@ -868,7 +867,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_round_trip(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D('100'))
+        a = get_test_account()
         storage.save_account(a)
         c = Category('Cat')
         storage.save_category(c)
@@ -907,9 +906,9 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_load_txns_into_ledger(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '100'))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Checking', '100'))
         account_id = c.lastrowid
-        c.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Savings', '1000'))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) values (?, ?, ?)', (pft.ASSET_TYPE, 'Savings', '1000'))
         savings_account_id = c.lastrowid
         c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) values (?, ?, ?, ?, ?, ?, ?)',
                 (account_id, 'BP', '2017-01-25', 'Pizza Hut', '101.00', 'inv #1', Transaction.CLEARED))
@@ -1137,7 +1136,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D(100))
+        a = get_test_account()
         storage.save_account(a)
         accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()

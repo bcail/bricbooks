@@ -450,7 +450,7 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, name TEXT, starting_balance TEXT)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, name TEXT, starting_balance TEXT)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER, user_id TEXT)')
@@ -458,15 +458,21 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
-        account_info = self._db_connection.execute('SELECT id, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
-        return Account(id_=account_info[0], name=account_info[1], starting_balance=Decimal(account_info[2]))
+        account_info = self._db_connection.execute('SELECT id, type, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        return Account(
+                id_=account_info[0],
+                type_=account_info[1],
+                name=account_info[2],
+                starting_balance=Decimal(account_info[3])
+            )
 
     def save_account(self, account):
         c = self._db_connection.cursor()
         if account.id:
-            c.execute('UPDATE accounts SET name = ?, starting_balance = ?  WHERE id = ?', (account.name, str(account.starting_balance), account.id))
+            c.execute('UPDATE accounts SET type = ?, name = ?, starting_balance = ?  WHERE id = ?',
+                    (account.type, account.name, str(account.starting_balance), account.id))
         else:
-            c.execute('INSERT INTO accounts(name, starting_balance) VALUES(?, ?)', (account.name, str(account.starting_balance)))
+            c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES(?, ?, ?)', (account.type, account.name, str(account.starting_balance)))
             account.id = c.lastrowid
         self._db_connection.commit()
 
@@ -705,10 +711,12 @@ class AccountsDisplay:
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
+        type_label = QtWidgets.QLabel('Type')
         name_label = QtWidgets.QLabel('Name')
         starting_balance_label = QtWidgets.QLabel('Starting Balance')
-        layout.addWidget(name_label, 0, 0)
-        layout.addWidget(starting_balance_label, 0, 1)
+        layout.addWidget(type_label, 0, 0)
+        layout.addWidget(name_label, 0, 1)
+        layout.addWidget(starting_balance_label, 0, 2)
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
         row = 1
@@ -751,12 +759,15 @@ class AccountsDisplay:
                     }
 
             edit_function = partial(_edit, acc_id=acc.id)
+            type_label = QtWidgets.QLabel(str(acc.type))
+            type_label.mousePressEvent = edit_function
             name_label = QtWidgets.QLabel(acc.name)
             name_label.mousePressEvent = edit_function
             starting_balance_label = QtWidgets.QLabel(str(acc.starting_balance))
             starting_balance_label.mousePressEvent = edit_function
-            layout.addWidget(name_label, row, 0)
-            layout.addWidget(starting_balance_label, row, 1)
+            layout.addWidget(type_label, row, 0)
+            layout.addWidget(name_label, row, 1)
+            layout.addWidget(starting_balance_label, row, 2)
             self.accounts_widgets[acc.id] = {
                     'row': row,
                     'labels': {'name': name_label, 'starting_balance': starting_balance_label},
