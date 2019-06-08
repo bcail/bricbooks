@@ -755,7 +755,7 @@ class AccountsDisplay:
                     }
 
             edit_function = partial(_edit, acc_id=acc.id)
-            type_label = QtWidgets.QLabel(str(acc.type))
+            type_label = QtWidgets.QLabel(acc.type.name)
             type_label.mousePressEvent = edit_function
             name_label = QtWidgets.QLabel(acc.name)
             name_label.mousePressEvent = edit_function
@@ -770,15 +770,19 @@ class AccountsDisplay:
                 }
             row += 1
 
+        add_account_type = QtWidgets.QComboBox()
+        for account_type in AccountType:
+            add_account_type.addItem(account_type.name, account_type)
+        layout.addWidget(add_account_type, row, 0)
         add_account_name = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_name, row, 0)
+        layout.addWidget(add_account_name, row, 1)
         add_account_starting_balance = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_starting_balance, row, 1)
+        layout.addWidget(add_account_starting_balance, row, 2)
         button = QtWidgets.QPushButton('Add New')
         button.clicked.connect(self._save_new_account)
-        layout.addWidget(button, row, 2)
+        layout.addWidget(button, row, 3)
         self.add_account_widgets = {
-                'entries': {'name': add_account_name, 'starting_balance': add_account_starting_balance},
+                'entries': {'type': add_account_type, 'name': add_account_name, 'starting_balance': add_account_starting_balance},
                 'buttons': {'add_new': button},
             }
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
@@ -787,10 +791,11 @@ class AccountsDisplay:
         return main_widget
 
     def _save_new_account(self):
+        type_ = self.add_account_widgets['entries']['type'].currentData()
         name = self.add_account_widgets['entries']['name'].text()
         starting_balance = self.add_account_widgets['entries']['starting_balance'].text()
         try:
-            account = Account(name=name, starting_balance=starting_balance)
+            account = Account(type_=type_, name=name, starting_balance=starting_balance)
             self.storage.save_account(account)
             self._reload()
         except InvalidAccountStartingBalanceError:

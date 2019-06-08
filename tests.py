@@ -1145,6 +1145,8 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(accounts_display.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
+        self.assertEqual(accounts[1].type.name, 'ASSET')
+        self.assertEqual(accounts[1].name, 'Savings')
 
     def test_account_edit(self):
         storage = SQLiteStorage(':memory:')
