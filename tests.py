@@ -1150,7 +1150,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account_edit(self):
         storage = SQLiteStorage(':memory:')
-        a = Account(name='Checking', starting_balance=D(100))
+        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
         storage.save_account(a)
         accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
@@ -1170,7 +1170,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
+        account = get_test_account()
         storage.save_account(account)
         txn = Transaction(account=account, amount=D(5), txn_date=date.today())
         txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
@@ -1194,8 +1194,8 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_choose_account(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
-        account2 = Account(name='Savings', starting_balance=D(100))
+        account = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        account2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
         storage.save_account(account)
         storage.save_account(account2)
         txn = Transaction(account=account, amount=D(5), txn_date=date.today())
@@ -1211,8 +1211,8 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_switch_account(self):
         show_ledger_mock = Mock()
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
-        account2 = Account(name='Savings', starting_balance=D(100))
+        account = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        account2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
         storage.save_account(account)
         storage.save_account(account2)
         txn = Transaction(account=account, amount=D(5), txn_date=date.today())
@@ -1231,7 +1231,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_edit(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
+        account = get_test_account()
         storage.save_account(account)
         txn = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 3))
         txn2 = Transaction(account=account, amount=D(17), txn_date=date(2017, 5, 2))
@@ -1271,7 +1271,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_edit_category(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
+        account = get_test_account()
         storage.save_account(account)
         cat = Category(name='Housing')
         cat2 = Category(name='Restaurants')
@@ -1297,7 +1297,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(name='Checking', starting_balance=D(100))
+        account = get_test_account()
         storage.save_account(account)
         txn = Transaction(account=account, amount=D(5), txn_date=date.today())
         txn2 = Transaction(account=account, amount=D(23), txn_date=date(2017, 1, 2))

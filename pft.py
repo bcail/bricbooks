@@ -719,24 +719,32 @@ class AccountsDisplay:
         for acc in accounts:
 
             def _edit(event, acc_id):
+                account = self.storage.get_account(acc_id)
                 orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
                 orig_starting_balance = self.accounts_widgets[acc_id]['labels']['starting_balance'].text()
                 for label in self.accounts_widgets[acc_id]['labels'].values():
                     layout.removeWidget(label)
                     label.deleteLater()
+                type_entry = QtWidgets.QComboBox()
+                for index, account_type in enumerate(AccountType):
+                    type_entry.addItem(account_type.name, account_type)
+                    if account_type == account.type:
+                        type_entry.setCurrentIndex(index)
                 name_entry = QtWidgets.QLineEdit()
                 name_entry.setText(orig_name)
                 starting_balance_entry = QtWidgets.QLineEdit()
                 starting_balance_entry.setText(orig_starting_balance)
                 row = self.accounts_widgets[acc_id]['row']
-                layout.addWidget(name_entry, row, 0)
-                layout.addWidget(starting_balance_entry, row, 1)
+                layout.addWidget(type_entry, row, 0)
+                layout.addWidget(name_entry, row, 1)
+                layout.addWidget(starting_balance_entry, row, 2)
 
                 def _save(acc_id):
+                    type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
                     name = self.accounts_widgets[acc_id]['entries']['name'].text()
                     starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
                     try:
-                        self.storage.save_account(Account(name=name, starting_balance=starting_balance, id_=acc_id))
+                        self.storage.save_account(Account(type_=type_, name=name, starting_balance=starting_balance, id_=acc_id))
                         self._reload()
                     except InvalidAccountNameError:
                         set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
@@ -745,8 +753,9 @@ class AccountsDisplay:
 
                 save_button = QtWidgets.QPushButton('Save Edit')
                 save_button.clicked.connect(partial(_save, acc_id=acc_id))
-                layout.addWidget(save_button, row, 2)
+                layout.addWidget(save_button, row, 3)
                 self.accounts_widgets[acc_id]['entries'] = {
+                        'type': type_entry,
                         'name': name_entry,
                         'starting_balance': starting_balance_entry,
                     }
