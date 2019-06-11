@@ -107,6 +107,9 @@ class Account:
         else:
             return self.name == other_account.name
 
+    def __hash__(self):
+        return self.id
+
     def _check_type(self, type_):
         if not isinstance(type_, AccountType):
             raise InvalidAccountError('Invalid account type "%s"' % type_)
@@ -178,9 +181,8 @@ class Transaction:
                 status=status
             )
 
-    def __init__(self, account=None, amount=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None, id_=None):
-        self.account = self._check_account(account)
-        self.amount = self._check_amount(amount)
+    def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, status=None, id_=None):
+        self.splits = self._check_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
         self.categories = self._check_categories(categories)
@@ -191,6 +193,27 @@ class Transaction:
 
     def __str__(self):
         return '%s: %s' % (self.id, self.amount)
+
+    def _check_splits(self, splits):
+        if not splits or len(splits.items()) < 2:
+            raise InvalidTransactionError('transaction must have at least 2 splits')
+        total = Decimal(0)
+        for account, amount in splits.items():
+            if isinstance(amount, Decimal):
+                decimal_amount = amount
+            elif isinstance(amount, (int, str)):
+                decimal_amount = Decimal(amount)
+            else:
+                raise InvalidTransactionError(f'invalid split amount: {amount}')
+            #check for fractions of cents
+            amt_str = str(decimal_amount)
+            if '.' in amt_str:
+                _, decimals = amt_str.split('.')
+                if len(decimals) > 2:
+                    raise InvalidTransactionError('no fractions of cents in a transaction')
+            total += decimal_amount
+        if total != Decimal(0):
+            raise InvalidTransactionError("splits don't balance")
 
     def _check_account(self, account):
         if not account:

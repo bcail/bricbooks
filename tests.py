@@ -32,8 +32,10 @@ from pft import (
 import load_test_data
 
 
-def get_test_account():
-    return Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+def get_test_account(id_=None, name=None):
+    if not name:
+        name = 'Checking'
+    return Account(id_=id_, type_=pft.AccountType.ASSET, name=name, starting_balance=D(100))
 
 
 class TestUtils(unittest.TestCase):
@@ -109,22 +111,28 @@ class TestCategory(unittest.TestCase):
 class TestTransaction(unittest.TestCase):
 
     def setUp(self):
-        self.a = get_test_account()
+        self.checking = get_test_account(id_=1)
+        self.savings = get_test_account(id_=2, name='Savings')
 
-    def test_account_required(self):
+    def test_splits_required(self):
         with self.assertRaises(InvalidTransactionError) as cm:
             Transaction()
-        self.assertEqual(str(cm.exception), 'transaction must belong to an account')
+        self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
 
-    def test_invalid_txn_amount(self):
+    def test_splits_must_balance(self):
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(account=self.a, amount=101.1)
-        self.assertEqual(str(cm.exception), 'invalid type for amount')
+            Transaction(splits={self.checking: -100, self.savings: 90})
+        self.assertEqual(str(cm.exception), "splits don't balance")
+
+    def test_invalid_split_amounts(self):
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(account=self.a, amount='123.456')
+            Transaction(splits=[(self.checking, 101.1), (self.savings, '-101.1')])
+        self.assertEqual(str(cm.exception), 'invalid split amount: 101.1')
+        with self.assertRaises(InvalidTransactionError) as cm:
+            Transaction(splits=[(self.checking, '123.456'), (self.savings, '-123.45')])
         self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(account=self.a, amount=D('123.456'))
+            Transaction(splits=[(self.checking, D('123.456')), (self.savings, D(123))])
         self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
 
     def test_txn_amount(self):
