@@ -33,6 +33,8 @@ import load_test_data
 
 
 def get_test_account(id_=None, name=None):
+    if not id_:
+        id_ = 1
     if not name:
         name = 'Checking'
     return Account(id_=id_, type_=pft.AccountType.ASSET, name=name, starting_balance=D(100))
@@ -49,32 +51,35 @@ class TestUtils(unittest.TestCase):
 
 class TestAccount(unittest.TestCase):
 
+    def test_id_required(self):
+        with self.assertRaises(InvalidAccountError) as cm:
+            Account(type_=pft.AccountType.ASSET, name='Checking')
+        self.assertEqual(str(cm.exception), 'Account must have an id')
+
     def test_init(self):
-        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D('100'))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=D('100'))
         self.assertEqual(a.type, pft.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.starting_balance, D('100'))
 
     def test_account_type(self):
         with self.assertRaises(InvalidAccountError) as cm:
-            Account(name='Checking')
+            Account(id_=1, name='Checking')
         self.assertEqual(str(cm.exception), 'Account must have a type')
         with self.assertRaises(InvalidAccountError) as cm:
-            Account(type_='asdf', name='Checking')
+            Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
 
     def test_starting_balance(self):
         with self.assertRaises(InvalidAccountError) as cm:
-            Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=123.1)
+            Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=123.1)
         self.assertEqual(str(cm.exception), "Invalid type <class 'float'> for starting_balance")
 
     def test_eq(self):
-        a = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        a2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        a2 = Account(id_=2, type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        self.assertEqual(a, a3)
 
 
 class TestCategory(unittest.TestCase):
@@ -113,6 +118,8 @@ class TestTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
+        self.valid_splits = {self.checking: 100, self.savings: -100}
+        self.txn_splits = {self.checking: D(100), self.savings: D('-100')}
 
     def test_splits_required(self):
         with self.assertRaises(InvalidTransactionError) as cm:
@@ -126,48 +133,39 @@ class TestTransaction(unittest.TestCase):
 
     def test_invalid_split_amounts(self):
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(splits=[(self.checking, 101.1), (self.savings, '-101.1')])
+            Transaction(splits={self.checking: 101.1, self.savings: '-101.1'})
         self.assertEqual(str(cm.exception), 'invalid split amount: 101.1')
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(splits=[(self.checking, '123.456'), (self.savings, '-123.45')])
+            Transaction(splits={self.checking: '123.456', self.savings: '-123.45'})
         self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(splits=[(self.checking, D('123.456')), (self.savings, D(123))])
+            Transaction(splits={self.checking: D('123.456'), self.savings: D(123)})
         self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
-
-    def test_txn_amount(self):
-        t = Transaction(account=self.a, amount='123', txn_date=date.today())
-        self.assertEqual(t.amount, D('123'))
-        t = Transaction(account=self.a, amount=12, txn_date=date.today())
-        self.assertEqual(t.amount, D('12'))
-        t = Transaction(account=self.a, amount='10.', txn_date=date.today())
-        self.assertEqual(t.amount, D('10'))
 
     def test_invalid_txn_date(self):
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(account=self.a, amount=D('101'))
+            Transaction(splits=self.valid_splits)
         self.assertEqual(str(cm.exception), 'transaction must have a txn_date')
         with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(account=self.a, amount=D('101'), txn_date=10)
+            Transaction(splits=self.valid_splits, txn_date=10)
         self.assertEqual(str(cm.exception), 'invalid txn_date')
 
     def test_txn_date(self):
-        t = Transaction(account=self.a, amount='123', txn_date=date.today())
+        t = Transaction(splits=self.valid_splits, txn_date=date.today())
         self.assertEqual(t.txn_date, date.today())
-        t = Transaction(account=self.a, amount='123', txn_date='2018-03-18')
+        t = Transaction(splits=self.valid_splits, txn_date='2018-03-18')
         self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
         t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
                 txn_type='1234',
                 payee='McDonalds',
                 description='2 big macs',
             )
-        self.assertEqual(t.account, self.a)
-        self.assertEqual(t.amount, D('101'))
+        self.assertEqual(t.splits, self.txn_splits)
+        self.assertTrue(isinstance(t.splits[self.checking], D))
         self.assertEqual(t.txn_date, date.today())
         self.assertEqual(t.txn_type, '1234')
         self.assertEqual(t.payee, 'McDonalds')
@@ -175,195 +173,122 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.status, None)
         #test passing status in as argument
         t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
                 status=Transaction.CLEARED,
             )
         self.assertEqual(t.status, Transaction.CLEARED)
 
-    def test_txn_from_user_strings(self):
+    def test_txn_from_user_info(self):
         #construct txn from user strings, as much as possible (except account & categories)
-        c = Category('Cat', id_=1)
-        t = Transaction.from_user_strings(
-                account=self.a,
+        t = Transaction.from_user_info(
+                account=self.checking,
                 txn_type='1234',
-                credit='101',
-                debit='',
+                deposit='101',
+                withdrawal='',
                 txn_date='2017-10-15',
                 description='something',
                 payee='McDonalds',
                 status='C',
-                categories=[(c, D('101'))],
+                categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
-        self.assertEqual(t.amount, D('101'))
+        self.assertEqual(t.splits, {
+            self.checking: D(101),
+            self.savings: D('-101'),
+        })
+
+    def test_txn_splits_from_user_info(self):
+        #test passing in list, just one account, ...
+        house = get_test_account(id_=3, name='House')
+        splits = Transaction.splits_from_user_info(
+                account=self.checking,
+                deposit='',
+                withdrawal='100',
+                input_categories={self.savings: -45, house: -55}
+            )
+        self.assertEqual(splits,
+                {
+                    self.checking: '-100',
+                    self.savings: -45,
+                    house: -55,
+                }
+            )
 
     def test_get_display_strings(self):
-        c = Category('Cat', id_=1)
         t = Transaction(
-                account=self.a,
+                splits=self.valid_splits,
                 txn_type='1234',
-                amount=D('101'),
                 txn_date=date.today(),
                 description='something',
                 payee='McDonalds',
                 status='C',
-                categories=[(c, D('101'))],
             )
-        self.assertDictEqual(t.get_display_strings(),
+        self.assertDictEqual(
+                t.get_display_strings_for_ledger(account=self.checking),
                 {
                     'txn_type': '1234',
-                    'debit': '',
-                    'credit': '101',
+                    'withdrawal': '',
+                    'deposit': '100',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'McDonalds',
                     'status': 'C',
-                    'categories': 'Cat',
+                    'categories': 'Savings',
+                }
+            )
+        self.assertDictEqual(
+                t.get_display_strings_for_ledger(account=self.savings),
+                {
+                    'txn_type': '1234',
+                    'withdrawal': '100',
+                    'deposit': '',
+                    'description': 'something',
+                    'txn_date': str(date.today()),
+                    'payee': 'McDonalds',
+                    'status': 'C',
+                    'categories': 'Checking',
                 }
             )
 
     def test_get_display_strings_sparse(self):
         t = Transaction(
-                account=self.a,
-                amount=D('-101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
             )
-        self.assertDictEqual(t.get_display_strings(),
+        self.assertDictEqual(t.get_display_strings_for_ledger(account=self.checking),
                 {
                     'txn_type': '',
-                    'debit': '101',
-                    'credit': '',
+                    'withdrawal': '',
+                    'deposit': '100',
                     'description': '',
                     'txn_date': str(date.today()),
                     'payee': '',
                     'status': '',
-                    'categories': '',
+                    'categories': 'Savings',
                 }
             )
 
     def test_txn_categories_display(self):
-        c = Category('Cat', id_=1)
-        c2 = Category('Dog', id_=2)
-        c3 = Category('Horse', id_=3)
+        a = get_test_account()
+        a2 = get_test_account(id_=2, name='Savings')
+        a3 = get_test_account(id_=3, name='Other')
         t = Transaction(
-                account=self.a,
-                amount=D('-101'),
+                splits={
+                    a: -100,
+                    a2: 65,
+                    a3: 35
+                },
                 txn_date=date.today(),
-                categories=[(c, D('-45')), (c2, D('-59')), (c3, D('3'))],
             )
-        self.assertEqual(t._categories_display(), 'multiple')
+        self.assertEqual(t._categories_display(main_account=a), 'multiple')
         t = Transaction(
-                account=self.a,
-                amount=D(100),
-                txn_date=date.today(),
-                categories=[c]
-            )
-        self.assertEqual(t._categories_display(), 'Cat')
-
-    def test_no_category(self):
-        #uncategorized transaction
-        t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits={
+                    a: -100,
+                    a2: 100
+                },
                 txn_date=date.today(),
             )
-        self.assertEqual(t.categories, [])
-
-    def test_one_category(self):
-        #normal categorized transaction
-        c = Category('Cat')
-        t = Transaction(
-                account=self.a,
-                amount=D('101'),
-                txn_date=date.today(),
-                categories=[(c, D('101'))],
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('101'))
-        #test passing in just a category, with no amount: assume it's for the whole amount
-        t = Transaction(
-                account=self.a,
-                amount=D(101),
-                txn_date=date.today(),
-                categories=[c],
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D(101))
-        #test passing category not in a list
-        t = Transaction(
-                account=self.a,
-                amount=D(101),
-                txn_date=date.today(),
-                categories=c,
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D(101))
-
-    def test_split_categories(self):
-        c = Category('Cat')
-        c2 = Category('Dog')
-        t = Transaction(
-                account=self.a,
-                amount=D('101'),
-                txn_date=date.today(),
-                categories=[(c, D('45')), (c2, D('56'))],
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('45'))
-        self.assertEqual(t.categories[1][0], c2)
-        self.assertEqual(t.categories[1][1], D('56'))
-
-    def test_negative_split_categories(self):
-        c = Category('Cat')
-        c2 = Category('Dog')
-        t = Transaction(
-                account=self.a,
-                amount=D('-101'),
-                txn_date=date.today(),
-                categories=[(c, D('45')), (c2, D('56'))],
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('45'))
-        self.assertEqual(t.categories[1][0], c2)
-        self.assertEqual(t.categories[1][1], D('56'))
-
-    def test_mixed_split_categories(self):
-        c = Category('Cat')
-        c2 = Category('Dog')
-        c3 = Category('Horse')
-        t = Transaction(
-                account=self.a,
-                amount=D('-101'),
-                txn_date=date.today(),
-                categories=[(c, D('45')), (c2, D('59')), (c3, D('-3'))],
-            )
-        self.assertEqual(t.categories[0][0], c)
-        self.assertEqual(t.categories[0][1], D('45'))
-        self.assertEqual(t.categories[1][0], c2)
-        self.assertEqual(t.categories[1][1], D('59'))
-        self.assertEqual(t.categories[2][0], c3)
-        self.assertEqual(t.categories[2][1], D('-3'))
-
-    def test_invalid_category_amounts(self):
-        c = Category('Cat')
-        c2 = Category('Dog')
-        with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(
-                account=self.a,
-                amount=D('101'),
-                txn_date=date.today(),
-                categories=[(c, D('55')), (c2, D('56'))],
-            )
-        self.assertEqual(str(cm.exception), 'split categories add up to more than txn amount')
-        with self.assertRaises(InvalidTransactionError) as cm:
-            Transaction(
-                account=self.a,
-                amount=D('-101'),
-                txn_date=date.today(),
-                categories=[(c, D('55')), (c2, D('53'))],
-            )
-        self.assertEqual(str(cm.exception), 'split categories add up to more than txn amount')
+        self.assertEqual(t._categories_display(main_account=a), 'Savings')
 
     def test_update_values(self):
         t = Transaction(

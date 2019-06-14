@@ -89,6 +89,8 @@ def get_date(val):
 class Account:
 
     def __init__(self, id_=None, type_=None, name=None, starting_balance=None):
+        if not id_:
+            raise InvalidAccountError('Account must have an id')
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -102,10 +104,7 @@ class Account:
         return self.name
 
     def __eq__(self, other_account):
-        if self.id:
-            return self.id == other_account.id
-        else:
-            return self.name == other_account.name
+        return self.id == other_account.id
 
     def __hash__(self):
         return self.id
@@ -166,16 +165,30 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
-    def from_user_strings(account, credit, debit, txn_date, txn_type, categories, payee, description, status):
-        if credit:
-            amount = credit
-        elif debit:
-            amount = '-%s' % debit
+    def splits_from_user_info(account, deposit, withdrawal, input_categories):
+        splits = {}
+        categories = {}
+        amount = Decimal(deposit or withdrawal)
+        if isinstance(input_categories, Account):
+            categories[input_categories] = amount
+        if isinstance(input_categories, dict):
+            categories = input_categories
+        if deposit:
+            splits[account] = deposit
+            for key, value in categories.items():
+                splits[key] = '-%s' % value
+        elif withdrawal:
+            splits[account] = '-%s' % withdrawal
+            splits.update(categories)
+        return splits
+
+    @staticmethod
+    def from_user_info(account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, status):
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
         return Transaction(
-                account=account,
-                amount=amount,
+                splits=splits,
                 txn_date=txn_date,
-                categories=categories,
+                txn_type=txn_type,
                 payee=payee,
                 description=description,
                 status=status
@@ -185,7 +198,7 @@ class Transaction:
         self.splits = self._check_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
-        self.categories = self._check_categories(categories)
+        #self.categories = self._check_categories(categories)
         self.payee = payee
         self.description = description
         self.status = status
@@ -194,11 +207,12 @@ class Transaction:
     def __str__(self):
         return '%s: %s' % (self.id, self.amount)
 
-    def _check_splits(self, splits):
-        if not splits or len(splits.items()) < 2:
+    def _check_splits(self, input_splits):
+        if not input_splits or len(input_splits.items()) < 2:
             raise InvalidTransactionError('transaction must have at least 2 splits')
+        splits = {}
         total = Decimal(0)
-        for account, amount in splits.items():
+        for account, amount in input_splits.items():
             if isinstance(amount, Decimal):
                 decimal_amount = amount
             elif isinstance(amount, (int, str)):
@@ -212,8 +226,10 @@ class Transaction:
                 if len(decimals) > 2:
                     raise InvalidTransactionError('no fractions of cents in a transaction')
             total += decimal_amount
+            splits[account] = decimal_amount
         if total != Decimal(0):
             raise InvalidTransactionError("splits don't balance")
+        return splits
 
     def _check_account(self, account):
         if not account:
@@ -270,29 +286,31 @@ class Transaction:
             raise InvalidTransactionError('split categories add up to more than txn amount')
         return categories
 
-    def _categories_display(self):
-        if len(self.categories) == 1:
-            return str(self.categories[0][0])
-        elif not self.categories:
-            return ''
+    def _categories_display(self, main_account):
+        if len(self.splits.keys()) == 2:
+            for account in self.splits.keys():
+                if account != main_account:
+                    return str(account)
         return 'multiple'
 
-    def get_display_strings(self):
-        if self.amount < Decimal(0):
-            debit = str(self.amount * Decimal('-1'))
-            credit = ''
+    def get_display_strings_for_ledger(self, account):
+        amount = self.splits[account]
+        if amount < Decimal(0):
+            #make negative amount display as positive
+            withdrawal = str(amount * Decimal('-1'))
+            deposit = ''
         else:
-            debit = ''
-            credit = str(self.amount)
+            withdrawal = ''
+            deposit = str(amount)
         return {
                 'txn_type': self.txn_type or '',
-                'debit': debit,
-                'credit': credit,
+                'withdrawal': withdrawal,
+                'deposit': deposit,
                 'description': self.description or '',
                 'txn_date': str(self.txn_date),
                 'payee': self.payee or '',
                 'status': self.status or '',
-                'categories': self._categories_display(),
+                'categories': self._categories_display(main_account=account),
             }
 
     def update_from_user_strings(self, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
