@@ -333,13 +333,11 @@ class Transaction:
 
 class Ledger:
 
-    def __init__(self, starting_balance=None):
-        if starting_balance is None:
-            raise InvalidLedgerError('ledger must have a starting balance')
-        if not isinstance(starting_balance, Decimal):
-            raise InvalidLedgerError('starting_balance must be a Decimal')
+    def __init__(self, account=None):
+        if account is None:
+            raise InvalidLedgerError('ledger must have an account')
+        self.account = account
         self._txns = {}
-        self._starting_balance = starting_balance
 
     def add_transaction(self, txn):
         if not txn.id:
@@ -348,10 +346,10 @@ class Ledger:
 
     def get_sorted_txns_with_balance(self):
         sorted_txns = sorted(self._txns.values(), key=lambda t: t.txn_date)
-        balance = self._starting_balance
+        balance = self.account.starting_balance
         sorted_records = []
         for t in sorted_txns:
-            balance = balance + t.amount
+            balance = balance + t.splits[self.account]
             t.balance = balance
             sorted_records.append(t)
         return sorted_records

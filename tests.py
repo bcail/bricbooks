@@ -348,33 +348,34 @@ class TestTransaction(unittest.TestCase):
 class TestLedger(unittest.TestCase):
 
     def setUp(self):
-        self.a = get_test_account()
+        self.checking = get_test_account()
+        self.savings = get_test_account(id_=2, name='Savings')
 
     def test_init(self):
         with self.assertRaises(InvalidLedgerError) as cm:
             Ledger()
-        self.assertEqual(str(cm.exception), 'ledger must have a starting balance')
-        with self.assertRaises(InvalidLedgerError) as cm:
-            Ledger(starting_balance=1)
-        self.assertEqual(str(cm.exception), 'starting_balance must be a Decimal')
-        ledger = Ledger(starting_balance=D('101.25'))
-        self.assertEqual(ledger._starting_balance, D('101.25'))
-        ledger = Ledger(starting_balance=D('0'))
-        self.assertEqual(ledger._starting_balance, D('0'))
+        self.assertEqual(str(cm.exception), 'ledger must have an account')
+        ledger = Ledger(account=self.checking)
+        self.assertEqual(ledger.account, self.checking)
 
     def test_add_transaction(self):
-        ledger = Ledger(starting_balance=D('1'))
+        ledger = Ledger(account=self.checking)
         self.assertEqual(ledger._txns, {})
-        txn = Transaction(id_=1, account=self.a, amount=D('101'), txn_date=date.today())
+        splits = {self.checking: 100, self.savings: -100}
+        txn = Transaction(id_=1, splits=splits, txn_date=date.today())
         ledger.add_transaction(txn)
         self.assertEqual(ledger._txns, {1: txn})
 
     def test_get_ledger_txns(self):
-        ledger = Ledger(starting_balance=self.a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('-12'), txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(Transaction(id_=3, account=self.a, amount=D('1'), txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(Transaction(id_=4, account=self.a, amount=D('10'), txn_date=date(2017, 4, 25)))
+        ledger = Ledger(account=self.checking)
+        splits1 = {self.checking: '32.45', self.savings: '-32.45'}
+        splits2 = {self.checking: -12, self.savings: 12}
+        splits3 = {self.checking: 1, self.savings: -1}
+        splits4 = {self.checking: 10, self.savings: -10}
+        ledger.add_transaction(Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(Transaction(id_=3, splits=splits3, txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
         self.assertEqual(ledger_records[0].balance, D('110'))
@@ -386,23 +387,27 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].balance, D('131.45'))
 
     def test_get_txn(self):
-        ledger = Ledger(starting_balance=self.a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('32.45'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('-12'), txn_date=date(2017, 6, 5)))
+        ledger = Ledger(account=self.checking)
+        splits1 = {self.checking: '-32.45', self.savings: '32.45'}
+        splits2 = {self.checking: -12, self.savings: 12}
+        ledger.add_transaction(Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
         txn = ledger.get_txn(id_=2)
-        self.assertEqual(txn.amount, D('-12'))
+        self.assertEqual(txn.splits[self.checking], D('-12'))
 
     def test_clear_txns(self):
-        ledger = Ledger(starting_balance=D('100.12'))
-        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5)))
+        ledger = Ledger(account=self.checking)
+        splits = {self.checking: 100, self.savings: -100}
+        ledger.add_transaction(Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
         self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
 
     def test_get_payees(self):
-        ledger = Ledger(starting_balance=self.a.starting_balance)
-        ledger.add_transaction(Transaction(id_=1, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='McDonalds'))
-        ledger.add_transaction(Transaction(id_=2, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
-        ledger.add_transaction(Transaction(id_=3, account=self.a, amount=D('12.34'), txn_date=date(2017, 8, 5), payee='Burger King'))
+        ledger = Ledger(account=self.checking)
+        splits = {self.checking: '12.34', self.savings: '-12.34'}
+        ledger.add_transaction(Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5), payee='McDonalds'))
+        ledger.add_transaction(Transaction(id_=2, splits=splits, txn_date=date(2017, 8, 5), payee='Burger King'))
+        ledger.add_transaction(Transaction(id_=3, splits=splits, txn_date=date(2017, 8, 5), payee='Burger King'))
         self.assertEqual(ledger.get_payees(), ['Burger King', 'McDonalds'])
 
 
