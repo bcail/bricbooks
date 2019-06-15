@@ -168,7 +168,10 @@ class Transaction:
     def splits_from_user_info(account, deposit, withdrawal, input_categories):
         splits = {}
         categories = {}
-        amount = Decimal(deposit or withdrawal)
+        try:
+            amount = Decimal(deposit or withdrawal)
+        except InvalidOperation:
+            raise InvalidTransactionError('invalid deposit/withdrawal')
         if isinstance(input_categories, Account):
             categories[input_categories] = amount
         if isinstance(input_categories, dict):
@@ -198,7 +201,6 @@ class Transaction:
         self.splits = self._check_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
-        #self.categories = self._check_categories(categories)
         self.payee = payee
         self.description = description
         self.status = status
@@ -313,17 +315,14 @@ class Transaction:
                 'categories': self._categories_display(main_account=account),
             }
 
-    def update_from_user_strings(self, debit=None, credit=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
-        if debit:
-            self.amount = self._check_amount('-%s' % debit)
-        elif credit:
-            self.amount = self._check_amount(credit)
+    def update_from_user_info(self, account=None, deposit=None, withdrawal=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
+        if deposit or withdrawal:
+            splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
+            self.splits = self._check_splits(splits)
         if txn_date is not None:
             self.txn_date = self._check_txn_date(txn_date)
         if txn_type is not None:
             self.txn_type = txn_type
-        if categories is not None:
-            self.categories = self._check_categories(categories)
         if payee is not None:
             self.payee = payee
         if description is not None:

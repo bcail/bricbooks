@@ -292,76 +292,57 @@ class TestTransaction(unittest.TestCase):
 
     def test_update_values(self):
         t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
                 txn_type='BP',
                 payee='Wendys',
                 description='salad',
             )
-        t.update_from_user_strings(
+        t.update_from_user_info(
                 txn_type='1234',
                 txn_date='2017-10-15',
-                credit='45',
             )
         self.assertEqual(t.txn_type, '1234')
-        self.assertEqual(t.amount, D('45'))
         self.assertEqual(t.payee, 'Wendys')
         self.assertEqual(t.txn_date, date(2017, 10, 15))
 
-    def test_update_values_categories(self):
-        c = Category('Cat')
-        c2 = Category('Dog')
-        t = Transaction(
-                account=self.a,
-                amount=D('101'),
-                txn_date=date.today(),
-            )
-        t.update_from_user_strings(
-                categories=[[c, '50'], [c2, '51']]
-            )
-        self.assertEqual(t.categories, [(c, D(50)), (c2, D(51))])
-
     def test_update_values_make_it_empty(self):
         t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
                 txn_type='1234',
                 payee='Arbys',
                 description='roast beef',
             )
-        t.update_from_user_strings(credit='101', payee='')
+        t.update_from_user_info(payee='')
         self.assertEqual(t.payee, '')
 
     def test_update_values_errors(self):
         t = Transaction(
-                account=self.a,
-                amount=D('101'),
+                splits=self.valid_splits,
                 txn_date=date.today(),
                 txn_type='1234',
                 payee='Cracker Barrel',
                 description='meal',
             )
-        with self.assertRaises(InvalidTransactionError):
-            t.update_from_user_strings(credit='ab')
-        with self.assertRaises(InvalidTransactionError):
-            t.update_from_user_strings(txn_date='ab')
-        c = Category('Cat')
-        c2 = Category('Dog')
-        with self.assertRaises(InvalidTransactionError):
-            t.update_from_user_strings(categories=[(c, D('55')), (c2, D('56'))])
+        with self.assertRaises(InvalidTransactionError) as cm:
+            t.update_from_user_info(account=self.checking, deposit='ab')
+        self.assertEqual(str(cm.exception), 'invalid deposit/withdrawal')
+        with self.assertRaises(InvalidTransactionError) as cm:
+            t.update_from_user_info(txn_date='ab')
+        self.assertEqual(str(cm.exception), 'invalid txn_date')
 
-    def test_update_values_debit_credit(self):
+    def test_update_values_deposit_withdrawal(self):
         t = Transaction(
-                account=self.a,
-                amount='101',
+                splits=self.valid_splits,
                 txn_date=date.today(),
             )
-        t.update_from_user_strings(debit='50')
-        self.assertEqual(t.amount, D('-50'))
-        t.update_from_user_strings(credit='25')
-        self.assertEqual(t.amount, D('25'))
+        t.update_from_user_info(account=self.savings, withdrawal='50', categories=self.checking)
+        self.assertEqual(t.splits,
+                {self.checking: D(50), self.savings: D('-50')})
+        t.update_from_user_info(account=self.savings, deposit='25', categories=self.checking)
+        self.assertEqual(t.splits,
+                {self.checking: D('-25'), self.savings: D(25)})
 
 
 class TestLedger(unittest.TestCase):
