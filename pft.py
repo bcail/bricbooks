@@ -89,8 +89,6 @@ def get_date(val):
 class Account:
 
     def __init__(self, id_=None, type_=None, name=None, starting_balance=None):
-        if not id_:
-            raise InvalidAccountError('Account must have an id')
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -104,7 +102,10 @@ class Account:
         return self.name
 
     def __eq__(self, other_account):
-        return self.id == other_account.id
+        if self.id and other_account.id:
+            return self.id == other_account.id
+        else:
+            raise InvalidAccountError("Can't compare accounts without an id")
 
     def __hash__(self):
         return self.id
@@ -488,8 +489,8 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER, user_id TEXT)')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, account_id INTEGER, txn_type TEXT, txn_date TEXT, payee TEXT, amount TEXT, description TEXT, status TEXT)')
-        conn.execute('CREATE TABLE txn_categories (id INTEGER PRIMARY KEY, txn_id INTEGER, category_id INTEGER, amount TEXT)')
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
+        conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, type, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
@@ -601,20 +602,19 @@ class SQLiteStorage:
 
     def save_txn(self, txn):
         c = self._db_connection.cursor()
-        if not txn.account.id:
-            self.save_account(txn.account)
         if txn.id:
-            c.execute('UPDATE transactions SET account_id = ?, txn_type = ?, txn_date = ?, payee = ?, amount = ?, description = ?, status = ? WHERE id = ?',
-                (txn.account.id, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, str(txn.amount), txn.description, txn.status, txn.id))
+            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee = ?, description = ?, status = ? WHERE id = ?',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status, txn.id))
         else:
-            c.execute('INSERT INTO transactions(account_id, txn_type, txn_date, payee, amount, description, status) VALUES(?, ?, ?, ?, ?, ?, ?)',
-                (txn.account.id, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, str(txn.amount), txn.description, txn.status))
+            c.execute('INSERT INTO transactions(txn_type, txn_date, payee, description, status) VALUES(?, ?, ?, ?, ?)',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status))
             txn.id = c.lastrowid
         #always delete any previous categories
-        c.execute('DELETE FROM txn_categories WHERE txn_id = ?', (txn.id,))
-        if txn.categories:
-            for category in txn.categories:
-                c.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES(?, ?, ?)', (txn.id, category[0].id, str(category[1])))
+        c.execute('DELETE FROM txn_splits WHERE txn_id = ?', (txn.id,))
+        for account, amount in txn.splits.items():
+            if not account.id:
+                self.save_account(account)
+            c.execute('INSERT INTO txn_splits(txn_id, account_id, amount) VALUES(?, ?, ?)', (txn.id, account.id, str(amount)))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
