@@ -208,7 +208,7 @@ class Transaction:
         self.id = id_
 
     def __str__(self):
-        return '%s: %s' % (self.id, self.amount)
+        return '%s: %s' % (self.id, self.txn_date)
 
     def _check_splits(self, input_splits):
         if not input_splits or len(input_splits.items()) < 2:
@@ -586,19 +586,23 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, account_id, txn_type, txn_date, payee, amount, description, status = db_info
+        id_, txn_type, txn_date, payee, description, status = db_info
         txn_date = get_date(txn_date)
-        amount = Decimal(amount)
-        account = self.get_account(account_id)
-        c = self._db_connection.cursor()
-        categories = []
-        category_records = c.execute('SELECT category_id, amount FROM txn_categories WHERE txn_id = ?', (id_,))
-        if category_records:
-            for cat_record in category_records:
-                cat_id = cat_record[0]
-                category = self.get_category(cat_id)
-                categories.append((category, Decimal(cat_record[1])))
-        return Transaction(account=account, amount=amount, txn_date=txn_date, txn_type=txn_type, categories=categories, payee=payee, description=description, status=status, id_=id_)
+        cursor = self._db_connection.cursor()
+        splits = {}
+        split_records = cursor.execute('SELECT account_id, amount FROM txn_splits WHERE txn_id = ?', (id_,))
+        if split_records:
+            for split_record in split_records:
+                account_id = split_record[0]
+                account = self.get_account(account_id)
+                splits[account] = split_record[1]
+        return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, status=status, id_=id_)
+
+    def get_txn(self, txn_id):
+        cursor = self._db_connection.cursor()
+        cursor.execute('SELECT * FROM transactions WHERE id = ?', (txn_id,))
+        db_info = cursor.fetchone()
+        return self._txn_from_db_record(db_info=db_info)
 
     def save_txn(self, txn):
         c = self._db_connection.cursor()
@@ -609,7 +613,7 @@ class SQLiteStorage:
             c.execute('INSERT INTO transactions(txn_type, txn_date, payee, description, status) VALUES(?, ?, ?, ?, ?)',
                 (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status))
             txn.id = c.lastrowid
-        #always delete any previous categories
+        #always delete any previous splits
         c.execute('DELETE FROM txn_splits WHERE txn_id = ?', (txn.id,))
         for account, amount in txn.splits.items():
             if not account.id:
@@ -618,13 +622,15 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
+        self._db_connection.execute('DELETE FROM txn_splits WHERE txn_id = ?', (txn_id,))
         self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
-    def load_txns_into_ledger(self, account_id, ledger):
-        db_txn_records = self._db_connection.execute('SELECT * FROM transactions WHERE account_id = ?', (account_id,)).fetchall()
-        for db_txn in db_txn_records:
-            txn = self._txn_from_db_record(db_info=db_txn)
+    def load_txns_into_ledger(self, ledger):
+        db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM txn_splits WHERE account_id = ?', (ledger.account.id,)).fetchall()
+        txn_ids = set([r[0] for r in db_txn_id_records])
+        for txn_id in txn_ids:
+            txn = self.get_txn(txn_id)
             ledger.add_transaction(txn)
 
     def save_budget(self, budget):
