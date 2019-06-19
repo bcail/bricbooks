@@ -1231,5 +1231,20 @@ class TestLoadTestData(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--no-gui', dest='no_gui', action='store_true')
+    args = parser.parse_args()
+    if args.no_gui:
+        suite = unittest.TestSuite()
+        suite.addTest(unittest.makeSuite(TestAccount, 'test'))
+        suite.addTest(unittest.makeSuite(TestTransaction, 'test'))
+        suite.addTest(unittest.makeSuite(TestLedger, 'test'))
+        suite.addTest(unittest.makeSuite(TestBudget, 'test'))
+        suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
+        suite.addTest(unittest.makeSuite(TestLoadTestData, 'test'))
+        runner = unittest.TextTestRunner()
+        runner.run(suite)
+    else:
+        unittest.main()
 
