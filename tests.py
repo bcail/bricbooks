@@ -32,10 +32,10 @@ from pft import (
 import load_test_data
 
 
-def get_test_account(id_=None, name=None):
+def get_test_account(id_=None, name=None, type_=pft.AccountType.ASSET):
     if not name:
         name = 'Checking'
-    return Account(id_=id_, type_=pft.AccountType.ASSET, name=name, starting_balance=D(100))
+    return Account(id_=id_, type_=type_, name=name, starting_balance=D(100))
 
 
 class TestUtils(unittest.TestCase):
@@ -345,7 +345,7 @@ class TestTransaction(unittest.TestCase):
 class TestLedger(unittest.TestCase):
 
     def setUp(self):
-        self.checking = get_test_account()
+        self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
 
     def test_init(self):
@@ -570,23 +570,30 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Checking', str(D(100))))
         account_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
-        self.assertEqual(account.type, pft.AccountType.ASSET)
+        self.assertEqual(account.type, pft.AccountType.EXPENSE)
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.starting_balance, D(100))
 
     def test_get_accounts(self):
         storage = SQLiteStorage(':memory:')
-        c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Checking', str(D(100))))
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.ASSET.value, 'Savings', str(D(1000))))
+        checking = get_test_account()
+        storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        storage.save_account(savings)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
         accounts = storage.get_accounts()
-        self.assertEqual(len(accounts), 2)
+        self.assertEqual(len(accounts), 3)
         self.assertEqual(accounts[0].name, 'Checking')
         self.assertEqual(accounts[1].name, 'Savings')
+        self.assertEqual(accounts[2].name, 'Housing')
+        accounts = storage.get_accounts(type_=pft.AccountType.EXPENSE)
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0].name, 'Housing')
 
     def test_save_category(self):
         storage = SQLiteStorage(':memory:')
@@ -666,72 +673,6 @@ class TestSQLiteStorage(unittest.TestCase):
         categories = storage.get_child_categories(parent=c2)
         self.assertEqual(len(categories), 1)
         self.assertEqual(categories[0].name, 'Base Salary')
-
-    def test_delete_category(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        storage.delete_category(c.id)
-        records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
-        self.assertEqual(records, [])
-
-    def test_delete_category_with_txn(self):
-        storage = SQLiteStorage(':memory:')
-        a = get_test_account()
-        storage.save_account(a)
-        c = Category(name='Housing')
-        storage.save_category(c)
-        t = Transaction(
-                account=a,
-                amount=D('-101'),
-                txn_date=date.today(),
-                categories=[c],
-            )
-        storage.save_txn(t)
-        with self.assertRaises(SQLiteStorageError) as cm:
-            storage.delete_category(c.id)
-        self.assertEqual(str(cm.exception), 'category has transactions')
-
-    #def test_txn_from_db(self):
-    #    storage = SQLiteStorage(':memory:')
-    #    checking = get_test_account()
-    #    savings = get_test_account(name='Savings')
-    #    storage.save_account(checking)
-    #    storage.save_account(savings)
-    #    c = storage._db_connection.cursor()
-    #    c.execute('INSERT INTO transactions(txn_type, txn_date, payee, description, status) VALUES (?, ?, ?, ?, ?)',
-    #            ('1234', '2017-01-25', 'Burger King', 'inv #1', Transaction.CLEARED))
-    #    txn_id = c.lastrowid
-    #    c.execute('INSERT INTO txn_splits(txn_id, account_id, amount) VALUES (?, ?, ?)', (txn_id, checking.id, '-50'))
-    #    c.execute('INSERT INTO txn_splits(txn_id, account_id, amount) VALUES (?, ?, ?)', (txn_id, savings.id, '50'))
-    #    c.execute('SELECT * FROM transactions')
-    #    db_info = c.fetchone()
-    #    txn = storage._txn_from_db_record(db_info=db_info)
-    #    self.assertEqual(txn.id, 1)
-    #    self.assertEqual(txn.account.name, 'Checking')
-    #    self.assertEqual(txn.txn_type, '1234')
-    #    self.assertEqual(txn.txn_date, date(2017, 1, 25))
-    #    self.assertEqual(txn.payee, 'Burger King')
-    #    self.assertEqual(txn.amount, D('101.00'))
-    #    self.assertEqual(txn.description, 'inv #1')
-    #    self.assertEqual(txn.status, 'C')
-    #    self.assertEqual(txn.categories[0][0].name, 'Cat')
-    #    self.assertEqual(txn.categories[0][1], D('50'))
-
-    #def test_sparse_txn_from_db(self):
-    #    storage = SQLiteStorage(':memory:')
-    #    a = get_test_account()
-    #    storage.save_account(a)
-    #    c = storage._db_connection.cursor()
-    #    c.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-    #            (a.id, '2017-01-25', '101.00'))
-    #    c.execute('SELECT * FROM transactions')
-    #    db_info = c.fetchone()
-    #    txn = storage._txn_from_db_record(db_info=db_info)
-    #    self.assertEqual(txn.id, 1)
-    #    self.assertEqual(txn.txn_date, date(2017, 1, 25))
-    #    self.assertEqual(txn.amount, D('101.00'))
-    #    self.assertEqual(txn.categories, [])
 
     def test_txn_to_db(self):
         storage = SQLiteStorage(':memory:')
@@ -931,47 +872,35 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_get_budget(self):
         storage = SQLiteStorage(':memory:')
+        checking = get_test_account()
+        storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        storage.save_account(savings)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        storage.save_account(food)
+        transportation = get_test_account(type_=pft.AccountType.EXPENSE, name='Transportation')
+        storage.save_account(transportation)
+        txn1 = Transaction(txn_date=date(2017, 1, 25),
+                splits={checking: '-101', housing: '101'})
+        txn2 = Transaction(txn_date=date(2017, 2, 28),
+                splits={checking: '-46.23', food: '46.23'})
+        txn3 = Transaction(txn_date=date(2017, 3, 28),
+                splits={savings: '-56.23', food: '56.23'})
+        txn4 = Transaction(txn_date=date(2017, 4, 28),
+                splits={checking: '-15', savings: 15})
+        txn5 = Transaction(txn_date=date(2017, 5, 28),
+                splits={checking: 15, food: '-15'})
         cursor = storage._db_connection.cursor()
-        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Housing', 1))
-        c_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Food', 1))
-        c2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO categories (name, is_expense) VALUES (?, ?)', ('Transportation', 1))
-        c3_id = cursor.lastrowid
-        cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Checking', '1000'))
-        account_id = cursor.lastrowid
-        cursor.execute('INSERT INTO accounts(name, starting_balance) values (?, ?)', ('Saving', '1000'))
-        account2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account_id, '2017-01-25', '-101', ))
-        txn_id = cursor.lastrowid
-        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account_id, '2017-02-28', '-46.23'))
-        txn2_id = cursor.lastrowid
-        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account2_id, '2017-03-28', '-56.23'))
-        txn3_id = cursor.lastrowid
-        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account_id, '2017-04-28', '-15'))
-        txn4_id = cursor.lastrowid
-        cursor.execute('INSERT INTO transactions(account_id, txn_date, amount) values (?, ?, ?)',
-                (account_id, '2017-05-28', '15'))
-        txn5_id = cursor.lastrowid
-        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn_id, c_id, str(D('-101'))))
-        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn2_id, c2_id, str(D('-46.23'))))
-        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn3_id, c2_id, str(D('-56.23'))))
-        cursor.execute('INSERT INTO txn_categories(txn_id, category_id, amount) VALUES (?, ?, ?)', (txn5_id, c2_id, str(D('15'))))
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, c_id, '135', 'hello'))
-        cursor.execute('INSERT INTO budget_values (budget_id, category_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, c2_id, '70', '15'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135', 'hello'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70', '15'))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.start_date, date(2018, 1, 1))
         self.assertEqual(budget.end_date, date(2018, 12, 31))
-        housing = storage.get_category(c_id)
-        food = storage.get_category(c2_id)
-        transportation = storage.get_category(c3_id)
 
         report_display = budget.get_report_display()['expense']
         self.assertEqual(report_display[housing]['amount'], '135')

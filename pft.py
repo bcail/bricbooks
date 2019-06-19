@@ -417,14 +417,14 @@ class Budget:
         if self._income_spending_info is None:
             raise BudgetError('must pass in income_spending_info to get the report display')
         report = {'expense': {}, 'income': {}}
-        for category, budget_info in self._budget_data.items():
+        for account, budget_info in self._budget_data.items():
             report_info = {}
             report_info.update(budget_info)
-            report_info.update(self._income_spending_info.get(category, {}))
+            report_info.update(self._income_spending_info.get(account, {}))
             if 'amount' in report_info:
                 carryover = report_info.get('carryover', Decimal(0))
                 income = report_info.get('income', Decimal(0))
-                if category.is_expense:
+                if account.type == AccountType.EXPENSE:
                     report_info['total_budget'] = report_info['amount'] + carryover + income
                     spent = report_info.get('spent', Decimal(0))
                     report_info['remaining'] = report_info['total_budget'] - spent
@@ -441,21 +441,21 @@ class Budget:
                 report_info['amount'] = ''
                 report_info['total_budget'] = ''
                 report_info['remaining'] = ''
-                if category.is_expense:
+                if account.type == AccountType.EXPENSE:
                     report_info['percent_available'] = ''
                 else:
                     report_info['percent'] = ''
-            if category.is_expense:
+            if account.type == AccountType.EXPENSE:
                 if 'carryover' not in report_info:
                     report_info['carryover'] = ''
                 if 'spent' not in report_info:
                     report_info['spent'] = ''
             if 'income' not in report_info:
                 report_info['income'] = ''
-            if category.is_expense:
-                report['expense'][category] = report_info
+            if account.type == AccountType.EXPENSE:
+                report['expense'][account] = report_info
             else:
-                report['income'][category] = report_info
+                report['income'][account] = report_info
             for key in report_info.keys():
                 if report_info[key] == Decimal(0):
                     report_info[key] = ''
@@ -487,7 +487,7 @@ class SQLiteStorage:
         conn = self._db_connection
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, name TEXT, starting_balance TEXT)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
-        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, category_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
+        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER, user_id TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
@@ -511,8 +511,11 @@ class SQLiteStorage:
             account.id = c.lastrowid
         self._db_connection.commit()
 
-    def get_accounts(self):
-        db_records = self._db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
+    def get_accounts(self, type_=None):
+        if type_:
+            db_records = self._db_connection.execute('SELECT id FROM accounts WHERE type = ? ORDER BY id', (type_.value,)).fetchall()
+        else:
+            db_records = self._db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
         accounts = []
         for r in db_records:
             accounts.append(self.get_account(r[0]))
@@ -656,21 +659,19 @@ class SQLiteStorage:
         records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         start_date = get_date(records[0][0])
         end_date = get_date(records[0][1])
-        all_category_budget_info = {}
+        all_expense_budget_info = {}
         all_income_spending_info = {}
-        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY id').fetchall()
-        if not category_records:
-            raise Exception('found no categories in DB')
-        for cat_record in category_records:
-            cat_id = cat_record[0]
-            category = self.get_category(cat_id)
-            all_category_budget_info[category] = {}
-            all_income_spending_info[category] = {}
+        expense_accounts = self.get_accounts(type_=AccountType.EXPENSE)
+        if not expense_accounts:
+            raise Exception('found no expense accounts in DB')
+        for expense_account in expense_accounts:
+            all_expense_budget_info[expense_account] = {}
+            all_income_spending_info[expense_account] = {}
             #get spent & income values for each category
             spent = Decimal(0)
             income = Decimal(0)
-            txn_category_records = self._db_connection.execute('SELECT amount FROM txn_categories WHERE category_id = ?', (cat_id,)).fetchall()
-            for record in txn_category_records:
+            txn_splits_records = self._db_connection.execute('SELECT amount FROM txn_splits WHERE account_id = ?', (expense_account.id,)).fetchall()
+            for record in txn_splits_records:
                 amt = Decimal(record[0])
                 if amt > Decimal(0):
                     income += amt
@@ -679,22 +680,22 @@ class SQLiteStorage:
             #spent value should be positive, even though it's negative values in the DB
             if spent:
                 spent = spent * Decimal(-1)
-            all_income_spending_info[category]['spent'] = spent
-            all_income_spending_info[category]['income'] = income
-            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND category_id = ?', (budget_id, cat_id)).fetchall()
+            all_income_spending_info[expense_account]['spent'] = spent
+            all_income_spending_info[expense_account]['income'] = income
+            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, expense_account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                all_category_budget_info[category]['amount'] = Decimal(r[0])
+                all_expense_budget_info[expense_account]['amount'] = Decimal(r[0])
                 if r[1]:
-                    all_category_budget_info[category]['carryover'] = Decimal(r[1])
+                    all_expense_budget_info[expense_account]['carryover'] = Decimal(r[1])
                 else:
-                    all_category_budget_info[category]['carryover'] = Decimal(0)
+                    all_expense_budget_info[expense_account]['carryover'] = Decimal(0)
                 if r[2]:
-                    all_category_budget_info[category]['notes'] = r[2]
+                    all_expense_budget_info[expense_account]['notes'] = r[2]
             else:
-                all_category_budget_info[category]['budget'] = Decimal(0)
-                all_category_budget_info[category]['carryover'] = Decimal(0)
-        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, category_budget_info=all_category_budget_info,
+                all_expense_budget_info[expense_account]['budget'] = Decimal(0)
+                all_expense_budget_info[expense_account]['carryover'] = Decimal(0)
+        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, category_budget_info=all_expense_budget_info,
                 income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
