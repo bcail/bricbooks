@@ -50,11 +50,16 @@ class TestUtils(unittest.TestCase):
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
-        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=D('100'))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking', starting_balance=D('100'))
         self.assertEqual(a.type, pft.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.starting_balance, D('100'))
         self.assertEqual(a.parent, None)
+        self.assertEqual(a.user_id, '400')
+
+    def test_str(self):
+        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking', starting_balance=D('100'))
+        self.assertEqual(str(a), '400 - Checking')
 
     def test_expense(self):
         a = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Food')
@@ -564,7 +569,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = SQLiteStorage(':memory:')
         assets = Account(type_=pft.AccountType.ASSET, name='All Assets', starting_balance=100)
         storage.save_account(assets)
-        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100), parent=assets)
+        checking = Account(type_=pft.AccountType.ASSET, user_id='4010', name='Checking', starting_balance=D(100), parent=assets)
         storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -573,24 +578,25 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, pft.AccountType.ASSET.value, 'Checking', '100', assets.id))
+                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', '100', assets.id))
         savings = Account(id_=checking.id, type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(200))
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, pft.AccountType.ASSET.value, 'Savings', '200', None)])
+                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', '200', None)])
 
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, user_id, name, starting_balance) VALUES (?, ?, ?, ?)', (pft.AccountType.EXPENSE.value, '4010', 'Checking', str(D(100))))
         account_id = c.lastrowid
         c.execute('INSERT INTO accounts(type, name, starting_balance, parent_id) VALUES (?, ?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Sub-Checking', str(D(100)), account_id))
         sub_checking_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
         self.assertEqual(account.type, pft.AccountType.EXPENSE)
+        self.assertEqual(account.user_id, '4010')
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.starting_balance, D(100))
         self.assertEqual(account.parent, None)
