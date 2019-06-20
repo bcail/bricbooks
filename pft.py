@@ -88,7 +88,7 @@ def get_date(val):
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, name=None, starting_balance=None):
+    def __init__(self, id_=None, type_=None, name=None, starting_balance=None, parent=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -97,6 +97,7 @@ class Account:
         self.type = self._check_type(type_)
         self.name = name
         self.starting_balance = self._check_starting_balance(starting_balance)
+        self.parent = parent
 
     def __str__(self):
         return self.name
@@ -105,6 +106,8 @@ class Account:
         return '%s - %s' % (self.type, self.name)
 
     def __eq__(self, other_account):
+        if not other_account:
+            return False
         if self.id and other_account.id:
             return self.id == other_account.id
         else:
@@ -491,7 +494,7 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, name TEXT, starting_balance TEXT)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, name TEXT, starting_balance TEXT, parent_id INTEGER)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER, user_id TEXT)')
@@ -499,21 +502,30 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
-        account_info = self._db_connection.execute('SELECT id, type, name, starting_balance FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        account_info = self._db_connection.execute('SELECT id, type, name, starting_balance, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        parent = None
+        if account_info[4]:
+            parent = self.get_account(account_info[4])
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
                 name=account_info[2],
-                starting_balance=Decimal(account_info[3])
+                starting_balance=Decimal(account_info[3]),
+                parent=parent,
             )
 
     def save_account(self, account):
         c = self._db_connection.cursor()
+        parent_id = None
+        if account.parent:
+            if not account.parent.id:
+                self.save_account(account.parent)
+            parent_id = account.parent.id
         if account.id:
-            c.execute('UPDATE accounts SET type = ?, name = ?, starting_balance = ?  WHERE id = ?',
-                    (account.type.value, account.name, str(account.starting_balance), account.id))
+            c.execute('UPDATE accounts SET type = ?, name = ?, starting_balance = ?, parent_id = ? WHERE id = ?',
+                    (account.type.value, account.name, str(account.starting_balance), parent_id, account.id))
         else:
-            c.execute('INSERT INTO accounts(type, name, starting_balance) VALUES(?, ?, ?)', (account.type.value, account.name, str(account.starting_balance)))
+            c.execute('INSERT INTO accounts(type, name, starting_balance, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.name, str(account.starting_balance), parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
