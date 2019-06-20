@@ -101,6 +101,9 @@ class Account:
     def __str__(self):
         return self.name
 
+    def __repr__(self):
+        return '%s - %s' % (self.type, self.name)
+
     def __eq__(self, other_account):
         if self.id and other_account.id:
             return self.id == other_account.id
@@ -116,6 +119,9 @@ class Account:
         return type_
 
     def _check_starting_balance(self, starting_balance):
+        if self.type in [AccountType.EXPENSE, AccountType.INCOME]:
+            if starting_balance is None:
+                return None
         if isinstance(starting_balance, Decimal):
             return starting_balance
         elif isinstance(starting_balance, (int, str)):
@@ -382,7 +388,7 @@ class Budget:
     def round_percent_available(percent):
         return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
 
-    def __init__(self, year=None, start_date=None, end_date=None, category_budget_info=None, id_=None, income_spending_info=None):
+    def __init__(self, year=None, start_date=None, end_date=None, account_budget_info=None, id_=None, income_spending_info=None):
         if start_date and end_date:
             self.start_date = get_date(start_date)
             self.end_date = get_date(end_date)
@@ -392,7 +398,7 @@ class Budget:
         else:
             raise BudgetError('must pass in dates')
         self._budget_data = {}
-        for category, info in category_budget_info.items():
+        for account, info in account_budget_info.items():
             keep_info = {}
             for key, value in info.items():
                 if value == '':
@@ -403,7 +409,7 @@ class Budget:
                     keep_info[key] = Decimal(value)
                 else:
                     keep_info[key] = value
-            self._budget_data[category] = keep_info
+            self._budget_data[account] = keep_info
         self.id = id_
         self._income_spending_info = income_spending_info
 
@@ -644,14 +650,14 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
             budget.id = c.lastrowid
-        for cat, info in budget.get_budget_data().items():
+        for account, info in budget.get_budget_data().items():
             if info:
-                if not cat.id:
-                    self.save_category(cat)
+                if not account.id:
+                    self.save_account(account)
                 carryover = str(info.get('carryover', ''))
                 notes = info.get('notes', '')
-                values = (budget.id, cat.id, str(info['amount']), carryover, notes)
-                c.execute('INSERT INTO budget_values(budget_id, category_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+                values = (budget.id, account.id, str(info['amount']), carryover, notes)
+                c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
@@ -661,41 +667,40 @@ class SQLiteStorage:
         end_date = get_date(records[0][1])
         all_expense_budget_info = {}
         all_income_spending_info = {}
-        expense_accounts = self.get_accounts(type_=AccountType.EXPENSE)
-        if not expense_accounts:
-            raise Exception('found no expense accounts in DB')
-        for expense_account in expense_accounts:
-            all_expense_budget_info[expense_account] = {}
-            all_income_spending_info[expense_account] = {}
-            #get spent & income values for each category
+        income_and_expense_accounts = self.get_accounts(type_=AccountType.EXPENSE)
+        income_and_expense_accounts.extend(self.get_accounts(type_=AccountType.INCOME))
+        if not income_and_expense_accounts:
+            raise Exception('found no income/expense accounts in DB')
+        for account in income_and_expense_accounts:
+            all_expense_budget_info[account] = {}
+            all_income_spending_info[account] = {}
+            #get spent & income values for each expense account
             spent = Decimal(0)
             income = Decimal(0)
-            txn_splits_records = self._db_connection.execute('SELECT amount FROM txn_splits WHERE account_id = ?', (expense_account.id,)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT amount FROM txn_splits WHERE account_id = ?', (account.id,)).fetchall()
             for record in txn_splits_records:
                 amt = Decimal(record[0])
-                if amt > Decimal(0):
-                    income += amt
-                else:
-                    spent += amt
-            #spent value should be positive, even though it's negative values in the DB
-            if spent:
-                spent = spent * Decimal(-1)
-            all_income_spending_info[expense_account]['spent'] = spent
-            all_income_spending_info[expense_account]['income'] = income
-            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, expense_account.id)).fetchall()
+                if account.type == AccountType.EXPENSE:
+                    if amt < Decimal(0):
+                        income += amt * Decimal(-1)
+                    else:
+                        spent += amt
+            all_income_spending_info[account]['spent'] = spent
+            all_income_spending_info[account]['income'] = income
+            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                all_expense_budget_info[expense_account]['amount'] = Decimal(r[0])
+                all_expense_budget_info[account]['amount'] = Decimal(r[0])
                 if r[1]:
-                    all_expense_budget_info[expense_account]['carryover'] = Decimal(r[1])
+                    all_expense_budget_info[account]['carryover'] = Decimal(r[1])
                 else:
-                    all_expense_budget_info[expense_account]['carryover'] = Decimal(0)
+                    all_expense_budget_info[account]['carryover'] = Decimal(0)
                 if r[2]:
-                    all_expense_budget_info[expense_account]['notes'] = r[2]
+                    all_expense_budget_info[account]['notes'] = r[2]
             else:
-                all_expense_budget_info[expense_account]['budget'] = Decimal(0)
-                all_expense_budget_info[expense_account]['carryover'] = Decimal(0)
-        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, category_budget_info=all_expense_budget_info,
+                all_expense_budget_info[account]['budget'] = Decimal(0)
+                all_expense_budget_info[account]['carryover'] = Decimal(0)
+        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, account_budget_info=all_expense_budget_info,
                 income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
