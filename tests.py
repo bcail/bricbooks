@@ -591,7 +591,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c = storage._db_connection.cursor()
         c.execute('INSERT INTO accounts(type, user_id, name, starting_balance) VALUES (?, ?, ?, ?)', (pft.AccountType.EXPENSE.value, '4010', 'Checking', str(D(100))))
         account_id = c.lastrowid
-        c.execute('INSERT INTO accounts(type, name, starting_balance, parent_id) VALUES (?, ?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Sub-Checking', str(D(100)), account_id))
+        c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
@@ -602,6 +602,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(account.parent, None)
         sub_checking = storage.get_account(sub_checking_id)
         self.assertEqual(sub_checking.parent, account)
+        self.assertEqual(sub_checking.starting_balance, None)
 
     def test_get_accounts(self):
         storage = SQLiteStorage(':memory:')
@@ -1211,6 +1212,7 @@ class TestLoadTestData(unittest.TestCase):
     def test_load(self):
         storage = SQLiteStorage(':memory:')
         load_test_data._load_data(storage, many_txns=False)
+        accounts = storage.get_accounts()
 
 
 if __name__ == '__main__':

@@ -512,12 +512,18 @@ class SQLiteStorage:
         parent = None
         if account_info[5]:
             parent = self.get_account(account_info[5])
+        starting_balance = None
+        if account_info[4]:
+            try:
+                starting_balance = Decimal(account_info[4])
+            except InvalidOperation:
+                raise InvalidAccountError('invalid starting_balance value for account %s: %s - %s' % (account_id, type(account_info[4]), account_info[4]))
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
                 user_id=account_info[2],
                 name=account_info[3],
-                starting_balance=Decimal(account_info[4]),
+                starting_balance=starting_balance,
                 parent=parent,
             )
 
@@ -528,11 +534,14 @@ class SQLiteStorage:
             if not account.parent.id:
                 self.save_account(account.parent)
             parent_id = account.parent.id
+        starting_balance = None
+        if account.starting_balance:
+            starting_balance = str(account.starting_balance)
         if account.id:
             c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, starting_balance = ?, parent_id = ? WHERE id = ?',
-                    (account.type.value, account.user_id, account.name, str(account.starting_balance), parent_id, account.id))
+                    (account.type.value, account.user_id, account.name, starting_balance, parent_id, account.id))
         else:
-            c.execute('INSERT INTO accounts(type, user_id, name, starting_balance, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.user_id, account.name, str(account.starting_balance), parent_id))
+            c.execute('INSERT INTO accounts(type, user_id, name, starting_balance, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.user_id, account.name, starting_balance, parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
