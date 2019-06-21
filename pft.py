@@ -188,8 +188,10 @@ class Transaction:
             raise InvalidTransactionError('invalid deposit/withdrawal')
         if isinstance(input_categories, Account):
             categories[input_categories] = amount
-        if isinstance(input_categories, dict):
+        elif isinstance(input_categories, dict):
             categories = input_categories
+        else:
+            raise InvalidTransactionError('invalid input categories: %s' % input_categories)
         if deposit:
             splits[account] = deposit
             for key, value in categories.items():
@@ -1079,7 +1081,7 @@ class LedgerTxnsDisplay:
             for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
                 layout.removeWidget(widget)
                 widget.deleteLater()
-        tds = txn.get_display_strings()
+        tds = txn.get_display_strings_for_ledger(self.ledger.account)
         edit_function = partial(self._edit, txn_id=txn.id, layout=layout)
         type_label = QtWidgets.QLabel(tds['txn_type'])
         type_label.mousePressEvent = edit_function
@@ -1093,10 +1095,10 @@ class LedgerTxnsDisplay:
         categories_label.mousePressEvent = edit_function
         status_label = QtWidgets.QLabel(tds['status'])
         status_label.mousePressEvent = edit_function
-        credit_label = QtWidgets.QLabel(tds['credit'])
-        credit_label.mousePressEvent = edit_function
-        debit_label = QtWidgets.QLabel(tds['debit'])
-        debit_label.mousePressEvent = edit_function
+        deposit_label = QtWidgets.QLabel(tds['deposit'])
+        deposit_label.mousePressEvent = edit_function
+        withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
+        withdrawal_label.mousePressEvent = edit_function
         balance_label = QtWidgets.QLabel(str(txn.balance))
         balance_label.mousePressEvent = edit_function
         layout.addWidget(type_label, row, 0)
@@ -1105,8 +1107,8 @@ class LedgerTxnsDisplay:
         layout.addWidget(description_label, row, 3)
         layout.addWidget(categories_label, row, 4)
         layout.addWidget(status_label, row, 5)
-        layout.addWidget(debit_label, row, 6)
-        layout.addWidget(credit_label, row, 7)
+        layout.addWidget(withdrawal_label, row, 6)
+        layout.addWidget(deposit_label, row, 7)
         layout.addWidget(balance_label, row, 8)
         self.txn_display_data[txn.id] = {
                 'widgets': {
@@ -1117,8 +1119,8 @@ class LedgerTxnsDisplay:
                         'description': description_label,
                         'categories': categories_label,
                         'status': status_label,
-                        'credit': credit_label,
-                        'debit': debit_label,
+                        'deposit': deposit_label,
+                        'withdrawal': withdrawal_label,
                         'balance': balance_label
                     }
                 },
@@ -1190,8 +1192,8 @@ class LedgerDisplay:
         layout = QtWidgets.QGridLayout()
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
-        self.ledger = Ledger(starting_balance=self._current_account.starting_balance)
-        self.storage.load_txns_into_ledger(self._current_account.id, self.ledger)
+        self.ledger = Ledger(account=self._current_account)
+        self.storage.load_txns_into_ledger(self.ledger)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
@@ -1243,7 +1245,7 @@ class LedgerDisplay:
         txn_categories_display = TxnCategoriesDisplay(self.storage)
         layout.addWidget(txn_categories_display.get_widget(), row, 4)
         add_txn_widgets['categories_display'] = txn_categories_display
-        entry_names = ['status', 'debit', 'credit']
+        entry_names = ['status', 'withdrawal', 'deposit']
         column_index = 5
         for entry_name in entry_names:
             entry = QtWidgets.QLineEdit()
@@ -1262,13 +1264,13 @@ class LedgerDisplay:
         description = self.add_txn_widgets['entries']['description'].text()
         categories = self.add_txn_widgets['categories_display'].get_categories()
         status = self.add_txn_widgets['entries']['status'].text()
-        credit = self.add_txn_widgets['entries']['credit'].text()
-        debit = self.add_txn_widgets['entries']['debit'].text()
-        txn = Transaction.from_user_strings(
+        deposit = self.add_txn_widgets['entries']['deposit'].text()
+        withdrawal = self.add_txn_widgets['entries']['withdrawal'].text()
+        txn = Transaction.from_user_info(
                 account=self.storage.get_accounts()[0],
                 txn_type=txn_type,
-                credit=credit,
-                debit=debit,
+                deposit=deposit,
+                withdrawal=withdrawal,
                 txn_date=txn_date,
                 payee=payee,
                 description=description,

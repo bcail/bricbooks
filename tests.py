@@ -1034,20 +1034,22 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add(self):
         storage = SQLiteStorage(':memory:')
-        account = get_test_account()
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
-        txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
+        checking = get_test_account()
+        storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        storage.save_account(savings)
+        txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         ledger_display.add_txn_widgets['entries']['date'].setText('2017-01-05')
-        ledger_display.add_txn_widgets['entries']['debit'].setText('18')
+        ledger_display.add_txn_widgets['entries']['withdrawal'].setText('18')
         QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
-        ledger = Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, ledger)
+        ledger = Ledger(account=checking)
+        storage.load_txns_into_ledger(ledger)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].amount, D('-18'))
@@ -1177,52 +1179,6 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].amount, D(23))
-
-    def test_categories_add(self):
-        storage = SQLiteStorage(':memory:')
-        self.assertEqual(storage.get_categories(), [])
-        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
-        categories_display.get_widget()
-        QtTest.QTest.keyClicks(categories_display.name_entry, 'Housing')
-        QtTest.QTest.mouseClick(categories_display.add_button, QtCore.Qt.LeftButton)
-        self.assertEqual(storage.get_categories()[0].name, 'Housing')
-
-    def test_categories_add_user_id(self):
-        storage = SQLiteStorage(':memory:')
-        self.assertEqual(storage.get_categories(), [])
-        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
-        categories_display.get_widget()
-        categories_display.user_id_entry.setText('400')
-        categories_display.name_entry.setText('Housing')
-        QtTest.QTest.mouseClick(categories_display.add_button, QtCore.Qt.LeftButton)
-        cat = storage.get_categories()[0]
-        self.assertEqual(cat.name, 'Housing')
-        self.assertEqual(cat.user_id, '400')
-
-    def test_categories_edit(self):
-        storage = SQLiteStorage(':memory:')
-        cat = Category(name='Housing')
-        storage.save_category(cat)
-        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
-        categories_display.get_widget()
-        QtTest.QTest.mouseClick(categories_display.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
-        self.assertEqual(categories_display.data[cat.id]['entries']['name'].text(), 'Housing')
-        categories_display.data[cat.id]['entries']['user_id'].setText('400')
-        categories_display.data[cat.id]['entries']['name'].setText('Food')
-        QtTest.QTest.mouseClick(categories_display.data[cat.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
-        cat = storage.get_categories()[0]
-        self.assertEqual(cat.name, 'Food')
-        self.assertEqual(cat.user_id, '400')
-
-    def test_categories_delete(self):
-        storage = SQLiteStorage(':memory:')
-        cat = Category(name='Housing')
-        storage.save_category(cat)
-        categories_display = CategoriesDisplay(storage, reload_categories=fake_method)
-        categories_display.get_widget()
-        QtTest.QTest.mouseClick(categories_display.data[cat.id]['labels']['name'], QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(categories_display.data[cat.id]['buttons']['delete'], QtCore.Qt.LeftButton)
-        self.assertEqual(storage.get_categories(), [])
 
     def test_budget(self):
         storage = SQLiteStorage(':memory:')
