@@ -1042,10 +1042,10 @@ class LedgerTxnsDisplay:
         txn_categories_display = TxnAccountsDisplay(self.storage, txn=txn)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
-        credit_entry = QtWidgets.QLineEdit()
-        credit_entry.setText(widgets['labels']['credit'].text())
-        debit_entry = QtWidgets.QLineEdit()
-        debit_entry.setText(widgets['labels']['debit'].text())
+        deposit_entry = QtWidgets.QLineEdit()
+        deposit_entry.setText(widgets['labels']['deposit'].text())
+        withdrawal_entry = QtWidgets.QLineEdit()
+        withdrawal_entry.setText(widgets['labels']['withdrawal'].text())
         for widget in self.txn_display_data[txn_id]['widgets']['labels'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
@@ -1056,8 +1056,8 @@ class LedgerTxnsDisplay:
         layout.addWidget(description_entry, row, 3)
         layout.addWidget(txn_categories_display.get_widget(), row, 4)
         layout.addWidget(status_entry, row, 5)
-        layout.addWidget(debit_entry, row, 6)
-        layout.addWidget(credit_entry, row, 7)
+        layout.addWidget(withdrawal_entry, row, 6)
+        layout.addWidget(deposit_entry, row, 7)
         save_edit_button = QtWidgets.QPushButton('Save Edit')
         save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
         delete_button = QtWidgets.QPushButton('Delete')
@@ -1075,8 +1075,8 @@ class LedgerTxnsDisplay:
                 'description': description_entry,
                 'categories': txn_categories_display.get_widget(),
                 'status': status_entry,
-                'credit': credit_entry,
-                'debit': debit_entry,
+                'deposit': deposit_entry,
+                'withdrawal': withdrawal_entry,
             }
         self.txn_display_data[txn_id]['widgets']['buttons'] = {
                 'save_edit': save_edit_button,

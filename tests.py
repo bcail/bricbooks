@@ -1065,17 +1065,17 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_choose_account(self):
         storage = SQLiteStorage(':memory:')
-        account = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        account2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
-        storage.save_account(account)
-        storage.save_account(account2)
-        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
-        txn2 = Transaction(account=account2, amount=D(5), txn_date=date(2017, 1, 2))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        storage.save_account(checking)
+        storage.save_account(savings)
+        txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = LedgerDisplay(storage, show_ledger=fake_method, current_account=account2)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method, current_account=savings)
         ledger_display.get_widget()
-        self.assertEqual(ledger_display._current_account, account2)
+        self.assertEqual(ledger_display._current_account, savings)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 1)
         self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
 
@@ -1168,10 +1168,12 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
-        account = get_test_account()
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
-        txn2 = Transaction(account=account, amount=D(23), txn_date=date(2017, 1, 2))
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = Transaction(splits={checking: D(23), savings: D(-23)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
@@ -1179,11 +1181,11 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
-        ledger = Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, ledger)
+        ledger = Ledger(account=checking)
+        storage.load_txns_into_ledger(ledger)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].amount, D(23))
+        self.assertEqual(txns[0].splits[checking], D(23))
 
     def test_budget(self):
         storage = SQLiteStorage(':memory:')
