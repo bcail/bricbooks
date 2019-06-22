@@ -905,35 +905,35 @@ def set_ledger_column_widths(layout):
 
 class SplitTransactionEditor:
 
-    def __init__(self, all_categories, initial_txn_categories):
-        self._all_categories = all_categories
-        self._initial_txn_categories = initial_txn_categories
-        self._final_txn_categories = []
+    def __init__(self, all_accounts, initial_txn_splits):
+        self._all_accounts = all_accounts
+        self._initial_txn_splits = initial_txn_splits
+        self._final_txn_splits = []
         self._entries = {}
 
-    def _get_txn_categories(self, split_editor):
+    def _get_txn_splits(self, split_editor):
         for value in self._entries.values():
-            #value is amount_entry, category
+            #value is amount_entry, account
             text = value[0].text()
             if text:
-                self._final_txn_categories.append([value[1], text])
+                self._final_txn_splits.append([value[1], text])
         split_editor.accept()
 
     def _show_split_editor(self):
         split_editor = QtWidgets.QDialog()
         layout = QtWidgets.QGridLayout()
         row = 0
-        for cat in self._all_categories:
-            layout.addWidget(QtWidgets.QLabel(cat.name), row, 0)
+        for account in self._all_accounts:
+            layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
             amount_entry = QtWidgets.QLineEdit()
-            for txn_cat in self._initial_txn_categories:
-                if cat == txn_cat[0]:
-                    amount_entry.setText(str(txn_cat[1]))
-            self._entries[cat.id] = (amount_entry, cat)
+            for acc, amt in self._initial_txn_splits:
+                if acc == account:
+                    amount_entry.setText(str(amt))
+            self._entries[account.id] = (amount_entry, account)
             layout.addWidget(amount_entry, row, 1)
             row += 1
         ok_button = QtWidgets.QPushButton('Done')
-        ok_button.clicked.connect(partial(self._get_txn_categories, split_editor=split_editor))
+        ok_button.clicked.connect(partial(self._get_txn_splits, split_editor=split_editor))
         cancel_button = QtWidgets.QPushButton('Cancel')
         cancel_button.clicked.connect(split_editor.reject)
         layout.addWidget(ok_button, row, 0)
@@ -941,9 +941,9 @@ class SplitTransactionEditor:
         split_editor.setLayout(layout)
         split_editor.exec_()
 
-    def get_categories_for_split_transaction(self):
+    def get_txn_splits(self):
         self._show_split_editor()
-        return self._final_txn_categories
+        return self._final_txn_splits
 
 
 class LedgerTxnsDisplay:
@@ -1039,7 +1039,7 @@ class LedgerTxnsDisplay:
         payee_entry.setText(widgets['labels']['payee'].text())
         description_entry = QtWidgets.QLineEdit()
         description_entry.setText(widgets['labels']['description'].text())
-        txn_categories_display = TxnCategoriesDisplay(self.storage, txn=txn)
+        txn_categories_display = TxnAccountsDisplay(self.storage, txn=txn)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
         credit_entry = QtWidgets.QLineEdit()
@@ -1138,26 +1138,30 @@ class LedgerTxnsDisplay:
             }
 
 
-class TxnCategoriesDisplay:
+class TxnAccountsDisplay:
 
-    def __init__(self, storage, txn=None):
+    def __init__(self, storage, main_account=None, txn=None):
         self._storage = storage
+        self._main_account = main_account
         self._txn = txn
         layout = QtWidgets.QGridLayout()
         self._categories_combo = QtWidgets.QComboBox()
         self._categories_combo.addItem('---------', None)
         current_index = 0
         index = 0
-        for index, category in enumerate(self._storage.get_categories()):
-            #find correct category in the list if txn has a category
-            if txn and txn.categories and len(txn.categories) == 1:
-                if category == txn.categories[0][0]:
-                    current_index = index + 1
-            self._categories_combo.addItem(category.name, category)
+        accounts = self._storage.get_accounts()
+        for account in accounts:
+            if account != self._main_account:
+                #find correct account in the list if txn has just two splits
+                if txn and len(txn.splits.keys()) == 2:
+                    if account in txn.splits:
+                        current_index = index + 1
+                self._categories_combo.addItem(account.name, account)
+                index += 1
         self._multiple_entry_index = index + 2
         current_categories = []
-        if txn and txn.categories and len(txn.categories) > 1:
-            current_categories = txn.categories
+        if txn and len(txn.splits.keys()) > 2:
+            current_categories = txn.splits
             current_index = self._multiple_entry_index
         self._categories_combo.addItem('multiple', current_categories)
         self._categories_combo.setCurrentIndex(current_index)
@@ -1172,16 +1176,20 @@ class TxnCategoriesDisplay:
         self._widget.setLayout(layout)
 
     def _split_transactions(self):
-        initial_txn_categories = []
+        initial_txn_splits = {}
         if self._txn:
-            initial_txn_categories = self._txn.categories
-        editor = SplitTransactionEditor(self.storage.get_categories(), initial_txn_categories)
-        txn_categories = editor.get_categories_for_split_transaction()
+            initial_txn_splits = self._txn.splits
+        accounts = self._storage.get_accounts()
+        editor = SplitTransactionEditor(accounts, initial_txn_splits)
+        txn_splits = editor.get_txn_splits()
         self._categories_combo.setCurrentIndex(self._multiple_entry_index)
-        self._categories_combo.setItemData(self._multiple_entry_index, txn_categories)
+        self._categories_combo.setItemData(self._multiple_entry_index, txn_splits)
 
     def get_categories(self):
-        return self._categories_combo.currentData()
+        splits = self._categories_combo.currentData()
+        if isinstance(splits, dict):
+            splits.pop(self._main_account)
+        return splits
 
     def get_widget(self):
         return self._widget
@@ -1251,9 +1259,9 @@ class LedgerDisplay:
         description_entry = QtWidgets.QLineEdit()
         add_txn_widgets['entries']['description'] = description_entry
         layout.addWidget(description_entry, row, 3)
-        txn_categories_display = TxnCategoriesDisplay(self.storage)
-        layout.addWidget(txn_categories_display.get_widget(), row, 4)
-        add_txn_widgets['categories_display'] = txn_categories_display
+        txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self._current_account)
+        layout.addWidget(txn_accounts_display.get_widget(), row, 4)
+        add_txn_widgets['accounts_display'] = txn_accounts_display
         entry_names = ['status', 'withdrawal', 'deposit']
         column_index = 5
         for entry_name in entry_names:
@@ -1271,7 +1279,7 @@ class LedgerDisplay:
         txn_date = self.add_txn_widgets['entries']['date'].text()
         payee = self.add_txn_widgets['payee'].currentText()
         description = self.add_txn_widgets['entries']['description'].text()
-        categories = self.add_txn_widgets['categories_display'].get_categories()
+        categories = self.add_txn_widgets['accounts_display'].get_categories()
         status = self.add_txn_widgets['entries']['status'].text()
         deposit = self.add_txn_widgets['entries']['deposit'].text()
         withdrawal = self.add_txn_widgets['entries']['withdrawal'].text()
