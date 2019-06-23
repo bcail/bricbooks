@@ -231,6 +231,8 @@ class Transaction:
         splits = {}
         total = Decimal(0)
         for account, amount in input_splits.items():
+            if not account:
+                raise InvalidTransactionError('must have a valid account in splits')
             if isinstance(amount, Decimal):
                 decimal_amount = amount
             elif isinstance(amount, (int, str)):
@@ -1004,18 +1006,19 @@ class LedgerTxnsDisplay:
         txn_type = entries['type'].text()
         txn_date = entries['date'].text()
         payee = entries['payee'].text()
-        debit = entries['debit'].text()
-        credit = entries['credit'].text()
+        withdrawal = entries['withdrawal'].text()
+        deposit = entries['deposit'].text()
         description = entries['description'].text()
         status = entries['status'].text()
-        categories = self.txn_display_data[txn_id]['categories_display'].get_categories()
+        categories = self.txn_display_data[txn_id]['accounts_display'].get_categories()
         txn = self.ledger.get_txn(txn_id)
-        txn.update_from_user_strings(
+        txn.update_from_user_info(
+                account=self.ledger.account,
                 txn_type=txn_type,
                 txn_date=txn_date,
                 payee=payee,
-                debit=debit,
-                credit=credit,
+                withdrawal=withdrawal,
+                deposit=deposit,
                 description=description,
                 status=status,
                 categories=categories,
@@ -1039,7 +1042,7 @@ class LedgerTxnsDisplay:
         payee_entry.setText(widgets['labels']['payee'].text())
         description_entry = QtWidgets.QLineEdit()
         description_entry.setText(widgets['labels']['description'].text())
-        txn_categories_display = TxnAccountsDisplay(self.storage, txn=txn)
+        txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self.ledger.account, txn=txn)
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
         deposit_entry = QtWidgets.QLineEdit()
@@ -1054,7 +1057,7 @@ class LedgerTxnsDisplay:
         layout.addWidget(date_entry, row, 1)
         layout.addWidget(payee_entry, row, 2)
         layout.addWidget(description_entry, row, 3)
-        layout.addWidget(txn_categories_display.get_widget(), row, 4)
+        layout.addWidget(txn_accounts_display.get_widget(), row, 4)
         layout.addWidget(status_entry, row, 5)
         layout.addWidget(withdrawal_entry, row, 6)
         layout.addWidget(deposit_entry, row, 7)
@@ -1073,7 +1076,7 @@ class LedgerTxnsDisplay:
                 'date': date_entry,
                 'payee': payee_entry,
                 'description': description_entry,
-                'categories': txn_categories_display.get_widget(),
+                'categories': txn_accounts_display.get_widget(),
                 'status': status_entry,
                 'deposit': deposit_entry,
                 'withdrawal': withdrawal_entry,
@@ -1082,7 +1085,7 @@ class LedgerTxnsDisplay:
                 'save_edit': save_edit_button,
                 'delete': delete_button,
             }
-        self.txn_display_data[txn_id]['categories_display'] = txn_categories_display
+        self.txn_display_data[txn_id]['accounts_display'] = txn_accounts_display
 
     def _display_txn(self, txn, row, layout):
         #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
@@ -1433,8 +1436,8 @@ class BudgetDisplay:
         row_index = 1
         self.data = {}
         budget_report = self.budget.get_report_display()
-        for cat, info in budget_report['income'].items():
-            self.layout.addWidget(QtWidgets.QLabel(cat.name), row_index, 0)
+        for account, info in budget_report['income'].items():
+            self.layout.addWidget(QtWidgets.QLabel(account.name), row_index, 0)
             budget_label = QtWidgets.QLabel(info['amount'])
             self.layout.addWidget(budget_label, row_index, 1)
             self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
@@ -1446,11 +1449,11 @@ class BudgetDisplay:
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row_index'] = row_index
-            row_data['category'] = cat
-            self.data[cat.id] = row_data
+            row_data['account'] = account
+            self.data[account.id] = row_data
             row_index += 1
-        for cat, info in budget_report['expense'].items():
-            self.layout.addWidget(QtWidgets.QLabel(cat.name), row_index, 0)
+        for account, info in budget_report['expense'].items():
+            self.layout.addWidget(QtWidgets.QLabel(account.name), row_index, 0)
             budget_label = QtWidgets.QLabel(info['amount'])
             self.layout.addWidget(budget_label, row_index, 1)
             self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
@@ -1463,8 +1466,8 @@ class BudgetDisplay:
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row_index'] = row_index
-            row_data['category'] = cat
-            self.data[cat.id] = row_data
+            row_data['account'] = account
+            self.data[account.id] = row_data
             row_index += 1
         self.button_row_index = row_index
         self._edit_button = QtWidgets.QPushButton('Edit')
@@ -1476,14 +1479,14 @@ class BudgetDisplay:
         return self.main_widget
 
     def _save(self):
-        category_rows = {}
-        for cat_id, info in self.data.items():
-            cat = info['category']
-            category_rows[cat] = {
+        account_budget_info = {}
+        for acc_id, info in self.data.items():
+            account = info['account']
+            account_budget_info[account] = {
                     'amount': info['budget_entry'].text(),
                     'carryover': info['carryover_entry'].text()
                 }
-        b = Budget(id_=self.budget.id, start_date=self.budget.start_date, end_date=self.budget.end_date, category_budget_info=category_rows)
+        b = Budget(id_=self.budget.id, start_date=self.budget.start_date, end_date=self.budget.end_date, account_budget_info=account_budget_info)
         self.storage.save_budget(b)
         self.reload_budget()
 

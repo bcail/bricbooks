@@ -1082,32 +1082,34 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_switch_account(self):
         show_ledger_mock = Mock()
         storage = SQLiteStorage(':memory:')
-        account = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        account2 = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
-        storage.save_account(account)
-        storage.save_account(account2)
-        txn = Transaction(account=account, amount=D(5), txn_date=date.today())
-        txn2 = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 2))
-        txn3 = Transaction(account=account2, amount=D(5), txn_date=date(2018, 1, 2))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        storage.save_account(checking)
+        storage.save_account(savings)
+        txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        txn3 = Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2018, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         ledger_display = LedgerDisplay(storage, show_ledger=show_ledger_mock)
         ledger_display.get_widget()
-        self.assertEqual(ledger_display._current_account, account)
+        self.assertEqual(ledger_display._current_account, checking)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 0)
         self.assertEqual(ledger_display.action_combo.currentText(), 'Checking')
         ledger_display.action_combo.setCurrentIndex(1)
-        show_ledger_mock.assert_called_once_with(account2)
+        show_ledger_mock.assert_called_once_with(savings)
 
     def test_ledger_txn_edit(self):
         storage = SQLiteStorage(':memory:')
-        account = get_test_account()
-        storage.save_account(account)
-        txn = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 3))
-        txn2 = Transaction(account=account, amount=D(17), txn_date=date(2017, 5, 2))
-        txn3 = Transaction(account=account, amount=D(25), txn_date=date(2017, 10, 18))
-        txn4 = Transaction(account=account, amount=D(10), txn_date=date(2018, 6, 6))
+        checking = get_test_account()
+        storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        storage.save_account(savings)
+        txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 3))
+        txn2 = Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2))
+        txn3 = Transaction(splits={checking: D(25), savings: D(-25)}, txn_date=date(2017, 10, 18))
+        txn4 = Transaction(splits={checking: D(10), savings: D(-10)}, txn_date=date(2018, 6, 6))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
@@ -1121,15 +1123,16 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '157')
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['date'].setText('2017-12-31')
-        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['credit'].setText('20')
+        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['deposit'].setText('20')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['accounts_display'].get_categories(), savings)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure edit was saved
-        ledger = Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, ledger)
+        ledger = Ledger(account=checking)
+        storage.load_txns_into_ledger(ledger)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
-        self.assertEqual(txns[2].amount, D(20))
+        self.assertEqual(txns[2].splits[checking], D(20))
         #check display with edits
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
@@ -1140,31 +1143,31 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '160')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
-    def test_ledger_txn_edit_category(self):
+    def test_ledger_txn_edit_expense_account(self):
         storage = SQLiteStorage(':memory:')
-        account = get_test_account()
-        storage.save_account(account)
-        cat = Category(name='Housing')
-        cat2 = Category(name='Restaurants')
-        storage.save_category(cat)
-        storage.save_category(cat2)
-        txn = Transaction(account=account, amount=D(5), txn_date=date(2017, 1, 3))
-        txn2 = Transaction(account=account, amount=D(17), txn_date=date(2017, 5, 2))
+        checking = get_test_account()
+        storage.save_account(checking)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        restaurants = get_test_account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+        storage.save_account(restaurants)
+        txn = Transaction(splits={checking: D(5), housing: D(-5)}, txn_date=date(2017, 1, 3))
+        txn2 = Transaction(splits={checking: D(17), housing: D(-17)}, txn_date=date(2017, 5, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        #select a category
-        ledger_display.txns_display.txn_display_data[txn2.id]['categories_display']._categories_combo.setCurrentIndex(2)
+        #change expense account
+        ledger_display.txns_display.txn_display_data[txn2.id]['accounts_display']._categories_combo.setCurrentIndex(2)
         #save the change
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure new category was saved
-        ledger = Ledger(starting_balance=account.starting_balance)
-        storage.load_txns_into_ledger(account.id, ledger)
+        ledger = Ledger(account=checking)
+        storage.load_txns_into_ledger(ledger)
         txns = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(txns[1].categories[0][0].name, 'Restaurants')
+        self.assertEqual(txns[1].splits[restaurants], D(-17))
 
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
@@ -1189,28 +1192,28 @@ class TestQtGUI(unittest.TestCase):
 
     def test_budget(self):
         storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Food')
-        storage.save_category(c2)
-        c3 = Category(name='Wages', is_expense=False)
-        storage.save_category(c3)
-        b = Budget(year=2018, category_budget_info={
-            c: {'amount': D(15), 'carryover': D(0)},
-            c2: {'amount': D(25), 'carryover': D(0)},
-            c3: {'amount': D(100)},
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        storage.save_account(food)
+        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        storage.save_account(wages)
+        b = Budget(year=2018, account_budget_info={
+            housing: {'amount': D(15), 'carryover': D(0)},
+            food: {'amount': D(25), 'carryover': D(0)},
+            wages: {'amount': D(100)},
         })
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
-        self.assertEqual(budget.get_budget_data()[c]['amount'], D(15))
+        self.assertEqual(budget.get_budget_data()[housing]['amount'], D(15))
         budget_display = BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
         budget_display.get_widget()
         QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
-        budget_display.data[c.id]['budget_entry'].setText('30')
+        budget_display.data[housing.id]['budget_entry'].setText('30')
         QtTest.QTest.mouseClick(budget_display._save_button, QtCore.Qt.LeftButton) #now it's the save button
         budgets = storage.get_budgets()
         self.assertEqual(len(budgets), 1)
-        self.assertEqual(budgets[0].get_budget_data()[c]['amount'], D(30))
+        self.assertEqual(budgets[0].get_budget_data()[housing]['amount'], D(30))
 
 
 class TestLoadTestData(unittest.TestCase):
