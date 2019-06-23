@@ -238,7 +238,7 @@ class Transaction:
             elif isinstance(amount, (int, str)):
                 decimal_amount = Decimal(amount)
             else:
-                raise InvalidTransactionError(f'invalid split amount: {amount}')
+                raise InvalidTransactionError('invalid split amount: %s' % amount)
             #check for fractions of cents
             amt_str = str(decimal_amount)
             if '.' in amt_str:
