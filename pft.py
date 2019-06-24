@@ -1161,7 +1161,7 @@ class TxnAccountsDisplay:
                         current_index = index + 1
                 self._categories_combo.addItem(account.name, account)
                 index += 1
-        self._multiple_entry_index = index + 2
+        self._multiple_entry_index = index + 1
         current_categories = []
         if txn and len(txn.splits.keys()) > 2:
             current_categories = txn.splits
@@ -1241,8 +1241,8 @@ class LedgerDisplay:
         layout.addWidget(QtWidgets.QLabel('Description'), row, 3)
         layout.addWidget(QtWidgets.QLabel('Categories'), row, 4)
         layout.addWidget(QtWidgets.QLabel('Status'), row, 5)
-        layout.addWidget(QtWidgets.QLabel('Debit (-)'), row, 6)
-        layout.addWidget(QtWidgets.QLabel('Credit (+)'), row, 7)
+        layout.addWidget(QtWidgets.QLabel('Withdrawal (-)'), row, 6)
+        layout.addWidget(QtWidgets.QLabel('Deposit (+)'), row, 7)
         layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
         return row + 1
 

@@ -1169,6 +1169,24 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(txns[1].splits[restaurants], D(-17))
 
+    def test_ledger_txn_edit_multiple_splits(self):
+        storage = SQLiteStorage(':memory:')
+        checking = get_test_account()
+        storage.save_account(checking)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        restaurants = get_test_account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+        storage.save_account(restaurants)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        storage.save_account(food)
+        txn = Transaction(splits={checking: D(-25), housing: D(20), restaurants: D(5)}, txn_date=date(2017, 1, 3))
+        storage.save_txn(txn)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        #activate editing
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentText(), 'multiple')
+
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')
         checking = get_test_account()
