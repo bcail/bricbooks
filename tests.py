@@ -4,7 +4,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 from PySide2 import QtWidgets, QtTest, QtCore
 
 import pft
@@ -1179,13 +1179,21 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(restaurants)
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        txn = Transaction(splits={checking: D(-25), housing: D(20), restaurants: D(5)}, txn_date=date(2017, 1, 3))
+        initial_splits = {checking: D(-25), housing: D(20), restaurants: D(5)}
+        final_splits = {checking: D(-25), housing: D(15), restaurants: D(10)}
+        txn = Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
         storage.save_txn(txn)
         ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentText(), 'multiple')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentData(), initial_splits)
+        pft.get_new_txn_splits = MagicMock(return_value=final_splits.copy())
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display'].split_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        updated_txn = storage.get_txn(txn.id)
+        self.assertEqual(updated_txn.splits, final_splits)
 
     def test_ledger_txn_delete(self):
         storage = SQLiteStorage(':memory:')

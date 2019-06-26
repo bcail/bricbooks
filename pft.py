@@ -910,7 +910,7 @@ class SplitTransactionEditor:
     def __init__(self, all_accounts, initial_txn_splits):
         self._all_accounts = all_accounts
         self._initial_txn_splits = initial_txn_splits
-        self._final_txn_splits = []
+        self._final_txn_splits = {}
         self._entries = {}
 
     def _get_txn_splits(self, split_editor):
@@ -918,7 +918,7 @@ class SplitTransactionEditor:
             #value is amount_entry, account
             text = value[0].text()
             if text:
-                self._final_txn_splits.append([value[1], text])
+                self._final_txn_splits[value[1]] = text
         split_editor.accept()
 
     def _show_split_editor(self):
@@ -928,7 +928,7 @@ class SplitTransactionEditor:
         for account in self._all_accounts:
             layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
             amount_entry = QtWidgets.QLineEdit()
-            for acc, amt in self._initial_txn_splits:
+            for acc, amt in self._initial_txn_splits.items():
                 if acc == account:
                     amount_entry.setText(str(amt))
             self._entries[account.id] = (amount_entry, account)
@@ -1141,6 +1141,11 @@ class LedgerTxnsDisplay:
             }
 
 
+def get_new_txn_splits(accounts, initial_txn_splits):
+    editor = SplitTransactionEditor(accounts, initial_txn_splits)
+    return editor.get_txn_splits()
+
+
 class TxnAccountsDisplay:
 
     def __init__(self, storage, main_account=None, txn=None):
@@ -1169,12 +1174,12 @@ class TxnAccountsDisplay:
         self._categories_combo.addItem('multiple', current_categories)
         self._categories_combo.setCurrentIndex(current_index)
         layout.addWidget(self._categories_combo, 0, 0)
-        split_button = QtWidgets.QPushButton('Split')
+        self.split_button = QtWidgets.QPushButton('Split')
         txn_id = None
         if txn:
             txn_id = txn.id
-        split_button.clicked.connect(self._split_transactions)
-        layout.addWidget(split_button)
+        self.split_button.clicked.connect(self._split_transactions)
+        layout.addWidget(self.split_button)
         self._widget = QtWidgets.QWidget()
         self._widget.setLayout(layout)
 
@@ -1183,8 +1188,7 @@ class TxnAccountsDisplay:
         if self._txn:
             initial_txn_splits = self._txn.splits
         accounts = self._storage.get_accounts()
-        editor = SplitTransactionEditor(accounts, initial_txn_splits)
-        txn_splits = editor.get_txn_splits()
+        txn_splits = get_new_txn_splits(accounts, initial_txn_splits)
         self._categories_combo.setCurrentIndex(self._multiple_entry_index)
         self._categories_combo.setItemData(self._multiple_entry_index, txn_splits)
 
