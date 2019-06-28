@@ -141,38 +141,6 @@ class Account:
         return starting_balance
 
 
-class Category:
-
-    def __init__(self, name, is_expense=True, id_=None, parent=None, user_id=None):
-        self.name = name
-        self.id = id_
-        self.is_expense = is_expense
-        self.parent = parent
-        self.user_id = user_id
-
-    def __str__(self):
-        if self.user_id:
-            return '%s - %s' % (self.user_id, self.name)
-        else:
-            return self.name
-
-    def __repr__(self):
-        return str(self)
-
-    def __eq__(self, other_category):
-        if not other_category:
-            return False
-        if self.id or other_category.id:
-            return self.id == other_category.id
-        if self.name == other_category.name:
-            if self.parent == other_category.parent:
-                return True
-        return False
-
-    def __hash__(self):
-        return self.id
-
-
 class Transaction:
 
     CLEARED = 'C'
@@ -285,27 +253,6 @@ class Transaction:
         except Exception:
             raise InvalidTransactionError('invalid txn_date')
 
-    def _check_categories(self, input_categories):
-        if not input_categories:
-            input_categories = []
-        _category_total = Decimal('0')
-        categories = []
-        if isinstance(input_categories, Category):
-            input_categories = [input_categories]
-        for c in input_categories:
-            if isinstance(c, tuple) or isinstance(c, list):
-                category_amt = Decimal(c[1])
-                _category_total += category_amt
-                categories.append( (c[0], category_amt) )
-            elif isinstance(c, Category):
-                _category_total += self.amount
-                categories.append( (c, self.amount) )
-            else:
-                raise InvalidTransactionError('unhandled txn_categories')
-        if abs(_category_total) > abs(self.amount):
-            raise InvalidTransactionError('split categories add up to more than txn amount')
-        return categories
-
     def _categories_display(self, main_account):
         if len(self.splits.keys()) == 2:
             for account in self.splits.keys():
@@ -392,7 +339,7 @@ class Ledger:
 class Budget:
     '''Budget information that's entered by the user - no defaults or calculated values, but
     empty strings are dropped (so we can pass empty string from user form), and strings are converted
-    Decimal values. Note: all categories are passed in - if there's no budget info, it just has an empty {}.
+    Decimal values. Note: all accounts are passed in - if there's no budget info, it just has an empty {}.
     '''
 
     @staticmethod
@@ -505,7 +452,6 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, starting_balance TEXT, parent_id INTEGER)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
-        conn.execute('CREATE TABLE categories (id INTEGER PRIMARY KEY, name TEXT, is_expense INTEGER, parent_id INTEGER, user_id TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
@@ -556,71 +502,6 @@ class SQLiteStorage:
         for r in db_records:
             accounts.append(self.get_account(r[0]))
         return accounts
-
-    def get_category(self, category_id):
-        db_record = self._db_connection.execute('SELECT id, name, is_expense, parent_id, user_id FROM categories WHERE id = ?', (category_id,)).fetchone()
-        if not db_record:
-            raise Exception('No category with id: %s' % category_id)
-        if db_record[3]:
-            parent = self.get_category(db_record[3])
-        else:
-            parent = None
-        return Category(name=db_record[1], is_expense=bool(db_record[2]), id_=db_record[0], parent=parent, user_id=db_record[4])
-
-    def get_categories(self):
-        categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories ORDER BY user_id, id').fetchall()
-        for cat_record in category_records:
-            cat_id = cat_record[0]
-            category = self.get_category(cat_id)
-            categories.append(category)
-        return categories
-
-    def get_parent_categories(self):
-        categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id IS NULL ORDER BY user_id, id').fetchall()
-        for cat_record in category_records:
-            cat_id = cat_record[0]
-            category = self.get_category(cat_id)
-            categories.append(category)
-        return categories
-
-    def get_child_categories(self, parent):
-        categories = []
-        category_records = self._db_connection.execute('SELECT id FROM categories WHERE parent_id = ? ORDER BY user_id, id', (parent.id,)).fetchall()
-        for cat_record in category_records:
-            cat_id = cat_record[0]
-            category = self.get_category(cat_id)
-            categories.append(category)
-        return categories
-
-    def save_category(self, category):
-        c = self._db_connection.cursor()
-        if category.is_expense:
-            expense_val = 1
-        else:
-            expense_val = 0
-        if category.parent:
-            parent_val = category.parent.id
-        else:
-            parent_val = None
-        if category.id:
-            c.execute('UPDATE categories SET name = ?, is_expense = ?, parent_id = ?, user_id = ? WHERE id = ?',
-                    (category.name, category.is_expense, parent_val, category.user_id, category.id))
-        else:
-            c.execute('INSERT INTO categories(name, is_expense, parent_id, user_id) VALUES(?, ?, ?, ?)',
-                    (category.name, expense_val, parent_val, category.user_id))
-            category.id = c.lastrowid
-        self._db_connection.commit()
-
-    def delete_category(self, category_id):
-        if self._get_txn_ids_for_category(category_id):
-            raise SQLiteStorageError('category has transactions')
-        self._db_connection.execute('DELETE FROM categories WHERE id = ?', (category_id,))
-        self._db_connection.commit()
-
-    def _get_txn_ids_for_category(self, category_id):
-        return self._db_connection.execute('SELECT txn_id FROM txn_categories WHERE category_id = ?', (category_id,)).fetchall()
 
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
@@ -759,19 +640,6 @@ ACTIONS_WIDTH = 16
 ERROR_STYLE = '''QLineEdit {
     border: 2px solid red;
 }'''
-
-
-def txn_categories_from_string(storage, categories_str):
-    categories_list = categories_str.split(', ')
-    categories = []
-    for category_info in categories_list:
-        if ':' in category_info:
-            cat_id, amount = category_info.split(': ')
-            categories.append( (storage.get_category(cat_id), Decimal(amount)) )
-        elif category_info:
-            cat_id = int(category_info)
-            categories.append(storage.get_category(cat_id))
-    return categories
 
 
 def set_widget_error_state(widget):
@@ -1311,114 +1179,6 @@ class LedgerDisplay:
         self.add_txn_widgets['payee'].setCurrentText('')
 
 
-class CategoriesDisplay:
-
-    def __init__(self, storage, reload_categories):
-        self._storage = storage
-        self._reload = reload_categories
-
-    def _delete(self, cat_id):
-        self._storage.delete_category(cat_id)
-        self._reload()
-
-    def _save_edit(self, cat_id):
-        user_id = self.data[cat_id]['entries']['user_id'].text() or None
-        parent = self.data[cat_id]['parent_combo'].currentData()
-        c = Category(id_=cat_id, name=self.data[cat_id]['entries']['name'].text(), user_id=user_id, parent=parent)
-        self._storage.save_category(c)
-        self._reload()
-
-    def _edit(self, event, cat_id, layout):
-        user_id_entry = QtWidgets.QLineEdit()
-        user_id_entry.setText(self.data[cat_id]['labels']['user_id'].text())
-        current_cat_name = self.data[cat_id]['labels']['name'].text()
-        name_entry = QtWidgets.QLineEdit()
-        name_entry.setText(current_cat_name)
-
-        parent_combo = QtWidgets.QComboBox()
-        current_index = 0
-        edit_category = self.data[cat_id]['cat']
-        parent_combo.addItem('-------', None)
-        for index, cat in enumerate(self._storage.get_categories()):
-            if edit_category.parent:
-                if edit_category.parent.id == cat.id:
-                    current_index = index + 1
-            if cat.name != current_cat_name:
-                parent_combo.addItem(cat.name, cat)
-        parent_combo.setCurrentIndex(current_index)
-
-        layout.addWidget(user_id_entry, self.data[cat_id]['row'], 1)
-        layout.addWidget(name_entry, self.data[cat_id]['row'], 2)
-        layout.addWidget(parent_combo, self.data[cat_id]['row'], 3)
-        save_edit_button = QtWidgets.QPushButton('Save Edit')
-        save_edit_button.clicked.connect(partial(self._save_edit, cat_id=cat_id))
-        layout.addWidget(save_edit_button, self.data[cat_id]['row'], 4)
-        delete_button = QtWidgets.QPushButton('Delete')
-        delete_button.clicked.connect(partial(self._delete, cat_id=cat_id))
-        layout.addWidget(delete_button, self.data[cat_id]['row'], 5)
-        self.data[cat_id]['entries'] = {'user_id': user_id_entry, 'name': name_entry}
-        self.data[cat_id]['parent_combo'] = parent_combo
-        self.data[cat_id]['buttons'] = {'save_edit': save_edit_button, 'delete': delete_button}
-
-    def get_widget(self):
-        self.main_widget = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 5)
-        layout.setColumnStretch(2, 15)
-        layout.setColumnStretch(3, 15)
-        layout.addWidget(QtWidgets.QLabel('User ID'), 0, 0)
-        layout.addWidget(QtWidgets.QLabel('Name'), 0, 1)
-        layout.addWidget(QtWidgets.QLabel('Parent Category'), 0, 2)
-        row = 1
-        self.data = {}
-        categories = self._storage.get_categories()
-        for cat in categories:
-            row_data = {'row': row, 'cat': cat}
-            edit_function = partial(self._edit, cat_id=cat.id, layout=layout)
-            id_label = QtWidgets.QLabel(str(cat.id))
-            if cat.user_id:
-                user_id_label = QtWidgets.QLabel(cat.user_id)
-            else:
-                user_id_label = QtWidgets.QLabel()
-            name_label = QtWidgets.QLabel(cat.name)
-            if cat.parent:
-                parent_name = cat.parent.name
-            else:
-                parent_name = ''
-            parent_label = QtWidgets.QLabel(parent_name)
-            layout.addWidget(user_id_label, row, 0)
-            layout.addWidget(name_label, row, 1)
-            layout.addWidget(parent_label, row, 2)
-            id_label.mousePressEvent = edit_function
-            name_label.mousePressEvent = edit_function
-            row_data['labels'] = {'user_id': user_id_label, 'name': name_label}
-            self.data[cat.id] = row_data
-            row += 1
-        self.user_id_entry = QtWidgets.QLineEdit()
-        layout.addWidget(self.user_id_entry, row, 0)
-        self.name_entry = QtWidgets.QLineEdit()
-        layout.addWidget(self.name_entry, row, 1)
-        self.add_parent_combo = QtWidgets.QComboBox()
-        self.add_parent_combo.addItem('-------', None)
-        for index, cat in enumerate(self._storage.get_categories()):
-            self.add_parent_combo.addItem(cat.name, cat)
-        layout.addWidget(self.add_parent_combo, row, 2)
-        self.add_button = QtWidgets.QPushButton('Add New')
-        self.add_button.clicked.connect(self._add)
-        layout.addWidget(self.add_button, row, 3)
-        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
-        layout.setRowStretch(row+1, 1)
-        self.main_widget.setLayout(layout)
-        return self.main_widget
-
-    def _add(self):
-        user_id = self.user_id_entry.text() or None
-        c = Category(name=self.name_entry.text(), user_id=user_id, parent=self.add_parent_combo.currentData())
-        self._storage.save_category(c)
-        self._reload()
-
-
 class BudgetDisplay:
 
     def __init__(self, budget, storage, reload_budget):
@@ -1566,12 +1326,9 @@ class PFT_GUI_QT:
     def _update_action_buttons(self, display):
         self.accounts_button.setEnabled(True)
         self.ledger_button.setEnabled(True)
-        self.categories_button.setEnabled(True)
         self.budget_button.setEnabled(True)
         if display == 'accounts':
             self.accounts_button.setEnabled(False)
-        elif display == 'categories':
-            self.categories_button.setEnabled(False)
         elif display == 'budget':
             self.budget_button.setEnabled(False)
         else:
@@ -1590,16 +1347,12 @@ class PFT_GUI_QT:
         self.ledger_button = QtWidgets.QPushButton('Ledger')
         self.ledger_button.clicked.connect(self._show_ledger)
         layout.addWidget(self.ledger_button, 0, 3)
-        self.categories_button = QtWidgets.QPushButton('Categories')
-        self.categories_button.clicked.connect(self._show_categories)
-        layout.addWidget(self.categories_button, 0, 4)
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
-        layout.addWidget(self.budget_button, 0, 5)
+        layout.addWidget(self.budget_button, 0, 4)
         if not file_loaded:
             self.accounts_button.setEnabled(False)
             self.ledger_button.setEnabled(False)
-            self.categories_button.setEnabled(False)
             self.budget_button.setEnabled(False)
 
     def _show_accounts(self):
@@ -1618,15 +1371,6 @@ class PFT_GUI_QT:
         self._update_action_buttons('ledger')
         self.ledger_display = LedgerDisplay(self.storage, show_ledger=self._show_ledger, current_account=current_account)
         self.main_widget = self.ledger_display.get_widget()
-        self.content_layout.addWidget(self.main_widget, 0, 0)
-
-    def _show_categories(self):
-        if self.main_widget:
-            self.content_layout.removeWidget(self.main_widget)
-            self.main_widget.deleteLater()
-        self._update_action_buttons(display='categories')
-        self.categories_display = CategoriesDisplay(self.storage, reload_categories=self._show_categories)
-        self.main_widget = self.categories_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_budget(self):

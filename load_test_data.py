@@ -1,7 +1,7 @@
 from decimal import Decimal as D
 import random
 import pft
-from pft import SQLiteStorage, Account, Category, Transaction, Budget
+from pft import SQLiteStorage, Account, Transaction, Budget
 
 
 DEFAULT_DATA_FILENAME = 'data.sqlite3'

@@ -16,16 +16,13 @@ from pft import (
         InvalidTransactionError,
         Ledger,
         InvalidLedgerError,
-        Category,
         Budget,
         BudgetError,
         SQLiteStorage,
         SQLiteStorageError,
-        txn_categories_from_string,
         AccountsDisplay,
         LedgerTxnsDisplay,
         LedgerDisplay,
-        CategoriesDisplay,
         BudgetDisplay,
         PFT_GUI_QT,
     )
@@ -92,37 +89,6 @@ class TestAccount(unittest.TestCase):
         housing = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Housing')
         rent = Account(id_=2, type_=pft.AccountType.EXPENSE, name='Rent', parent=housing)
         self.assertEqual(rent.parent, housing)
-
-
-class TestCategory(unittest.TestCase):
-
-    def test_init(self):
-        c = Category('Restaurants', id_=1)
-        self.assertEqual(c.name, 'Restaurants')
-        self.assertEqual(str(c), 'Restaurants')
-        c = Category('Restaurants')
-        self.assertEqual(str(c), 'Restaurants')
-
-    def test_eq(self):
-        c = Category('Restaurants')
-        c2 = Category('Housing')
-        self.assertNotEqual(c, c2) #different name
-        c3 = Category('Restaurants', id_=2)
-        self.assertNotEqual(c, c3) #different id_
-        c4 = Category('Restaurants')
-        self.assertEqual(c, c4) #same id (None), same name
-        c5 = Category('Restaurants', parent=c2)
-        self.assertNotEqual(c, c5)
-
-    def test_parent(self):
-        parent = Category('Restaurants')
-        child = Category('McDonalds', parent=parent)
-        self.assertEqual(child.parent, parent)
-
-    def test_user_id(self):
-        c = Category('Restaurants', user_id='400')
-        self.assertEqual(c.user_id, '400')
-        self.assertEqual(str(c), '400 - Restaurants')
 
 
 class TestTransaction(unittest.TestCase):
@@ -520,7 +486,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('accounts',), ('budgets',), ('budget_values',), ('categories',), ('transactions',), ('txn_splits',)]
+TABLES = [('accounts',), ('budgets',), ('budget_values',), ('transactions',), ('txn_splits',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -620,85 +586,6 @@ class TestSQLiteStorage(unittest.TestCase):
         accounts = storage.get_accounts(type_=pft.AccountType.EXPENSE)
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0].name, 'Housing')
-
-    def test_save_category(self):
-        storage = SQLiteStorage(':memory:')
-        parent = Category(name='Restaurants', is_expense=True, user_id='400')
-        child = Category(name='McDonalds', is_expense=True, parent=parent)
-        storage.save_category(parent)
-        storage.save_category(child)
-        self.assertEqual(parent.id, 1)
-        self.assertEqual(child.id, 2)
-        records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
-        self.assertEqual(len(records), 2)
-        self.assertEqual(records[0][0], 1)
-        self.assertEqual(records[0][1], 'Restaurants')
-        self.assertEqual(records[0][2], 1)
-        self.assertEqual(records[0][3], None)
-        self.assertEqual(records[0][4], '400')
-        self.assertEqual(records[1][0], 2)
-        self.assertEqual(records[1][1], 'McDonalds')
-        self.assertEqual(records[1][2], 1)
-        self.assertEqual(records[1][3], 1)
-        self.assertEqual(records[1][4], None)
-
-    def test_update_category(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing', is_expense=True)
-        storage.save_category(c)
-        c.is_expense = False
-        storage.save_category(c)
-        records = storage._db_connection.execute('SELECT * FROM categories').fetchall()
-        self.assertEqual(len(records), 1)
-        self.assertEqual(records[0][0], 1)
-        self.assertEqual(records[0][1], 'Housing')
-        self.assertEqual(records[0][2], 0)
-
-    def test_get_categories(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Wages', is_expense=False, user_id='400')
-        storage.save_category(c2)
-        c3 = Category(name='Base Salary', is_expense=False, parent=c2)
-        storage.save_category(c3)
-        categories = storage.get_categories()
-        self.assertEqual(len(categories), 3)
-        self.assertEqual(categories[0], c)
-        self.assertEqual(categories[1], c3)
-        self.assertEqual(categories[2], c2)
-        self.assertTrue(categories[0].is_expense)
-        self.assertFalse(categories[1].is_expense)
-        self.assertFalse(categories[2].is_expense)
-        self.assertTrue(categories[0].parent is None)
-        self.assertEqual(categories[1].parent, c2)
-        self.assertTrue(categories[0].user_id is None)
-        self.assertEqual(categories[2].user_id, '400')
-
-    def test_get_parent_categories(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Wages')
-        storage.save_category(c2)
-        c3 = Category(name='Base Salary', parent=c2)
-        storage.save_category(c3)
-        categories = storage.get_parent_categories()
-        self.assertEqual(len(categories), 2)
-        self.assertEqual(categories[0].name, 'Housing')
-        self.assertEqual(categories[1].name, 'Wages')
-
-    def test_get_child_categories(self):
-        storage = SQLiteStorage(':memory:')
-        c = Category(name='Housing')
-        storage.save_category(c)
-        c2 = Category(name='Wages')
-        storage.save_category(c2)
-        c3 = Category(name='Base Salary', parent=c2)
-        storage.save_category(c3)
-        categories = storage.get_child_categories(parent=c2)
-        self.assertEqual(len(categories), 1)
-        self.assertEqual(categories[0].name, 'Base Salary')
 
     def test_txn_to_db(self):
         storage = SQLiteStorage(':memory:')
@@ -966,28 +853,6 @@ class TestSQLiteStorage(unittest.TestCase):
 
 def fake_method():
     pass
-
-
-class TestGUIUtils(unittest.TestCase):
-
-    def test_categories_from_string(self):
-        #takes string from user, parses it, and loads the category objects for passing to Transaction object
-        storage = SQLiteStorage(':memory:')
-        c = Category('Cat')
-        c2 = Category('Dog')
-        c3 = Category('Horse')
-        storage.save_category(c)
-        storage.save_category(c2)
-        storage.save_category(c3)
-        categories_string = '%s: -45, %s: -59, %s: 3' % (c.id, c2.id, c3.id)
-        categories = txn_categories_from_string(storage, categories_string)
-        self.assertEqual(categories, [(c, D('-45')), (c2, D('-59')), (c3, D('3'))])
-        categories_string = str(c.id)
-        categories = txn_categories_from_string(storage, categories_string)
-        self.assertEqual(categories, [c])
-        categories_string = ''
-        categories = txn_categories_from_string(storage, categories_string)
-        self.assertEqual(categories, [])
 
 
 class TestQtGUI(unittest.TestCase):
