@@ -7,6 +7,7 @@ Python Finance Tracking
 
 TODO
 ----
+- accounts - allow adding parent accounts, and user IDs
 - catch exceptions and give good error messages in the UI
 - add scheduled transactions
 
@@ -22,4 +23,9 @@ PROJECT GOALS
 - convenient to use
 - accurate finances
 - good tests
+
+RESOURCES
+---------
+- KMyMoney
+- Gnucash
 
