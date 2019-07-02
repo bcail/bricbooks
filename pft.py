@@ -637,6 +637,19 @@ BALANCE_WIDTH = 12
 ACTIONS_WIDTH = 16
 
 
+GUI_FIELDS = {
+        'type': {'column_number': 0},
+        'date': {'column_number': 1},
+        'payee': {'column_number': 2},
+        'description': {'column_number': 3},
+        'status': {'column_number': 4},
+        'withdrawal': {'column_number': 5},
+        'deposit': {'column_number': 6},
+        'balance': {'column_number': 7},
+        'categories': {'column_number': 8},
+    }
+
+
 ERROR_STYLE = '''QLineEdit {
     border: 2px solid red;
 }'''
@@ -921,14 +934,14 @@ class LedgerTxnsDisplay:
             layout.removeWidget(widget)
             widget.deleteLater()
         self.txn_display_data[txn_id]['widgets']['labels'] = {}
-        layout.addWidget(type_entry, row, 0)
-        layout.addWidget(date_entry, row, 1)
-        layout.addWidget(payee_entry, row, 2)
-        layout.addWidget(description_entry, row, 3)
-        layout.addWidget(txn_accounts_display.get_widget(), row, 4)
-        layout.addWidget(status_entry, row, 5)
-        layout.addWidget(withdrawal_entry, row, 6)
-        layout.addWidget(deposit_entry, row, 7)
+        layout.addWidget(type_entry, row, GUI_FIELDS['type']['column_number'])
+        layout.addWidget(date_entry, row, GUI_FIELDS['date']['column_number'])
+        layout.addWidget(payee_entry, row, GUI_FIELDS['payee']['column_number'])
+        layout.addWidget(description_entry, row, GUI_FIELDS['description']['column_number'])
+        layout.addWidget(txn_accounts_display.get_widget(), row, GUI_FIELDS['categories']['column_number'])
+        layout.addWidget(status_entry, row, GUI_FIELDS['status']['column_number'])
+        layout.addWidget(withdrawal_entry, row, GUI_FIELDS['withdrawal']['column_number'])
+        layout.addWidget(deposit_entry, row, GUI_FIELDS['deposit']['column_number'])
         save_edit_button = QtWidgets.QPushButton('Save Edit')
         save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
         delete_button = QtWidgets.QPushButton('Delete')
@@ -981,15 +994,15 @@ class LedgerTxnsDisplay:
         withdrawal_label.mousePressEvent = edit_function
         balance_label = QtWidgets.QLabel(str(txn.balance))
         balance_label.mousePressEvent = edit_function
-        layout.addWidget(type_label, row, 0)
-        layout.addWidget(date_label, row, 1)
-        layout.addWidget(payee_label, row, 2)
-        layout.addWidget(description_label, row, 3)
-        layout.addWidget(categories_label, row, 4)
-        layout.addWidget(status_label, row, 5)
-        layout.addWidget(withdrawal_label, row, 6)
-        layout.addWidget(deposit_label, row, 7)
-        layout.addWidget(balance_label, row, 8)
+        layout.addWidget(type_label, row, GUI_FIELDS['type']['column_number'])
+        layout.addWidget(date_label, row, GUI_FIELDS['date']['column_number'])
+        layout.addWidget(payee_label, row, GUI_FIELDS['payee']['column_number'])
+        layout.addWidget(description_label, row, GUI_FIELDS['description']['column_number'])
+        layout.addWidget(categories_label, row, GUI_FIELDS['categories']['column_number'])
+        layout.addWidget(status_label, row, GUI_FIELDS['status']['column_number'])
+        layout.addWidget(withdrawal_label, row, GUI_FIELDS['withdrawal']['column_number'])
+        layout.addWidget(deposit_label, row, GUI_FIELDS['deposit']['column_number'])
+        layout.addWidget(balance_label, row, GUI_FIELDS['balance']['column_number'])
         self.txn_display_data[txn.id] = {
                 'widgets': {
                     'labels': {
@@ -1108,15 +1121,15 @@ class LedgerDisplay:
         self.action_combo.currentIndexChanged.connect(self._update_account)
         layout.addWidget(self.action_combo, row, 0)
         row += 1
-        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, 0)
-        layout.addWidget(QtWidgets.QLabel('Date'), row, 1)
-        layout.addWidget(QtWidgets.QLabel('Payee'), row, 2)
-        layout.addWidget(QtWidgets.QLabel('Description'), row, 3)
-        layout.addWidget(QtWidgets.QLabel('Categories'), row, 4)
-        layout.addWidget(QtWidgets.QLabel('Status'), row, 5)
-        layout.addWidget(QtWidgets.QLabel('Withdrawal (-)'), row, 6)
-        layout.addWidget(QtWidgets.QLabel('Deposit (+)'), row, 7)
-        layout.addWidget(QtWidgets.QLabel('Balance'), row, 8)
+        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, GUI_FIELDS['type']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['date']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Payee'), row, GUI_FIELDS['payee']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Description'), row, GUI_FIELDS['description']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Categories'), row, GUI_FIELDS['categories']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Status'), row, GUI_FIELDS['status']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Withdrawal (-)'), row, GUI_FIELDS['withdrawal']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Deposit (+)'), row, GUI_FIELDS['deposit']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Balance'), row, GUI_FIELDS['balance']['column_number'])
         return row + 1
 
     def _show_add_txn(self, layout, add_txn_widgets, payees, row):
