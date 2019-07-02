@@ -1062,8 +1062,9 @@ class TxnAccountsDisplay:
 
     def get_categories(self):
         splits = self._categories_combo.currentData()
+        #remove main account split (if present), because that comes from withdrawal/deposit fields
         if isinstance(splits, dict):
-            splits.pop(self._main_account)
+            splits.pop(self._main_account, None)
         return splits
 
     def get_widget(self):

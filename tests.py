@@ -928,6 +928,29 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
+    def test_ledger_add_multiple(self):
+        storage = SQLiteStorage(':memory:')
+        checking = get_test_account()
+        storage.save_account(checking)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        rent = get_test_account(type_=pft.AccountType.EXPENSE, name='Rent')
+        storage.save_account(rent)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display.get_widget()
+        txn_accounts_display_splits = {rent: 3, housing: 7}
+        ledger_display.add_txn_widgets['entries']['date'].setText('2017-01-05')
+        ledger_display.add_txn_widgets['entries']['withdrawal'].setText('10')
+        pft.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
+        #make sure new txn was saved
+        ledger = Ledger(account=checking)
+        storage.load_txns_into_ledger(ledger)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].splits[checking], D('-10'))
+
     def test_ledger_choose_account(self):
         storage = SQLiteStorage(':memory:')
         checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
@@ -1045,6 +1068,7 @@ class TestQtGUI(unittest.TestCase):
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         initial_splits = {checking: D(-25), housing: D(20), restaurants: D(5)}
+        txn_account_display_splits = {housing: D(15), restaurants: D(10)}
         final_splits = {checking: D(-25), housing: D(15), restaurants: D(10)}
         txn = Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
         storage.save_txn(txn)
@@ -1054,7 +1078,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentText(), 'multiple')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentData(), initial_splits)
-        pft.get_new_txn_splits = MagicMock(return_value=final_splits.copy())
+        pft.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         updated_txn = storage.get_txn(txn.id)
