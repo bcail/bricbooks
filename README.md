@@ -26,6 +26,6 @@ PROJECT GOALS
 
 RESOURCES
 ---------
-- KMyMoney
-- Gnucash
+- [KMyMoney](https://kmymoney.org/) [Handbook](https://docs.kde.org/stable5/en/extragear-office/kmymoney/index.html)
+- [GnuCash](https://www.gnucash.org/) [Docs](https://www.gnucash.org/docs.phtml)
 
