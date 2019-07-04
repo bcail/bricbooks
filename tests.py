@@ -870,12 +870,14 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(a)
         accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
+        accounts_display.add_account_widgets['entries']['user_id'].setText('400')
         accounts_display.add_account_widgets['entries']['name'].setText('Savings')
         accounts_display.add_account_widgets['entries']['starting_balance'].setText('500')
         QtTest.QTest.mouseClick(accounts_display.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[1].type.name, 'ASSET')
+        self.assertEqual(accounts[1].user_id, '400')
         self.assertEqual(accounts[1].name, 'Savings')
 
     def test_account_edit(self):
