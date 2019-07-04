@@ -666,6 +666,57 @@ class AccountsDisplay:
         self.storage = storage
         self._reload = reload_accounts
 
+    def _save_edit(self, acc_id):
+        type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
+        user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text() or None
+        name = self.accounts_widgets[acc_id]['entries']['name'].text()
+        starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
+        try:
+            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, id_=acc_id))
+            self._reload()
+        except InvalidAccountNameError:
+            set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
+        except InvalidAccountStartingBalanceError:
+            set_widget_error_state(self.accounts_widgets[acc_id]['entries']['starting_balance'])
+
+    def _edit(self, event, layout, acc_id):
+        account = self.storage.get_account(acc_id)
+        orig_user_id = self.accounts_widgets[acc_id]['labels']['user_id'].text()
+        orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
+        orig_starting_balance = self.accounts_widgets[acc_id]['labels']['starting_balance'].text()
+        for label in self.accounts_widgets[acc_id]['labels'].values():
+            layout.removeWidget(label)
+            label.deleteLater()
+        type_entry = QtWidgets.QComboBox()
+        for index, account_type in enumerate(AccountType):
+            type_entry.addItem(account_type.name, account_type)
+            if account_type == account.type:
+                type_entry.setCurrentIndex(index)
+        user_id_entry = QtWidgets.QLineEdit()
+        user_id_entry.setText(orig_user_id)
+        name_entry = QtWidgets.QLineEdit()
+        name_entry.setText(orig_name)
+        starting_balance_entry = QtWidgets.QLineEdit()
+        starting_balance_entry.setText(orig_starting_balance)
+        row = self.accounts_widgets[acc_id]['row']
+        layout.addWidget(type_entry, row, 0)
+        layout.addWidget(user_id_entry, row, 1)
+        layout.addWidget(name_entry, row, 2)
+        layout.addWidget(starting_balance_entry, row, 3)
+
+        save_button = QtWidgets.QPushButton('Save Edit')
+        save_button.clicked.connect(partial(self._save_edit, acc_id=acc_id))
+        layout.addWidget(save_button, row, 4)
+        self.accounts_widgets[acc_id]['entries'] = {
+                'type': type_entry,
+                'user_id': user_id_entry,
+                'name': name_entry,
+                'starting_balance': starting_balance_entry,
+            }
+        self.accounts_widgets[acc_id]['buttons'] = {
+                'save_edit': save_button,
+            }
+
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
@@ -677,59 +728,7 @@ class AccountsDisplay:
         accounts = self.storage.get_accounts()
         row = 1
         for acc in accounts:
-
-            def _edit(event, acc_id):
-                account = self.storage.get_account(acc_id)
-                orig_user_id = self.accounts_widgets[acc_id]['labels']['user_id'].text()
-                orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
-                orig_starting_balance = self.accounts_widgets[acc_id]['labels']['starting_balance'].text()
-                for label in self.accounts_widgets[acc_id]['labels'].values():
-                    layout.removeWidget(label)
-                    label.deleteLater()
-                type_entry = QtWidgets.QComboBox()
-                for index, account_type in enumerate(AccountType):
-                    type_entry.addItem(account_type.name, account_type)
-                    if account_type == account.type:
-                        type_entry.setCurrentIndex(index)
-                user_id_entry = QtWidgets.QLineEdit()
-                user_id_entry.setText(orig_user_id)
-                name_entry = QtWidgets.QLineEdit()
-                name_entry.setText(orig_name)
-                starting_balance_entry = QtWidgets.QLineEdit()
-                starting_balance_entry.setText(orig_starting_balance)
-                row = self.accounts_widgets[acc_id]['row']
-                layout.addWidget(type_entry, row, 0)
-                layout.addWidget(user_id_entry, row, 1)
-                layout.addWidget(name_entry, row, 2)
-                layout.addWidget(starting_balance_entry, row, 3)
-
-                def _save(acc_id):
-                    type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
-                    user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text() or None
-                    name = self.accounts_widgets[acc_id]['entries']['name'].text()
-                    starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
-                    try:
-                        self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, id_=acc_id))
-                        self._reload()
-                    except InvalidAccountNameError:
-                        set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
-                    except InvalidAccountStartingBalanceError:
-                        set_widget_error_state(self.accounts_widgets[acc_id]['entries']['starting_balance'])
-
-                save_button = QtWidgets.QPushButton('Save Edit')
-                save_button.clicked.connect(partial(_save, acc_id=acc_id))
-                layout.addWidget(save_button, row, 4)
-                self.accounts_widgets[acc_id]['entries'] = {
-                        'type': type_entry,
-                        'user_id': user_id_entry,
-                        'name': name_entry,
-                        'starting_balance': starting_balance_entry,
-                    }
-                self.accounts_widgets[acc_id]['buttons'] = {
-                        'save_edit': save_button,
-                    }
-
-            edit_function = partial(_edit, acc_id=acc.id)
+            edit_function = partial(self._edit, layout=layout, acc_id=acc.id)
             type_label = QtWidgets.QLabel(acc.type.name)
             type_label.mousePressEvent = edit_function
             user_id_label = QtWidgets.QLabel(acc.user_id or '')
@@ -748,6 +747,14 @@ class AccountsDisplay:
                 }
             row += 1
 
+        self.add_account_widgets = {}
+        self._show_add_account(layout, row, self.add_account_widgets)
+        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        layout.setRowStretch(row+1, 1)
+        main_widget.setLayout(layout)
+        return main_widget
+
+    def _show_add_account(self, layout, row, add_account_widgets):
         add_account_type = QtWidgets.QComboBox()
         for account_type in AccountType:
             add_account_type.addItem(account_type.name, account_type)
@@ -761,14 +768,8 @@ class AccountsDisplay:
         button = QtWidgets.QPushButton('Add New')
         button.clicked.connect(self._save_new_account)
         layout.addWidget(button, row, 4)
-        self.add_account_widgets = {
-                'entries': {'type': add_account_type, 'user_id': add_account_user_id, 'name': add_account_name, 'starting_balance': add_account_starting_balance},
-                'buttons': {'add_new': button},
-            }
-        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
-        layout.setRowStretch(row+1, 1)
-        main_widget.setLayout(layout)
-        return main_widget
+        add_account_widgets['entries'] = {'type': add_account_type, 'user_id': add_account_user_id, 'name': add_account_name, 'starting_balance': add_account_starting_balance}
+        add_account_widgets['buttons'] = {'add_new': button}
 
     def _save_new_account(self):
         type_ = self.add_account_widgets['entries']['type'].currentData()
