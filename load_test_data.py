@@ -14,12 +14,18 @@ def _load_data(storage, many_txns):
     savings = Account(type_=pft.AccountType.ASSET, name='Saving', starting_balance=D(1000))
     storage.save_account(savings)
 
-    restaurants = Account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+    food = Account(type_=pft.AccountType.EXPENSE, user_id='300', name='Food')
+    storage.save_account(food)
+    restaurants = Account(type_=pft.AccountType.EXPENSE, user_id='310', name='Restaurants', parent=food)
     storage.save_account(restaurants)
-    gas_stations = Account(type_=pft.AccountType.EXPENSE, name='Gas Stations')
+    transportation = Account(type_=pft.AccountType.EXPENSE, user_id='400', name='Transportation')
+    storage.save_account(transportation)
+    gas_stations = Account(type_=pft.AccountType.EXPENSE, user_id='410', name='Gas Stations', parent=transportation)
     storage.save_account(gas_stations)
-    housing = Account(type_=pft.AccountType.EXPENSE, name='Housing')
+    housing = Account(type_=pft.AccountType.EXPENSE, user_id='500', name='Housing')
     storage.save_account(housing)
+    rent = Account(type_=pft.AccountType.EXPENSE, user_id='510', name='Rent', parent=housing)
+    storage.save_account(rent)
 
     storage.save_txn(Transaction(splits={checking: D('-10'), restaurants: 10}, txn_date='2018-01-01'))
     storage.save_txn(Transaction(splits={checking: D('-20'), restaurants: 20}, txn_date='2018-01-02'))
@@ -53,9 +59,9 @@ def _load_data(storage, many_txns):
             storage.save_txn(txn)
 
     budget_categories = {
-            restaurants: {'amount': D(35), 'carryover': D(0)},
-            gas_stations: {'amount': D(70), 'carryover': D(10)},
-            housing: {'amount': D(100), 'carryover': D(0)},
+            restaurants: {'amount': D(500), 'carryover': D(0)},
+            gas_stations: {'amount': D(450), 'carryover': D(10)},
+            housing: {'amount': D(200), 'carryover': D(0)},
         }
     budget = Budget('2018', account_budget_info=budget_categories)
     storage.save_budget(budget)
