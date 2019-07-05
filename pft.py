@@ -735,7 +735,8 @@ class AccountsDisplay:
             user_id_label.mousePressEvent = edit_function
             name_label = QtWidgets.QLabel(acc.name)
             name_label.mousePressEvent = edit_function
-            starting_balance_label = QtWidgets.QLabel(str(acc.starting_balance))
+            starting_balance = acc.starting_balance or ''
+            starting_balance_label = QtWidgets.QLabel(str(starting_balance))
             starting_balance_label.mousePressEvent = edit_function
             layout.addWidget(type_label, row, 0)
             layout.addWidget(user_id_label, row, 1)
