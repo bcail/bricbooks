@@ -660,6 +660,15 @@ def set_widget_error_state(widget):
     widget.setStyleSheet(ERROR_STYLE)
 
 
+ACCOUNTS_GUI_FIELDS = {
+        'type': {'column_number': 0},
+        'user_id': {'column_number': 1},
+        'name': {'column_number': 2},
+        'starting_balance': {'column_number': 3},
+        'parent': {'column_number': 4},
+    }
+
+
 class AccountsDisplay:
 
     def __init__(self, storage, reload_accounts):
@@ -720,10 +729,10 @@ class AccountsDisplay:
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
-        layout.addWidget(QtWidgets.QLabel('Type'), 0, 0)
-        layout.addWidget(QtWidgets.QLabel('User ID'), 0, 1)
-        layout.addWidget(QtWidgets.QLabel('Name'), 0, 2)
-        layout.addWidget(QtWidgets.QLabel('Starting Balance'), 0, 3)
+        layout.addWidget(QtWidgets.QLabel('Type'), 0, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('User ID'), 0, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Name'), 0, ACCOUNTS_GUI_FIELDS['name']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Starting Balance'), 0, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
         row = 1
@@ -738,10 +747,10 @@ class AccountsDisplay:
             starting_balance = acc.starting_balance or ''
             starting_balance_label = QtWidgets.QLabel(str(starting_balance))
             starting_balance_label.mousePressEvent = edit_function
-            layout.addWidget(type_label, row, 0)
-            layout.addWidget(user_id_label, row, 1)
-            layout.addWidget(name_label, row, 2)
-            layout.addWidget(starting_balance_label, row, 3)
+            layout.addWidget(type_label, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+            layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+            layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
+            layout.addWidget(starting_balance_label, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
             self.accounts_widgets[acc.id] = {
                     'row': row,
                     'labels': {'user_id': user_id_label, 'name': name_label, 'starting_balance': starting_balance_label},
@@ -759,13 +768,13 @@ class AccountsDisplay:
         add_account_type = QtWidgets.QComboBox()
         for account_type in AccountType:
             add_account_type.addItem(account_type.name, account_type)
-        layout.addWidget(add_account_type, row, 0)
+        layout.addWidget(add_account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         add_account_user_id = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_user_id, row, 1)
+        layout.addWidget(add_account_user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         add_account_name = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_name, row, 2)
+        layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         add_account_starting_balance = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_starting_balance, row, 3)
+        layout.addWidget(add_account_starting_balance, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
         button = QtWidgets.QPushButton('Add New')
         button.clicked.connect(self._save_new_account)
         layout.addWidget(button, row, 4)
