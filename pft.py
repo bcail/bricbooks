@@ -95,7 +95,7 @@ class Account:
         if not name:
             raise InvalidAccountNameError('Account must have a name')
         self.type = self._check_type(type_)
-        self.user_id = user_id
+        self.user_id = user_id or None
         self.name = name
         self.starting_balance = self._check_starting_balance(starting_balance)
         self.parent = parent
@@ -127,7 +127,7 @@ class Account:
 
     def _check_starting_balance(self, starting_balance):
         if self.type in [AccountType.EXPENSE, AccountType.INCOME]:
-            if starting_balance is None:
+            if not starting_balance:
                 return None
         if isinstance(starting_balance, Decimal):
             return starting_balance
@@ -677,7 +677,7 @@ class AccountsDisplay:
 
     def _save_edit(self, acc_id):
         type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
-        user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text() or None
+        user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text()
         name = self.accounts_widgets[acc_id]['entries']['name'].text()
         starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
         parent = self.accounts_widgets[acc_id]['entries']['parent'].currentData()
@@ -811,7 +811,7 @@ class AccountsDisplay:
 
     def _save_new_account(self):
         type_ = self.add_account_widgets['entries']['type'].currentData()
-        user_id = self.add_account_widgets['entries']['user_id'].text() or None
+        user_id = self.add_account_widgets['entries']['user_id'].text()
         name = self.add_account_widgets['entries']['name'].text()
         starting_balance = self.add_account_widgets['entries']['starting_balance'].text()
         parent = self.add_account_widgets['entries']['parent'].currentData()

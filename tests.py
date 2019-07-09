@@ -90,6 +90,11 @@ class TestAccount(unittest.TestCase):
         rent = Account(id_=2, type_=pft.AccountType.EXPENSE, name='Rent', parent=housing)
         self.assertEqual(rent.parent, housing)
 
+    def test_empty_strings_for_non_required_elements(self):
+        a = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Test', user_id='', starting_balance='')
+        self.assertEqual(a.user_id, None)
+        self.assertEqual(a.starting_balance, None)
+
 
 class TestTransaction(unittest.TestCase):
 
@@ -897,6 +902,20 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(storage.get_accounts()), 2)
         self.assertEqual(storage.get_accounts()[1].name, 'New Savings')
         self.assertEqual(storage.get_accounts()[1].parent.name, 'Checking')
+
+    def test_expense_account_edit(self):
+        storage = SQLiteStorage(':memory:')
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        storage.save_account(checking)
+        food = Account(type_=pft.AccountType.EXPENSE, name='Food')
+        storage.save_account(food)
+        accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
+        widget = accounts_display.get_widget()
+        QtTest.QTest.mouseClick(accounts_display.accounts_widgets[food.id]['labels']['name'], QtCore.Qt.LeftButton)
+        accounts_display.accounts_widgets[food.id]['entries']['name'].setText('New Food')
+        QtTest.QTest.mouseClick(accounts_display.accounts_widgets[food.id]['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        self.assertEqual(len(storage.get_accounts()), 2)
+        self.assertEqual(storage.get_accounts()[1].name, 'New Food')
 
     @patch('pft.set_widget_error_state')
     def test_account_exception(self, mock_method):
