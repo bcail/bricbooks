@@ -680,8 +680,9 @@ class AccountsDisplay:
         user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text() or None
         name = self.accounts_widgets[acc_id]['entries']['name'].text()
         starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
+        parent = self.accounts_widgets[acc_id]['entries']['parent'].currentData()
         try:
-            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, id_=acc_id))
+            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, id_=acc_id, parent=parent))
             self._reload()
         except InvalidAccountNameError:
             set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
@@ -707,20 +708,31 @@ class AccountsDisplay:
         name_entry.setText(orig_name)
         starting_balance_entry = QtWidgets.QLineEdit()
         starting_balance_entry.setText(orig_starting_balance)
+        parent_combo = QtWidgets.QComboBox()
+        parent_combo.addItem('-----------', None)
+        current_index = 0
+        for acc_index, acc in enumerate(self.storage.get_accounts()):
+            if account != acc:
+                parent_combo.addItem(acc.name, acc)
+            if account.parent == acc:
+                current_index = acc_index + 1 #because index 0 is the blank '--------' value
+        parent_combo.setCurrentIndex(current_index)
         row = self.accounts_widgets[acc_id]['row']
-        layout.addWidget(type_entry, row, 0)
-        layout.addWidget(user_id_entry, row, 1)
-        layout.addWidget(name_entry, row, 2)
-        layout.addWidget(starting_balance_entry, row, 3)
+        layout.addWidget(type_entry, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+        layout.addWidget(user_id_entry, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+        layout.addWidget(name_entry, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
+        layout.addWidget(starting_balance_entry, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
+        layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
 
         save_button = QtWidgets.QPushButton('Save Edit')
         save_button.clicked.connect(partial(self._save_edit, acc_id=acc_id))
-        layout.addWidget(save_button, row, 4)
+        layout.addWidget(save_button, row, 5)
         self.accounts_widgets[acc_id]['entries'] = {
                 'type': type_entry,
                 'user_id': user_id_entry,
                 'name': name_entry,
                 'starting_balance': starting_balance_entry,
+                'parent': parent_combo,
             }
         self.accounts_widgets[acc_id]['buttons'] = {
                 'save_edit': save_button,
@@ -733,6 +745,7 @@ class AccountsDisplay:
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Name'), 0, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Starting Balance'), 0, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Parent Account'), 0, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
         row = 1
@@ -747,10 +760,14 @@ class AccountsDisplay:
             starting_balance = acc.starting_balance or ''
             starting_balance_label = QtWidgets.QLabel(str(starting_balance))
             starting_balance_label.mousePressEvent = edit_function
+            parent = acc.parent or ''
+            parent_label = QtWidgets.QLabel(str(parent))
+            parent_label.mousePressEvent = edit_function
             layout.addWidget(type_label, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
             layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
             layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
             layout.addWidget(starting_balance_label, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
+            layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
             self.accounts_widgets[acc.id] = {
                     'row': row,
                     'labels': {'user_id': user_id_label, 'name': name_label, 'starting_balance': starting_balance_label},
@@ -758,13 +775,13 @@ class AccountsDisplay:
             row += 1
 
         self.add_account_widgets = {}
-        self._show_add_account(layout, row, self.add_account_widgets)
+        self._show_add_account(layout, row, self.add_account_widgets, accounts)
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
         main_widget.setLayout(layout)
         return main_widget
 
-    def _show_add_account(self, layout, row, add_account_widgets):
+    def _show_add_account(self, layout, row, add_account_widgets, all_accounts):
         add_account_type = QtWidgets.QComboBox()
         for account_type in AccountType:
             add_account_type.addItem(account_type.name, account_type)
@@ -775,10 +792,21 @@ class AccountsDisplay:
         layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         add_account_starting_balance = QtWidgets.QLineEdit()
         layout.addWidget(add_account_starting_balance, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
+        parent_combo = QtWidgets.QComboBox()
+        parent_combo.addItem('---------', None)
+        for account in all_accounts:
+            parent_combo.addItem(account.name, account)
+        layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         button = QtWidgets.QPushButton('Add New')
         button.clicked.connect(self._save_new_account)
-        layout.addWidget(button, row, 4)
-        add_account_widgets['entries'] = {'type': add_account_type, 'user_id': add_account_user_id, 'name': add_account_name, 'starting_balance': add_account_starting_balance}
+        layout.addWidget(button, row, 5)
+        add_account_widgets['entries'] = {
+                'type': add_account_type,
+                'user_id': add_account_user_id,
+                'name': add_account_name,
+                'starting_balance': add_account_starting_balance,
+                'parent': parent_combo,
+            }
         add_account_widgets['buttons'] = {'add_new': button}
 
     def _save_new_account(self):
@@ -786,8 +814,9 @@ class AccountsDisplay:
         user_id = self.add_account_widgets['entries']['user_id'].text() or None
         name = self.add_account_widgets['entries']['name'].text()
         starting_balance = self.add_account_widgets['entries']['starting_balance'].text()
+        parent = self.add_account_widgets['entries']['parent'].currentData()
         try:
-            account = Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance)
+            account = Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, parent=parent)
             self.storage.save_account(account)
             self._reload()
         except InvalidAccountStartingBalanceError:
