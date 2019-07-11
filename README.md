@@ -24,6 +24,10 @@ PROJECT GOALS
 - accurate finances
 - good tests
 
+USER TIPS
+---------
+- To add a starting balance to an account, create an "Opening Balances" Equity account, and make the first transaction a withdrawal from Opening Balances and deposit to the new account.
+
 RESOURCES
 ---------
 - [KMyMoney](https://kmymoney.org/) [Handbook](https://docs.kde.org/stable5/en/extragear-office/kmymoney/index.html)

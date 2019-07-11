@@ -61,9 +61,6 @@ class InvalidAccountError(RuntimeError):
 class InvalidAccountNameError(InvalidAccountError):
     pass
 
-class InvalidAccountStartingBalanceError(InvalidAccountError):
-    pass
-
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -88,7 +85,7 @@ def get_date(val):
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, user_id=None, name=None, starting_balance=None, parent=None):
+    def __init__(self, id_=None, type_=None, user_id=None, name=None, parent=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -97,7 +94,6 @@ class Account:
         self.type = self._check_type(type_)
         self.user_id = user_id or None
         self.name = name
-        self.starting_balance = self._check_starting_balance(starting_balance)
         self.parent = parent
 
     def __str__(self):
@@ -124,21 +120,6 @@ class Account:
         if not isinstance(type_, AccountType):
             raise InvalidAccountError('Invalid account type "%s"' % type_)
         return type_
-
-    def _check_starting_balance(self, starting_balance):
-        if self.type in [AccountType.EXPENSE, AccountType.INCOME]:
-            if not starting_balance:
-                return None
-        if isinstance(starting_balance, Decimal):
-            return starting_balance
-        elif isinstance(starting_balance, (int, str)):
-            try:
-                return Decimal(starting_balance)
-            except InvalidOperation:
-                raise InvalidAccountStartingBalanceError('Invalid starting balance %s' % starting_balance)
-        else:
-            raise InvalidAccountStartingBalanceError('Invalid type %s for starting_balance' % type(starting_balance))
-        return starting_balance
 
 
 class Transaction:
@@ -311,7 +292,7 @@ class Ledger:
 
     def get_sorted_txns_with_balance(self):
         sorted_txns = sorted(self._txns.values(), key=lambda t: t.txn_date)
-        balance = self.account.starting_balance
+        balance = Decimal(0)
         sorted_records = []
         for t in sorted_txns:
             balance = balance + t.splits[self.account]
@@ -449,29 +430,22 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, starting_balance TEXT, parent_id INTEGER)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, parent_id INTEGER)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
-        account_info = self._db_connection.execute('SELECT id, type, user_id, name, starting_balance, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        account_info = self._db_connection.execute('SELECT id, type, user_id, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
         parent = None
-        if account_info[5]:
-            parent = self.get_account(account_info[5])
-        starting_balance = None
         if account_info[4]:
-            try:
-                starting_balance = Decimal(account_info[4])
-            except InvalidOperation:
-                raise InvalidAccountError('invalid starting_balance value for account %s: %s - %s' % (account_id, type(account_info[4]), account_info[4]))
+            parent = self.get_account(account_info[4])
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
                 user_id=account_info[2],
                 name=account_info[3],
-                starting_balance=starting_balance,
                 parent=parent,
             )
 
@@ -482,14 +456,11 @@ class SQLiteStorage:
             if not account.parent.id:
                 self.save_account(account.parent)
             parent_id = account.parent.id
-        starting_balance = None
-        if account.starting_balance:
-            starting_balance = str(account.starting_balance)
         if account.id:
-            c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, starting_balance = ?, parent_id = ? WHERE id = ?',
-                    (account.type.value, account.user_id, account.name, starting_balance, parent_id, account.id))
+            c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, parent_id = ? WHERE id = ?',
+                    (account.type.value, account.user_id, account.name, parent_id, account.id))
         else:
-            c.execute('INSERT INTO accounts(type, user_id, name, starting_balance, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.user_id, account.name, starting_balance, parent_id))
+            c.execute('INSERT INTO accounts(type, user_id, name, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.user_id, account.name, parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
@@ -664,8 +635,7 @@ ACCOUNTS_GUI_FIELDS = {
         'type': {'column_number': 0},
         'user_id': {'column_number': 1},
         'name': {'column_number': 2},
-        'starting_balance': {'column_number': 3},
-        'parent': {'column_number': 4},
+        'parent': {'column_number': 3},
     }
 
 
@@ -679,21 +649,17 @@ class AccountsDisplay:
         type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
         user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text()
         name = self.accounts_widgets[acc_id]['entries']['name'].text()
-        starting_balance = self.accounts_widgets[acc_id]['entries']['starting_balance'].text()
         parent = self.accounts_widgets[acc_id]['entries']['parent'].currentData()
         try:
-            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, id_=acc_id, parent=parent))
+            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, id_=acc_id, parent=parent))
             self._reload()
         except InvalidAccountNameError:
             set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
-        except InvalidAccountStartingBalanceError:
-            set_widget_error_state(self.accounts_widgets[acc_id]['entries']['starting_balance'])
 
     def _edit(self, event, layout, acc_id):
         account = self.storage.get_account(acc_id)
         orig_user_id = self.accounts_widgets[acc_id]['labels']['user_id'].text()
         orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
-        orig_starting_balance = self.accounts_widgets[acc_id]['labels']['starting_balance'].text()
         for label in self.accounts_widgets[acc_id]['labels'].values():
             layout.removeWidget(label)
             label.deleteLater()
@@ -706,8 +672,6 @@ class AccountsDisplay:
         user_id_entry.setText(orig_user_id)
         name_entry = QtWidgets.QLineEdit()
         name_entry.setText(orig_name)
-        starting_balance_entry = QtWidgets.QLineEdit()
-        starting_balance_entry.setText(orig_starting_balance)
         parent_combo = QtWidgets.QComboBox()
         parent_combo.addItem('-----------', None)
         current_index = 0
@@ -721,7 +685,6 @@ class AccountsDisplay:
         layout.addWidget(type_entry, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         layout.addWidget(user_id_entry, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         layout.addWidget(name_entry, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        layout.addWidget(starting_balance_entry, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
         layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
 
         save_button = QtWidgets.QPushButton('Save Edit')
@@ -731,7 +694,6 @@ class AccountsDisplay:
                 'type': type_entry,
                 'user_id': user_id_entry,
                 'name': name_entry,
-                'starting_balance': starting_balance_entry,
                 'parent': parent_combo,
             }
         self.accounts_widgets[acc_id]['buttons'] = {
@@ -744,7 +706,6 @@ class AccountsDisplay:
         layout.addWidget(QtWidgets.QLabel('Type'), 0, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Name'), 0, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('Starting Balance'), 0, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Parent Account'), 0, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
@@ -757,20 +718,16 @@ class AccountsDisplay:
             user_id_label.mousePressEvent = edit_function
             name_label = QtWidgets.QLabel(acc.name)
             name_label.mousePressEvent = edit_function
-            starting_balance = acc.starting_balance or ''
-            starting_balance_label = QtWidgets.QLabel(str(starting_balance))
-            starting_balance_label.mousePressEvent = edit_function
             parent = acc.parent or ''
             parent_label = QtWidgets.QLabel(str(parent))
             parent_label.mousePressEvent = edit_function
             layout.addWidget(type_label, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
             layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
             layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-            layout.addWidget(starting_balance_label, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
             layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
             self.accounts_widgets[acc.id] = {
                     'row': row,
-                    'labels': {'user_id': user_id_label, 'name': name_label, 'starting_balance': starting_balance_label},
+                    'labels': {'user_id': user_id_label, 'name': name_label},
                 }
             row += 1
 
@@ -790,8 +747,6 @@ class AccountsDisplay:
         layout.addWidget(add_account_user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         add_account_name = QtWidgets.QLineEdit()
         layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        add_account_starting_balance = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_starting_balance, row, ACCOUNTS_GUI_FIELDS['starting_balance']['column_number'])
         parent_combo = QtWidgets.QComboBox()
         parent_combo.addItem('---------', None)
         for account in all_accounts:
@@ -804,7 +759,6 @@ class AccountsDisplay:
                 'type': add_account_type,
                 'user_id': add_account_user_id,
                 'name': add_account_name,
-                'starting_balance': add_account_starting_balance,
                 'parent': parent_combo,
             }
         add_account_widgets['buttons'] = {'add_new': button}
@@ -813,14 +767,11 @@ class AccountsDisplay:
         type_ = self.add_account_widgets['entries']['type'].currentData()
         user_id = self.add_account_widgets['entries']['user_id'].text()
         name = self.add_account_widgets['entries']['name'].text()
-        starting_balance = self.add_account_widgets['entries']['starting_balance'].text()
         parent = self.add_account_widgets['entries']['parent'].currentData()
         try:
-            account = Account(type_=type_, user_id=user_id, name=name, starting_balance=starting_balance, parent=parent)
+            account = Account(type_=type_, user_id=user_id, name=name, parent=parent)
             self.storage.save_account(account)
             self._reload()
-        except InvalidAccountStartingBalanceError:
-            set_widget_error_state(self.add_account_widgets['entries']['starting_balance'])
         except InvalidAccountNameError:
             set_widget_error_state(self.add_account_widgets['entries']['name'])
 

@@ -32,7 +32,7 @@ import load_test_data
 def get_test_account(id_=None, name=None, type_=pft.AccountType.ASSET):
     if not name:
         name = 'Checking'
-    return Account(id_=id_, type_=type_, name=name, starting_balance=D(100))
+    return Account(id_=id_, type_=type_, name=name)
 
 
 class TestUtils(unittest.TestCase):
@@ -47,20 +47,15 @@ class TestUtils(unittest.TestCase):
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
-        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking', starting_balance=D('100'))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking')
         self.assertEqual(a.type, pft.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
-        self.assertEqual(a.starting_balance, D('100'))
         self.assertEqual(a.parent, None)
         self.assertEqual(a.user_id, '400')
 
     def test_str(self):
-        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking', starting_balance=D('100'))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking')
         self.assertEqual(str(a), '400 - Checking')
-
-    def test_expense(self):
-        a = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Food')
-        self.assertEqual(a.starting_balance, None)
 
     def test_account_type(self):
         with self.assertRaises(InvalidAccountError) as cm:
@@ -70,17 +65,12 @@ class TestAccount(unittest.TestCase):
             Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
 
-    def test_starting_balance(self):
-        with self.assertRaises(InvalidAccountError) as cm:
-            Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=123.1)
-        self.assertEqual(str(cm.exception), "Invalid type <class 'float'> for starting_balance")
-
     def test_eq(self):
-        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        a2 = Account(id_=2, type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        a = Account(id_=1, type_=pft.AccountType.ASSET, name='Checking')
+        a2 = Account(id_=2, type_=pft.AccountType.ASSET, name='Savings')
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = Account(type_=pft.AccountType.ASSET, name='Other', starting_balance=D(200))
+        a3 = Account(type_=pft.AccountType.ASSET, name='Other')
         with self.assertRaises(InvalidAccountError) as cm:
             a == a3
         self.assertEqual(str(cm.exception), "Can't compare accounts without an id")
@@ -91,9 +81,8 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(rent.parent, housing)
 
     def test_empty_strings_for_non_required_elements(self):
-        a = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Test', user_id='', starting_balance='')
+        a = Account(id_=1, type_=pft.AccountType.EXPENSE, name='Test', user_id='')
         self.assertEqual(a.user_id, None)
-        self.assertEqual(a.starting_balance, None)
 
 
 class TestTransaction(unittest.TestCase):
@@ -361,13 +350,13 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
-        self.assertEqual(ledger_records[0].balance, D('110'))
+        self.assertEqual(ledger_records[0].balance, D(10))
         self.assertEqual(ledger_records[1].txn_date, date(2017, 6, 5))
-        self.assertEqual(ledger_records[1].balance, D('98'))
+        self.assertEqual(ledger_records[1].balance, D(-2))
         self.assertEqual(ledger_records[2].txn_date, date(2017, 7, 30))
-        self.assertEqual(ledger_records[2].balance, D('99'))
+        self.assertEqual(ledger_records[2].balance, D(-1))
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
-        self.assertEqual(ledger_records[3].balance, D('131.45'))
+        self.assertEqual(ledger_records[3].balance, D('31.45'))
 
     def test_get_txn(self):
         ledger = Ledger(account=self.checking)
@@ -538,9 +527,9 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account(self):
         storage = SQLiteStorage(':memory:')
-        assets = Account(type_=pft.AccountType.ASSET, name='All Assets', starting_balance=100)
+        assets = Account(type_=pft.AccountType.ASSET, name='All Assets')
         storage.save_account(assets)
-        checking = Account(type_=pft.AccountType.ASSET, user_id='4010', name='Checking', starting_balance=D(100), parent=assets)
+        checking = Account(type_=pft.AccountType.ASSET, user_id='4010', name='Checking', parent=assets)
         storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -549,18 +538,18 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', '100', assets.id))
-        savings = Account(id_=checking.id, type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(200))
+                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', assets.id))
+        savings = Account(id_=checking.id, type_=pft.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', '200', None)])
+                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', None)])
 
     def test_get_account(self):
         storage = SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, user_id, name, starting_balance) VALUES (?, ?, ?, ?)', (pft.AccountType.EXPENSE.value, '4010', 'Checking', str(D(100))))
+        c.execute('INSERT INTO accounts(type, user_id, name) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, '4010', 'Checking'))
         account_id = c.lastrowid
         c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
@@ -569,11 +558,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(account.type, pft.AccountType.EXPENSE)
         self.assertEqual(account.user_id, '4010')
         self.assertEqual(account.name, 'Checking')
-        self.assertEqual(account.starting_balance, D(100))
         self.assertEqual(account.parent, None)
         sub_checking = storage.get_account(sub_checking_id)
         self.assertEqual(sub_checking.parent, account)
-        self.assertEqual(sub_checking.starting_balance, None)
 
     def test_get_accounts(self):
         storage = SQLiteStorage(':memory:')
@@ -877,7 +864,6 @@ class TestQtGUI(unittest.TestCase):
         widget = accounts_display.get_widget()
         accounts_display.add_account_widgets['entries']['user_id'].setText('400')
         accounts_display.add_account_widgets['entries']['name'].setText('Savings')
-        accounts_display.add_account_widgets['entries']['starting_balance'].setText('500')
         accounts_display.add_account_widgets['entries']['parent'].setCurrentIndex(1)
         QtTest.QTest.mouseClick(accounts_display.add_account_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         accounts = storage.get_accounts()
@@ -889,9 +875,9 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account_edit(self):
         storage = SQLiteStorage(':memory:')
-        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
-        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         accounts_display = AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
@@ -905,7 +891,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_expense_account_edit(self):
         storage = SQLiteStorage(':memory:')
-        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
         food = Account(type_=pft.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
@@ -980,8 +966,8 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_choose_account(self):
         storage = SQLiteStorage(':memory:')
-        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking')
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
         txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
@@ -997,8 +983,8 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_switch_account(self):
         show_ledger_mock = Mock()
         storage = SQLiteStorage(':memory:')
-        checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(100))
-        savings = Account(type_=pft.AccountType.ASSET, name='Savings', starting_balance=D(100))
+        checking = Account(type_=pft.AccountType.ASSET, name='Checking')
+        savings = Account(type_=pft.AccountType.ASSET, name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
         txn = Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
@@ -1031,11 +1017,11 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn4)
         ledger_display = LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '122')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '22')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 1)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '147')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '157')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '47')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '57')
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['date'].setText('2017-12-31')
         ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['deposit'].setText('20')
@@ -1049,13 +1035,13 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].splits[checking], D(20))
         #check display with edits
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '105')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '130')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '30')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['row'], 1)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '150')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '50')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 2)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '160')
+        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '60')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
     def test_ledger_txn_edit_expense_account(self):

@@ -8,10 +8,13 @@ DEFAULT_DATA_FILENAME = 'data.sqlite3'
 
 
 def _load_data(storage, many_txns):
-    checking = Account(type_=pft.AccountType.ASSET, name='Checking', starting_balance=D(1000))
+    opening_balances = Account(type_=pft.AccountType.EQUITY, name='Opening Balances')
+    storage.save_account(opening_balances)
+
+    checking = Account(type_=pft.AccountType.ASSET, name='Checking')
     storage.save_account(checking)
 
-    savings = Account(type_=pft.AccountType.ASSET, name='Saving', starting_balance=D(1000))
+    savings = Account(type_=pft.AccountType.ASSET, name='Saving')
     storage.save_account(savings)
 
     food = Account(type_=pft.AccountType.EXPENSE, user_id='300', name='Food')
@@ -27,6 +30,8 @@ def _load_data(storage, many_txns):
     rent = Account(type_=pft.AccountType.EXPENSE, user_id='510', name='Rent', parent=housing)
     storage.save_account(rent)
 
+    storage.save_txn(Transaction(splits={opening_balances: D('-1000'), checking: 1000}, txn_date='2018-01-01'))
+    storage.save_txn(Transaction(splits={opening_balances: D('-1000'), savings: 1000}, txn_date='2018-01-01'))
     storage.save_txn(Transaction(splits={checking: D('-10'), restaurants: 10}, txn_date='2018-01-01'))
     storage.save_txn(Transaction(splits={checking: D('-20'), restaurants: 20}, txn_date='2018-01-02'))
     storage.save_txn(Transaction(splits={checking: D('-30'), restaurants: 30}, txn_date='2018-01-04'))
