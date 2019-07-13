@@ -703,6 +703,7 @@ class AccountsDisplay:
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(QtWidgets.QLabel('Type'), 0, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('User ID'), 0, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Name'), 0, ACCOUNTS_GUI_FIELDS['name']['column_number'])
@@ -1098,6 +1099,7 @@ class LedgerDisplay:
     def get_widget(self):
         self.widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
         self.ledger = Ledger(account=self._current_account)
@@ -1205,6 +1207,7 @@ class BudgetDisplay:
     def get_widget(self):
         self.main_widget = QtWidgets.QWidget()
         self.layout = QtWidgets.QGridLayout()
+        self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
         self.layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
         self.layout.addWidget(QtWidgets.QLabel('Income'), 0, 2)
@@ -1300,10 +1303,12 @@ class PFT_GUI_QT:
         self.parent_window = QtWidgets.QWidget()
         self.parent_window.setWindowTitle(title)
         self.parent_layout = QtWidgets.QGridLayout()
+        self.parent_layout.setContentsMargins(4, 4, 4, 4)
         self.parent_window.setLayout(self.parent_layout)
 
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
+        self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.content_area.setLayout(self.content_layout)
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 6)
         self.parent_window.showMaximized()
