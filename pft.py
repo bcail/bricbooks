@@ -856,6 +856,7 @@ class LedgerTxnsDisplay:
 
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
+        index = 0 #initialize in case there are no txns in the ledger
         for index, txn in enumerate(self.ledger.get_sorted_txns_with_balance()):
             if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
                 self._display_txn(txn, row=index, layout=self.txns_layout)
@@ -865,6 +866,8 @@ class LedgerTxnsDisplay:
                         self._display_txn(txn, row=index, layout=self.txns_layout)
                 except KeyError:
                     pass
+        self.txns_layout.addWidget(QtWidgets.QLabel(''), index+1, 0)
+        self.txns_layout.setRowStretch(index+1, 1)
 
     def _remove_edit_widgets(self, txn_widgets, layout):
         for widget in txn_widgets['entries'].values():
