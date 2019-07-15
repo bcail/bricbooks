@@ -1096,7 +1096,7 @@ class LedgerDisplay:
         self.storage = storage
         self._show_ledger = show_ledger
         if not current_account:
-            current_account = storage.get_accounts()[0]
+            current_account = storage.get_accounts(type_=AccountType.ASSET)[0]
         self._current_account = current_account
 
     def get_widget(self):
@@ -1120,7 +1120,9 @@ class LedgerDisplay:
     def _show_headings(self, layout, row):
         self.action_combo = QtWidgets.QComboBox()
         current_index = 0
-        for index, a in enumerate(self.storage.get_accounts()):
+        accounts = self.storage.get_accounts(type_=AccountType.ASSET)
+        accounts.extend(self.storage.get_accounts(type_=AccountType.LIABILITY))
+        for index, a in enumerate(accounts):
             if a.id == self._current_account.id:
                 current_index = index
             self.action_combo.addItem(a.name)
