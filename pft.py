@@ -1044,7 +1044,9 @@ class TxnAccountsDisplay:
         self._categories_combo.addItem('---------', None)
         current_index = 0
         index = 0
-        accounts = self._storage.get_accounts()
+        accounts = []
+        for type_ in [AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]:
+            accounts.extend(self._storage.get_accounts(type_=type_))
         for account in accounts:
             if account != self._main_account:
                 #find correct account in the list if txn has just two splits
