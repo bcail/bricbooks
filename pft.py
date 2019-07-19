@@ -711,6 +711,18 @@ class AccountsDisplay:
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
         row = 1
+        row = self._show_accounts(self.accounts_widgets, layout, accounts, row)
+        self.add_account_widgets = {}
+        self._show_add_account(layout, row, self.add_account_widgets, accounts)
+        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        layout.setRowStretch(row+1, 1)
+        main_widget.setLayout(layout)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(main_widget)
+        return scroll
+
+    def _show_accounts(self, accounts_widgets, layout, accounts, row):
         for acc in accounts:
             edit_function = partial(self._edit, layout=layout, acc_id=acc.id)
             type_label = QtWidgets.QLabel(acc.type.name)
@@ -726,21 +738,12 @@ class AccountsDisplay:
             layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
             layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
             layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-            self.accounts_widgets[acc.id] = {
+            accounts_widgets[acc.id] = {
                     'row': row,
                     'labels': {'user_id': user_id_label, 'name': name_label},
                 }
             row += 1
-
-        self.add_account_widgets = {}
-        self._show_add_account(layout, row, self.add_account_widgets, accounts)
-        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
-        layout.setRowStretch(row+1, 1)
-        main_widget.setLayout(layout)
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(main_widget)
-        return scroll
+        return row
 
     def _show_add_account(self, layout, row, add_account_widgets, all_accounts):
         add_account_type = QtWidgets.QComboBox()
