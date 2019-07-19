@@ -737,7 +737,10 @@ class AccountsDisplay:
         layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
         layout.setRowStretch(row+1, 1)
         main_widget.setLayout(layout)
-        return main_widget
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(main_widget)
+        return scroll
 
     def _show_add_account(self, layout, row, add_account_widgets, all_accounts):
         add_account_type = QtWidgets.QComboBox()
@@ -1266,7 +1269,10 @@ class BudgetDisplay:
         self.layout.addWidget(QtWidgets.QLabel(''), row_index+1, 0)
         self.layout.setRowStretch(row_index+1, 1)
         self.main_widget.setLayout(self.layout)
-        return self.main_widget
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self.main_widget)
+        return scroll
 
     def _save(self):
         account_budget_info = {}

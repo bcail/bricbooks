@@ -1135,7 +1135,7 @@ class TestQtGUI(unittest.TestCase):
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[housing]['amount'], D(15))
         budget_display = BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
-        budget_display.get_widget()
+        widget = budget_display.get_widget()
         QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
         budget_display.data[housing.id]['budget_entry'].setText('30')
         QtTest.QTest.mouseClick(budget_display._save_button, QtCore.Qt.LeftButton) #now it's the save button
