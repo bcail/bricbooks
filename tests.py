@@ -5,7 +5,6 @@ import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch, Mock, MagicMock
-from PySide2 import QtWidgets, QtTest, QtCore
 
 import pft
 from pft import (
@@ -1168,5 +1167,6 @@ if __name__ == '__main__':
         runner = unittest.TextTestRunner()
         runner.run(suite)
     else:
+        from PySide2 import QtWidgets, QtTest, QtCore
         unittest.main()
 
