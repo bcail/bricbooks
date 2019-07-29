@@ -1439,11 +1439,18 @@ class PFT_GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
+def run_cli(file_name):
+    banner = 'Command-line PFT'
+    import code
+    code.interact(banner=banner)
+
+
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--install_qt', dest='install_qt', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
+    parser.add_argument('--cli', dest='cli', action='store_true')
     args = parser.parse_args()
     return args
 
@@ -1452,6 +1459,10 @@ if __name__ == '__main__':
     args = parse_args()
     if args.install_qt:
         _do_qt_install()
+        sys.exit(0)
+
+    if args.cli:
+        run_cli(args.file_name)
         sys.exit(0)
 
     try:
