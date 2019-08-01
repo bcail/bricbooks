@@ -1333,9 +1333,8 @@ class BudgetDisplay:
 class PFT_GUI_QT:
 
     def __init__(self, file_name=None):
-        title = 'Python Finance Tracking'
         self.parent_window = QtWidgets.QWidget()
-        self.parent_window.setWindowTitle(title)
+        self.parent_window.setWindowTitle(TITLE)
         self.parent_layout = QtWidgets.QGridLayout()
         self.parent_layout.setContentsMargins(4, 4, 4, 4)
         self.parent_window.setLayout(self.parent_layout)
@@ -1439,10 +1438,20 @@ class PFT_GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
+def _list_accounts(storage):
+    for a in storage.get_accounts():
+        print(a)
+
+
 def run_cli(file_name):
     banner = 'Command-line PFT'
+    storage = SQLiteStorage(file_name)
+    local = {
+        'storage': storage,
+        'list_accounts': partial(_list_accounts, storage=storage),
+    }
     import code
-    code.interact(banner=banner)
+    code.interact(banner=banner, local=local)
 
 
 def parse_args():
