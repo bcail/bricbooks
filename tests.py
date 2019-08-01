@@ -653,7 +653,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(new_txn.txn_type, '123')
         self.assertEqual(new_txn.payee, 'Five Guys')
 
-    def test_load_txns_into_ledger(self):
+    def test_get_account_ledger(self):
         storage = SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
@@ -670,8 +670,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn3 = Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee='Subway', description='inv #42', status=Transaction.CLEARED,
                 splits={savings2: '-6.53', savings: '6.53'})
         storage.save_txn(txn3)
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking], D('101'))
@@ -930,8 +929,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_widgets['accounts_display']._categories_combo.setCurrentIndex(1)
         QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].splits[checking], D('-18'))
@@ -957,8 +955,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], D('-10'))
@@ -1027,8 +1024,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['accounts_display'].get_categories(), savings)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure edit was saved
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
@@ -1064,8 +1060,7 @@ class TestQtGUI(unittest.TestCase):
         #save the change
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
         #make sure new category was saved
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(txns[1].splits[restaurants], D(-17))
 
@@ -1111,8 +1106,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
-        ledger = Ledger(account=checking)
-        storage.load_txns_into_ledger(ledger)
+        ledger = storage.get_account_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], D(23))

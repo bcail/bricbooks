@@ -517,12 +517,14 @@ class SQLiteStorage:
         self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
-    def load_txns_into_ledger(self, ledger):
-        db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM txn_splits WHERE account_id = ?', (ledger.account.id,)).fetchall()
+    def get_account_ledger(self, account):
+        ledger = Ledger(account=account)
+        db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM txn_splits WHERE account_id = ?', (account.id,)).fetchall()
         txn_ids = set([r[0] for r in db_txn_id_records])
         for txn_id in txn_ids:
             txn = self.get_txn(txn_id)
             ledger.add_transaction(txn)
+        return ledger
 
     def save_budget(self, budget):
         c = self._db_connection.cursor()
@@ -1131,8 +1133,7 @@ class LedgerDisplay:
         layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
-        self.ledger = Ledger(account=self._current_account)
-        self.storage.load_txns_into_ledger(self.ledger)
+        self.ledger = self.storage.get_account_ledger(account=self._current_account)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
