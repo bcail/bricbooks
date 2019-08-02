@@ -938,6 +938,33 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
+    def test_ledger_add_not_first_account(self):
+        #test that correct accounts are set for the new txn (not just first account in the list)
+        storage = SQLiteStorage(':memory:')
+        checking = get_test_account()
+        storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        storage.save_account(savings)
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        ledger_display = LedgerDisplay(storage, show_ledger=fake_method, current_account=savings)
+        ledger_display.get_widget()
+        #add new txn
+        ledger_display.add_txn_widgets['entries']['date'].setText('2017-01-05')
+        ledger_display.add_txn_widgets['entries']['withdrawal'].setText('18')
+        ledger_display.add_txn_widgets['accounts_display']._categories_combo.setCurrentIndex(1)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_widgets['buttons']['add_new'], QtCore.Qt.LeftButton)
+        #make sure new txn was saved correctly
+        ledger = storage.get_account_ledger(account=savings)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].splits,
+                {
+                    savings: D('-18'),
+                    housing: D(18)
+                }
+            )
+
     def test_ledger_add_multiple(self):
         storage = SQLiteStorage(':memory:')
         checking = get_test_account()

@@ -1209,7 +1209,7 @@ class LedgerDisplay:
         deposit = self.add_txn_widgets['entries']['deposit'].text()
         withdrawal = self.add_txn_widgets['entries']['withdrawal'].text()
         txn = Transaction.from_user_info(
-                account=self.storage.get_accounts()[0],
+                account=self._current_account,
                 txn_type=txn_type,
                 deposit=deposit,
                 withdrawal=withdrawal,
