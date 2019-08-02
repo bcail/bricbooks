@@ -464,15 +464,21 @@ class SQLiteStorage:
             account.id = c.lastrowid
         self._db_connection.commit()
 
-    def get_accounts(self, type_=None):
-        if type_:
-            db_records = self._db_connection.execute('SELECT id FROM accounts WHERE type = ? ORDER BY id', (type_.value,)).fetchall()
-        else:
-            db_records = self._db_connection.execute('SELECT id FROM accounts ORDER BY id').fetchall()
+    def _get_accounts_by_type(self, type_):
+        db_records = self._db_connection.execute('SELECT id FROM accounts WHERE type = ? ORDER BY id', (type_.value,)).fetchall()
         accounts = []
         for r in db_records:
             accounts.append(self.get_account(r[0]))
         return accounts
+
+    def get_accounts(self, type_=None):
+        if type_:
+            return self._get_accounts_by_type(type_)
+        else:
+            accounts = []
+            for type_ in [AccountType.ASSET, AccountType.LIABILITY, AccountType.INCOME, AccountType.EXPENSE, AccountType.EQUITY]:
+                accounts.extend(self._get_accounts_by_type(type_))
+            return accounts
 
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
