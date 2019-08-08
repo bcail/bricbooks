@@ -617,16 +617,16 @@ ACTIONS_WIDTH = 16
 
 
 GUI_FIELDS = {
-        'type': {'column_number': 0, 'add_edit_column_number': 0},
-        'date': {'column_number': 1, 'add_edit_column_number': 1},
-        'payee': {'column_number': 2, 'add_edit_column_number': 2},
-        'description': {'column_number': 3, 'add_edit_column_number': 3},
-        'status': {'column_number': 4, 'add_edit_column_number': 4},
-        'withdrawal': {'column_number': 5, 'add_edit_column_number': 5},
-        'deposit': {'column_number': 6, 'add_edit_column_number': 6},
-        'balance': {'column_number': 7, 'add_edit_column_number': -1},
-        'categories': {'column_number': 8, 'add_edit_column_number': 7},
-        'buttons': {'add_edit_column_number': 8},
+        'type': {'column_number': 0, 'add_edit_column_number': 0, 'column_stretch': 1},
+        'date': {'column_number': 1, 'add_edit_column_number': 1, 'column_stretch': 2},
+        'payee': {'column_number': 2, 'add_edit_column_number': 2, 'column_stretch': 2},
+        'description': {'column_number': 3, 'add_edit_column_number': 3, 'column_stretch': 2},
+        'status': {'column_number': 4, 'add_edit_column_number': 4, 'column_stretch': 1},
+        'withdrawal': {'column_number': 5, 'add_edit_column_number': 5, 'column_stretch': 2},
+        'deposit': {'column_number': 6, 'add_edit_column_number': 6, 'column_stretch': 2},
+        'balance': {'column_number': 7, 'add_edit_column_number': -1, 'column_stretch': 2},
+        'categories': {'column_number': 8, 'add_edit_column_number': 7, 'column_stretch': 3},
+        'buttons': {'column_number': -1, 'add_edit_column_number': 8, 'column_stretch': 2},
     }
 
 
@@ -640,10 +640,11 @@ def set_widget_error_state(widget):
 
 
 ACCOUNTS_GUI_FIELDS = {
-        'type': {'column_number': 0},
-        'user_id': {'column_number': 1},
-        'name': {'column_number': 2},
-        'parent': {'column_number': 3},
+        'type': {'column_number': 0, 'column_stretch': 2},
+        'user_id': {'column_number': 1, 'column_stretch': 1},
+        'name': {'column_number': 2, 'column_stretch': 3},
+        'parent': {'column_number': 3, 'column_stretch': 3},
+        'buttons': {'column_number': 4, 'column_stretch': 3},
     }
 
 
@@ -697,7 +698,7 @@ class AccountsDisplay:
 
         save_button = QtWidgets.QPushButton('Save Edit')
         save_button.clicked.connect(partial(self._save_edit, acc_id=acc_id))
-        layout.addWidget(save_button, row, 5)
+        layout.addWidget(save_button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
         self.accounts_widgets[acc_id]['entries'] = {
                 'type': type_entry,
                 'user_id': user_id_entry,
@@ -712,6 +713,8 @@ class AccountsDisplay:
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+        for field_info in ACCOUNTS_GUI_FIELDS.values():
+            layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
         row = 0
         layout.addWidget(QtWidgets.QLabel('Type'), row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('User ID'), row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
@@ -721,7 +724,7 @@ class AccountsDisplay:
         accounts = self.storage.get_accounts()
         row = 1
         accounts_widget = self._get_accounts_widget(self.accounts_widgets, accounts)
-        layout.addWidget(accounts_widget, row, 0, 1, 4)
+        layout.addWidget(accounts_widget, row, 0, 1, 5)
         row = 2
         self.add_account_widgets = {}
         self._show_add_account(layout, row, self.add_account_widgets, accounts)
@@ -735,6 +738,8 @@ class AccountsDisplay:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
+        for field_info in ACCOUNTS_GUI_FIELDS.values():
+            layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
         row = 0
         for acc in accounts:
             edit_function = partial(self._edit, layout=layout, acc_id=acc.id)
@@ -753,7 +758,7 @@ class AccountsDisplay:
             layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
             layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
             layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-            layout.addWidget(empty_label, row, 4)
+            layout.addWidget(empty_label, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
             accounts_widgets[acc.id] = {
                     'row': row,
                     'labels': {
@@ -787,7 +792,7 @@ class AccountsDisplay:
         layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         button = QtWidgets.QPushButton('Add New')
         button.clicked.connect(self._save_new_account)
-        layout.addWidget(button, row, 5)
+        layout.addWidget(button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
         add_account_widgets['entries'] = {
                 'type': add_account_type,
                 'user_id': add_account_user_id,
@@ -810,15 +815,9 @@ class AccountsDisplay:
 
 
 def set_ledger_column_widths(layout):
-    layout.setColumnStretch(0, 1)
-    layout.setColumnStretch(1, 1)
-    layout.setColumnStretch(2, 4)
-    layout.setColumnStretch(3, 5)
-    layout.setColumnStretch(4, 5)
-    layout.setColumnStretch(5, 1)
-    layout.setColumnStretch(6, 3)
-    layout.setColumnStretch(7, 3)
-    layout.setColumnStretch(8, 3)
+    for field_info in GUI_FIELDS.values():
+        if field_info['column_number'] >= 0:
+            layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
 
 
 class SplitTransactionEditor:
@@ -1163,7 +1162,7 @@ class LedgerDisplay:
         self.action_combo.currentIndexChanged.connect(self._update_account)
         layout.addWidget(self.action_combo, row, 0)
         row += 1
-        layout.addWidget(QtWidgets.QLabel('Txn Type'), row, GUI_FIELDS['type']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['date']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Payee'), row, GUI_FIELDS['payee']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Description'), row, GUI_FIELDS['description']['column_number'])
