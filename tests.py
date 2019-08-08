@@ -119,7 +119,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'transaction must have a txn_date')
         with self.assertRaises(InvalidTransactionError) as cm:
             Transaction(splits=self.valid_splits, txn_date=10)
-        self.assertEqual(str(cm.exception), 'invalid txn_date')
+        self.assertEqual(str(cm.exception), 'invalid txn_date "10"')
 
     def test_txn_date(self):
         t = Transaction(splits=self.valid_splits, txn_date=date.today())
@@ -167,6 +167,31 @@ class TestTransaction(unittest.TestCase):
             self.checking: D(101),
             self.savings: D('-101'),
         })
+
+    def test_txn_status(self):
+        splits={
+            self.checking: '-101',
+            self.savings: '101',
+        }
+        t = Transaction(
+                splits=splits,
+                txn_date=date.today(),
+                status='c',
+            )
+        self.assertEqual(t.status, 'C')
+        t = Transaction(
+                splits=splits,
+                txn_date=date.today(),
+                status='',
+            )
+        self.assertEqual(t.status, None)
+        with self.assertRaises(InvalidTransactionError) as cm:
+            Transaction(
+                    splits=splits,
+                    txn_date=date.today(),
+                    status='d',
+                )
+        self.assertEqual(str(cm.exception), 'invalid status "d"')
 
     def test_txn_splits_from_user_info(self):
         #test passing in list, just one account, ...
@@ -301,7 +326,7 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'invalid deposit/withdrawal')
         with self.assertRaises(InvalidTransactionError) as cm:
             t.update_from_user_info(txn_date='ab')
-        self.assertEqual(str(cm.exception), 'invalid txn_date')
+        self.assertEqual(str(cm.exception), 'invalid txn_date "ab"')
 
     def test_update_values_deposit_withdrawal(self):
         t = Transaction(

@@ -168,7 +168,7 @@ class Transaction:
         self.txn_type = txn_type
         self.payee = payee
         self.description = description
-        self.status = status
+        self.status = self._handle_status(status)
         self.id = id_
 
     def __str__(self):
@@ -232,7 +232,18 @@ class Transaction:
         try:
             return get_date(txn_date)
         except Exception:
-            raise InvalidTransactionError('invalid txn_date')
+            raise InvalidTransactionError(f'invalid txn_date "{txn_date}"')
+
+    def _handle_status(self, status):
+        if status:
+            if status.upper() == self.CLEARED:
+                return self.CLEARED
+            elif status.upper() == self.RECONCILED:
+                return self.RECONCILED
+            else:
+                raise InvalidTransactionError(f'invalid status "{status}"')
+        else:
+            return None
 
     def _categories_display(self, main_account):
         if len(self.splits.keys()) == 2:
