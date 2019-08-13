@@ -150,6 +150,18 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t.status, Transaction.CLEARED)
 
+    def test_sparse_init(self):
+        #pass minimal amount of info into Transaction & verify values
+        t = Transaction(
+                splits=self.valid_splits,
+                txn_date=date.today(),
+            )
+        self.assertEqual(t.id, None)
+        self.assertEqual(t.txn_type, None)
+        self.assertEqual(t.payee, None)
+        self.assertEqual(t.description, None)
+        self.assertEqual(t.status, None)
+
     def test_txn_from_user_info(self):
         #construct txn from user strings, as much as possible (except account & categories)
         t = Transaction.from_user_info(
