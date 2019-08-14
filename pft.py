@@ -301,15 +301,32 @@ class Ledger:
             raise Exception('txn must have an id')
         self._txns[txn.id] = txn
 
-    def get_sorted_txns_with_balance(self):
-        sorted_txns = sorted(self._txns.values(), key=lambda t: t.txn_date)
+    def _sort_txns(self, txns):
+        return sorted(txns, key=lambda t: t.txn_date)
+
+    def _add_balance_to_txns(self, txns):
+        #txns must be sorted already
+        txns_with_balance = []
         balance = Decimal(0)
-        sorted_records = []
-        for t in sorted_txns:
+        for t in txns:
             balance = balance + t.splits[self.account]
             t.balance = balance
-            sorted_records.append(t)
-        return sorted_records
+            txns_with_balance.append(t)
+        return txns_with_balance
+
+    def get_sorted_txns_with_balance(self):
+        sorted_txns = self._sort_txns(self._txns.values())
+        return self._add_balance_to_txns(sorted_txns)
+
+    def search(self, search_term):
+        results = []
+        search_term = search_term.lower()
+        for t in self._txns.values():
+            if t.payee and search_term in t.payee.lower():
+                results.append(t)
+            elif t.description and search_term in t.description.lower():
+                results.append(t)
+        return self._sort_txns(results)
 
     def get_txn(self, id_):
         return self._txns[id_]

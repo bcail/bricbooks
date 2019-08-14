@@ -394,6 +394,20 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
         self.assertEqual(ledger_records[3].balance, D('31.45'))
 
+    def test_search(self):
+        ledger = Ledger(account=self.checking)
+        splits1 = {self.checking: '32.45', self.savings: '-32.45'}
+        splits2 = {self.checking: -12, self.savings: 12}
+        splits3 = {self.checking: 1, self.savings: -1}
+        splits4 = {self.checking: 10, self.savings: -10}
+        ledger.add_transaction(Transaction(id_=1, splits=splits1, payee='someone', txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(Transaction(id_=3, splits=splits3, description='Some description', txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
+        results = ledger.search('some')
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].description, 'Some description')
+
     def test_get_txn(self):
         ledger = Ledger(account=self.checking)
         splits1 = {self.checking: '-32.45', self.savings: '32.45'}
