@@ -205,27 +205,6 @@ class Transaction:
             raise InvalidTransactionError('transaction must belong to an account')
         return account
 
-    def _check_amount(self, amount):
-        if not amount:
-            raise InvalidTransactionError('transaction must have an amount')
-        if isinstance(amount, Decimal):
-            decimal_amount = amount
-        elif isinstance(amount, (int, str)):
-            try:
-                decimal_amount = Decimal(amount)
-            except InvalidOperation:
-                raise InvalidTransactionError('invalid amount %s' % amount)
-        else:
-            raise InvalidTransactionError('invalid type for amount')
-
-        #check for fractions of cents
-        amt_str = str(decimal_amount)
-        if '.' in amt_str:
-            _, decimals = amt_str.split('.')
-            if len(decimals) > 2:
-                raise InvalidTransactionError('no fractions of cents in a transaction')
-        return decimal_amount
-
     def _check_txn_date(self, txn_date):
         if not txn_date:
             raise InvalidTransactionError('transaction must have a txn_date')
