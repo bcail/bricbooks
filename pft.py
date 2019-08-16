@@ -345,6 +345,21 @@ class Ledger:
         return sorted(list(payees))
 
 
+class ScheduledTransactionFrequency(Enum):
+    WEEKLY = 1
+    MONTHLY = 2
+    QUARTERLY = 3
+    ANNUALLY = 4
+
+
+class ScheduledTransaction:
+
+    def __init__(self, name, frequency, splits):
+        self.name = name
+        self.frequency = frequency
+        self.splits = splits
+
+
 class Budget:
     '''Budget information that's entered by the user - no defaults or calculated values, but
     empty strings are dropped (so we can pass empty string from user form), and strings are converted

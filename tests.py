@@ -415,6 +415,27 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger.get_payees(), ['Burger King', 'McDonalds'])
 
 
+class TestScheduledTransaction(unittest.TestCase):
+
+    def setUp(self):
+        self.checking = get_test_account(id_=1)
+        self.savings = get_test_account(id_=2, name='Savings')
+
+    def test_init(self):
+        splits={
+             self.checking, -101,
+             self.savings, 101
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                splits=splits,
+            )
+        self.assertEqual(st.name, 'weekly 1')
+        self.assertEqual(st.frequency, pft.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(st.splits, splits)
+
+
 class TestBudget(unittest.TestCase):
 
     def test_init_dates(self):
