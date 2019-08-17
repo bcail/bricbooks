@@ -121,6 +121,32 @@ class Account:
             raise InvalidAccountError('Invalid account type "%s"' % type_)
         return type_
 
+def check_txn_splits(input_splits):
+    if not input_splits or len(input_splits.items()) < 2:
+        raise InvalidTransactionError('transaction must have at least 2 splits')
+    splits = {}
+    total = Decimal(0)
+    for account, amount in input_splits.items():
+        if not account:
+            raise InvalidTransactionError('must have a valid account in splits')
+        if isinstance(amount, Decimal):
+            decimal_amount = amount
+        elif isinstance(amount, (int, str)):
+            decimal_amount = Decimal(amount)
+        else:
+            raise InvalidTransactionError('invalid split amount: %s' % amount)
+        #check for fractions of cents
+        amt_str = str(decimal_amount)
+        if '.' in amt_str:
+            _, decimals = amt_str.split('.')
+            if len(decimals) > 2:
+                raise InvalidTransactionError('no fractions of cents in a transaction')
+        total += decimal_amount
+        splits[account] = decimal_amount
+    if total != Decimal(0):
+        raise InvalidTransactionError("splits don't balance")
+    return splits
+
 
 class Transaction:
 
@@ -163,7 +189,7 @@ class Transaction:
             )
 
     def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, status=None, id_=None):
-        self.splits = self._check_splits(splits)
+        self.splits = check_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
         self.payee = payee
@@ -173,32 +199,6 @@ class Transaction:
 
     def __str__(self):
         return '%s: %s' % (self.id, self.txn_date)
-
-    def _check_splits(self, input_splits):
-        if not input_splits or len(input_splits.items()) < 2:
-            raise InvalidTransactionError('transaction must have at least 2 splits')
-        splits = {}
-        total = Decimal(0)
-        for account, amount in input_splits.items():
-            if not account:
-                raise InvalidTransactionError('must have a valid account in splits')
-            if isinstance(amount, Decimal):
-                decimal_amount = amount
-            elif isinstance(amount, (int, str)):
-                decimal_amount = Decimal(amount)
-            else:
-                raise InvalidTransactionError('invalid split amount: %s' % amount)
-            #check for fractions of cents
-            amt_str = str(decimal_amount)
-            if '.' in amt_str:
-                _, decimals = amt_str.split('.')
-                if len(decimals) > 2:
-                    raise InvalidTransactionError('no fractions of cents in a transaction')
-            total += decimal_amount
-            splits[account] = decimal_amount
-        if total != Decimal(0):
-            raise InvalidTransactionError("splits don't balance")
-        return splits
 
     def _check_account(self, account):
         if not account:
@@ -254,7 +254,7 @@ class Transaction:
     def update_from_user_info(self, account=None, deposit=None, withdrawal=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
         if deposit or withdrawal:
             splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
-            self.splits = self._check_splits(splits)
+            self.splits = check_txn_splits(splits)
         if txn_date is not None:
             self.txn_date = self._check_txn_date(txn_date)
         if txn_type is not None:
