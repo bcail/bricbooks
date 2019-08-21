@@ -420,20 +420,66 @@ class TestScheduledTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
+        self.valid_splits={
+             self.checking: -101,
+             self.savings: 101,
+        }
+
+    def test_invalid_frequency(self):
+        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
+            pft.ScheduledTransaction(
+                name='w',
+                frequency='weekly',
+                next_due_date='2019-01-01',
+                splits=self.valid_splits,
+            )
+        self.assertEqual(str(cm.exception), 'invalid frequency "weekly"')
+
+    def test_invalid_splits(self):
+        with self.assertRaises(pft.InvalidTransactionError) as cm:
+            pft.ScheduledTransaction(
+                name='w',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-01',
+                splits={},
+            )
+        self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
+
+    def test_invalid_next_due_date(self):
+        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
+            pft.ScheduledTransaction(
+                name='w',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='abcd',
+                splits=self.valid_splits,
+            )
+        self.assertEqual(str(cm.exception), 'invalid date "abcd"')
+        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
+            pft.ScheduledTransaction(
+                name='w',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date=None,
+                splits=self.valid_splits,
+            )
+        self.assertEqual(str(cm.exception), 'invalid date "None"')
 
     def test_init(self):
-        splits={
-             self.checking, -101,
-             self.savings, 101
-        }
         st = pft.ScheduledTransaction(
                 name='weekly 1',
                 frequency=pft.ScheduledTransactionFrequency.WEEKLY,
-                splits=splits,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+                txn_type='a',
+                payee='Wendys',
+                description='something',
             )
         self.assertEqual(st.name, 'weekly 1')
         self.assertEqual(st.frequency, pft.ScheduledTransactionFrequency.WEEKLY)
-        self.assertEqual(st.splits, splits)
+        self.assertEqual(st.next_due_date, date(2019, 1, 2))
+        self.assertEqual(st.splits, self.valid_splits)
+        self.assertEqual(st.txn_type, 'a')
+        self.assertEqual(st.payee, 'Wendys')
+        self.assertEqual(st.description, 'something')
 
 
 class TestBudget(unittest.TestCase):

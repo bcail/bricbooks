@@ -67,6 +67,9 @@ class InvalidTransactionError(RuntimeError):
 class InvalidLedgerError(RuntimeError):
     pass
 
+class InvalidScheduledTransactionError(RuntimeError):
+    pass
+
 class BudgetError(RuntimeError):
     pass
 
@@ -333,10 +336,22 @@ class ScheduledTransactionFrequency(Enum):
 
 class ScheduledTransaction:
 
-    def __init__(self, name, frequency, splits):
+    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None):
         self.name = name
+        if not isinstance(frequency, ScheduledTransactionFrequency):
+            raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.frequency = frequency
-        self.splits = splits
+        self.next_due_date = self._check_date(next_due_date)
+        self.splits = check_txn_splits(splits)
+        self.txn_type = txn_type
+        self.payee = payee
+        self.description = description
+
+    def _check_date(self, dt):
+        try:
+            return get_date(dt)
+        except Exception:
+            raise InvalidScheduledTransactionError('invalid date "%s"' % dt)
 
 
 class Budget:
