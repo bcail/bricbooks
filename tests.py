@@ -579,7 +579,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('accounts',), ('budgets',), ('budget_values',), ('transactions',), ('txn_splits',)]
+TABLES = [('accounts',), ('budgets',), ('budget_values',), ('scheduled_transactions',), ('scheduled_txn_splits',), ('transactions',), ('txn_splits',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):

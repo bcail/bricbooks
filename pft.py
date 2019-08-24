@@ -470,6 +470,8 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, parent_id INTEGER)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT, frequency TEXT, next_due_date TEXT, txn_type TEXT, payee TEXT, description TEXT)')
+        conn.execute('CREATE TABLE scheduled_txn_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER, account_id INTEGER, amount TEXT)')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
