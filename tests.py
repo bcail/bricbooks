@@ -940,6 +940,31 @@ class TestSQLiteStorage(unittest.TestCase):
         expense_account = list(budgets[0].get_report_display()['expense'].keys())[0]
         self.assertEqual(expense_account.name, 'Housing')
 
+    def test_save_scheduled_txn(self):
+        checking = get_test_account(id_=1)
+        savings = get_test_account(id_=2, name='Savings')
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        storage = pft.SQLiteStorage(':memory:')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        storage.save_scheduled_transaction(st)
+        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        self.assertEqual(len(st_records), 1)
+        self.assertEqual(st_records[0],
+                (1, 'weekly 1', pft.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 'Wendys', 'something'))
+
 
 def fake_method():
     pass
