@@ -477,6 +477,8 @@ class SQLiteStorage:
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, type, user_id, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        if not account_info:
+            raise Exception('no account with id "%s"' % account_id)
         parent = None
         if account_info[4]:
             parent = self.get_account(account_info[4])
@@ -645,7 +647,31 @@ class SQLiteStorage:
         c = self._db_connection.cursor()
         c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee, description) VALUES (?, ?, ?, ?, ?, ?)',
             (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description))
+        scheduled_txn.id = c.lastrowid
+        for account, amount in scheduled_txn.splits.items():
+            c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
         self._db_connection.commit()
+
+    def get_scheduled_transaction(self, id_):
+        c = self._db_connection.cursor()
+        splits = {}
+        split_records = c.execute('SELECT account_id, amount FROM scheduled_txn_splits WHERE scheduled_txn_id = ?', (id_,))
+        if split_records:
+            for split_record in split_records:
+                account_id = split_record[0]
+                account = self.get_account(account_id)
+                splits[account] = split_record[1]
+        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        st = ScheduledTransaction(
+                name=rows[0][0],
+                frequency=ScheduledTransactionFrequency(rows[0][1]),
+                next_due_date=rows[0][2],
+                splits=splits,
+                txn_type=rows[0][3],
+                payee=rows[0][4],
+                description=rows[0][5],
+            )
+        return st
 
 
 ### GUI ###
