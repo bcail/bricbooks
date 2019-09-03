@@ -214,7 +214,7 @@ class Transaction:
         try:
             return get_date(txn_date)
         except Exception:
-            raise InvalidTransactionError(f'invalid txn_date "{txn_date}"')
+            raise InvalidTransactionError('invalid txn_date "%s"' % txn_date)
 
     def _handle_status(self, status):
         if status:
@@ -223,7 +223,7 @@ class Transaction:
             elif status.upper() == self.RECONCILED:
                 return self.RECONCILED
             else:
-                raise InvalidTransactionError(f'invalid status "{status}"')
+                raise InvalidTransactionError('invalid status "%s"' % status)
         else:
             return None
 
