@@ -567,7 +567,9 @@ class SQLiteStorage:
         self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
-    def get_account_ledger(self, account):
+    def get_ledger(self, account):
+        if isinstance(account, int):
+            account = self.get_account(account)
         ledger = Ledger(account=account)
         db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM txn_splits WHERE account_id = ?', (account.id,)).fetchall()
         txn_ids = set([r[0] for r in db_txn_id_records])
@@ -1212,7 +1214,7 @@ class LedgerDisplay:
         layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
-        self.ledger = self.storage.get_account_ledger(account=self._current_account)
+        self.ledger = self.storage.get_ledger(account=self._current_account)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.add_txn_widgets = {'entries': {}, 'buttons': {}}
