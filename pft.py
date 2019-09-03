@@ -278,6 +278,9 @@ class Ledger:
         self.account = account
         self._txns = {}
 
+    def __str__(self):
+        return '%s ledger' % self.account.name
+
     def add_transaction(self, txn):
         if not txn.id:
             raise Exception('txn must have an id')
@@ -1517,7 +1520,12 @@ class PFT_GUI_QT:
 
 def _list_accounts(storage):
     for a in storage.get_accounts():
-        print(a)
+        print('%s - %s' % (a.id, a.name))
+
+
+def _get_account(storage):
+    acc_id = input('enter account ID: ')
+    return storage.get_account(acc_id)
 
 
 def run_cli(file_name):
@@ -1526,6 +1534,7 @@ def run_cli(file_name):
     local = {
         'storage': storage,
         'list_accounts': partial(_list_accounts, storage=storage),
+        'get_account': partial(_get_account, storage=storage),
     }
     import code
     code.interact(banner=banner, local=local)
