@@ -356,6 +356,21 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(txn)
         self.assertEqual(ledger._txns, {1: txn})
 
+    def test_add_scheduled_txn(self):
+        ledger = pft.Ledger(account=self.checking)
+        self.assertEqual(ledger._scheduled_txns, {})
+        splits = {self.checking: 100, self.savings: -100}
+        scheduled_txn = pft.ScheduledTransaction(
+            id_=1,
+            name='weekly',
+            frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+            splits=splits,
+            next_due_date=date.today()
+        )
+        ledger.add_scheduled_transaction(scheduled_txn)
+        self.assertEqual(ledger._scheduled_txns,
+            {1: scheduled_txn})
+
     def test_get_ledger_txns(self):
         ledger = pft.Ledger(account=self.checking)
         splits1 = {self.checking: '32.45', self.savings: '-32.45'}

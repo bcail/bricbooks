@@ -277,6 +277,7 @@ class Ledger:
             raise InvalidLedgerError('ledger must have an account')
         self.account = account
         self._txns = {}
+        self._scheduled_txns = {}
 
     def __str__(self):
         return '%s ledger' % self.account.name
@@ -285,6 +286,9 @@ class Ledger:
         if not txn.id:
             raise Exception('txn must have an id')
         self._txns[txn.id] = txn
+
+    def add_scheduled_transaction(self, scheduled_txn):
+        self._scheduled_txns[scheduled_txn.id] = scheduled_txn
 
     def _sort_txns(self, txns):
         return sorted(txns, key=lambda t: t.txn_date)
@@ -339,7 +343,7 @@ class ScheduledTransactionFrequency(Enum):
 
 class ScheduledTransaction:
 
-    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None):
+    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, id_=None):
         self.name = name
         if not isinstance(frequency, ScheduledTransactionFrequency):
             raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
@@ -349,6 +353,7 @@ class ScheduledTransaction:
         self.txn_type = txn_type
         self.payee = payee
         self.description = description
+        self.id = id_
 
     def _check_date(self, dt):
         try:
