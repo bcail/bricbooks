@@ -333,6 +333,10 @@ class Ledger:
                 payees.add(txn.payee)
         return sorted(list(payees))
 
+    def get_scheduled_transactions_due(self):
+        all_scheduled_txns = list(self._scheduled_txns.values())
+        return [t for t in all_scheduled_txns if t.is_due()]
+
 
 class ScheduledTransactionFrequency(Enum):
     WEEKLY = 1
@@ -360,6 +364,11 @@ class ScheduledTransaction:
             return get_date(dt)
         except Exception:
             raise InvalidScheduledTransactionError('invalid date "%s"' % dt)
+
+    def is_due(self):
+        if self.next_due_date <= date.today():
+            return True
+        return False
 
 
 class Budget:

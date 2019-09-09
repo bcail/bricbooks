@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal as D
 import os
 import sqlite3
@@ -390,6 +390,28 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[2].balance, D(-1))
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
         self.assertEqual(ledger_records[3].balance, D('31.45'))
+
+    def test_get_scheduled_txns_due(self):
+        ledger = pft.Ledger(account=self.checking)
+        splits = {self.checking: 100, self.savings: -100}
+        not_due_txn = pft.ScheduledTransaction(
+            id_=1,
+            name='not due',
+            frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+            splits=splits,
+            next_due_date=date.today() + timedelta(days=1),
+        )
+        due_txn = pft.ScheduledTransaction(
+            id_=2,
+            name='due',
+            frequency=pft.ScheduledTransactionFrequency.MONTHLY,
+            splits=splits,
+            next_due_date=date.today()
+        )
+        ledger.add_scheduled_transaction(not_due_txn)
+        ledger.add_scheduled_transaction(due_txn)
+        self.assertEqual(ledger.get_scheduled_transactions_due(),
+            [due_txn])
 
     def test_search(self):
         ledger = pft.Ledger(account=self.checking)
