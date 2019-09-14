@@ -7,6 +7,12 @@ Python Finance Tracking
 
 TODO
 ----
+- Ledger - make sure ledger txns are aligned to the top if they don't fill the window (as they're added)
+- Ledger - new transaction - fix tab order
+- Ledger - reload payees list for new transactions after adding one
+- Ledger - allow different date forms (ie. m/d/yyyy)
+- Ledger - categories box - show expense account user id with name
+- Accounts view - new account form should be at the bottom of the screen (accts list should expand as much as possible)
 - catch exceptions and give good error messages in the UI
 - add scheduled transactions
 
