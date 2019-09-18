@@ -695,15 +695,13 @@ class SQLiteStorage:
 
 ### GUI ###
 
-TXN_TYPE_WIDTH = 7
-DATE_WIDTH = 10
-PAYEE_WIDTH = 25
-DESCRIPTION_WIDTH = 40
-STATUS_WIDTH = 6
-CATEGORIES_WIDTH = 15
-AMOUNT_WIDTH = 10
-BALANCE_WIDTH = 12
-ACTIONS_WIDTH = 16
+ACCOUNTS_GUI_FIELDS = {
+        'type': {'column_number': 0, 'column_stretch': 2},
+        'user_id': {'column_number': 1, 'column_stretch': 1},
+        'name': {'column_number': 2, 'column_stretch': 3},
+        'parent': {'column_number': 3, 'column_stretch': 3},
+        'buttons': {'column_number': 4, 'column_stretch': 3},
+    }
 
 
 GUI_FIELDS = {
@@ -727,15 +725,6 @@ ERROR_STYLE = '''QLineEdit {
 
 def set_widget_error_state(widget):
     widget.setStyleSheet(ERROR_STYLE)
-
-
-ACCOUNTS_GUI_FIELDS = {
-        'type': {'column_number': 0, 'column_stretch': 2},
-        'user_id': {'column_number': 1, 'column_stretch': 1},
-        'name': {'column_number': 2, 'column_stretch': 3},
-        'parent': {'column_number': 3, 'column_stretch': 3},
-        'buttons': {'column_number': 4, 'column_stretch': 3},
-    }
 
 
 class AccountsDisplay:
