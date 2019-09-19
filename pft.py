@@ -1253,35 +1253,38 @@ class LedgerDisplay:
         return row + 1
 
     def _show_add_txn(self, layout, add_txn_widgets, payees, row):
+        widgets = [None, None, None, None, None, None, None, None, None]
         entry_names = ['type', 'date']
         for entry_name in entry_names:
             entry = QtWidgets.QLineEdit()
             add_txn_widgets['entries'][entry_name] = entry
-            layout.addWidget(entry, row, GUI_FIELDS[entry_name]['add_edit_column_number'])
+            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
         for payee in payees:
             payee_entry.addItem(payee)
         add_txn_widgets['payee'] = payee_entry
-        layout.addWidget(payee_entry, row, GUI_FIELDS['payee']['add_edit_column_number'])
+        widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
         description_entry = QtWidgets.QLineEdit()
         add_txn_widgets['entries']['description'] = description_entry
-        layout.addWidget(description_entry, row, GUI_FIELDS['description']['add_edit_column_number'])
+        widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
         txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self._current_account)
-        layout.addWidget(txn_accounts_display.get_widget(), row, GUI_FIELDS['categories']['add_edit_column_number'])
+        widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
         add_txn_widgets['accounts_display'] = txn_accounts_display
         entry_names = ['status', 'withdrawal', 'deposit']
         column_index = 5
         for entry_name in entry_names:
             entry = QtWidgets.QLineEdit()
             add_txn_widgets['entries'][entry_name] = entry
-            layout.addWidget(entry, row, GUI_FIELDS[entry_name]['add_edit_column_number'])
+            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
             column_index += 1
         add_new_button = QtWidgets.QPushButton('Add New')
         add_new_button.clicked.connect(self._save_new_txn)
         add_txn_widgets['buttons']['add_new'] = add_new_button
-        layout.addWidget(add_new_button, row, GUI_FIELDS['buttons']['add_edit_column_number'])
+        widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = add_new_button
+        for index, widget in enumerate(widgets):
+            layout.addWidget(widget, row, index)
 
     def _save_new_txn(self):
         txn_type = self.add_txn_widgets['entries']['type'].text()
