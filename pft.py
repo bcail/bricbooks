@@ -1,11 +1,11 @@
 '''
 Architecture:
-    Inner Layer - Account, Category, Transaction, Ledger classes. They know nothing about the storage or UI.
-    Next Layer - SQLiteStorage (or another storage class). Knows about inner layer objects, but not the UI.
-    Outer Layer - Tkinter widgets (or console UI, ...). Knows about storage layer and inner objects.
+    Inner Layer - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
+    Middle Layer - SQLiteStorage (or another storage class). Knows about inner layer objects, but not the UI.
+    Outer Layer - UI (Qt, console). Knows about storage layer and inner objects.
     No objects should use private/hidden members of other objects.
 '''
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from functools import partial
@@ -17,6 +17,7 @@ import sys
 
 TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.12.2'
+
 
 class AccountType(Enum):
     ASSET = 0
