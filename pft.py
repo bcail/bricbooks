@@ -1028,36 +1028,37 @@ class LedgerTxnsDisplay:
     def _edit(self, event, txn_id, layout):
         #create edit entries using initial values from labels, delete labels,
         #   add edit entries to layout, add save/delete buttons, and set txn_display_data
+        new_widgets = [None, None, None, None, None, None, None, None, None]
         row = self.txn_display_data[txn_id]['row']
         txn = self.txn_display_data[txn_id]['txn']
         widgets = self.txn_display_data[txn_id]['widgets']
         type_entry = QtWidgets.QLineEdit()
         type_entry.setText(widgets['labels']['type'].text())
+        new_widgets[GUI_FIELDS['type']['add_edit_column_number']] = type_entry
         date_entry = QtWidgets.QLineEdit()
         date_entry.setText(widgets['labels']['date'].text())
+        new_widgets[GUI_FIELDS['date']['add_edit_column_number']] = date_entry
         payee_entry = QtWidgets.QLineEdit()
         payee_entry.setText(widgets['labels']['payee'].text())
+        new_widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
         description_entry = QtWidgets.QLineEdit()
         description_entry.setText(widgets['labels']['description'].text())
+        new_widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
         txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self.ledger.account, txn=txn)
+        new_widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
         status_entry = QtWidgets.QLineEdit()
         status_entry.setText(widgets['labels']['status'].text())
+        new_widgets[GUI_FIELDS['status']['add_edit_column_number']] = status_entry
         deposit_entry = QtWidgets.QLineEdit()
         deposit_entry.setText(widgets['labels']['deposit'].text())
+        new_widgets[GUI_FIELDS['deposit']['add_edit_column_number']] = deposit_entry
         withdrawal_entry = QtWidgets.QLineEdit()
         withdrawal_entry.setText(widgets['labels']['withdrawal'].text())
+        new_widgets[GUI_FIELDS['withdrawal']['add_edit_column_number']] = withdrawal_entry
         for widget in self.txn_display_data[txn_id]['widgets']['labels'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
         self.txn_display_data[txn_id]['widgets']['labels'] = {}
-        layout.addWidget(type_entry, row, GUI_FIELDS['type']['add_edit_column_number'])
-        layout.addWidget(date_entry, row, GUI_FIELDS['date']['add_edit_column_number'])
-        layout.addWidget(payee_entry, row, GUI_FIELDS['payee']['add_edit_column_number'])
-        layout.addWidget(description_entry, row, GUI_FIELDS['description']['add_edit_column_number'])
-        layout.addWidget(txn_accounts_display.get_widget(), row, GUI_FIELDS['categories']['add_edit_column_number'])
-        layout.addWidget(status_entry, row, GUI_FIELDS['status']['add_edit_column_number'])
-        layout.addWidget(withdrawal_entry, row, GUI_FIELDS['withdrawal']['add_edit_column_number'])
-        layout.addWidget(deposit_entry, row, GUI_FIELDS['deposit']['add_edit_column_number'])
         save_edit_button = QtWidgets.QPushButton('Save Edit')
         save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
         delete_button = QtWidgets.QPushButton('Delete')
@@ -1067,7 +1068,9 @@ class LedgerTxnsDisplay:
         buttons_layout.addWidget(delete_button, 1, 0)
         buttons_widget = QtWidgets.QWidget()
         buttons_widget.setLayout(buttons_layout)
-        layout.addWidget(buttons_widget, row, GUI_FIELDS['buttons']['add_edit_column_number'])
+        new_widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = buttons_widget
+        for index, new_widget in enumerate(new_widgets):
+            layout.addWidget(new_widget, row, index)
         self.txn_display_data[txn_id]['widgets']['entries'] = {
                 'type': type_entry,
                 'date': date_entry,
