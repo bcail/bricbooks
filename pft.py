@@ -1206,6 +1206,89 @@ class TxnAccountsDisplay:
         return self._widget
 
 
+class AddTxnDisplay:
+    '''display widgets for Transaction data, and create a new
+        Transaction when user finishes entering data'''
+
+    def __init__(self, payees, save_txn, storage, current_account):
+        self._payees = payees
+        self._save_txn = save_txn
+        self._storage = storage
+        self._current_account = current_account
+        self._add_txn_widgets = {'entries': {}, 'buttons': {}}
+
+    def get_widget(self):
+        self.widget = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        set_ledger_column_widths(layout)
+        self._show_add_txn(layout, payees=self._payees)
+        self.widget.setLayout(layout)
+        return self.widget
+
+    def _show_add_txn(self, layout, payees):
+        widgets = [None, None, None, None, None, None, None, None, None]
+        entry_names = ['type', 'date']
+        for entry_name in entry_names:
+            entry = QtWidgets.QLineEdit()
+            self._add_txn_widgets['entries'][entry_name] = entry
+            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
+        payee_entry = QtWidgets.QComboBox()
+        payee_entry.setEditable(True)
+        payee_entry.addItem('')
+        for payee in payees:
+            payee_entry.addItem(payee)
+        self._add_txn_widgets['payee'] = payee_entry
+        widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
+        description_entry = QtWidgets.QLineEdit()
+        self._add_txn_widgets['entries']['description'] = description_entry
+        widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
+        txn_accounts_display = TxnAccountsDisplay(self._storage, main_account=self._current_account)
+        widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
+        self._add_txn_widgets['accounts_display'] = txn_accounts_display
+        entry_names = ['status', 'withdrawal', 'deposit']
+        column_index = 5
+        for entry_name in entry_names:
+            entry = QtWidgets.QLineEdit()
+            self._add_txn_widgets['entries'][entry_name] = entry
+            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
+            column_index += 1
+        add_new_button = QtWidgets.QPushButton('Add New')
+        add_new_button.clicked.connect(self._add_new)
+        self._add_txn_widgets['buttons']['add_new'] = add_new_button
+        widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = add_new_button
+        for index, widget in enumerate(widgets):
+            layout.addWidget(widget, 0, index)
+
+    def _add_new(self):
+        txn_type = self._add_txn_widgets['entries']['type'].text()
+        txn_date = self._add_txn_widgets['entries']['date'].text()
+        payee = self._add_txn_widgets['payee'].currentText()
+        description = self._add_txn_widgets['entries']['description'].text()
+        categories = self._add_txn_widgets['accounts_display'].get_categories()
+        status = self._add_txn_widgets['entries']['status'].text()
+        deposit = self._add_txn_widgets['entries']['deposit'].text()
+        withdrawal = self._add_txn_widgets['entries']['withdrawal'].text()
+        txn = Transaction.from_user_info(
+                account=self._current_account,
+                txn_type=txn_type,
+                deposit=deposit,
+                withdrawal=withdrawal,
+                txn_date=txn_date,
+                payee=payee,
+                description=description,
+                status=status,
+                categories=categories
+            )
+        self._save_txn(txn)
+        self._clear_add_txn_widgets()
+
+    def _clear_add_txn_widgets(self):
+        for widget in self._add_txn_widgets['entries'].values():
+            widget.setText('')
+        self._add_txn_widgets['payee'].setCurrentText('')
+
+
 class LedgerDisplay:
 
     def __init__(self, storage, show_ledger, current_account=None):
@@ -1223,9 +1306,9 @@ class LedgerDisplay:
         new_row = self._show_headings(layout, row=0)
         self.ledger = self.storage.get_ledger(account=self._current_account)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
+        self.add_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
-        self.add_txn_widgets = {'entries': {}, 'buttons': {}}
-        self._show_add_txn(layout, self.add_txn_widgets, payees=self.ledger.get_payees(), row=new_row+1)
+        layout.addWidget(self.add_txn_display.get_widget(), new_row+1, 0, 1, 9)
         self.widget.setLayout(layout)
         return self.widget
 
@@ -1256,68 +1339,9 @@ class LedgerDisplay:
         layout.addWidget(QtWidgets.QLabel('Balance'), row, GUI_FIELDS['balance']['column_number'])
         return row + 1
 
-    def _show_add_txn(self, layout, add_txn_widgets, payees, row):
-        widgets = [None, None, None, None, None, None, None, None, None]
-        entry_names = ['type', 'date']
-        for entry_name in entry_names:
-            entry = QtWidgets.QLineEdit()
-            add_txn_widgets['entries'][entry_name] = entry
-            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
-        payee_entry = QtWidgets.QComboBox()
-        payee_entry.setEditable(True)
-        payee_entry.addItem('')
-        for payee in payees:
-            payee_entry.addItem(payee)
-        add_txn_widgets['payee'] = payee_entry
-        widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
-        description_entry = QtWidgets.QLineEdit()
-        add_txn_widgets['entries']['description'] = description_entry
-        widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
-        txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self._current_account)
-        widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
-        add_txn_widgets['accounts_display'] = txn_accounts_display
-        entry_names = ['status', 'withdrawal', 'deposit']
-        column_index = 5
-        for entry_name in entry_names:
-            entry = QtWidgets.QLineEdit()
-            add_txn_widgets['entries'][entry_name] = entry
-            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
-            column_index += 1
-        add_new_button = QtWidgets.QPushButton('Add New')
-        add_new_button.clicked.connect(self._save_new_txn)
-        add_txn_widgets['buttons']['add_new'] = add_new_button
-        widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = add_new_button
-        for index, widget in enumerate(widgets):
-            layout.addWidget(widget, row, index)
-
-    def _save_new_txn(self):
-        txn_type = self.add_txn_widgets['entries']['type'].text()
-        txn_date = self.add_txn_widgets['entries']['date'].text()
-        payee = self.add_txn_widgets['payee'].currentText()
-        description = self.add_txn_widgets['entries']['description'].text()
-        categories = self.add_txn_widgets['accounts_display'].get_categories()
-        status = self.add_txn_widgets['entries']['status'].text()
-        deposit = self.add_txn_widgets['entries']['deposit'].text()
-        withdrawal = self.add_txn_widgets['entries']['withdrawal'].text()
-        txn = Transaction.from_user_info(
-                account=self._current_account,
-                txn_type=txn_type,
-                deposit=deposit,
-                withdrawal=withdrawal,
-                txn_date=txn_date,
-                payee=payee,
-                description=description,
-                status=status,
-                categories=categories
-            )
+    def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
         self.txns_display.display_new_txn(txn)
-        self._clear_add_txn_widgets()
-
-    def _clear_add_txn_widgets(self):
-        for widget in self.add_txn_widgets['entries'].values():
-            widget.setText('')
-        self.add_txn_widgets['payee'].setCurrentText('')
 
 
 class BudgetDisplay:
