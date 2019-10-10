@@ -1121,6 +1121,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn2)
         ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
+        QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.add_txn_display._add_txn_widgets['accounts_display']._categories_combo.count(), 4)
         ledger_display.add_txn_display._add_txn_widgets['entries']['date'].setText('2017-01-05')
         ledger_display.add_txn_display._add_txn_widgets['entries']['withdrawal'].setText('18')
@@ -1132,7 +1133,6 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].splits[checking], D('-18'))
         #check new txn display
-        self.assertEqual(ledger_display.add_txn_display._add_txn_widgets['entries']['withdrawal'].text(), '')
         self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
@@ -1147,7 +1147,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(housing)
         ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method, current_account=savings)
         ledger_display.get_widget()
-        #add new txn
+        QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         ledger_display.add_txn_display._add_txn_widgets['entries']['date'].setText('2017-01-05')
         ledger_display.add_txn_display._add_txn_widgets['entries']['withdrawal'].setText('18')
         ledger_display.add_txn_display._add_txn_widgets['accounts_display']._categories_combo.setCurrentIndex(1)
@@ -1163,7 +1163,7 @@ class TestQtGUI(unittest.TestCase):
                 }
             )
 
-    def test_ledger_add_multiple(self):
+    def test_add_txn_multiple_splits(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
@@ -1173,6 +1173,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(rent)
         ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
+        QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         txn_accounts_display_splits = {rent: 3, housing: 7}
         ledger_display.add_txn_display._add_txn_widgets['entries']['date'].setText('2017-01-05')
         ledger_display.add_txn_display._add_txn_widgets['entries']['withdrawal'].setText('10')

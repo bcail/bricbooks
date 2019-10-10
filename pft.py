@@ -1217,14 +1217,14 @@ class AddTxnDisplay:
         self._current_account = current_account
         self._add_txn_widgets = {'entries': {}, 'buttons': {}}
 
-    def get_widget(self):
-        self.widget = QtWidgets.QWidget()
+    def show_form(self):
+        self._txn_display = QtWidgets.QDialog()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
         self._show_add_txn(layout, payees=self._payees)
-        self.widget.setLayout(layout)
-        return self.widget
+        self._txn_display.setLayout(layout)
+        self._txn_display.open()
 
     def _show_add_txn(self, layout, payees):
         widgets = [None, None, None, None, None, None, None, None, None]
@@ -1280,13 +1280,8 @@ class AddTxnDisplay:
                 status=status,
                 categories=categories
             )
+        self._txn_display.accept()
         self._save_txn(txn)
-        self._clear_add_txn_widgets()
-
-    def _clear_add_txn_widgets(self):
-        for widget in self._add_txn_widgets['entries'].values():
-            widget.setText('')
-        self._add_txn_widgets['payee'].setCurrentText('')
 
 
 class LedgerDisplay:
@@ -1306,9 +1301,7 @@ class LedgerDisplay:
         new_row = self._show_headings(layout, row=0)
         self.ledger = self.storage.get_ledger(account=self._current_account)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
-        self.add_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
-        layout.addWidget(self.add_txn_display.get_widget(), new_row+1, 0, 1, 9)
         self.widget.setLayout(layout)
         return self.widget
 
@@ -1327,6 +1320,9 @@ class LedgerDisplay:
         self.action_combo.setCurrentIndex(current_index)
         self.action_combo.currentIndexChanged.connect(self._update_account)
         layout.addWidget(self.action_combo, row, 0)
+        self.add_button = QtWidgets.QPushButton('New Txn')
+        self.add_button.clicked.connect(self._open_new_txn_form)
+        layout.addWidget(self.add_button, row, 1)
         row += 1
         layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['date']['column_number'])
@@ -1338,6 +1334,10 @@ class LedgerDisplay:
         layout.addWidget(QtWidgets.QLabel('Deposit (+)'), row, GUI_FIELDS['deposit']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Balance'), row, GUI_FIELDS['balance']['column_number'])
         return row + 1
+
+    def _open_new_txn_form(self):
+        self.add_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
+        self.add_txn_display.show_form()
 
     def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
