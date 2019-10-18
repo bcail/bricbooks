@@ -1335,7 +1335,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['delete'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._add_txn_widgets['buttons']['delete'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()

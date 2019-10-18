@@ -988,13 +988,15 @@ class LedgerTxnsDisplay:
             layout.removeWidget(widget)
             widget.deleteLater()
 
-    def _delete(self, txn_id, layout, txn_widgets):
-        #delete from storage, remove it from ledger, delete the edit widgets, delete the display info
+    def _delete(self, txn, layout):
+        #delete from storage, remove it from ledger, delete the display info
         #   & then redisplay any txns necessary
-        self.storage.delete_txn(txn_id)
-        self.ledger.remove_txn(txn_id)
-        self._remove_edit_widgets(txn_widgets, layout)
-        del self.txn_display_data[txn_id]
+        self.storage.delete_txn(txn.id)
+        self.ledger.remove_txn(txn.id)
+        for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
+            layout.removeWidget(widget)
+            widget.deleteLater()
+        del self.txn_display_data[txn.id]
         self._redisplay_txns()
 
     def _save_edit(self, txn, layout):
@@ -1029,7 +1031,7 @@ class LedgerTxnsDisplay:
 
     def _edit(self, event, txn_id, layout):
         txn = self.ledger.get_txn(txn_id)
-        self.edit_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn)
+        self.edit_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
         self.edit_txn_display.show_form()
         #create edit entries using initial values from labels, delete labels,
         #   add edit entries to layout, add save/delete buttons, and set txn_display_data
@@ -1214,12 +1216,13 @@ class AddTxnDisplay:
     '''display widgets for Transaction data, and create a new
         Transaction when user finishes entering data'''
 
-    def __init__(self, payees, save_txn, storage, current_account, txn=None):
+    def __init__(self, payees, save_txn, storage, current_account, txn=None, delete_txn=None):
         self._payees = payees
         self._save_txn = save_txn
         self._storage = storage
         self._current_account = current_account
         self._txn = txn
+        self._delete_txn = delete_txn
         self._add_txn_widgets = {'entries': {}, 'buttons': {}}
 
     def show_form(self):
@@ -1275,12 +1278,16 @@ class AddTxnDisplay:
         deposit_entry.setText(tds['deposit'])
         self._add_txn_widgets['entries']['deposit'] = deposit_entry
         widgets[GUI_FIELDS['deposit']['add_edit_column_number']] = deposit_entry
-        button = QtWidgets.QPushButton('Edit')
+        button = QtWidgets.QPushButton('Save Edit')
         button.clicked.connect(self._add_new)
         self._add_txn_widgets['buttons']['edit'] = button
         widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = button
         for index, widget in enumerate(widgets):
             layout.addWidget(widget, 0, index)
+        delete_button = QtWidgets.QPushButton('Delete Txn')
+        delete_button.clicked.connect(self.delete)
+        self._add_txn_widgets['buttons']['delete'] = delete_button
+        layout.addWidget(delete_button, 1, 0)
 
     def _show_add_txn(self, layout, payees):
         widgets = [None, None, None, None, None, None, None, None, None]
@@ -1352,6 +1359,10 @@ class AddTxnDisplay:
             )
         self._txn_display.accept()
         self._save_txn(txn)
+
+    def delete(self):
+        self._txn_display.accept()
+        self._delete_txn(self._txn)
 
 
 class LedgerDisplay:
