@@ -1230,31 +1230,36 @@ class TestQtGUI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
         txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 3))
-        txn2 = pft.Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2))
+        txn2 = pft.Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2), payee='some payee')
         txn3 = pft.Transaction(splits={checking: D(25), savings: D(-25)}, txn_date=date(2017, 10, 18))
         txn4 = pft.Transaction(splits={checking: D(10), savings: D(-10)}, txn_date=date(2018, 6, 6))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         storage.save_txn(txn4)
-        ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method)
+        ledger_display = pft.LedgerDisplay(storage, show_ledger=fake_method, current_account=checking)
         ledger_display.get_widget()
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '22')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 1)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '47')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '57')
+
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['date'].setText('2017-12-31')
-        ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['entries']['deposit'].setText('20')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['accounts_display'].get_categories(), savings)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+
+        self.assertEqual(ledger_display.txns_display.edit_txn_display._add_txn_widgets['entries']['date'].text(), '2017-05-02')
+        self.assertEqual(ledger_display.txns_display.edit_txn_display._add_txn_widgets['payee'].currentText(), 'some payee')
+
+        ledger_display.txns_display.edit_txn_display._add_txn_widgets['entries']['date'].setText('2017-12-31')
+        ledger_display.txns_display.edit_txn_display._add_txn_widgets['entries']['deposit'].setText('20')
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._add_txn_widgets['buttons']['edit'], QtCore.Qt.LeftButton)
         #make sure edit was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].splits[checking], D(20))
+        self.assertEqual(txns[2].splits[savings], D(-20))
         #check display with edits
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
@@ -1282,9 +1287,9 @@ class TestQtGUI(unittest.TestCase):
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         #change expense account
-        ledger_display.txns_display.txn_display_data[txn2.id]['accounts_display']._categories_combo.setCurrentIndex(2)
+        ledger_display.txns_display.edit_txn_display._add_txn_widgets['accounts_display']._categories_combo.setCurrentIndex(2)
         #save the change
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._add_txn_widgets['buttons']['edit'], QtCore.Qt.LeftButton)
         #make sure new category was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1309,11 +1314,11 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.get_widget()
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentText(), 'multiple')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display']._categories_combo.currentData(), initial_splits)
+        self.assertEqual(ledger_display.txns_display.edit_txn_display._add_txn_widgets['accounts_display']._categories_combo.currentText(), 'multiple')
+        self.assertEqual(ledger_display.txns_display.edit_txn_display._add_txn_widgets['accounts_display']._categories_combo.currentData(), initial_splits)
         pft.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['accounts_display'].split_button, QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['buttons']['save_edit'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._add_txn_widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._add_txn_widgets['buttons']['edit'], QtCore.Qt.LeftButton)
         updated_txn = storage.get_txn(txn.id)
         self.assertEqual(updated_txn.splits, final_splits)
 
