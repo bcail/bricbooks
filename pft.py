@@ -980,14 +980,6 @@ class LedgerTxnsDisplay:
         self.txns_layout.addWidget(QtWidgets.QLabel(''), index+1, 0)
         self.txns_layout.setRowStretch(index+1, 1)
 
-    def _remove_edit_widgets(self, txn_widgets, layout):
-        for widget in txn_widgets['entries'].values():
-            layout.removeWidget(widget)
-            widget.deleteLater()
-        for widget in txn_widgets['buttons'].values():
-            layout.removeWidget(widget)
-            widget.deleteLater()
-
     def _delete(self, txn, layout):
         #delete from storage, remove it from ledger, delete the display info
         #   & then redisplay any txns necessary
@@ -1000,32 +992,10 @@ class LedgerTxnsDisplay:
         self._redisplay_txns()
 
     def _save_edit(self, txn, layout):
-        #entries = self.txn_display_data[txn_id]['widgets']['entries']
-        #txn_type = entries['type'].text()
-        #txn_date = entries['date'].text()
-        #payee = entries['payee'].text()
-        #withdrawal = entries['withdrawal'].text()
-        #deposit = entries['deposit'].text()
-        #description = entries['description'].text()
-        #status = entries['status'].text()
-        #categories = self.txn_display_data[txn_id]['accounts_display'].get_categories()
-        #txn = self.ledger.get_txn(txn_id)
-        #txn.update_from_user_info(
-        #        account=self.ledger.account,
-        #        txn_type=txn_type,
-        #        txn_date=txn_date,
-        #        payee=payee,
-        #        withdrawal=withdrawal,
-        #        deposit=deposit,
-        #        description=description,
-        #        status=status,
-        #        categories=categories,
-        #    )
         self.storage.save_txn(txn)
         for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
-        #self._remove_edit_widgets(self.txn_display_data[txn_id]['widgets'], layout)
         del self.txn_display_data[txn.id]
         self._redisplay_txns()
 
@@ -1033,66 +1003,6 @@ class LedgerTxnsDisplay:
         txn = self.ledger.get_txn(txn_id)
         self.edit_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
         self.edit_txn_display.show_form()
-        #create edit entries using initial values from labels, delete labels,
-        #   add edit entries to layout, add save/delete buttons, and set txn_display_data
-        #new_widgets = [None, None, None, None, None, None, None, None, None]
-        #row = self.txn_display_data[txn_id]['row']
-        #txn = self.txn_display_data[txn_id]['txn']
-        #widgets = self.txn_display_data[txn_id]['widgets']
-        #type_entry = QtWidgets.QLineEdit()
-        #type_entry.setText(widgets['labels']['type'].text())
-        #new_widgets[GUI_FIELDS['type']['add_edit_column_number']] = type_entry
-        #date_entry = QtWidgets.QLineEdit()
-        #date_entry.setText(widgets['labels']['date'].text())
-        #new_widgets[GUI_FIELDS['date']['add_edit_column_number']] = date_entry
-        #payee_entry = QtWidgets.QLineEdit()
-        #payee_entry.setText(widgets['labels']['payee'].text())
-        #new_widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
-        #description_entry = QtWidgets.QLineEdit()
-        #description_entry.setText(widgets['labels']['description'].text())
-        #new_widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
-        #txn_accounts_display = TxnAccountsDisplay(self.storage, main_account=self.ledger.account, txn=txn)
-        #new_widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
-        #status_entry = QtWidgets.QLineEdit()
-        #status_entry.setText(widgets['labels']['status'].text())
-        #new_widgets[GUI_FIELDS['status']['add_edit_column_number']] = status_entry
-        #deposit_entry = QtWidgets.QLineEdit()
-        #deposit_entry.setText(widgets['labels']['deposit'].text())
-        #new_widgets[GUI_FIELDS['deposit']['add_edit_column_number']] = deposit_entry
-        #withdrawal_entry = QtWidgets.QLineEdit()
-        #withdrawal_entry.setText(widgets['labels']['withdrawal'].text())
-        #new_widgets[GUI_FIELDS['withdrawal']['add_edit_column_number']] = withdrawal_entry
-        #for widget in self.txn_display_data[txn_id]['widgets']['labels'].values():
-        #    layout.removeWidget(widget)
-        #    widget.deleteLater()
-        #self.txn_display_data[txn_id]['widgets']['labels'] = {}
-        #save_edit_button = QtWidgets.QPushButton('Save Edit')
-        #save_edit_button.clicked.connect(partial(self._save_edit, txn_id=txn_id, layout=layout))
-        #delete_button = QtWidgets.QPushButton('Delete')
-        #delete_button.clicked.connect(partial(self._delete, txn_id=txn_id, layout=layout, txn_widgets=self.txn_display_data[txn_id]['widgets']))
-        #buttons_layout = QtWidgets.QGridLayout()
-        #buttons_layout.addWidget(save_edit_button, 0, 0)
-        #buttons_layout.addWidget(delete_button, 1, 0)
-        #buttons_widget = QtWidgets.QWidget()
-        #buttons_widget.setLayout(buttons_layout)
-        #new_widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = buttons_widget
-        #for index, new_widget in enumerate(new_widgets):
-        #    layout.addWidget(new_widget, row, index)
-        #self.txn_display_data[txn_id]['widgets']['entries'] = {
-        #        'type': type_entry,
-        #        'date': date_entry,
-        #        'payee': payee_entry,
-        #        'description': description_entry,
-        #        'categories': txn_accounts_display.get_widget(),
-        #        'status': status_entry,
-        #        'deposit': deposit_entry,
-        #        'withdrawal': withdrawal_entry,
-        #    }
-        #self.txn_display_data[txn_id]['widgets']['buttons'] = {
-        #        'save_edit': save_edit_button,
-        #        'delete': delete_button,
-        #    }
-        #self.txn_display_data[txn_id]['accounts_display'] = txn_accounts_display
 
     def _display_txn(self, txn, row, layout):
         #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
