@@ -1001,7 +1001,7 @@ class LedgerTxnsDisplay:
 
     def _edit(self, event, txn_id, layout):
         txn = self.ledger.get_txn(txn_id)
-        self.edit_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
+        self.edit_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
         self.edit_txn_display.show_form()
 
     def _display_txn(self, txn, row, layout):
@@ -1122,7 +1122,7 @@ class TxnAccountsDisplay:
         return self._widget
 
 
-class AddTxnDisplay:
+class TxnForm:
     '''display widgets for Transaction data, and create a new
         Transaction when user finishes entering data'''
 
@@ -1327,7 +1327,7 @@ class LedgerDisplay:
         return row + 1
 
     def _open_new_txn_form(self):
-        self.add_txn_display = AddTxnDisplay(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
+        self.add_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
         self.add_txn_display.show_form()
 
     def _save_new_txn(self, txn):
