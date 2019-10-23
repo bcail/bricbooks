@@ -1140,100 +1140,53 @@ class TxnForm:
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
-        if self._txn:
-            self._show_edit_txn(layout, payees=self._payees, txn=self._txn, current_account=self._current_account)
-        else:
-            self._show_add_txn(layout, payees=self._payees)
+        self._show_widgets(layout, payees=self._payees, txn=self._txn, current_account=self._current_account)
         self._txn_display.setLayout(layout)
         self._txn_display.open()
 
-    def _show_edit_txn(self, layout, payees, txn, current_account):
-        tds = txn.get_display_strings_for_ledger(current_account)
+    def _show_widgets(self, layout, payees, txn, current_account):
+        tds = {}
+        if self._txn:
+            tds = txn.get_display_strings_for_ledger(current_account)
         widgets = [None, None, None, None, None, None, None, None, None]
-        type_entry = QtWidgets.QLineEdit()
-        type_entry.setText(tds['txn_type'])
-        self._widgets['txn_type'] = type_entry
-        widgets[GUI_FIELDS['txn_type']['add_edit_column_number']] = type_entry
-        date_entry = QtWidgets.QLineEdit()
-        date_entry.setText(tds['txn_date'])
-        self._widgets['txn_date'] = date_entry
-        widgets[GUI_FIELDS['txn_date']['add_edit_column_number']] = date_entry
+        for name in ['txn_type', 'txn_date', 'description', 'status', 'withdrawal', 'deposit']:
+            entry = QtWidgets.QLineEdit()
+            if self._txn:
+                entry.setText(tds[name])
+            self._widgets[name] = entry
+            widgets[GUI_FIELDS[name]['add_edit_column_number']] = entry
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
         payee_index = 0
         for index, payee in enumerate(payees):
             payee_entry.addItem(payee)
-            if payee == tds['payee']:
+            if self._txn and payee == tds['payee']:
                 payee_index = index + 1 #because of first empty item
-        payee_entry.setCurrentIndex(payee_index)
+        if self._txn:
+            payee_entry.setCurrentIndex(payee_index)
         self._widgets['payee'] = payee_entry
         widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
-        description_entry = QtWidgets.QLineEdit()
-        description_entry.setText(tds['description'])
-        self._widgets['description'] = description_entry
-        widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
         txn_accounts_display = TxnAccountsDisplay(self._storage, main_account=self._current_account, txn=self._txn)
         widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
         self._widgets['accounts_display'] = txn_accounts_display
-        status_entry = QtWidgets.QLineEdit()
-        status_entry.setText(tds['status'])
-        self._widgets['status'] = status_entry
-        widgets[GUI_FIELDS['status']['add_edit_column_number']] = status_entry
-        withdrawal_entry = QtWidgets.QLineEdit()
-        withdrawal_entry.setText(tds['withdrawal'])
-        self._widgets['withdrawal'] = withdrawal_entry
-        widgets[GUI_FIELDS['withdrawal']['add_edit_column_number']] = withdrawal_entry
-        deposit_entry = QtWidgets.QLineEdit()
-        deposit_entry.setText(tds['deposit'])
-        self._widgets['deposit'] = deposit_entry
-        widgets[GUI_FIELDS['deposit']['add_edit_column_number']] = deposit_entry
-        button = QtWidgets.QPushButton('Save Edit')
-        button.clicked.connect(self._add_new)
-        self._widgets['edit_btn'] = button
+        if self._txn:
+            button = QtWidgets.QPushButton('Save Edit')
+            self._widgets['edit_btn'] = button
+        else:
+            button = QtWidgets.QPushButton('Add New')
+            self._widgets['add_new_btn'] = button
+        button.clicked.connect(self._save)
         widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = button
         for index, widget in enumerate(widgets):
             layout.addWidget(widget, 0, index)
-        delete_button = QtWidgets.QPushButton('Delete Txn')
-        delete_button.clicked.connect(self.delete)
-        self._widgets['delete_btn'] = delete_button
-        layout.addWidget(delete_button, 1, 0)
+        if self._txn:
+            delete_button = QtWidgets.QPushButton('Delete Txn')
+            delete_button.clicked.connect(self.delete)
+            self._widgets['delete_btn'] = delete_button
+            layout.addWidget(delete_button, 1, 0)
 
-    def _show_add_txn(self, layout, payees):
-        widgets = [None, None, None, None, None, None, None, None, None]
-        entry_names = ['txn_type', 'txn_date']
-        for entry_name in entry_names:
-            entry = QtWidgets.QLineEdit()
-            self._widgets[entry_name] = entry
-            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
-        payee_entry = QtWidgets.QComboBox()
-        payee_entry.setEditable(True)
-        payee_entry.addItem('')
-        for payee in payees:
-            payee_entry.addItem(payee)
-        self._widgets['payee'] = payee_entry
-        widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
-        description_entry = QtWidgets.QLineEdit()
-        self._widgets['description'] = description_entry
-        widgets[GUI_FIELDS['description']['add_edit_column_number']] = description_entry
-        txn_accounts_display = TxnAccountsDisplay(self._storage, main_account=self._current_account)
-        widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
-        self._widgets['accounts_display'] = txn_accounts_display
-        entry_names = ['status', 'withdrawal', 'deposit']
-        column_index = 5
-        for entry_name in entry_names:
-            entry = QtWidgets.QLineEdit()
-            self._widgets[entry_name] = entry
-            widgets[GUI_FIELDS[entry_name]['add_edit_column_number']] = entry
-            column_index += 1
-        add_new_button = QtWidgets.QPushButton('Add New')
-        add_new_button.clicked.connect(self._add_new)
-        self._widgets['add_new_btn'] = add_new_button
-        widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = add_new_button
-        for index, widget in enumerate(widgets):
-            layout.addWidget(widget, 0, index)
-
-    def _add_new(self):
+    def _save(self):
         txn_type = self._widgets['txn_type'].text()
         txn_date = self._widgets['txn_date'].text()
         payee = self._widgets['payee'].currentText()
@@ -1242,31 +1195,22 @@ class TxnForm:
         status = self._widgets['status'].text()
         deposit = self._widgets['deposit'].text()
         withdrawal = self._widgets['withdrawal'].text()
+        kwargs = {
+            'account': self._current_account,
+            'txn_type': txn_type,
+            'deposit': deposit,
+            'withdrawal': withdrawal,
+            'txn_date': txn_date,
+            'payee': payee,
+            'description': description,
+            'status': status,
+            'categories': categories,
+        }
         if self._txn:
-            self._txn.update_from_user_info(
-                account=self._current_account,
-                txn_type=txn_type,
-                deposit=deposit,
-                withdrawal=withdrawal,
-                txn_date=txn_date,
-                payee=payee,
-                description=description,
-                status=status,
-                categories=categories
-            )
+            self._txn.update_from_user_info(**kwargs)
             txn = self._txn
         else:
-            txn = Transaction.from_user_info(
-                account=self._current_account,
-                txn_type=txn_type,
-                deposit=deposit,
-                withdrawal=withdrawal,
-                txn_date=txn_date,
-                payee=payee,
-                description=description,
-                status=status,
-                categories=categories
-            )
+            txn = Transaction.from_user_info(**kwargs)
         self._txn_display.accept()
         self._save_txn(txn)
 
