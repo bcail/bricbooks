@@ -706,8 +706,8 @@ ACCOUNTS_GUI_FIELDS = {
 
 
 GUI_FIELDS = {
-        'type': {'column_number': 0, 'add_edit_column_number': 0, 'column_stretch': 1},
-        'date': {'column_number': 1, 'add_edit_column_number': 1, 'column_stretch': 2},
+        'txn_type': {'column_number': 0, 'add_edit_column_number': 0, 'column_stretch': 1},
+        'txn_date': {'column_number': 1, 'add_edit_column_number': 1, 'column_stretch': 2},
         'payee': {'column_number': 2, 'add_edit_column_number': 2, 'column_stretch': 2},
         'description': {'column_number': 3, 'add_edit_column_number': 3, 'column_stretch': 2},
         'status': {'column_number': 4, 'add_edit_column_number': 4, 'column_stretch': 1},
@@ -1030,8 +1030,8 @@ class LedgerTxnsDisplay:
         withdrawal_label.mousePressEvent = edit_function
         balance_label = QtWidgets.QLabel(str(txn.balance))
         balance_label.mousePressEvent = edit_function
-        layout.addWidget(type_label, row, GUI_FIELDS['type']['column_number'])
-        layout.addWidget(date_label, row, GUI_FIELDS['date']['column_number'])
+        layout.addWidget(type_label, row, GUI_FIELDS['txn_type']['column_number'])
+        layout.addWidget(date_label, row, GUI_FIELDS['txn_date']['column_number'])
         layout.addWidget(payee_label, row, GUI_FIELDS['payee']['column_number'])
         layout.addWidget(description_label, row, GUI_FIELDS['description']['column_number'])
         layout.addWidget(categories_label, row, GUI_FIELDS['categories']['column_number'])
@@ -1152,12 +1152,12 @@ class TxnForm:
         widgets = [None, None, None, None, None, None, None, None, None]
         type_entry = QtWidgets.QLineEdit()
         type_entry.setText(tds['txn_type'])
-        self._widgets['type'] = type_entry
-        widgets[GUI_FIELDS['type']['add_edit_column_number']] = type_entry
+        self._widgets['txn_type'] = type_entry
+        widgets[GUI_FIELDS['txn_type']['add_edit_column_number']] = type_entry
         date_entry = QtWidgets.QLineEdit()
         date_entry.setText(tds['txn_date'])
-        self._widgets['date'] = date_entry
-        widgets[GUI_FIELDS['date']['add_edit_column_number']] = date_entry
+        self._widgets['txn_date'] = date_entry
+        widgets[GUI_FIELDS['txn_date']['add_edit_column_number']] = date_entry
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
@@ -1201,7 +1201,7 @@ class TxnForm:
 
     def _show_add_txn(self, layout, payees):
         widgets = [None, None, None, None, None, None, None, None, None]
-        entry_names = ['type', 'date']
+        entry_names = ['txn_type', 'txn_date']
         for entry_name in entry_names:
             entry = QtWidgets.QLineEdit()
             self._widgets[entry_name] = entry
@@ -1234,8 +1234,8 @@ class TxnForm:
             layout.addWidget(widget, 0, index)
 
     def _add_new(self):
-        txn_type = self._widgets['type'].text()
-        txn_date = self._widgets['date'].text()
+        txn_type = self._widgets['txn_type'].text()
+        txn_date = self._widgets['txn_date'].text()
         payee = self._widgets['payee'].currentText()
         description = self._widgets['description'].text()
         categories = self._widgets['accounts_display'].get_categories()
@@ -1315,8 +1315,8 @@ class LedgerDisplay:
         self.add_button.clicked.connect(self._open_new_txn_form)
         layout.addWidget(self.add_button, row, 1)
         row += 1
-        layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['type']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['date']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['txn_type']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['txn_date']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Payee'), row, GUI_FIELDS['payee']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Description'), row, GUI_FIELDS['description']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Categories'), row, GUI_FIELDS['categories']['column_number'])
