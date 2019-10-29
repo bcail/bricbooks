@@ -280,60 +280,6 @@ class TestTransaction(unittest.TestCase):
             )
         self.assertEqual(t._categories_display(main_account=a), 'Savings')
 
-    def test_update_values(self):
-        t = pft.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-                txn_type='BP',
-                payee='Wendys',
-                description='salad',
-            )
-        t.update_from_user_info(
-                txn_type='1234',
-                txn_date='2017-10-15',
-            )
-        self.assertEqual(t.txn_type, '1234')
-        self.assertEqual(t.payee, 'Wendys')
-        self.assertEqual(t.txn_date, date(2017, 10, 15))
-
-    def test_update_values_make_it_empty(self):
-        t = pft.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-                txn_type='1234',
-                payee='Arbys',
-                description='roast beef',
-            )
-        t.update_from_user_info(payee='')
-        self.assertEqual(t.payee, '')
-
-    def test_update_values_errors(self):
-        t = pft.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-                txn_type='1234',
-                payee='Cracker Barrel',
-                description='meal',
-            )
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            t.update_from_user_info(account=self.checking, deposit='ab')
-        self.assertEqual(str(cm.exception), 'invalid deposit/withdrawal')
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            t.update_from_user_info(txn_date='ab')
-        self.assertEqual(str(cm.exception), 'invalid txn_date "ab"')
-
-    def test_update_values_deposit_withdrawal(self):
-        t = pft.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-            )
-        t.update_from_user_info(account=self.savings, withdrawal='50', categories=self.checking)
-        self.assertEqual(t.splits,
-                {self.checking: D(50), self.savings: D('-50')})
-        t.update_from_user_info(account=self.savings, deposit='25', categories=self.checking)
-        self.assertEqual(t.splits,
-                {self.checking: D('-25'), self.savings: D(25)})
-
 
 class TestLedger(unittest.TestCase):
 

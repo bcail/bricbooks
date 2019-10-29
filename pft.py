@@ -181,7 +181,7 @@ class Transaction:
         return splits
 
     @staticmethod
-    def from_user_info(account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, status):
+    def from_user_info(account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, status, id_=None):
         splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
         return Transaction(
                 splits=splits,
@@ -189,7 +189,8 @@ class Transaction:
                 txn_type=txn_type,
                 payee=payee,
                 description=description,
-                status=status
+                status=status,
+                id_=id_
             )
 
     def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, status=None, id_=None):
@@ -254,21 +255,6 @@ class Transaction:
                 'status': self.status or '',
                 'categories': self._categories_display(main_account=account),
             }
-
-    def update_from_user_info(self, account=None, deposit=None, withdrawal=None, txn_date=None, txn_type=None, categories=None, payee=None, description=None, status=None):
-        if deposit or withdrawal:
-            splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
-            self.splits = check_txn_splits(splits)
-        if txn_date is not None:
-            self.txn_date = self._check_txn_date(txn_date)
-        if txn_type is not None:
-            self.txn_type = txn_type
-        if payee is not None:
-            self.payee = payee
-        if description is not None:
-            self.description = description
-        if status is not None:
-            self.status = status
 
 
 class Ledger:
@@ -993,6 +979,7 @@ class LedgerTxnsDisplay:
 
     def _save_edit(self, txn, layout):
         self.storage.save_txn(txn)
+        self.ledger.add_transaction(txn)
         for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
             layout.removeWidget(widget)
             widget.deleteLater()
@@ -1214,10 +1201,8 @@ class TxnForm:
             'categories': categories,
         }
         if self._txn:
-            self._txn.update_from_user_info(**kwargs)
-            txn = self._txn
-        else:
-            txn = Transaction.from_user_info(**kwargs)
+            kwargs['id_'] = self._txn.id
+        txn = Transaction.from_user_info(**kwargs)
         self._txn_display.accept()
         self._save_txn(txn)
 
