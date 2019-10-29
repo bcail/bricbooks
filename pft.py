@@ -706,16 +706,16 @@ ACCOUNTS_GUI_FIELDS = {
 
 
 GUI_FIELDS = {
-        'txn_type': {'column_number': 0, 'add_edit_column_number': 0, 'column_stretch': 1},
-        'txn_date': {'column_number': 1, 'add_edit_column_number': 1, 'column_stretch': 2},
-        'payee': {'column_number': 2, 'add_edit_column_number': 2, 'column_stretch': 2},
-        'description': {'column_number': 3, 'add_edit_column_number': 3, 'column_stretch': 2},
-        'status': {'column_number': 4, 'add_edit_column_number': 4, 'column_stretch': 1},
-        'withdrawal': {'column_number': 5, 'add_edit_column_number': 5, 'column_stretch': 2},
-        'deposit': {'column_number': 6, 'add_edit_column_number': 6, 'column_stretch': 2},
-        'balance': {'column_number': 7, 'add_edit_column_number': -1, 'column_stretch': 2},
-        'categories': {'column_number': 8, 'add_edit_column_number': 7, 'column_stretch': 3},
-        'buttons': {'column_number': -1, 'add_edit_column_number': 8, 'column_stretch': 2},
+        'txn_type': {'column_number': 0, 'add_edit_column_number': 0, 'column_stretch': 1, 'label': 'Txn Type'},
+        'txn_date': {'column_number': 1, 'add_edit_column_number': 1, 'column_stretch': 2, 'label': 'Date'},
+        'payee': {'column_number': 2, 'add_edit_column_number': 2, 'column_stretch': 2, 'label': 'Payee'},
+        'description': {'column_number': 3, 'add_edit_column_number': 3, 'column_stretch': 2, 'label': 'Description'},
+        'status': {'column_number': 4, 'add_edit_column_number': 4, 'column_stretch': 1, 'label': 'Status'},
+        'withdrawal': {'column_number': 5, 'add_edit_column_number': 5, 'column_stretch': 2, 'label': 'Withdrawal'},
+        'deposit': {'column_number': 6, 'add_edit_column_number': 6, 'column_stretch': 2, 'label': 'Deposit'},
+        'balance': {'column_number': 7, 'add_edit_column_number': -1, 'column_stretch': 2, 'label': 'Balance'},
+        'categories': {'column_number': 8, 'add_edit_column_number': 7, 'column_stretch': 3, 'label': 'Categories'},
+        'buttons': {'column_number': -1, 'add_edit_column_number': 8, 'column_stretch': 2, 'label': ''},
     }
 
 
@@ -1148,6 +1148,7 @@ class TxnForm:
         tds = {}
         if self._txn:
             tds = txn.get_display_strings_for_ledger(current_account)
+        labels = [None, None, None, None, None, None, None, None, None]
         widgets = [None, None, None, None, None, None, None, None, None]
         for name in ['txn_type', 'txn_date', 'description', 'status', 'withdrawal', 'deposit']:
             entry = QtWidgets.QLineEdit()
@@ -1155,6 +1156,7 @@ class TxnForm:
                 entry.setText(tds[name])
             self._widgets[name] = entry
             widgets[GUI_FIELDS[name]['add_edit_column_number']] = entry
+            labels[GUI_FIELDS[name]['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS[name]['label'])
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
@@ -1167,8 +1169,10 @@ class TxnForm:
             payee_entry.setCurrentIndex(payee_index)
         self._widgets['payee'] = payee_entry
         widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
+        labels[GUI_FIELDS['payee']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['payee']['label'])
         txn_accounts_display = TxnAccountsDisplay(self._storage, main_account=self._current_account, txn=self._txn)
         widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
+        labels[GUI_FIELDS['categories']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['categories']['label'])
         self._widgets['accounts_display'] = txn_accounts_display
         if self._txn:
             button = QtWidgets.QPushButton('Save Edit')
@@ -1178,13 +1182,16 @@ class TxnForm:
             self._widgets['add_new_btn'] = button
         button.clicked.connect(self._save)
         widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = button
+        for index, label in enumerate(labels):
+            if label:
+                layout.addWidget(label, 0, index)
         for index, widget in enumerate(widgets):
-            layout.addWidget(widget, 0, index)
+            layout.addWidget(widget, 1, index)
         if self._txn:
             delete_button = QtWidgets.QPushButton('Delete Txn')
             delete_button.clicked.connect(self.delete)
             self._widgets['delete_btn'] = delete_button
-            layout.addWidget(delete_button, 1, 0)
+            layout.addWidget(delete_button, 2, 0)
 
     def _save(self):
         txn_type = self._widgets['txn_type'].text()
