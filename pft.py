@@ -714,6 +714,61 @@ def set_widget_error_state(widget):
     widget.setStyleSheet(ERROR_STYLE)
 
 
+class AccountForm:
+    '''display widgets for Account data, and create a new
+        Account when user finishes entering data'''
+
+    def __init__(self, all_accounts, account=None, save_account=None):
+        self._all_accounts = all_accounts
+        self._account = account
+        self._save_account = save_account
+        self._widgets = {}
+
+    def show_form(self):
+        self._display = QtWidgets.QDialog()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._show_widgets(layout, self._widgets)
+        self._display.setLayout(layout)
+        self._display.open()
+
+    def _show_widgets(self, layout, widgets):
+        row = 0
+        add_account_type = QtWidgets.QComboBox()
+        for account_type in AccountType:
+            add_account_type.addItem(account_type.name, account_type)
+        layout.addWidget(add_account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+        add_account_user_id = QtWidgets.QLineEdit()
+        layout.addWidget(add_account_user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+        add_account_name = QtWidgets.QLineEdit()
+        layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
+        parent_combo = QtWidgets.QComboBox()
+        parent_combo.addItem('---------', None)
+        for account in self._all_accounts:
+            parent_combo.addItem(account.name, account)
+        layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
+        button = QtWidgets.QPushButton('Save')
+        button.clicked.connect(self._save_new_account)
+        layout.addWidget(button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
+        widgets['type'] = add_account_type
+        widgets['user_id'] = add_account_user_id
+        widgets['name'] = add_account_name
+        widgets['parent'] = parent_combo
+        widgets['save_btn'] = button
+
+    def _save_new_account(self):
+        type_ = self._widgets['type'].currentData()
+        user_id = self._widgets['user_id'].text()
+        name = self._widgets['name'].text()
+        parent = self._widgets['parent'].currentData()
+        try:
+            account = Account(type_=type_, user_id=user_id, name=name, parent=parent)
+            self._display.accept()
+            self._save_account(account)
+        except InvalidAccountNameError:
+            set_widget_error_state(self._widgets['name'])
+
+
 class AccountsDisplay:
 
     def __init__(self, storage, reload_accounts):
@@ -782,19 +837,20 @@ class AccountsDisplay:
         for field_info in ACCOUNTS_GUI_FIELDS.values():
             layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
         row = 0
+        self.add_button = QtWidgets.QPushButton('New Account')
+        self.add_button.clicked.connect(self._open_new_account_form)
+        layout.addWidget(self.add_button, row, 0)
+        row += 1
         layout.addWidget(QtWidgets.QLabel('Type'), row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('User ID'), row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Name'), row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Parent Account'), row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
+        row += 1
         self.accounts_widgets = {}
         accounts = self.storage.get_accounts()
-        row = 1
         accounts_widget = self._get_accounts_widget(self.accounts_widgets, accounts)
         layout.addWidget(accounts_widget, row, 0, 1, 5)
-        row = 2
-        self.add_account_widgets = {}
-        self._show_add_account(layout, row, self.add_account_widgets, accounts)
-        row = 3
+        row += 1
         layout.addWidget(QtWidgets.QLabel(''), row, 0)
         layout.setRowStretch(row, 1)
         main_widget.setLayout(layout)
@@ -842,42 +898,13 @@ class AccountsDisplay:
         scroll.setWidget(widget)
         return scroll
 
-    def _show_add_account(self, layout, row, add_account_widgets, all_accounts):
-        add_account_type = QtWidgets.QComboBox()
-        for account_type in AccountType:
-            add_account_type.addItem(account_type.name, account_type)
-        layout.addWidget(add_account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        add_account_user_id = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
-        add_account_name = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        parent_combo = QtWidgets.QComboBox()
-        parent_combo.addItem('---------', None)
-        for account in all_accounts:
-            parent_combo.addItem(account.name, account)
-        layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-        button = QtWidgets.QPushButton('Add New')
-        button.clicked.connect(self._save_new_account)
-        layout.addWidget(button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
-        add_account_widgets['entries'] = {
-                'type': add_account_type,
-                'user_id': add_account_user_id,
-                'name': add_account_name,
-                'parent': parent_combo,
-            }
-        add_account_widgets['buttons'] = {'add_new': button}
+    def _open_new_account_form(self):
+        self.add_account_display = AccountForm(self.storage.get_accounts(), save_account=self._save_new_account)
+        self.add_account_display.show_form()
 
-    def _save_new_account(self):
-        type_ = self.add_account_widgets['entries']['type'].currentData()
-        user_id = self.add_account_widgets['entries']['user_id'].text()
-        name = self.add_account_widgets['entries']['name'].text()
-        parent = self.add_account_widgets['entries']['parent'].currentData()
-        try:
-            account = Account(type_=type_, user_id=user_id, name=name, parent=parent)
-            self.storage.save_account(account)
-            self._reload()
-        except InvalidAccountNameError:
-            set_widget_error_state(self.add_account_widgets['entries']['name'])
+    def _save_new_account(self, account):
+        self.storage.save_account(account)
+        self._reload()
 
 
 def set_ledger_column_widths(layout):
