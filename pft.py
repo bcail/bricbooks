@@ -683,10 +683,10 @@ class SQLiteStorage:
 ### GUI ###
 
 ACCOUNTS_GUI_FIELDS = {
-        'type': {'column_number': 0, 'column_stretch': 2},
-        'user_id': {'column_number': 1, 'column_stretch': 1},
-        'name': {'column_number': 2, 'column_stretch': 3},
-        'parent': {'column_number': 3, 'column_stretch': 3},
+        'type': {'column_number': 0, 'column_stretch': 2, 'label': 'Type'},
+        'user_id': {'column_number': 1, 'column_stretch': 1, 'label': 'User ID'},
+        'name': {'column_number': 2, 'column_stretch': 3, 'label': 'Name'},
+        'parent': {'column_number': 3, 'column_stretch': 3, 'label': 'Parent'},
         'buttons': {'column_number': 4, 'column_stretch': 3},
     }
 
@@ -734,6 +734,9 @@ class AccountForm:
 
     def _show_widgets(self, layout, widgets):
         row = 0
+        for index, f in enumerate(['type', 'user_id', 'name', 'parent']):
+            layout.addWidget(QtWidgets.QLabel(ACCOUNTS_GUI_FIELDS[f]['label']), row, index)
+        row += 1
         account_type = QtWidgets.QComboBox()
         for index, type_ in enumerate(AccountType):
             account_type.addItem(type_.name, type_)
