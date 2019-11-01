@@ -734,25 +734,33 @@ class AccountForm:
 
     def _show_widgets(self, layout, widgets):
         row = 0
-        add_account_type = QtWidgets.QComboBox()
-        for account_type in AccountType:
-            add_account_type.addItem(account_type.name, account_type)
-        layout.addWidget(add_account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        add_account_user_id = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
-        add_account_name = QtWidgets.QLineEdit()
-        layout.addWidget(add_account_name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
+        account_type = QtWidgets.QComboBox()
+        for index, type_ in enumerate(AccountType):
+            account_type.addItem(type_.name, type_)
+            if self._account and self._account.type == type_:
+                account_type.setCurrentIndex(index)
+        layout.addWidget(account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+        user_id = QtWidgets.QLineEdit()
+        if self._account:
+            user_id.setText(self._account.user_id)
+        layout.addWidget(user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+        name = QtWidgets.QLineEdit()
+        if self._account:
+            name.setText(self._account.name)
+        layout.addWidget(name, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         parent_combo = QtWidgets.QComboBox()
         parent_combo.addItem('---------', None)
-        for account in self._all_accounts:
-            parent_combo.addItem(account.name, account)
+        for index, acc in enumerate(self._all_accounts):
+            parent_combo.addItem(acc.name, acc)
+            if self._account and self._account.parent == acc:
+                parent_combo.setCurrentIndex(index+1)
         layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         button = QtWidgets.QPushButton('Save')
         button.clicked.connect(self._save_new_account)
         layout.addWidget(button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
-        widgets['type'] = add_account_type
-        widgets['user_id'] = add_account_user_id
-        widgets['name'] = add_account_name
+        widgets['type'] = account_type
+        widgets['user_id'] = user_id
+        widgets['name'] = name
         widgets['parent'] = parent_combo
         widgets['save_btn'] = button
 
@@ -761,8 +769,12 @@ class AccountForm:
         user_id = self._widgets['user_id'].text()
         name = self._widgets['name'].text()
         parent = self._widgets['parent'].currentData()
+        if self._account:
+            id_ = self._account.id
+        else:
+            id_ = None
         try:
-            account = Account(type_=type_, user_id=user_id, name=name, parent=parent)
+            account = Account(id_=id_, type_=type_, user_id=user_id, name=name, parent=parent)
             self._display.accept()
             self._save_account(account)
         except InvalidAccountNameError:
@@ -774,61 +786,6 @@ class AccountsDisplay:
     def __init__(self, storage, reload_accounts):
         self.storage = storage
         self._reload = reload_accounts
-
-    def _save_edit(self, acc_id):
-        type_ = self.accounts_widgets[acc_id]['entries']['type'].currentData()
-        user_id = self.accounts_widgets[acc_id]['entries']['user_id'].text()
-        name = self.accounts_widgets[acc_id]['entries']['name'].text()
-        parent = self.accounts_widgets[acc_id]['entries']['parent'].currentData()
-        try:
-            self.storage.save_account(Account(type_=type_, user_id=user_id, name=name, id_=acc_id, parent=parent))
-            self._reload()
-        except InvalidAccountNameError:
-            set_widget_error_state(self.accounts_widgets[acc_id]['entries']['name'])
-
-    def _edit(self, event, layout, acc_id):
-        account = self.storage.get_account(acc_id)
-        orig_user_id = self.accounts_widgets[acc_id]['labels']['user_id'].text()
-        orig_name = self.accounts_widgets[acc_id]['labels']['name'].text()
-        for label in self.accounts_widgets[acc_id]['labels'].values():
-            layout.removeWidget(label)
-            label.deleteLater()
-        type_entry = QtWidgets.QComboBox()
-        for index, account_type in enumerate(AccountType):
-            type_entry.addItem(account_type.name, account_type)
-            if account_type == account.type:
-                type_entry.setCurrentIndex(index)
-        user_id_entry = QtWidgets.QLineEdit()
-        user_id_entry.setText(orig_user_id)
-        name_entry = QtWidgets.QLineEdit()
-        name_entry.setText(orig_name)
-        parent_combo = QtWidgets.QComboBox()
-        parent_combo.addItem('-----------', None)
-        current_index = 0
-        for acc_index, acc in enumerate(self.storage.get_accounts()):
-            if account != acc:
-                parent_combo.addItem(acc.name, acc)
-            if account.parent == acc:
-                current_index = acc_index + 1 #because index 0 is the blank '--------' value
-        parent_combo.setCurrentIndex(current_index)
-        row = self.accounts_widgets[acc_id]['row']
-        layout.addWidget(type_entry, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        layout.addWidget(user_id_entry, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
-        layout.addWidget(name_entry, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-
-        save_button = QtWidgets.QPushButton('Save Edit')
-        save_button.clicked.connect(partial(self._save_edit, acc_id=acc_id))
-        layout.addWidget(save_button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
-        self.accounts_widgets[acc_id]['entries'] = {
-                'type': type_entry,
-                'user_id': user_id_entry,
-                'name': name_entry,
-                'parent': parent_combo,
-            }
-        self.accounts_widgets[acc_id]['buttons'] = {
-                'save_edit': save_button,
-            }
 
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
@@ -899,12 +856,16 @@ class AccountsDisplay:
         return scroll
 
     def _open_new_account_form(self):
-        self.add_account_display = AccountForm(self.storage.get_accounts(), save_account=self._save_new_account)
+        self.add_account_display = AccountForm(self.storage.get_accounts(), save_account=self._save_account)
         self.add_account_display.show_form()
 
-    def _save_new_account(self, account):
+    def _save_account(self, account):
         self.storage.save_account(account)
         self._reload()
+
+    def _edit(self, event, layout, acc_id):
+        self.edit_account_display = AccountForm(self.storage.get_accounts(), account=self.storage.get_account(acc_id), save_account=self._save_account)
+        self.edit_account_display.show_form()
 
 
 def set_ledger_column_widths(layout):
