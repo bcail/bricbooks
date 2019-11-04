@@ -80,8 +80,12 @@ class SQLiteStorageError(RuntimeError):
 
 def get_date(val):
     if isinstance(val, str):
-        year, month, day = val.split('-')
-        return date(int(year), int(month), int(day))
+        try:
+            year, month, day = val.split('-')
+            return date(int(year), int(month), int(day))
+        except ValueError:
+            month, day, year = val.split('/')
+            return date(int(year), int(month), int(day))
     if isinstance(val, date):
         return val
     raise RuntimeError('invalid date')

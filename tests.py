@@ -108,6 +108,8 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.txn_date, date.today())
         t = pft.Transaction(splits=self.valid_splits, txn_date='2018-03-18')
         self.assertEqual(t.txn_date, date(2018, 3, 18))
+        t = pft.Transaction(splits=self.valid_splits, txn_date='3/18/2018')
+        self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
         t = pft.Transaction(
