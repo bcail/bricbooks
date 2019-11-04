@@ -8,7 +8,6 @@ Python Finance Tracking
 TODO
 ----
 - Ledger - make sure ledger txns are aligned to the top if they don't fill the window (as they're added)
-- Ledger - categories box - show expense account user id with name
 - catch exceptions and give good error messages in the UI
 - add scheduled transactions
 

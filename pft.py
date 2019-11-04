@@ -902,7 +902,7 @@ class SplitTransactionEditor:
         layout = QtWidgets.QGridLayout()
         row = 0
         for account in self._all_accounts:
-            layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
+            layout.addWidget(QtWidgets.QLabel(str(account)), row, 0)
             amount_entry = QtWidgets.QLineEdit()
             for acc, amt in self._initial_txn_splits.items():
                 if acc == account:
@@ -1065,7 +1065,7 @@ class TxnAccountsDisplay:
                 if txn and len(txn.splits.keys()) == 2:
                     if account in txn.splits:
                         current_index = index + 1
-                self._categories_combo.addItem(account.name, account)
+                self._categories_combo.addItem(str(account), account)
                 index += 1
         self._multiple_entry_index = index + 1
         current_categories = []
