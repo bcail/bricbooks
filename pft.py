@@ -1217,28 +1217,38 @@ class TxnForm:
 
 class LedgerDisplay:
 
-    def __init__(self, storage, show_ledger, current_account=None, filter_text=''):
+    def __init__(self, storage, current_account=None):
         self.storage = storage
-        self._show_ledger = show_ledger
         if not current_account:
-            current_account = storage.get_accounts(type_=AccountType.ASSET)[0]
+            current_account = self.storage.get_accounts(type_=AccountType.ASSET)[0]
         self._current_account = current_account
-        self._filter_text = filter_text
 
     def get_widget(self):
-        self.widget = QtWidgets.QWidget()
+        self.widget, self.layout = self._setup_main()
+        self._display_ledger(self.layout, self._current_account)
+        return self.widget
+
+    def _setup_main(self):
+        widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
-        self.ledger = self.storage.get_ledger(account=self._current_account)
-        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, self._filter_text)
-        layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
-        self.widget.setLayout(layout)
-        return self.widget
+        self._ledger_txns_row_index = new_row
+        widget.setLayout(layout)
+        return widget, layout
+
+    def _display_ledger(self, layout, account, filter_text=''):
+        self.ledger = self.storage.get_ledger(account=account)
+        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, filter_text)
+        layout.addWidget(self.txns_display.get_widget(), self._ledger_txns_row_index, 0, 1, 9)
 
     def _update_account(self, index):
-        self._show_ledger(self.storage.get_accounts()[index])
+        self._current_account = self.storage.get_accounts()[index]
+        self._display_ledger(layout=self.layout, account=self._current_account)
+
+    def _filter_txns(self):
+        self._display_ledger(layout=self.layout, account=self._current_account, filter_text=self._filter_box.text())
 
     def _show_headings(self, layout, row):
         self.action_combo = QtWidgets.QComboBox()
@@ -1279,9 +1289,6 @@ class LedgerDisplay:
     def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
         self.txns_display.display_new_txn(txn)
-
-    def _filter_txns(self):
-        self._show_ledger(self._current_account, filter_text=self._filter_box.text())
 
 
 class BudgetDisplay:
@@ -1474,12 +1481,12 @@ class PFT_GUI_QT:
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
-    def _show_ledger(self, current_account=None, filter_text=''):
+    def _show_ledger(self):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('ledger')
-        self.ledger_display = LedgerDisplay(self.storage, show_ledger=self._show_ledger, current_account=current_account, filter_text=filter_text)
+        self.ledger_display = LedgerDisplay(self.storage)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
