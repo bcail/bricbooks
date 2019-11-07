@@ -926,21 +926,22 @@ class SplitTransactionEditor:
 
 class LedgerTxnsDisplay:
 
-    def __init__(self, ledger, storage):
+    def __init__(self, ledger, storage, filter_text):
         self.ledger = ledger
         self.storage = storage
-        self.txn_display_data = {}
+        self._filter_text = filter_text
 
     def get_widget(self):
-        self.txns_layout = QtWidgets.QGridLayout()
+        self.main_widget = QtWidgets.QScrollArea()
+        self.main_widget.setWidgetResizable(True)
+        self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
         set_ledger_column_widths(self.txns_layout)
+        self.txn_display_data = {}
         self._redisplay_txns()
         txns_widget = QtWidgets.QWidget()
         txns_widget.setLayout(self.txns_layout)
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(txns_widget)
-        return scroll
+        self.main_widget.setWidget(txns_widget)
+        return self.main_widget
 
     def display_new_txn(self, txn):
         self.ledger.add_transaction(txn)
@@ -949,7 +950,11 @@ class LedgerTxnsDisplay:
     def _redisplay_txns(self):
         '''draw/redraw txns on the screen as needed'''
         index = 0 #initialize in case there are no txns in the ledger
-        for index, txn in enumerate(self.ledger.get_sorted_txns_with_balance()):
+        if self._filter_text:
+            txns = self.ledger.search(self._filter_text)
+        else:
+            txns = self.ledger.get_sorted_txns_with_balance()
+        for index, txn in enumerate(txns):
             if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
                 self._display_txn(txn, row=index, layout=self.txns_layout)
             else:
@@ -1010,7 +1015,11 @@ class LedgerTxnsDisplay:
         deposit_label.mousePressEvent = edit_function
         withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
         withdrawal_label.mousePressEvent = edit_function
-        balance_label = QtWidgets.QLabel(str(txn.balance))
+        try:
+            balance = str(txn.balance)
+        except AttributeError:
+            balance = ''
+        balance_label = QtWidgets.QLabel(balance)
         balance_label.mousePressEvent = edit_function
         layout.addWidget(type_label, row, GUI_FIELDS['txn_type']['column_number'])
         layout.addWidget(date_label, row, GUI_FIELDS['txn_date']['column_number'])
@@ -1208,12 +1217,13 @@ class TxnForm:
 
 class LedgerDisplay:
 
-    def __init__(self, storage, show_ledger, current_account=None):
+    def __init__(self, storage, show_ledger, current_account=None, filter_text=''):
         self.storage = storage
         self._show_ledger = show_ledger
         if not current_account:
             current_account = storage.get_accounts(type_=AccountType.ASSET)[0]
         self._current_account = current_account
+        self._filter_text = filter_text
 
     def get_widget(self):
         self.widget = QtWidgets.QWidget()
@@ -1222,7 +1232,7 @@ class LedgerDisplay:
         set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
         self.ledger = self.storage.get_ledger(account=self._current_account)
-        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage)
+        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, self._filter_text)
         layout.addWidget(self.txns_display.get_widget(), new_row, 0, 1, 9)
         self.widget.setLayout(layout)
         return self.widget
@@ -1245,6 +1255,11 @@ class LedgerDisplay:
         self.add_button = QtWidgets.QPushButton('New Txn')
         self.add_button.clicked.connect(self._open_new_txn_form)
         layout.addWidget(self.add_button, row, 1)
+        self._filter_box = QtWidgets.QLineEdit()
+        layout.addWidget(self._filter_box, row, 3)
+        self._filter_btn = QtWidgets.QPushButton('Filter')
+        self._filter_btn.clicked.connect(self._filter_txns)
+        layout.addWidget(self._filter_btn, row, 4)
         row += 1
         layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['txn_type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['txn_date']['column_number'])
@@ -1264,6 +1279,9 @@ class LedgerDisplay:
     def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
         self.txns_display.display_new_txn(txn)
+
+    def _filter_txns(self):
+        self._show_ledger(self._current_account, filter_text=self._filter_box.text())
 
 
 class BudgetDisplay:
@@ -1456,12 +1474,12 @@ class PFT_GUI_QT:
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
-    def _show_ledger(self, current_account=None):
+    def _show_ledger(self, current_account=None, filter_text=''):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         self._update_action_buttons('ledger')
-        self.ledger_display = LedgerDisplay(self.storage, show_ledger=self._show_ledger, current_account=current_account)
+        self.ledger_display = LedgerDisplay(self.storage, show_ledger=self._show_ledger, current_account=current_account, filter_text=filter_text)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
