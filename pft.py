@@ -1250,6 +1250,10 @@ class LedgerDisplay:
     def _filter_txns(self):
         self._display_ledger(layout=self.layout, account=self._current_account, filter_text=self._filter_box.text())
 
+    def _show_all_txns(self):
+        self._filter_box.setText('')
+        self._display_ledger(layout=self.layout, account=self._current_account)
+
     def _show_headings(self, layout, row):
         self.action_combo = QtWidgets.QComboBox()
         current_index = 0
@@ -1270,6 +1274,9 @@ class LedgerDisplay:
         self._filter_btn = QtWidgets.QPushButton('Filter')
         self._filter_btn.clicked.connect(self._filter_txns)
         layout.addWidget(self._filter_btn, row, 4)
+        clear_btn = QtWidgets.QPushButton('Show all')
+        clear_btn.clicked.connect(self._show_all_txns)
+        layout.addWidget(clear_btn, row, 5)
         row += 1
         layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['txn_type']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['txn_date']['column_number'])
