@@ -1141,13 +1141,21 @@ class TxnForm:
             tds = txn.get_display_strings_for_ledger(current_account)
         labels = [None, None, None, None, None, None, None, None, None]
         widgets = [None, None, None, None, None, None, None, None, None]
-        for name in ['txn_type', 'txn_date', 'description', 'status', 'withdrawal', 'deposit']:
+        for name in ['txn_type', 'txn_date', 'description', 'withdrawal', 'deposit']:
             entry = QtWidgets.QLineEdit()
             if self._txn:
                 entry.setText(tds[name])
             self._widgets[name] = entry
             widgets[GUI_FIELDS[name]['add_edit_column_number']] = entry
             labels[GUI_FIELDS[name]['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS[name]['label'])
+        status_entry = QtWidgets.QComboBox()
+        for index, status in enumerate(['', Transaction.CLEARED, Transaction.RECONCILED]):
+            status_entry.addItem(status)
+            if self._txn and self._txn.status == status:
+                status_entry.setCurrentIndex(index)
+        self._widgets['status'] = status_entry
+        widgets[GUI_FIELDS['status']['add_edit_column_number']] = status_entry
+        labels[GUI_FIELDS['status']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['status']['label'])
         payee_entry = QtWidgets.QComboBox()
         payee_entry.setEditable(True)
         payee_entry.addItem('')
@@ -1190,7 +1198,7 @@ class TxnForm:
         payee = self._widgets['payee'].currentText()
         description = self._widgets['description'].text()
         categories = self._widgets['accounts_display'].get_categories()
-        status = self._widgets['status'].text()
+        status = self._widgets['status'].currentText()
         deposit = self._widgets['deposit'].text()
         withdrawal = self._widgets['withdrawal'].text()
         kwargs = {
