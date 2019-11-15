@@ -1098,9 +1098,10 @@ class TxnAccountsDisplay:
         if self._txn:
             initial_txn_splits = self._txn.splits
         accounts = self._storage.get_accounts()
-        txn_splits = get_new_txn_splits(accounts, initial_txn_splits)
-        self._categories_combo.setCurrentIndex(self._multiple_entry_index)
-        self._categories_combo.setItemData(self._multiple_entry_index, txn_splits)
+        new_txn_splits = get_new_txn_splits(accounts, initial_txn_splits)
+        if new_txn_splits and new_txn_splits != initial_txn_splits:
+            self._categories_combo.setCurrentIndex(self._multiple_entry_index)
+            self._categories_combo.setItemData(self._multiple_entry_index, new_txn_splits)
 
     def get_categories(self):
         splits = self._categories_combo.currentData()
