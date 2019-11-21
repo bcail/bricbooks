@@ -209,6 +209,9 @@ class Transaction:
     def __str__(self):
         return '%s: %s' % (self.id, self.txn_date)
 
+    def __repr__(self):
+        return self.__str__()
+
     def _check_account(self, account):
         if not account:
             raise InvalidTransactionError('transaction must belong to an account')
@@ -963,8 +966,9 @@ class LedgerTxnsDisplay:
                         self._display_txn(txn, row=index, layout=self.txns_layout)
                 except KeyError:
                     pass
-        self.txns_layout.addWidget(QtWidgets.QLabel(''), index+1, 0)
-        self.txns_layout.setRowStretch(index+1, 1)
+        row = index
+        self.txns_layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        self.txns_layout.setRowStretch(row+1, 1)
 
     def _delete(self, txn, layout):
         #delete from storage, remove it from ledger, delete the display info
@@ -1527,10 +1531,16 @@ def _get_account(storage):
     return storage.get_account(acc_id)
 
 
+def _print_msg(msg):
+    print(msg)
+
+
 def run_cli(file_name):
-    banner = 'Command-line PFT'
+    help_msg = 'help()\nlist_accounts()\nget_account()\nstorage'
+    banner = 'Command-line PFT\n%s' % help_msg
     storage = SQLiteStorage(file_name)
     local = {
+        'help': partial(_print_msg, msg=help_msg),
         'storage': storage,
         'list_accounts': partial(_list_accounts, storage=storage),
         'get_account': partial(_get_account, storage=storage),
