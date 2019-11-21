@@ -1526,27 +1526,30 @@ def _list_accounts(storage):
         print('%s - %s' % (a.id, a.name))
 
 
-def _get_account(storage):
-    acc_id = input('enter account ID: ')
-    return storage.get_account(acc_id)
-
-
-def _print_msg(msg):
-    print(msg)
+def _list_account_txns(storage):
+    acc_id = input('Account ID: ')
+    ledger = storage.get_ledger(int(acc_id))
+    for t in ledger.get_sorted_txns_with_balance():
+        tds = t.get_display_strings_for_ledger(storage.get_account(int(acc_id)))
+        print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
 
 
 def run_cli(file_name):
-    help_msg = 'help()\nlist_accounts()\nget_account()\nstorage'
-    banner = 'Command-line PFT\n%s' % help_msg
+    help_msg = 'h - help\nl - list accounts\nlt - list account txns\nCtrl-d - quit'
+    print('Command-line PFT\n%s' % help_msg)
     storage = SQLiteStorage(file_name)
-    local = {
-        'help': partial(_print_msg, msg=help_msg),
-        'storage': storage,
-        'list_accounts': partial(_list_accounts, storage=storage),
-        'get_account': partial(_get_account, storage=storage),
-    }
-    import code
-    code.interact(banner=banner, local=local)
+    while True:
+        try:
+            cmd = input('>>> ')
+        except EOFError:
+            print('\n')
+            break
+        if cmd == 'h':
+            print(help_msg)
+        elif cmd == 'l':
+            _list_accounts(storage=storage)
+        elif cmd == 'lt':
+            _list_account_txns(storage=storage)
 
 
 def parse_args():
