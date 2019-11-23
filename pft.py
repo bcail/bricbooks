@@ -353,6 +353,9 @@ class ScheduledTransaction:
         self.description = description
         self.id = id_
 
+    def __str__(self):
+        return '%s (%s %s)' % (self.name, self.frequency, self.next_due_date)
+
     def _check_date(self, dt):
         try:
             return get_date(dt)
@@ -683,8 +686,17 @@ class SQLiteStorage:
                 txn_type=rows[0][3],
                 payee=rows[0][4],
                 description=rows[0][5],
+                id_=id_,
             )
         return st
+
+    def get_scheduled_transactions(self):
+        c = self._db_connection.cursor()
+        scheduled_txns_records = c.execute('SELECT id FROM scheduled_transactions').fetchall()
+        scheduled_txns = []
+        for st_record in scheduled_txns_records:
+            scheduled_txns.append(self.get_scheduled_transaction(st_record[0]))
+        return scheduled_txns
 
 
 ### GUI ###
@@ -1534,8 +1546,40 @@ def _list_account_txns(storage):
         print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
 
 
+def _list_scheduled_txns(storage):
+    for st in storage.get_scheduled_transactions():
+        print(st)
+
+
+def _create_scheduled_txn(storage):
+    print('Create Scheduled Transaction:')
+    name = input('  name: ')
+    frequency = input('  frequency (1-weekly, 2-monthly, 3-quarterly, 4-annually): ')
+    frequency = ScheduledTransactionFrequency(int(frequency))
+    next_due_date = input('  next due date (yyyy-mm-dd): ')
+    withdrawal_account_id = input('  withdrawal account id: ')
+    withdrawal_account = storage.get_account(int(withdrawal_account_id))
+    deposit_account_id = input('  deposit account id: ')
+    deposit_account = storage.get_account(int(deposit_account_id))
+    amount = input('  amount: ')
+    splits = {
+            withdrawal_account: '-%s' % amount,
+            deposit_account: amount,
+        }
+    storage.save_scheduled_transaction(
+        ScheduledTransaction(
+            name=name,
+            frequency=frequency,
+            next_due_date=next_due_date,
+            splits=splits,
+        )
+    )
+
+
 def run_cli(file_name):
-    help_msg = 'h - help\nl - list accounts\nlt - list account txns\nCtrl-d - quit'
+    help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
+        + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
+        + '\nCtrl-d - quit'
     print('Command-line PFT\n%s' % help_msg)
     storage = SQLiteStorage(file_name)
     while True:
@@ -1550,6 +1594,10 @@ def run_cli(file_name):
             _list_accounts(storage=storage)
         elif cmd == 'lt':
             _list_account_txns(storage=storage)
+        elif cmd == 'lst':
+            _list_scheduled_txns(storage=storage)
+        elif cmd == 'cst':
+            _create_scheduled_txn(storage=storage)
 
 
 def parse_args():
