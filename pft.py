@@ -1554,7 +1554,8 @@ def _list_scheduled_txns(storage):
 def _create_scheduled_txn(storage):
     print('Create Scheduled Transaction:')
     name = input('  name: ')
-    frequency = input('  frequency (1-weekly, 2-monthly, 3-quarterly, 4-annually): ')
+    frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
+    frequency = input('  frequency (%s): ' % frequency_options)
     frequency = ScheduledTransactionFrequency(int(frequency))
     next_due_date = input('  next due date (yyyy-mm-dd): ')
     withdrawal_account_id = input('  withdrawal account id: ')
