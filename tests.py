@@ -755,6 +755,16 @@ class TestSQLiteStorage(unittest.TestCase):
         txn3 = pft.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee='Subway', description='inv #42', status=pft.Transaction.CLEARED,
                 splits={savings2: '-6.53', savings: '6.53'})
         storage.save_txn(txn3)
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits={checking: -1, savings: 1},
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        storage.save_scheduled_transaction(st)
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
@@ -762,6 +772,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txns[1].splits[checking], D('46.23'))
         ledger_by_id = storage.get_ledger(account=checking.id)
         self.assertEqual(len(txns), 2)
+        self.assertEqual(ledger.get_scheduled_transactions_due()[0].id, st.id)
 
     def test_delete_txn_from_db(self):
         storage = pft.SQLiteStorage(':memory:')

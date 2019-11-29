@@ -354,7 +354,7 @@ class ScheduledTransaction:
         self.id = id_
 
     def __str__(self):
-        return '%s (%s %s)' % (self.name, self.frequency, self.next_due_date)
+        return '%s (%s %s) (%s)' % (self.name, self.frequency, self.next_due_date, self.splits)
 
     def _check_date(self, dt):
         try:
@@ -587,6 +587,9 @@ class SQLiteStorage:
         for txn_id in txn_ids:
             txn = self.get_txn(txn_id)
             ledger.add_transaction(txn)
+        scheduled_txn_records = self._db_connection.execute('SELECT id FROM scheduled_transactions')
+        for scheduled_txn_record in scheduled_txn_records:
+            ledger.add_scheduled_transaction(self.get_scheduled_transaction(scheduled_txn_record[0]))
         return ledger
 
     def save_budget(self, budget):
@@ -978,9 +981,12 @@ class LedgerTxnsDisplay:
                         self._display_txn(txn, row=index, layout=self.txns_layout)
                 except KeyError:
                     pass
-        row = index
-        self.txns_layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
-        self.txns_layout.setRowStretch(row+1, 1)
+        row = index + 1
+        for scheduled_txn in self.ledger.get_scheduled_transactions_due():
+            self.txns_layout.addWidget(QtWidgets.QLabel(str(scheduled_txn.id)), row, 0)
+            row += 1
+        self.txns_layout.addWidget(QtWidgets.QLabel(''), row, 0)
+        self.txns_layout.setRowStretch(row, 1)
 
     def _delete(self, txn, layout):
         #delete from storage, remove it from ledger, delete the display info
