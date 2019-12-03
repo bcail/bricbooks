@@ -236,32 +236,44 @@ class Transaction:
         else:
             return None
 
-    def _categories_display(self, main_account):
-        if len(self.splits.keys()) == 2:
-            for account in self.splits.keys():
-                if account != main_account:
-                    return str(account)
-        return 'multiple'
 
-    def get_display_strings_for_ledger(self, account):
-        amount = self.splits[account]
-        if amount < Decimal(0):
-            #make negative amount display as positive
-            withdrawal = str(amount * Decimal('-1'))
-            deposit = ''
-        else:
-            withdrawal = ''
-            deposit = str(amount)
-        return {
-                'txn_type': self.txn_type or '',
-                'withdrawal': withdrawal,
-                'deposit': deposit,
-                'description': self.description or '',
-                'txn_date': str(self.txn_date),
-                'payee': self.payee or '',
-                'status': self.status or '',
-                'categories': self._categories_display(main_account=account),
-            }
+def _categories_display(splits, main_account):
+    if len(splits.keys()) == 2:
+        for account in splits.keys():
+            if account != main_account:
+                return str(account)
+    return 'multiple'
+
+
+def get_display_strings_for_ledger(account, txn):
+    '''txn can be either Transaction or ScheduledTransaction'''
+    amount = txn.splits[account]
+    if amount < Decimal(0):
+        #make negative amount display as positive
+        withdrawal = str(amount * Decimal('-1'))
+        deposit = ''
+    else:
+        withdrawal = ''
+        deposit = str(amount)
+    #ScheduledTransaction doesn't have status or txn_date
+    try:
+        status = txn.status
+    except AttributeError:
+        status = ''
+    try:
+        txn_date = str(txn.txn_date)
+    except AttributeError:
+        txn_date = str(date.today())
+    return {
+            'txn_type': txn.txn_type or '',
+            'withdrawal': withdrawal,
+            'deposit': deposit,
+            'description': txn.description or '',
+            'txn_date': txn_date,
+            'payee': txn.payee or '',
+            'status': status or '',
+            'categories': _categories_display(splits=txn.splits, main_account=account),
+        }
 
 
 class Ledger:
@@ -982,8 +994,12 @@ class LedgerTxnsDisplay:
                 except KeyError:
                     pass
         row = index + 1
-        for scheduled_txn in self.ledger.get_scheduled_transactions_due():
-            self.txns_layout.addWidget(QtWidgets.QLabel(str(scheduled_txn.id)), row, 0)
+        scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
+        if scheduled_txns_due:
+            self.txns_layout.addWidget(QtWidgets.QLabel('Scheduled Transactions Due'), row, 0, 1, 9)
+            row += 1
+        for scheduled_txn in scheduled_txns_due:
+            self._display_scheduled_txn(self.txns_layout, row, scheduled_txn)
             row += 1
         self.txns_layout.addWidget(QtWidgets.QLabel(''), row, 0)
         self.txns_layout.setRowStretch(row, 1)
@@ -1013,13 +1029,16 @@ class LedgerTxnsDisplay:
         self.edit_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
         self.edit_txn_display.show_form()
 
+    def _show_scheduled_txn_form(self, event, scheduled_txn_id, layout):
+        pass
+
     def _display_txn(self, txn, row, layout):
         #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
         if txn.id in self.txn_display_data:
             for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
                 layout.removeWidget(widget)
                 widget.deleteLater()
-        tds = txn.get_display_strings_for_ledger(self.ledger.account)
+        tds = get_display_strings_for_ledger(self.ledger.account, txn)
         edit_function = partial(self._edit, txn_id=txn.id, layout=layout)
         type_label = QtWidgets.QLabel(tds['txn_type'])
         type_label.mousePressEvent = edit_function
@@ -1069,6 +1088,31 @@ class LedgerTxnsDisplay:
                 'row': row,
                 'txn': txn,
             }
+
+    def _display_scheduled_txn(self, layout, row, scheduled_txn):
+        show_form = partial(self._show_scheduled_txn_form, scheduled_txn_id=scheduled_txn.id, layout=layout)
+        tds = get_display_strings_for_ledger(txn=scheduled_txn, account=self.ledger.account)
+        type_label = QtWidgets.QLabel(tds['txn_type'])
+        type_label.mousePressEvent = show_form
+        date_label = QtWidgets.QLabel(tds['txn_date'])
+        date_label.mousePressEvent = show_form
+        payee_label = QtWidgets.QLabel(tds['payee'])
+        payee_label.mousePressEvent = show_form
+        description_label = QtWidgets.QLabel(tds['description'])
+        description_label.mousePressEvent = show_form
+        withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
+        withdrawal_label.mousePressEvent = show_form
+        deposit_label = QtWidgets.QLabel(tds['deposit'])
+        deposit_label.mousePressEvent = show_form
+        categories_label = QtWidgets.QLabel(tds['categories'])
+        categories_label.mousePressEvent = show_form
+        layout.addWidget(type_label, row, 0)
+        layout.addWidget(date_label, row, 1)
+        layout.addWidget(payee_label, row, 2)
+        layout.addWidget(description_label, row, 3)
+        layout.addWidget(withdrawal_label, row, 5)
+        layout.addWidget(deposit_label, row, 6)
+        layout.addWidget(categories_label, row, 8)
 
 
 def get_new_txn_splits(accounts, initial_txn_splits):
@@ -1160,8 +1204,8 @@ class TxnForm:
 
     def _show_widgets(self, layout, payees, txn, current_account):
         tds = {}
-        if self._txn:
-            tds = txn.get_display_strings_for_ledger(current_account)
+        if txn:
+            tds = get_display_strings_for_ledger(current_account, txn)
         labels = [None, None, None, None, None, None, None, None, None]
         widgets = [None, None, None, None, None, None, None, None, None]
         for name in ['txn_type', 'txn_date', 'description', 'withdrawal', 'deposit']:
@@ -1548,7 +1592,7 @@ def _list_account_txns(storage):
     acc_id = input('Account ID: ')
     ledger = storage.get_ledger(int(acc_id))
     for t in ledger.get_sorted_txns_with_balance():
-        tds = t.get_display_strings_for_ledger(storage.get_account(int(acc_id)))
+        tds = get_display_strings_for_ledger(storage.get_account(int(acc_id)), t)
         print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
 
 

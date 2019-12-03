@@ -216,7 +216,7 @@ class TestTransaction(unittest.TestCase):
                 status='C',
             )
         self.assertDictEqual(
-                t.get_display_strings_for_ledger(account=self.checking),
+                pft.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '1234',
                     'withdrawal': '',
@@ -229,7 +229,7 @@ class TestTransaction(unittest.TestCase):
                 }
             )
         self.assertDictEqual(
-                t.get_display_strings_for_ledger(account=self.savings),
+                pft.get_display_strings_for_ledger(account=self.savings, txn=t),
                 {
                     'txn_type': '1234',
                     'withdrawal': '100',
@@ -247,7 +247,7 @@ class TestTransaction(unittest.TestCase):
                 splits=self.valid_splits,
                 txn_date=date.today(),
             )
-        self.assertDictEqual(t.get_display_strings_for_ledger(account=self.checking),
+        self.assertDictEqual(pft.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '',
                     'withdrawal': '',
@@ -272,7 +272,7 @@ class TestTransaction(unittest.TestCase):
                 },
                 txn_date=date.today(),
             )
-        self.assertEqual(t._categories_display(main_account=a), 'multiple')
+        self.assertEqual(pft._categories_display(t.splits, main_account=a), 'multiple')
         t = pft.Transaction(
                 splits={
                     a: -100,
@@ -280,7 +280,7 @@ class TestTransaction(unittest.TestCase):
                 },
                 txn_date=date.today(),
             )
-        self.assertEqual(t._categories_display(main_account=a), 'Savings')
+        self.assertEqual(pft._categories_display(t.splits, main_account=a), 'Savings')
 
 
 class TestLedger(unittest.TestCase):
@@ -465,6 +465,18 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(st.txn_type, 'a')
         self.assertEqual(st.payee, 'Wendys')
         self.assertEqual(st.description, 'something')
+
+    def test_display_strings(self):
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        tds = pft.get_display_strings_for_ledger(account=self.checking, txn=st)
 
 
 class TestBudget(unittest.TestCase):
@@ -1347,6 +1359,7 @@ if __name__ == '__main__':
         suite = unittest.TestSuite()
         suite.addTest(unittest.makeSuite(TestAccount, 'test'))
         suite.addTest(unittest.makeSuite(TestTransaction, 'test'))
+        suite.addTest(unittest.makeSuite(TestScheduledTransaction, 'test'))
         suite.addTest(unittest.makeSuite(TestLedger, 'test'))
         suite.addTest(unittest.makeSuite(TestBudget, 'test'))
         suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
