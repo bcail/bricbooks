@@ -5,7 +5,7 @@ Architecture:
     Outer Layer - UI (Qt, console). Knows about storage layer and inner objects.
     No objects should use private/hidden members of other objects.
 '''
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from functools import partial
@@ -89,6 +89,42 @@ def get_date(val):
     if isinstance(val, date):
         return val
     raise RuntimeError('invalid date')
+
+
+def increment_month(date_obj):
+    if date_obj.month == 12:
+        return date(date_obj.year + 1, 1, date_obj.day)
+    if date_obj.month == 1 and date_obj.day > 28:
+        return date(date_obj.year, 2, 28)
+    if date_obj.day == 31 and date_obj.month in [3, 5, 8, 10]:
+        return date(date_obj.year, date_obj.month+1, 30)
+    return date(date_obj.year, date_obj.month+1, date_obj.day)
+
+
+def increment_quarter(date_obj):
+    if date_obj.day == 31 and date_obj.month in [1, 3, 8]:
+        day = 30
+    elif date_obj.day > 28 and date_obj.month == 11:
+        day = 28
+    else:
+        day = date_obj.day
+    if date_obj.month == 10:
+        month = 1
+    elif date_obj.month == 11:
+        month = 2
+    elif date_obj.month == 12:
+        month = 3
+    else:
+        month = date_obj.month + 3
+    if date_obj.month in [10, 11, 12]:
+        year = date_obj.year + 1
+    else:
+        year = date_obj.year
+    return date(year, month, day)
+
+
+def increment_year(date_obj):
+    return date(date_obj.year+1, date_obj.month, date_obj.day)
 
 
 class Account:
@@ -378,6 +414,19 @@ class ScheduledTransaction:
         if self.next_due_date <= date.today():
             return True
         return False
+
+    def next_txn_entered(self):
+        #update next_due_date since the txn has been entered
+        if self.frequency == ScheduledTransactionFrequency.WEEKLY:
+            self.next_due_date = self.next_due_date + timedelta(days=7)
+        elif self.frequency == ScheduledTransactionFrequency.MONTHLY:
+            self.next_due_date = increment_month(self.next_due_date)
+        elif self.frequency == ScheduledTransactionFrequency.QUARTERLY:
+            self.next_due_date = increment_quarter(self.next_due_date)
+        elif self.frequency == ScheduledTransactionFrequency.ANNUALLY:
+            self.next_due_date = increment_year(self.next_due_date)
+        else:
+            raise Exception('invalid frequency %s' % self.frequency)
 
 
 class Budget:
@@ -1026,11 +1075,36 @@ class LedgerTxnsDisplay:
 
     def _edit(self, event, txn_id, layout):
         txn = self.ledger.get_txn(txn_id)
-        self.edit_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=partial(self._save_edit, layout=layout), storage=self.storage, current_account=self.ledger.account, txn=txn, delete_txn=partial(self._delete, layout=layout))
+        self.edit_txn_display = TxnForm(
+                payees=self.ledger.get_payees(),
+                save_txn=partial(self._save_edit, layout=layout),
+                storage=self.storage,
+                current_account=self.ledger.account,
+                txn=txn,
+                delete_txn=partial(self._delete, layout=layout)
+            )
         self.edit_txn_display.show_form()
 
-    def _show_scheduled_txn_form(self, event, scheduled_txn_id, layout):
+    def _enter_scheduled_txn(self, scheduled_txn, new_txn, layout):
+        scheduled_txn.next_txn_entered()
+        self.storage.save_scheduled_txn(scheduled_txn)
+        self.storage.save_txn(new_txn)
+        self._redisplay_txns()
+
+    def _skip_scheduled_txn(self, scheduled_txn):
         pass
+
+    def _show_scheduled_txn_form(self, event, scheduled_txn, layout):
+        save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn, layout=layout)
+        self.scheduled_txn_display = TxnForm(
+                payees=self.ledger.get_payees(),
+                save_txn=save_txn,
+                storage=self.storage,
+                current_account=self.ledger.account,
+                txn=scheduled_txn,
+                skip_txn=partial(self._skip_scheduled_txn_form, scheduled_txn=scheduled_txn)
+            )
+        self.scheduled_txn_display.show_form()
 
     def _display_txn(self, txn, row, layout):
         #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
@@ -1090,7 +1164,7 @@ class LedgerTxnsDisplay:
             }
 
     def _display_scheduled_txn(self, layout, row, scheduled_txn):
-        show_form = partial(self._show_scheduled_txn_form, scheduled_txn_id=scheduled_txn.id, layout=layout)
+        show_form = partial(self._show_scheduled_txn_form, scheduled_txn=scheduled_txn, layout=layout)
         tds = get_display_strings_for_ledger(txn=scheduled_txn, account=self.ledger.account)
         type_label = QtWidgets.QLabel(tds['txn_type'])
         type_label.mousePressEvent = show_form
@@ -1181,16 +1255,18 @@ class TxnAccountsDisplay:
 
 
 class TxnForm:
-    '''display widgets for Transaction data, and create a new
-        Transaction when user finishes entering data'''
+    '''Display widgets for Transaction data, and create a new
+    Transaction when user finishes entering data.
+    Displays ScheduledTransaction actions if txn is a ScheduledTxn.'''
 
-    def __init__(self, payees, save_txn, storage, current_account, txn=None, delete_txn=None):
+    def __init__(self, payees, save_txn, storage, current_account, txn=None, delete_txn=None, skip_txn=None):
         self._payees = payees
         self._save_txn = save_txn
         self._storage = storage
         self._current_account = current_account
         self._txn = txn
         self._delete_txn = delete_txn
+        self._skip_txn = skip_txn
         self._widgets = {}
 
     def show_form(self):
@@ -1218,8 +1294,11 @@ class TxnForm:
         status_entry = QtWidgets.QComboBox()
         for index, status in enumerate(['', Transaction.CLEARED, Transaction.RECONCILED]):
             status_entry.addItem(status)
-            if self._txn and self._txn.status == status:
-                status_entry.setCurrentIndex(index)
+            try:
+                if self._txn and self._txn.status == status:
+                    status_entry.setCurrentIndex(index)
+            except AttributeError: #ScheduledTxn doesn't have a status
+                pass
         self._widgets['status'] = status_entry
         widgets[GUI_FIELDS['status']['add_edit_column_number']] = status_entry
         labels[GUI_FIELDS['status']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['status']['label'])
@@ -1240,12 +1319,13 @@ class TxnForm:
         widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
         labels[GUI_FIELDS['categories']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['categories']['label'])
         self._widgets['accounts_display'] = txn_accounts_display
-        if self._txn:
+        if isinstance(self._txn, ScheduledTransaction):
+            button = QtWidgets.QPushButton('Enter New Txn')
+        elif self._txn:
             button = QtWidgets.QPushButton('Save Edit')
-            self._widgets['edit_btn'] = button
         else:
             button = QtWidgets.QPushButton('Add New')
-            self._widgets['add_new_btn'] = button
+        self._widgets['save_btn'] = button
         button.clicked.connect(self._save)
         widgets[GUI_FIELDS['buttons']['add_edit_column_number']] = button
         for index, label in enumerate(labels):

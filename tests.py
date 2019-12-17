@@ -24,6 +24,24 @@ class TestUtils(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             pft.get_date(10)
 
+    def test_increment_month(self):
+        new_date = pft.increment_month(date(2018, 1, 1))
+        self.assertEqual(new_date, date(2018, 2, 1))
+        new_date = pft.increment_month(date(2018, 12, 1))
+        self.assertEqual(new_date, date(2019, 1, 1))
+        new_date = pft.increment_month(date(2018, 1, 31))
+        self.assertEqual(new_date, date(2018, 2, 28))
+        new_date = pft.increment_month(date(2018, 3, 31))
+        self.assertEqual(new_date, date(2018, 4, 30))
+
+    def test_increment_quarter(self):
+        new_date = pft.increment_quarter(date(2018, 1, 31))
+        self.assertEqual(new_date, date(2018, 4, 30))
+        new_date = pft.increment_quarter(date(2018, 12, 31))
+        self.assertEqual(new_date, date(2019, 3, 31))
+        new_date = pft.increment_quarter(date(2018, 11, 30))
+        self.assertEqual(new_date, date(2019, 2, 28))
+
 
 class TestAccount(unittest.TestCase):
 
@@ -477,6 +495,44 @@ class TestScheduledTransaction(unittest.TestCase):
                 description='something',
             )
         tds = pft.get_display_strings_for_ledger(account=self.checking, txn=st)
+
+    def test_next_txn_entered(self):
+        #WEEKLY
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+            )
+        st.next_txn_entered()
+        self.assertEqual(st.next_due_date, date(2019, 1, 9))
+        #MONTHLY
+        st = pft.ScheduledTransaction(
+                name='monthly 1',
+                frequency=pft.ScheduledTransactionFrequency.MONTHLY,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+            )
+        st.next_txn_entered()
+        self.assertEqual(st.next_due_date, date(2019, 2, 2))
+        #QUARTERLY
+        st = pft.ScheduledTransaction(
+                name='quarterly 1',
+                frequency=pft.ScheduledTransactionFrequency.QUARTERLY,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+            )
+        st.next_txn_entered()
+        self.assertEqual(st.next_due_date, date(2019, 4, 2))
+        #ANNUALLY
+        st = pft.ScheduledTransaction(
+                name='annually 1',
+                frequency=pft.ScheduledTransactionFrequency.ANNUALLY,
+                next_due_date='2018-01-02',
+                splits=self.valid_splits,
+            )
+        st.next_txn_entered()
+        self.assertEqual(st.next_due_date, date(2019, 1, 2))
 
 
 class TestBudget(unittest.TestCase):
@@ -1100,7 +1156,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
         ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
-        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['add_new_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1125,7 +1181,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
         ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
-        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['add_new_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved correctly
         ledger = storage.get_ledger(account=savings)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1153,7 +1209,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_display._widgets['withdrawal'].setText('10')
         pft.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['add_new_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1226,7 +1282,7 @@ class TestQtGUI(unittest.TestCase):
 
         ledger_display.txns_display.edit_txn_display._widgets['txn_date'].setText('2017-12-31')
         ledger_display.txns_display.edit_txn_display._widgets['deposit'].setText('20')
-        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['edit_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure edit was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1263,7 +1319,7 @@ class TestQtGUI(unittest.TestCase):
         #change expense account
         ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(2)
         #save the change
-        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['edit_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new category was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
@@ -1292,7 +1348,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
         pft.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['edit_btn'], QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         updated_txn = storage.get_txn(txn.id)
         self.assertEqual(updated_txn.splits, final_splits)
 
