@@ -1036,6 +1036,35 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, '101'))
 
+    def test_update_scheduled_txn(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        storage.save_scheduled_transaction(st)
+        st.next_due_date = date(2019, 1, 9)
+        storage.save_scheduled_transaction(st)
+        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        self.assertEqual(len(st_records), 1)
+        retrieved_scheduled_txn = storage.get_scheduled_transaction(st.id)
+        self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 9))
+        split_records = storage._db_connection.execute('SELECT * FROM scheduled_txn_splits').fetchall()
+        self.assertEqual(len(split_records), 2)
+
     def test_get_scheduled_txn(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()

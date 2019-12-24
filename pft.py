@@ -725,11 +725,18 @@ class SQLiteStorage:
 
     def save_scheduled_transaction(self, scheduled_txn):
         c = self._db_connection.cursor()
-        c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee, description) VALUES (?, ?, ?, ?, ?, ?)',
-            (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description))
-        scheduled_txn.id = c.lastrowid
-        for account, amount in scheduled_txn.splits.items():
-            c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
+        if scheduled_txn.id:
+            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee = ?, description = ? WHERE id = ?',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description, scheduled_txn.id))
+            c.execute('DELETE FROM scheduled_txn_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
+            for account, amount in scheduled_txn.splits.items():
+                c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
+        else:
+            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee, description) VALUES (?, ?, ?, ?, ?, ?)',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description))
+            scheduled_txn.id = c.lastrowid
+            for account, amount in scheduled_txn.splits.items():
+                c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
@@ -1009,6 +1016,7 @@ class LedgerTxnsDisplay:
         self.ledger = ledger
         self.storage = storage
         self._filter_text = filter_text
+        self._scheduled_txn_widgets = []
 
     def get_widget(self):
         self.main_widget = QtWidgets.QScrollArea()
@@ -1043,14 +1051,22 @@ class LedgerTxnsDisplay:
                 except KeyError:
                     pass
         row = index + 1
+        for w in self._scheduled_txn_widgets:
+            self.txns_layout.removeWidget(w)
+            w.deleteLater()
+        self._scheduled_txn_widgets = []
         scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
         if scheduled_txns_due:
-            self.txns_layout.addWidget(QtWidgets.QLabel('Scheduled Transactions Due'), row, 0, 1, 9)
+            heading = QtWidgets.QLabel('Scheduled Transactions Due')
+            self.txns_layout.addWidget(heading, row, 0, 1, 9)
+            self._scheduled_txn_widgets.append(heading)
             row += 1
         for scheduled_txn in scheduled_txns_due:
             self._display_scheduled_txn(self.txns_layout, row, scheduled_txn)
             row += 1
-        self.txns_layout.addWidget(QtWidgets.QLabel(''), row, 0)
+        empty = QtWidgets.QLabel('')
+        self._scheduled_txn_widgets.append(empty)
+        self.txns_layout.addWidget(empty, row, 0)
         self.txns_layout.setRowStretch(row, 1)
 
     def _delete(self, txn, layout):
@@ -1085,10 +1101,11 @@ class LedgerTxnsDisplay:
             )
         self.edit_txn_display.show_form()
 
-    def _enter_scheduled_txn(self, scheduled_txn, new_txn, layout):
+    def _enter_scheduled_txn(self, new_txn, scheduled_txn, layout):
         scheduled_txn.next_txn_entered()
-        self.storage.save_scheduled_txn(scheduled_txn)
+        self.storage.save_scheduled_transaction(scheduled_txn)
         self.storage.save_txn(new_txn)
+        self.ledger.add_transaction(new_txn)
         self._redisplay_txns()
 
     def _skip_scheduled_txn(self, scheduled_txn):
@@ -1102,7 +1119,7 @@ class LedgerTxnsDisplay:
                 storage=self.storage,
                 current_account=self.ledger.account,
                 txn=scheduled_txn,
-                skip_txn=partial(self._skip_scheduled_txn_form, scheduled_txn=scheduled_txn)
+                skip_txn=partial(self._skip_scheduled_txn, scheduled_txn=scheduled_txn)
             )
         self.scheduled_txn_display.show_form()
 
@@ -1187,6 +1204,10 @@ class LedgerTxnsDisplay:
         layout.addWidget(withdrawal_label, row, 5)
         layout.addWidget(deposit_label, row, 6)
         layout.addWidget(categories_label, row, 8)
+        self._scheduled_txn_widgets.extend(
+                [type_label, date_label, payee_label, description_label, withdrawal_label,
+                    deposit_label, categories_label]
+            )
 
 
 def get_new_txn_splits(accounts, initial_txn_splits):
