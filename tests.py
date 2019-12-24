@@ -833,14 +833,26 @@ class TestSQLiteStorage(unittest.TestCase):
                 description='something',
             )
         storage.save_scheduled_transaction(st)
+        st2 = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits={savings: -1, savings2: 1},
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        storage.save_scheduled_transaction(st2)
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking], D('101'))
         self.assertEqual(txns[1].splits[checking], D('46.23'))
+        scheduled_txns_due = ledger.get_scheduled_transactions_due()
+        self.assertEqual(len(scheduled_txns_due), 1)
+        self.assertEqual(scheduled_txns_due[0].id, st.id)
         ledger_by_id = storage.get_ledger(account=checking.id)
         self.assertEqual(len(txns), 2)
-        self.assertEqual(ledger.get_scheduled_transactions_due()[0].id, st.id)
 
     def test_delete_txn_from_db(self):
         storage = pft.SQLiteStorage(':memory:')
@@ -1265,14 +1277,26 @@ class TestQtGUI(unittest.TestCase):
         storage = pft.SQLiteStorage(':memory:')
         checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking')
         savings = pft.Account(type_=pft.AccountType.ASSET, name='Savings')
+        restaurant = pft.Account(type_=pft.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(checking)
         storage.save_account(savings)
+        storage.save_account(restaurant)
         txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
         txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
         txn3 = pft.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2018, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits={restaurant: D(5), checking: D(-5)},
+                txn_type='a',
+                payee='Wendys',
+                description='something',
+            )
+        storage.save_scheduled_transaction(st)
         ledger_display = pft.LedgerDisplay(storage)
         ledger_display.get_widget()
         self.assertEqual(ledger_display._current_account, checking)

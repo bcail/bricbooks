@@ -648,9 +648,10 @@ class SQLiteStorage:
         for txn_id in txn_ids:
             txn = self.get_txn(txn_id)
             ledger.add_transaction(txn)
-        scheduled_txn_records = self._db_connection.execute('SELECT id FROM scheduled_transactions')
-        for scheduled_txn_record in scheduled_txn_records:
-            ledger.add_scheduled_transaction(self.get_scheduled_transaction(scheduled_txn_record[0]))
+        db_scheduled_txn_id_records = self._db_connection.execute('SELECT scheduled_txn_id FROM scheduled_txn_splits WHERE account_id = ?', (account.id,)).fetchall()
+        scheduled_txn_ids = set(r[0] for r in db_scheduled_txn_id_records)
+        for scheduled_txn_id in scheduled_txn_ids:
+            ledger.add_scheduled_transaction(self.get_scheduled_transaction(scheduled_txn_id))
         return ledger
 
     def save_budget(self, budget):
