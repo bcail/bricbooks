@@ -16,7 +16,7 @@ import sys
 
 
 TITLE = 'Python Finance Tracking'
-PYSIDE2_VERSION = '5.12.2'
+PYSIDE2_VERSION = '5.14.0'
 
 
 class AccountType(Enum):
