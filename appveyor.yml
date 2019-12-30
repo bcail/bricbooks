@@ -17,7 +17,6 @@ environment:
           PYTHON_ARCH: "64"
 
 install:
-    - "%PYTHON%\\python.exe --version"
     - "%PYTHON%\\python.exe pft.py --install_qt"
 
 build: off

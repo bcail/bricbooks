@@ -28,8 +28,8 @@ class AccountType(Enum):
 
 
 def _do_qt_install():
-    print('installing Qt for Python (PySide2)')
     cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION]
+    print('installing Qt for Python (PySide2): %s' % ' '.join(cmd))
     try:
         result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(result.stdout.decode('utf8'))
