@@ -1,20 +1,19 @@
 environment:
     matrix:
         - PYTHON: "C:\\Python35-x64"
-          PYTHON_VERSION: "3.5.5"
-          PYTHON_ARCH: "64"
+          PYTHON_VERSION: "3.5"
 
         - PYTHON: "C:\\Python36-x64"
-          PYTHON_VERSION: "3.6.10"
-          PYTHON_ARCH: "64"
+          PYTHON_VERSION: "3.6"
 
         - PYTHON: "C:\\Python37-x64"
-          PYTHON_VERSION: "3.7.6"
-          PYTHON_ARCH: "64"
+          PYTHON_VERSION: "3.7"
 
         - PYTHON: "C:\\Python38-x64"
-          PYTHON_VERSION: "3.8.1"
-          PYTHON_ARCH: "64"
+          PYTHON_VERSION: "3.8"
+
+    allow_failures:
+        - PYTHON_VERSION: "3.8" #3.8.0 doesn't work: https://bugreports.qt.io/browse/PYSIDE-1166
 
 install:
     - "%PYTHON%\\python.exe pft.py --install_qt"
