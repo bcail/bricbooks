@@ -14,6 +14,7 @@ TODO
 ARCHITECTURE DECISIONS
 ----------------------
 - use Qt (even though it adds a dependency), because it handles Unicode better, and has better performance, than Tkinter (it's also an easy pip install on most computers)
+    - on Debian 10, the python3-pyside2.qtcore, python3-pyside2.qtgui, and python3-pyside2.qtwidgets packages provide what's needed (python3-pyside2.qttest for tests)
 
 PROJECT GOALS
 -------------

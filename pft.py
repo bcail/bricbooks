@@ -48,6 +48,9 @@ def install_qt_for_python():
         _do_qt_install()
         print('Please restart %s now.' % TITLE)
         sys.exit(0)
+    else:
+        print('Exiting.')
+        sys.exit(0)
 
 
 try:
