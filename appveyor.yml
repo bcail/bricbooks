@@ -12,8 +12,9 @@ environment:
         - PYTHON: "C:\\Python38-x64"
           PYTHON_VERSION: "3.8"
 
+    #Pyside doesn't work on 3.8.0: https://bugreports.qt.io/browse/PYSIDE-1166
     allow_failures:
-        - PYTHON_VERSION: "3.8" #3.8.0 doesn't work: https://bugreports.qt.io/browse/PYSIDE-1166
+        - PYTHON_VERSION: "3.8"
 
 install:
     - "%PYTHON%\\python.exe pft.py --install_qt"
