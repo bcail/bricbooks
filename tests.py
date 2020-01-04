@@ -1077,7 +1077,7 @@ class TestSQLiteStorage(unittest.TestCase):
         split_records = storage._db_connection.execute('SELECT * FROM scheduled_txn_splits').fetchall()
         self.assertEqual(len(split_records), 2)
 
-    def test_get_scheduled_txn(self):
+    def test_get_scheduled_transaction(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -1105,6 +1105,26 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.payee, 'Wendys')
         self.assertEqual(scheduled_txn.description, 'something')
         self.assertEqual(scheduled_txn.splits, valid_splits)
+
+    def test_get_scheduled_transaction_sparse(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        storage.save_scheduled_transaction(st)
+        scheduled_txn = storage.get_scheduled_transaction(st.id)
+        self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
 
 def fake_method():
