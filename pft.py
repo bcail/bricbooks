@@ -294,25 +294,23 @@ def get_display_strings_for_ledger(account, txn):
     else:
         withdrawal = ''
         deposit = str(amount)
-    #ScheduledTransaction doesn't have status or txn_date
-    try:
-        status = txn.status
-    except AttributeError:
-        status = ''
-    try:
-        txn_date = str(txn.txn_date)
-    except AttributeError:
-        txn_date = str(date.today())
-    return {
+    display_strings = {
             'txn_type': txn.txn_type or '',
             'withdrawal': withdrawal,
             'deposit': deposit,
             'description': txn.description or '',
-            'txn_date': txn_date,
             'payee': txn.payee or '',
-            'status': status or '',
             'categories': _categories_display(splits=txn.splits, main_account=account),
         }
+    if isinstance(txn, ScheduledTransaction):
+        display_strings['name'] = txn.name
+        display_strings['next_due_date'] = str(txn.next_due_date)
+        display_strings['frequency'] = str(txn.frequency)
+        display_strings['txn_date'] = str(date.today())
+    else:
+        display_strings['status'] = txn.status or ''
+        display_strings['txn_date'] = str(txn.txn_date)
+    return display_strings
 
 
 class Ledger:
@@ -392,6 +390,20 @@ class ScheduledTransactionFrequency(Enum):
 
 class ScheduledTransaction:
 
+    @staticmethod
+    def from_user_info(name, frequency, next_due_date, account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, id_=None):
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
+        return ScheduledTransaction(
+                name=name,
+                frequency=frequency,
+                next_due_date=next_due_date,
+                splits=splits,
+                txn_type=txn_type,
+                payee=payee,
+                description=description,
+                id_=id_
+            )
+
     def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, id_=None):
         self.name = name
         if not isinstance(frequency, ScheduledTransactionFrequency):
@@ -405,7 +417,7 @@ class ScheduledTransaction:
         self.id = id_
 
     def __str__(self):
-        return '%s (%s %s) (%s)' % (self.name, self.frequency, self.next_due_date, self.splits)
+        return '%s: %s (%s %s) (%s)' % (self.id, self.name, self.frequency, self.next_due_date, self.splits)
 
     def _check_date(self, dt):
         try:
@@ -1732,9 +1744,31 @@ def _create_scheduled_txn(storage):
     )
 
 
+def _edit_scheduled_txn(storage):
+    scheduled_txn_id = input('Enter scheduled txn ID: ')
+    scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
+    main_account = list(scheduled_txn.splits.keys())[0] #just grab first account as main account
+    tds = get_display_strings_for_ledger(main_account, scheduled_txn)
+    name = input('name [%s]: ' % tds['name'])
+    if name:
+        tds['name'] = name
+    next_due_date = input('next due date [%s]: ' % tds['next_due_date'])
+    if next_due_date:
+        tds['next_due_date'] = next_due_date
+    categories = scheduled_txn.splits.copy()
+    categories.pop(main_account)
+    tds['account'] = main_account
+    tds['id_'] = scheduled_txn.id
+    tds['categories'] = categories
+    tds['frequency'] = scheduled_txn.frequency
+    updated_scheduled_txn = ScheduledTransaction.from_user_info(**tds)
+    storage.save_scheduled_transaction(updated_scheduled_txn)
+
+
 def run_cli(file_name):
     help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
         + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
+        + '\nest - edit scheduled transaction'\
         + '\nCtrl-d - quit'
     print('Command-line PFT\n%s' % help_msg)
     storage = SQLiteStorage(file_name)
@@ -1754,6 +1788,8 @@ def run_cli(file_name):
             _list_scheduled_txns(storage=storage)
         elif cmd == 'cst':
             _create_scheduled_txn(storage=storage)
+        elif cmd == 'est':
+            _edit_scheduled_txn(storage=storage)
 
 
 def parse_args():
