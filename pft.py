@@ -1759,12 +1759,17 @@ def _edit_scheduled_txn(storage):
     next_due_date = input('next due date [%s]: ' % tds['next_due_date'])
     if next_due_date:
         tds['next_due_date'] = next_due_date
+    frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
+    frequency_value = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
+    if not frequency_value:
+        frequency_value = scheduled_txn.frequency
+    frequency = ScheduledTransactionFrequency(int(frequency_value))
     categories = scheduled_txn.splits.copy()
     categories.pop(main_account)
     tds['account'] = main_account
     tds['id_'] = scheduled_txn.id
     tds['categories'] = categories
-    tds['frequency'] = scheduled_txn.frequency
+    tds['frequency'] = frequency
     updated_scheduled_txn = ScheduledTransaction.from_user_info(**tds)
     storage.save_scheduled_transaction(updated_scheduled_txn)
 
