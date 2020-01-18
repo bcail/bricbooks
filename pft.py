@@ -637,6 +637,8 @@ class SQLiteStorage:
         if txn.id:
             c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee = ?, description = ?, status = ? WHERE id = ?',
                 (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status, txn.id))
+            if c.rowcount < 1:
+                raise Exception('no txn with id %s to update' % txn.id)
         else:
             c.execute('INSERT INTO transactions(txn_type, txn_date, payee, description, status) VALUES(?, ?, ?, ?, ?)',
                 (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status))
@@ -744,6 +746,8 @@ class SQLiteStorage:
         if scheduled_txn.id:
             c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee = ?, description = ? WHERE id = ?',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description, scheduled_txn.id))
+            if c.rowcount < 1:
+                raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             c.execute('DELETE FROM scheduled_txn_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
             for account, amount in scheduled_txn.splits.items():
                 c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))

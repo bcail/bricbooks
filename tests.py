@@ -758,6 +758,29 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101'),
                                              (2, 1, 2, '101')])
 
+    def test_save_transaction_error(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        t = pft.Transaction(
+                splits={checking: D('-101'), savings: D(101)},
+                txn_date=date.today(),
+                id_=1
+            )
+        #t has an id, so it should already be in the DB...
+        # it's not, so raise an exception
+        with self.assertRaises(Exception):
+            storage.save_txn(t)
+        c = storage._db_connection.cursor()
+        c.execute('SELECT * FROM transactions')
+        transaction_records = c.fetchall()
+        self.assertEqual(transaction_records, [])
+        c.execute('SELECT * FROM txn_splits')
+        txn_split_records = c.fetchall()
+        self.assertEqual(txn_split_records, [])
+
     def test_sparse_txn_to_db(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
@@ -1047,6 +1070,35 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(st_split_records), 2)
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, '101'))
+
+    def test_save_scheduled_transaction_error(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+                id_=1
+            )
+        #st has an id, so it should already be in the DB...
+        # it's not, so raise an exception
+        with self.assertRaises(Exception):
+            storage.save_scheduled_transaction(st)
+        c = storage._db_connection.cursor()
+        c.execute('SELECT * FROM scheduled_transactions')
+        scheduled_transaction_records = c.fetchall()
+        self.assertEqual(scheduled_transaction_records, [])
+        c.execute('SELECT * FROM scheduled_txn_splits')
+        scheduled_txn_split_records = c.fetchall()
+        self.assertEqual(scheduled_txn_split_records, [])
 
     def test_update_scheduled_txn(self):
         storage = pft.SQLiteStorage(':memory:')
