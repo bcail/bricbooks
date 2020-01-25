@@ -1751,26 +1751,36 @@ def _create_scheduled_txn(storage):
 def _edit_scheduled_txn(storage):
     scheduled_txn_id = input('Enter scheduled txn ID: ')
     scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
-    main_account = list(scheduled_txn.splits.keys())[0] #just grab first account as main account
-    tds = get_display_strings_for_ledger(main_account, scheduled_txn)
-    name = input('name [%s]: ' % tds['name'])
-    if name:
-        tds['name'] = name
-    next_due_date = input('next due date [%s]: ' % tds['next_due_date'])
-    if next_due_date:
-        tds['next_due_date'] = next_due_date
+    edited_scheduled_txn_info = {'id_': scheduled_txn.id}
+    name = input('name [%s]: ' % scheduled_txn.name)
+    edited_scheduled_txn_info['name'] = name or scheduled_txn.name
     frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
     frequency_value = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
-    if not frequency_value:
-        frequency_value = scheduled_txn.frequency
-    frequency = ScheduledTransactionFrequency(int(frequency_value))
-    categories = scheduled_txn.splits.copy()
-    categories.pop(main_account)
-    tds['account'] = main_account
-    tds['id_'] = scheduled_txn.id
-    tds['categories'] = categories
-    tds['frequency'] = frequency
-    updated_scheduled_txn = ScheduledTransaction.from_user_info(**tds)
+    if frequency_value:
+        frequency = ScheduledTransactionFrequency(int(frequency_value))
+    else:
+        frequency = scheduled_txn.frequency
+    edited_scheduled_txn_info['frequency'] = frequency
+    next_due_date = input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
+    edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
+    print('Splits:')
+    new_splits = {}
+    for account, orig_amount in scheduled_txn.splits.items():
+        amount = input('%s amount (%s): ' % (account.name, orig_amount))
+        if amount:
+            new_splits[account] = amount
+    while True:
+        acct_id = input('new account ID: ')
+        if acct_id:
+            amt = input(' amount: ')
+            if amt:
+                new_splits[storage.get_account(acct_id)] = amt
+            else:
+                break
+        else:
+            break
+    edited_scheduled_txn_info['splits'] = new_splits
+    updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
     storage.save_scheduled_transaction(updated_scheduled_txn)
 
 
