@@ -698,6 +698,18 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(db_info,
                 [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', None)])
 
+    def test_save_account_error(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking', id_=1)
+        #checking has an id, so it should already be in the DB...
+        # it's not, so raise an exception
+        with self.assertRaises(Exception):
+            storage.save_account(checking)
+        c = storage._db_connection.cursor()
+        c.execute('SELECT * FROM accounts')
+        account_records = c.fetchall()
+        self.assertEqual(account_records, [])
+
     def test_get_account(self):
         storage = pft.SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()

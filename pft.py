@@ -590,6 +590,8 @@ class SQLiteStorage:
         if account.id:
             c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, parent_id = ? WHERE id = ?',
                     (account.type.value, account.user_id, account.name, parent_id, account.id))
+            if c.rowcount < 1:
+                raise Exception('no account with id %s to update' % account.id)
         else:
             c.execute('INSERT INTO accounts(type, user_id, name, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.user_id, account.name, parent_id))
             account.id = c.lastrowid
