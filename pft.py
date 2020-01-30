@@ -168,6 +168,7 @@ class Account:
             raise InvalidAccountError('Invalid account type "%s"' % type_)
         return type_
 
+
 def check_txn_splits(input_splits):
     if not input_splits or len(input_splits.items()) < 2:
         raise InvalidTransactionError('transaction must have at least 2 splits')
@@ -683,8 +684,6 @@ class SQLiteStorage:
             budget.id = c.lastrowid
         for account, info in budget.get_budget_data().items():
             if info:
-                if not account.id:
-                    self.save_account(account)
                 carryover = str(info.get('carryover', ''))
                 notes = info.get('notes', '')
                 values = (budget.id, account.id, str(info['amount']), carryover, notes)
@@ -1750,6 +1749,18 @@ def _create_scheduled_txn(storage):
     )
 
 
+def _display_scheduled_txn(storage):
+    scheduled_txn_id = input('Enter scheduled txn ID: ')
+    scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
+    print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
+    print('  %s' % scheduled_txn.frequency)
+    print('  %s' % scheduled_txn.next_due_date)
+    print('  %s' % scheduled_txn.splits)
+    print('  %s' % scheduled_txn.txn_type)
+    print('  %s' % scheduled_txn.payee)
+    print('  %s' % scheduled_txn.description)
+
+
 def _edit_scheduled_txn(storage):
     scheduled_txn_id = input('Enter scheduled txn ID: ')
     scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
@@ -1789,7 +1800,7 @@ def _edit_scheduled_txn(storage):
 def run_cli(file_name):
     help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
         + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
-        + '\nest - edit scheduled transaction'\
+        + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
         + '\nCtrl-d - quit'
     print('Command-line PFT\n%s' % help_msg)
     storage = SQLiteStorage(file_name)
@@ -1809,6 +1820,8 @@ def run_cli(file_name):
             _list_scheduled_txns(storage=storage)
         elif cmd == 'cst':
             _create_scheduled_txn(storage=storage)
+        elif cmd == 'dst':
+            _display_scheduled_txn(storage=storage)
         elif cmd == 'est':
             _edit_scheduled_txn(storage=storage)
 
