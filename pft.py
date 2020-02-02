@@ -1755,10 +1755,14 @@ def _display_scheduled_txn(storage):
     print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
     print('  %s' % scheduled_txn.frequency)
     print('  %s' % scheduled_txn.next_due_date)
-    print('  %s' % scheduled_txn.splits)
-    print('  %s' % scheduled_txn.txn_type)
-    print('  %s' % scheduled_txn.payee)
-    print('  %s' % scheduled_txn.description)
+    splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
+    print('  %s' % splits_str)
+    if scheduled_txn.txn_type:
+        print('  %s' % scheduled_txn.txn_type)
+    if scheduled_txn.payee:
+        print('  %s' % scheduled_txn.payee)
+    if scheduled_txn.description:
+        print('  %s' % scheduled_txn.description)
 
 
 def _edit_scheduled_txn(storage):
