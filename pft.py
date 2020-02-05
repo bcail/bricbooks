@@ -1709,125 +1709,122 @@ class PFT_GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
-def _list_accounts(storage):
-    for a in storage.get_accounts():
-        print('%s - %s' % (a.id, a.name))
+class CLI:
 
+    def __init__(self, filename):
+        self.storage = SQLiteStorage(filename)
 
-def _list_account_txns(storage):
-    acc_id = input('Account ID: ')
-    ledger = storage.get_ledger(int(acc_id))
-    for t in ledger.get_sorted_txns_with_balance():
-        tds = get_display_strings_for_ledger(storage.get_account(int(acc_id)), t)
-        print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
+    def _list_accounts(self):
+        for a in self.storage.get_accounts():
+            print('%s - %s' % (a.id, a.name))
 
+    def _list_account_txns(self):
+        acc_id = input('Account ID: ')
+        ledger = self.storage.get_ledger(int(acc_id))
+        for t in ledger.get_sorted_txns_with_balance():
+            tds = get_display_strings_for_ledger(storage.get_account(int(acc_id)), t)
+            print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
 
-def _list_scheduled_txns(storage):
-    for st in storage.get_scheduled_transactions():
-        print(st)
+    def _list_scheduled_txns(self):
+        for st in self.storage.get_scheduled_transactions():
+            print(st)
 
-
-def _create_scheduled_txn(storage):
-    print('Create Scheduled Transaction:')
-    name = input('  name: ')
-    frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-    frequency = input('  frequency (%s): ' % frequency_options)
-    frequency = ScheduledTransactionFrequency(int(frequency))
-    next_due_date = input('  next due date (yyyy-mm-dd): ')
-    withdrawal_account_id = input('  withdrawal account id: ')
-    withdrawal_account = storage.get_account(int(withdrawal_account_id))
-    deposit_account_id = input('  deposit account id: ')
-    deposit_account = storage.get_account(int(deposit_account_id))
-    amount = input('  amount: ')
-    splits = {
-            withdrawal_account: '-%s' % amount,
-            deposit_account: amount,
-        }
-    storage.save_scheduled_transaction(
-        ScheduledTransaction(
-            name=name,
-            frequency=frequency,
-            next_due_date=next_due_date,
-            splits=splits,
+    def _create_scheduled_txn(self):
+        print('Create Scheduled Transaction:')
+        name = input('  name: ')
+        frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
+        frequency = input('  frequency (%s): ' % frequency_options)
+        next_due_date = input('  next due date (yyyy-mm-dd): ')
+        withdrawal_account_id = input('  withdrawal account id: ')
+        withdrawal_account = storage.get_account(int(withdrawal_account_id))
+        deposit_account_id = input('  deposit account id: ')
+        deposit_account = storage.get_account(int(deposit_account_id))
+        amount = input('  amount: ')
+        splits = {
+                withdrawal_account: '-%s' % amount,
+                deposit_account: amount,
+            }
+        storage.save_scheduled_transaction(
+            ScheduledTransaction(
+                name=name,
+                frequency=frequency,
+                next_due_date=next_due_date,
+                splits=splits,
+            )
         )
-    )
 
+    def _display_scheduled_txn(self):
+        scheduled_txn_id = input('Enter scheduled txn ID: ')
+        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+        print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
+        print('  %s' % scheduled_txn.frequency)
+        print('  %s' % scheduled_txn.next_due_date)
+        splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
+        print('  %s' % splits_str)
+        if scheduled_txn.txn_type:
+            print('  %s' % scheduled_txn.txn_type)
+        if scheduled_txn.payee:
+            print('  %s' % scheduled_txn.payee)
+        if scheduled_txn.description:
+            print('  %s' % scheduled_txn.description)
 
-def _display_scheduled_txn(storage):
-    scheduled_txn_id = input('Enter scheduled txn ID: ')
-    scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
-    print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
-    print('  %s' % scheduled_txn.frequency)
-    print('  %s' % scheduled_txn.next_due_date)
-    splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
-    print('  %s' % splits_str)
-    if scheduled_txn.txn_type:
-        print('  %s' % scheduled_txn.txn_type)
-    if scheduled_txn.payee:
-        print('  %s' % scheduled_txn.payee)
-    if scheduled_txn.description:
-        print('  %s' % scheduled_txn.description)
-
-
-def _edit_scheduled_txn(storage):
-    scheduled_txn_id = input('Enter scheduled txn ID: ')
-    scheduled_txn = storage.get_scheduled_transaction(scheduled_txn_id)
-    edited_scheduled_txn_info = {'id_': scheduled_txn.id}
-    name = input('name [%s]: ' % scheduled_txn.name)
-    edited_scheduled_txn_info['name'] = name or scheduled_txn.name
-    frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-    frequency = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
-    edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
-    next_due_date = input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
-    edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
-    print('Splits:')
-    new_splits = {}
-    for account, orig_amount in scheduled_txn.splits.items():
-        amount = input('%s amount (%s): ' % (account.name, orig_amount))
-        if amount:
-            new_splits[account] = amount
-    while True:
-        acct_id = input('new account ID: ')
-        if acct_id:
-            amt = input(' amount: ')
-            if amt:
-                new_splits[storage.get_account(acct_id)] = amt
+    def _edit_scheduled_txn(self):
+        scheduled_txn_id = input('Enter scheduled txn ID: ')
+        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+        edited_scheduled_txn_info = {'id_': scheduled_txn.id}
+        name = input('name [%s]: ' % scheduled_txn.name)
+        edited_scheduled_txn_info['name'] = name or scheduled_txn.name
+        frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
+        frequency = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
+        edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
+        next_due_date = input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
+        edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
+        print('Splits:')
+        new_splits = {}
+        for account, orig_amount in scheduled_txn.splits.items():
+            amount = input('%s amount (%s): ' % (account.name, orig_amount))
+            if amount:
+                new_splits[account] = amount
+        while True:
+            acct_id = input('new account ID: ')
+            if acct_id:
+                amt = input(' amount: ')
+                if amt:
+                    new_splits[storage.get_account(acct_id)] = amt
+                else:
+                    break
             else:
                 break
-        else:
-            break
-    edited_scheduled_txn_info['splits'] = new_splits
-    updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
-    storage.save_scheduled_transaction(updated_scheduled_txn)
+        edited_scheduled_txn_info['splits'] = new_splits
+        updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
+        self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
-
-def run_cli(file_name):
-    help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
-        + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
-        + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
-        + '\nCtrl-d - quit'
-    print('Command-line PFT\n%s' % help_msg)
-    storage = SQLiteStorage(file_name)
-    while True:
-        try:
-            cmd = input('>>> ')
-        except EOFError:
-            print('\n')
-            break
-        if cmd == 'h':
-            print(help_msg)
-        elif cmd == 'l':
-            _list_accounts(storage=storage)
-        elif cmd == 'lt':
-            _list_account_txns(storage=storage)
-        elif cmd == 'lst':
-            _list_scheduled_txns(storage=storage)
-        elif cmd == 'cst':
-            _create_scheduled_txn(storage=storage)
-        elif cmd == 'dst':
-            _display_scheduled_txn(storage=storage)
-        elif cmd == 'est':
-            _edit_scheduled_txn(storage=storage)
+    def run(self):
+        help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
+            + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
+            + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
+            + '\nCtrl-d - quit'
+        print('Command-line PFT\n%s' % help_msg)
+        while True:
+            try:
+                cmd = input('>>> ')
+            except EOFError:
+                print('\n')
+                break
+            if cmd == 'h':
+                print(help_msg)
+            elif cmd == 'l':
+                self._list_accounts()
+            elif cmd == 'lt':
+                self._list_account_txns()
+            elif cmd == 'lst':
+                self._list_scheduled_txns()
+            elif cmd == 'cst':
+                self._create_scheduled_txn()
+            elif cmd == 'dst':
+                self._display_scheduled_txn()
+            elif cmd == 'est':
+                self._edit_scheduled_txn()
 
 
 def parse_args():
@@ -1850,7 +1847,7 @@ if __name__ == '__main__':
         raise Exception('no such file: "%s"' % args.file_name)
 
     if args.cli:
-        run_cli(args.file_name)
+        CLI(args.file_name).run()
         sys.exit(0)
 
     try:
