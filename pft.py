@@ -407,9 +407,13 @@ class ScheduledTransaction:
 
     def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, id_=None):
         self.name = name
-        if not isinstance(frequency, ScheduledTransactionFrequency):
-            raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
-        self.frequency = frequency
+        if isinstance(frequency, ScheduledTransactionFrequency):
+            self.frequency = frequency
+        else:
+            try:
+                self.frequency = ScheduledTransactionFrequency(int(frequency))
+            except ValueError:
+                raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
         self.splits = check_txn_splits(splits)
         self.txn_type = txn_type
@@ -1772,12 +1776,8 @@ def _edit_scheduled_txn(storage):
     name = input('name [%s]: ' % scheduled_txn.name)
     edited_scheduled_txn_info['name'] = name or scheduled_txn.name
     frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-    frequency_value = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
-    if frequency_value:
-        frequency = ScheduledTransactionFrequency(int(frequency_value))
-    else:
-        frequency = scheduled_txn.frequency
-    edited_scheduled_txn_info['frequency'] = frequency
+    frequency = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
+    edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
     next_due_date = input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
     edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
     print('Splits:')

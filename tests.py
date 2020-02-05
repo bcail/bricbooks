@@ -484,6 +484,15 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(st.payee, 'Wendys')
         self.assertEqual(st.description, 'something')
 
+    def test_init_frequency(self):
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=3,
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+            )
+        self.assertEqual(st.frequency, pft.ScheduledTransactionFrequency.QUARTERLY)
+
     def test_display_strings(self):
         st = pft.ScheduledTransaction(
                 name='weekly 1',
