@@ -1648,17 +1648,6 @@ class PFT_GUI_QT:
         if file_name:
             self._load_db(file_name)
 
-    def _update_action_buttons(self, display):
-        self.accounts_button.setEnabled(True)
-        self.ledger_button.setEnabled(True)
-        self.budget_button.setEnabled(True)
-        if display == 'accounts':
-            self.accounts_button.setEnabled(False)
-        elif display == 'budget':
-            self.budget_button.setEnabled(False)
-        else:
-            self.ledger_button.setEnabled(False)
-
     def _show_action_buttons(self, layout, file_loaded=True):
         self.new_button = QtWidgets.QPushButton('New')
         self.new_button.clicked.connect(self._new_file)
@@ -1675,16 +1664,11 @@ class PFT_GUI_QT:
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
         layout.addWidget(self.budget_button, 0, 4)
-        if not file_loaded:
-            self.accounts_button.setEnabled(False)
-            self.ledger_button.setEnabled(False)
-            self.budget_button.setEnabled(False)
 
     def _show_accounts(self):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self._update_action_buttons('accounts')
         self.accounts_display = AccountsDisplay(self.storage, reload_accounts=self._show_accounts)
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
@@ -1693,7 +1677,6 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self._update_action_buttons('ledger')
         self.ledger_display = LedgerDisplay(self.storage)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
@@ -1702,7 +1685,6 @@ class PFT_GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self._update_action_buttons(display='budget')
         budgets = self.storage.get_budgets()
         self.budget_display = BudgetDisplay(budgets[0], self.storage, self._show_budget)
         self.main_widget = self.budget_display.get_widget()
