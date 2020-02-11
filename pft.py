@@ -1609,20 +1609,34 @@ class PFT_GUI_QT:
         self.parent_layout = QtWidgets.QGridLayout()
         self.parent_layout.setContentsMargins(4, 4, 4, 4)
         self.parent_window.setLayout(self.parent_layout)
+        self.parent_window.showMaximized()
 
+        if file_name:
+            self._load_db(file_name)
+        else:
+            self._show_splash()
+
+    def _show_splash(self):
+        #show screen for creating new db or opening existing one
+        window = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        new_button = QtWidgets.QPushButton('New')
+        new_button.clicked.connect(self._new_file)
+        layout.addWidget(new_button, 0, 0)
+        open_button = QtWidgets.QPushButton('Open')
+        open_button.clicked.connect(self._open_file)
+        layout.addWidget(open_button, 1, 0)
+        window.setLayout(layout)
+        self.parent_layout.addWidget(window, 1, 0, 1, 2)
+
+    def _load_db(self, file_name):
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         self.content_area.setLayout(self.content_layout)
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 6)
-        self.parent_window.showMaximized()
-
         self.main_widget = None
-        self._show_action_buttons(self.parent_layout, file_loaded=False)
-        if file_name:
-            self._load_db(file_name)
-
-    def _load_db(self, file_name):
+        self._show_action_buttons(self.parent_layout)
         try:
             self.storage = SQLiteStorage(file_name)
         except sqlite3.DatabaseError as e:
@@ -1648,22 +1662,16 @@ class PFT_GUI_QT:
         if file_name:
             self._load_db(file_name)
 
-    def _show_action_buttons(self, layout, file_loaded=True):
-        self.new_button = QtWidgets.QPushButton('New')
-        self.new_button.clicked.connect(self._new_file)
-        layout.addWidget(self.new_button, 0, 0)
-        self.open_button = QtWidgets.QPushButton('Open')
-        self.open_button.clicked.connect(self._open_file)
-        layout.addWidget(self.open_button, 0, 1)
+    def _show_action_buttons(self, layout):
         self.accounts_button = QtWidgets.QPushButton('Accounts')
         self.accounts_button.clicked.connect(self._show_accounts)
-        layout.addWidget(self.accounts_button, 0, 2)
+        layout.addWidget(self.accounts_button, 0, 0)
         self.ledger_button = QtWidgets.QPushButton('Ledger')
         self.ledger_button.clicked.connect(self._show_ledger)
-        layout.addWidget(self.ledger_button, 0, 3)
+        layout.addWidget(self.ledger_button, 0, 1)
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
-        layout.addWidget(self.budget_button, 0, 4)
+        layout.addWidget(self.budget_button, 0, 2)
 
     def _show_accounts(self):
         if self.main_widget:
