@@ -42,6 +42,16 @@ class TestUtils(unittest.TestCase):
         new_date = pft.increment_quarter(date(2018, 11, 30))
         self.assertEqual(new_date, date(2019, 2, 28))
 
+    def test_find_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path1 = os.path.join(tmp, 'file.txt')
+            path2 = os.path.join(tmp, 'file.sqlite3')
+            path3 = os.path.join(tmp, 'db.sqlite3')
+            path4 = os.path.join(tmp, 'file.sql')
+            for path in [path1, path2, path3, path4]:
+                with open(path, 'wb') as f: pass
+            self.assertEqual(sorted([str(f) for f in pft.get_files(tmp)]), [path3, path2])
+
 
 class TestAccount(unittest.TestCase):
 

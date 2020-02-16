@@ -10,6 +10,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from functools import partial
 import os
+from pathlib import Path
 import sqlite3
 import subprocess
 import sys
@@ -17,6 +18,7 @@ import sys
 
 TITLE = 'Python Finance Tracking'
 PYSIDE2_VERSION = '5.14.0'
+CUR_DIR = Path(__file__).parent.resolve()
 
 
 class AccountType(Enum):
@@ -92,6 +94,11 @@ def get_date(val):
     if isinstance(val, date):
         return val
     raise RuntimeError('invalid date')
+
+
+def get_files(directory):
+    d = Path(directory)
+    return d.glob('*.sqlite3')
 
 
 def increment_month(date_obj):
@@ -1610,6 +1617,7 @@ class PFT_GUI_QT:
         self.parent_layout.setContentsMargins(4, 4, 4, 4)
         self.parent_window.setLayout(self.parent_layout)
         self.parent_window.showMaximized()
+        self.content_area = None
 
         if file_name:
             self._load_db(file_name)
@@ -1618,18 +1626,26 @@ class PFT_GUI_QT:
 
     def _show_splash(self):
         #show screen for creating new db or opening existing one
-        window = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
+        self.content_area = QtWidgets.QWidget()
+        self.content_layout = QtWidgets.QGridLayout()
         new_button = QtWidgets.QPushButton('New')
         new_button.clicked.connect(self._new_file)
-        layout.addWidget(new_button, 0, 0)
+        self.content_layout.addWidget(new_button, 0, 0)
         open_button = QtWidgets.QPushButton('Open')
         open_button.clicked.connect(self._open_file)
-        layout.addWidget(open_button, 1, 0)
-        window.setLayout(layout)
-        self.parent_layout.addWidget(window, 1, 0, 1, 2)
+        self.content_layout.addWidget(open_button, 1, 0)
+        files = get_files(CUR_DIR)
+        for index, f in enumerate(files):
+            button = QtWidgets.QPushButton(f.name)
+            button.clicked.connect(partial(self._load_db, file_name=str(f)))
+            self.content_layout.addWidget(button, index+2, 0)
+        self.content_area.setLayout(self.content_layout)
+        self.parent_layout.addWidget(self.content_area, 1, 0, 1, 2)
 
     def _load_db(self, file_name):
+        if self.content_area:
+            self.parent_layout.removeWidget(self.content_area)
+            self.content_area.deleteLater()
         self.content_area = QtWidgets.QWidget()
         self.content_layout = QtWidgets.QGridLayout()
         self.content_layout.setContentsMargins(0, 0, 0, 0)
