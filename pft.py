@@ -1702,6 +1702,10 @@ class PFT_GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):
+        accounts = self.storage.get_accounts(type_=AccountType.ASSET)
+        if not accounts:
+            show_error('Enter an asset account first.')
+            return
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
