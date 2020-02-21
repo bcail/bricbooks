@@ -1608,6 +1608,12 @@ class BudgetDisplay:
         self.layout.addWidget(self._save_button, self.button_row_index, 0)
 
 
+def show_error(msg):
+    msgbox = QtWidgets.QMessageBox()
+    msgbox.setText(msg)
+    msgbox.exec_()
+
+
 class PFT_GUI_QT:
 
     def __init__(self, file_name=None):
@@ -1643,6 +1649,13 @@ class PFT_GUI_QT:
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 2)
 
     def _load_db(self, file_name):
+        try:
+            self.storage = SQLiteStorage(file_name)
+        except sqlite3.DatabaseError as e:
+            if 'file is not a database' in str(e):
+                show_error(msg='File %s is not a database' % file_name)
+                return
+            raise
         if self.content_area:
             self.parent_layout.removeWidget(self.content_area)
             self.content_area.deleteLater()
@@ -1653,15 +1666,6 @@ class PFT_GUI_QT:
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 6)
         self.main_widget = None
         self._show_action_buttons(self.parent_layout)
-        try:
-            self.storage = SQLiteStorage(file_name)
-        except sqlite3.DatabaseError as e:
-            if 'file is not a database' in str(e):
-                msgbox = QtWidgets.QMessageBox()
-                msgbox.setText('File %s is not a database' % file_name)
-                msgbox.exec_()
-                return
-            raise
         accounts = self.storage.get_accounts()
         if accounts:
             self._show_ledger()
