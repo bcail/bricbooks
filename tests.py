@@ -1281,6 +1281,10 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(account_form._widgets['save_btn'], QtCore.Qt.LeftButton)
         mock_method.assert_called_once_with(account_form._widgets['name'])
 
+    def test_empty_ledger(self):
+        storage = pft.SQLiteStorage(':memory:')
+        ledger_display = pft.LedgerDisplay(storage)
+
     def test_ledger_add(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()

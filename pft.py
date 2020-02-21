@@ -1427,13 +1427,20 @@ class LedgerDisplay:
 
     def __init__(self, storage, current_account=None):
         self.storage = storage
+        #choose an account if there is one
         if not current_account:
-            current_account = self.storage.get_accounts(type_=AccountType.ASSET)[0]
+            accounts = self.storage.get_accounts(type_=AccountType.ASSET)
+            if accounts:
+                current_account = accounts[0]
         self._current_account = current_account
 
     def get_widget(self):
         self.widget, self.layout = self._setup_main()
-        self._display_ledger(self.layout, self._current_account)
+        if self._current_account:
+            self._display_ledger(self.layout, self._current_account)
+        else:
+            self.layout.addWidget(QtWidgets.QLabel(''), self._ledger_txns_row_index, 0, 1, 9)
+            self.layout.setRowStretch(self._ledger_txns_row_index, 1)
         return self.widget
 
     def _setup_main(self):
