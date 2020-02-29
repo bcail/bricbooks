@@ -67,6 +67,9 @@ class InvalidAccountError(RuntimeError):
 class InvalidAccountNameError(InvalidAccountError):
     pass
 
+class InvalidPayeeError(RuntimeError):
+    pass
+
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -174,6 +177,25 @@ class Account:
         if not isinstance(type_, AccountType):
             raise InvalidAccountError('Invalid account type "%s"' % type_)
         return type_
+
+
+class Payee:
+
+    def __init__(self, name, notes=None, id_=None):
+        self.name = name
+        self.notes = notes
+        self.id = id_
+
+    def __eq__(self, other_payee):
+        if not other_payee:
+            return False
+        if self.id and other_payee.id:
+            return self.id == other_payee.id
+        else:
+            raise InvalidPayeeError("Can't compare payees without an id")
+
+    def __hash__(self):
+        return self.id
 
 
 def check_txn_splits(input_splits):
@@ -302,12 +324,16 @@ def get_display_strings_for_ledger(account, txn):
     else:
         withdrawal = ''
         deposit = str(amount)
+    if txn.payee:
+        payee = txn.payee.name
+    else:
+        payee = ''
     display_strings = {
             'txn_type': txn.txn_type or '',
             'withdrawal': withdrawal,
             'deposit': deposit,
             'description': txn.description or '',
-            'payee': txn.payee or '',
+            'payee': payee,
             'categories': _categories_display(splits=txn.splits, main_account=account),
         }
     if isinstance(txn, ScheduledTransaction):
@@ -362,7 +388,7 @@ class Ledger:
         results = []
         search_term = search_term.lower()
         for t in self._txns.values():
-            if t.payee and search_term in t.payee.lower():
+            if t.payee and search_term in t.payee.name.lower():
                 results.append(t)
             elif t.description and search_term in t.description.lower():
                 results.append(t)
@@ -382,7 +408,7 @@ class Ledger:
         for txn in self._txns.values():
             if txn.payee:
                 payees.add(txn.payee)
-        return sorted(list(payees))
+        return sorted(list(payees), key=lambda p: p.name)
 
     def get_scheduled_transactions_due(self):
         all_scheduled_txns = list(self._scheduled_txns.values())
@@ -572,9 +598,10 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, parent_id INTEGER)')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT, frequency INTEGER, next_due_date TEXT, txn_type TEXT, payee TEXT, description TEXT)')
+        conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT, notes TEXT)')
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT, frequency INTEGER, next_due_date TEXT, txn_type TEXT, payee_id INTEGER, description TEXT)')
         conn.execute('CREATE TABLE scheduled_txn_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER, account_id INTEGER, amount TEXT)')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee TEXT, description TEXT, status TEXT)')
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT, status TEXT)')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
 
     def get_account(self, account_id):
@@ -609,6 +636,29 @@ class SQLiteStorage:
             account.id = c.lastrowid
         self._db_connection.commit()
 
+    def get_payee(self, payee_id):
+        if payee_id is None:
+            return None
+        info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE id = ?', (payee_id,)).fetchone()
+        if not info:
+            raise Exception('no payee with id "%s"' % payee_id)
+        return Payee(
+                id_=info[0],
+                name=info[1],
+                notes=info[2]
+            )
+
+    def save_payee(self, payee):
+        c = self._db_connection.cursor()
+        if payee.id:
+            c.execute('UPDATE payees SET name = ?, notes = ?', (payee.name, payee.notes))
+            if c.rowcount < 1:
+                raise Exception('no payee with id %s to update' % payee.id)
+        else:
+            c.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', (payee.name, payee.notes))
+            payee.id = c.lastrowid
+        self._db_connection.commit()
+
     def _get_accounts_by_type(self, type_):
         db_records = self._db_connection.execute('SELECT id FROM accounts WHERE type = ? ORDER BY id', (type_.value,)).fetchall()
         accounts = []
@@ -628,8 +678,9 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, txn_type, txn_date, payee, description, status = db_info
+        id_, txn_type, txn_date, payee_id, description, status = db_info
         txn_date = get_date(txn_date)
+        payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
         splits = {}
         split_records = cursor.execute('SELECT account_id, amount FROM txn_splits WHERE txn_id = ?', (id_,))
@@ -648,14 +699,18 @@ class SQLiteStorage:
 
     def save_txn(self, txn):
         c = self._db_connection.cursor()
+        if txn.payee:
+            payee = txn.payee.id
+        else:
+            payee = None
         if txn.id:
-            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee = ?, description = ?, status = ? WHERE id = ?',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status, txn.id))
+            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee_id = ?, description = ?, status = ? WHERE id = ?',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.status, txn.id))
             if c.rowcount < 1:
                 raise Exception('no txn with id %s to update' % txn.id)
         else:
-            c.execute('INSERT INTO transactions(txn_type, txn_date, payee, description, status) VALUES(?, ?, ?, ?, ?)',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), txn.payee, txn.description, txn.status))
+            c.execute('INSERT INTO transactions(txn_type, txn_date, payee_id, description, status) VALUES(?, ?, ?, ?, ?)',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.status))
             txn.id = c.lastrowid
         #always delete any previous splits
         c.execute('DELETE FROM txn_splits WHERE txn_id = ?', (txn.id,))
@@ -755,17 +810,21 @@ class SQLiteStorage:
 
     def save_scheduled_transaction(self, scheduled_txn):
         c = self._db_connection.cursor()
+        if scheduled_txn.payee:
+            payee = scheduled_txn.payee.id
+        else:
+            payee = None
         if scheduled_txn.id:
-            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee = ?, description = ? WHERE id = ?',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description, scheduled_txn.id))
+            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
             if c.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             c.execute('DELETE FROM scheduled_txn_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
             for account, amount in scheduled_txn.splits.items():
                 c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
         else:
-            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee, description) VALUES (?, ?, ?, ?, ?, ?)',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, scheduled_txn.payee, scheduled_txn.description))
+            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
             scheduled_txn.id = c.lastrowid
             for account, amount in scheduled_txn.splits.items():
                 c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
@@ -780,14 +839,15 @@ class SQLiteStorage:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
                 splits[account] = split_record[1]
-        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        payee = self.get_payee(rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
                 frequency=ScheduledTransactionFrequency(rows[0][1]),
                 next_due_date=rows[0][2],
                 splits=splits,
                 txn_type=rows[0][3],
-                payee=rows[0][4],
+                payee=payee,
                 description=rows[0][5],
                 id_=id_,
             )
@@ -1360,8 +1420,8 @@ class TxnForm:
         payee_entry.addItem('')
         payee_index = 0
         for index, payee in enumerate(payees):
-            payee_entry.addItem(payee)
-            if self._txn and payee == tds['payee']:
+            payee_entry.addItem(payee.name, payee)
+            if self._txn and payee.name == tds['payee']:
                 payee_index = index + 1 #because of first empty item
         if self._txn:
             payee_entry.setCurrentIndex(payee_index)
@@ -1395,7 +1455,7 @@ class TxnForm:
     def _save(self):
         txn_type = self._widgets['txn_type'].text()
         txn_date = self._widgets['txn_date'].text()
-        payee = self._widgets['payee'].currentText()
+        payee = self._widgets['payee'].currentData()
         description = self._widgets['description'].text()
         categories = self._widgets['accounts_display'].get_categories()
         status = self._widgets['status'].currentText()

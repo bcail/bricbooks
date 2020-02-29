@@ -43,9 +43,12 @@ def _load_data(storage, many_txns):
     taxes = pft.Account(type_=pft.AccountType.EXPENSE, user_id='700', name='Taxes')
     storage.save_account(taxes)
 
+    payee = pft.Payee("Joe's Burgers")
+    storage.save_payee(payee)
+
     storage.save_txn(pft.Transaction(splits={opening_balances: D('-1000'), checking: 1000}, txn_date='2018-01-01'))
     storage.save_txn(pft.Transaction(splits={opening_balances: D('-1000'), savings: 1000}, txn_date='2018-01-01'))
-    storage.save_txn(pft.Transaction(splits={checking: D('-10'), restaurants: 10}, txn_date='2018-01-01', txn_type='123', payee="Joe's Burgers"))
+    storage.save_txn(pft.Transaction(splits={checking: D('-10'), restaurants: 10}, txn_date='2018-01-01', txn_type='123', payee=payee))
     storage.save_txn(pft.Transaction(splits={checking: D('-20'), restaurants: 20}, txn_date='2018-01-02'))
     storage.save_txn(pft.Transaction(splits={checking: D('-30'), restaurants: 30}, txn_date='2018-01-04'))
     storage.save_txn(pft.Transaction(splits={checking: D('-40'), restaurants: 40}, txn_date='2018-01-06'))
