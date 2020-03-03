@@ -729,6 +729,13 @@ class TestSQLiteStorage(unittest.TestCase):
         account_records = c.fetchall()
         self.assertEqual(account_records, [])
 
+    def test_save_account_foreignkey_error(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking', id_=9)
+        checking_child = pft.Account(type_=pft.AccountType.ASSET, name='Checking Child', parent=checking)
+        with self.assertRaises(Exception):
+            storage.save_account(checking_child)
+
     def test_get_account(self):
         storage = pft.SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
@@ -762,7 +769,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0].name, 'Housing')
 
-    def test_txn_to_db(self):
+    def test_save_txn(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -814,7 +821,22 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [])
 
-    def test_sparse_txn_to_db(self):
+    def test_save_transaction_foreignkey_error(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        payee = pft.Payee('payee', id_=1)
+        t = pft.Transaction(
+                splits={checking: D('-101'), savings: D(101)},
+                txn_date=date.today(),
+                payee=payee,
+            )
+        with self.assertRaises(Exception):
+            storage.save_txn(t)
+
+    def test_save_sparse_txn(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')

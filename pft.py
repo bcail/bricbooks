@@ -586,6 +586,10 @@ class SQLiteStorage:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             file_path = os.path.join(current_dir, conn_name)
             self._db_connection = sqlite3.connect(file_path)
+        self._db_connection.execute('PRAGMA foreign_keys = ON;')
+        result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
+        if result[0][0] != 1:
+            print('WARNING: can\'t enable sqlite3 foreign_keys')
         tables = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         if not tables:
             self._setup_db()
@@ -595,14 +599,20 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, parent_id INTEGER)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT, parent_id INTEGER,'\
+                'FOREIGN KEY(parent_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT, end_date TEXT)')
-        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT)')
+        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT,'\
+                'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT, frequency INTEGER, next_due_date TEXT, txn_type TEXT, payee_id INTEGER, description TEXT)')
-        conn.execute('CREATE TABLE scheduled_txn_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER, account_id INTEGER, amount TEXT)')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT, status TEXT)')
-        conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT)')
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT, frequency INTEGER, next_due_date TEXT, txn_type TEXT, payee_id INTEGER, description TEXT,'\
+                'FOREIGN KEY(payee_id) REFERENCES payees(id))')
+        conn.execute('CREATE TABLE scheduled_txn_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER, account_id INTEGER, amount TEXT,'\
+                'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT, status TEXT,'\
+                'FOREIGN KEY(payee_id) REFERENCES payees(id))')
+        conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT,'\
+                'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, type, user_id, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
@@ -623,8 +633,6 @@ class SQLiteStorage:
         c = self._db_connection.cursor()
         parent_id = None
         if account.parent:
-            if not account.parent.id:
-                self.save_account(account.parent)
             parent_id = account.parent.id
         if account.id:
             c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, parent_id = ? WHERE id = ?',
