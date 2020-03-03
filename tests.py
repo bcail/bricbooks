@@ -769,6 +769,13 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0].name, 'Housing')
 
+    def test_payee_unique(self):
+        storage = pft.SQLiteStorage(':memory:')
+        payee = pft.Payee('payee')
+        storage.save_payee(payee)
+        with self.assertRaises(Exception):
+            storage.save_payee(pft.Payee('payee'))
+
     def test_save_txn(self):
         storage = pft.SQLiteStorage(':memory:')
         checking = get_test_account()
@@ -912,7 +919,7 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         storage.save_scheduled_transaction(st)
         st2 = pft.ScheduledTransaction(
-                name='weekly 1',
+                name='weekly 2',
                 frequency=pft.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits={savings: -1, savings2: 1},
