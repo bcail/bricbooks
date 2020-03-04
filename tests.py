@@ -709,13 +709,13 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', assets.id))
+                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', assets.id, None))
         savings = pft.Account(id_=checking.id, type_=pft.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', None)])
+                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', None, None)])
 
     def test_save_account_error(self):
         storage = pft.SQLiteStorage(':memory:')

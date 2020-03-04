@@ -599,7 +599,7 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT UNIQUE, parent_id INTEGER,'\
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER, user_id TEXT, name TEXT UNIQUE, parent_id INTEGER, closed INTEGER,'\
                 'FOREIGN KEY(parent_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT UNIQUE, start_date TEXT, end_date TEXT)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER, account_id INTEGER, amount TEXT, carryover TEXT, notes TEXT,'\
