@@ -172,6 +172,14 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.description, None)
         self.assertEqual(t.status, None)
 
+    def test_payee_empty_string(self):
+        t = pft.Transaction(
+                splits=self.valid_splits,
+                txn_date=date.today(),
+                payee='',
+            )
+        self.assertEqual(t.payee, None)
+
     def test_txn_from_user_info(self):
         #construct txn from user strings, as much as possible (except account & categories)
         t = pft.Transaction.from_user_info(
@@ -651,7 +659,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_txn_splits',), ('transactions',), ('txn_splits',)]
+TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_txn_splits',), ('transactions',), ('txn_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -804,6 +812,21 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101'),
                                              (2, 1, 2, '101')])
+
+    def test_save_txn_payee_string(self):
+        storage = pft.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        t = pft.Transaction(
+                splits={checking: D('-101'), savings: D(101)},
+                txn_date=date.today(),
+                payee='someone',
+            )
+        storage.save_txn(t)
+        txn_from_db = storage.get_txn(t.id)
+        self.assertEqual(txn_from_db.payee.name, 'someone')
 
     def test_save_transaction_error(self):
         storage = pft.SQLiteStorage(':memory:')
@@ -1344,6 +1367,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.count(), 4)
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
+        ledger_display.add_txn_display._widgets['payee'].setCurrentText('Burgers')
         ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
@@ -1351,6 +1375,7 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].splits[checking], D('-18'))
+        self.assertEqual(txns[1].payee.name, 'Burgers')
         #check new txn display
         self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
         self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)

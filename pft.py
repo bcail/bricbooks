@@ -270,7 +270,9 @@ class Transaction:
         self.splits = check_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
-        self.payee = payee
+        if payee and not (isinstance(payee, str) or isinstance(payee, Payee)):
+            raise InvalidTransactionError('invalid payee: %s' % payee)
+        self.payee = payee or None
         self.description = description
         self.status = self._handle_status(status)
         self.id = id_
@@ -613,6 +615,8 @@ class SQLiteStorage:
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER, account_id INTEGER, amount TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
+        conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
+        conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, type, user_id, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
@@ -644,12 +648,18 @@ class SQLiteStorage:
             account.id = c.lastrowid
         self._db_connection.commit()
 
-    def get_payee(self, payee_id):
-        if payee_id is None:
+    def get_payee(self, payee_id=None, name=None):
+        '''return None if object can't be found for whatever reason'''
+        if payee_id:
+            info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE id = ?', (payee_id,)).fetchone()
+            if not info:
+                return None
+        elif name:
+            info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE name = ?', (name,)).fetchone()
+            if not info:
+                return None
+        else:
             return None
-        info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE id = ?', (payee_id,)).fetchone()
-        if not info:
-            raise Exception('no payee with id "%s"' % payee_id)
         return Payee(
                 id_=info[0],
                 name=info[1],
@@ -708,7 +718,16 @@ class SQLiteStorage:
     def save_txn(self, txn):
         c = self._db_connection.cursor()
         if txn.payee:
-            payee = txn.payee.id
+            #if payee is a string, we need to create a Payee object and save it first
+            if isinstance(txn.payee, str):
+                payee = self.get_payee(name=txn.payee)
+                if not payee:
+                    payee_obj = Payee(name=txn.payee)
+                    self.save_payee(payee_obj)
+                    payee = payee_obj.id
+                    txn.payee = payee_obj
+            else:
+                payee = txn.payee.id
         else:
             payee = None
         if txn.id:
@@ -1464,6 +1483,8 @@ class TxnForm:
         txn_type = self._widgets['txn_type'].text()
         txn_date = self._widgets['txn_date'].text()
         payee = self._widgets['payee'].currentData()
+        if not payee:
+            payee = self._widgets['payee'].currentText()
         description = self._widgets['description'].text()
         categories = self._widgets['accounts_display'].get_categories()
         status = self._widgets['status'].currentText()
