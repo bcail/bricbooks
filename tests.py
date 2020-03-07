@@ -172,13 +172,19 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.description, None)
         self.assertEqual(t.status, None)
 
-    def test_payee_empty_string(self):
+    def test_txn_payee(self):
         t = pft.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
                 payee='',
             )
         self.assertEqual(t.payee, None)
+        t = pft.Transaction(
+                splits=self.valid_splits,
+                txn_date=date.today(),
+                payee='Burgers',
+            )
+        self.assertEqual(t.payee.name, 'Burgers')
 
     def test_txn_from_user_info(self):
         #construct txn from user strings, as much as possible (except account & categories)

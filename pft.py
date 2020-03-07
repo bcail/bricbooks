@@ -182,6 +182,8 @@ class Account:
 class Payee:
 
     def __init__(self, name, notes=None, id_=None):
+        if not name:
+            raise Exception('must pass in a payee name')
         self.name = name
         self.notes = notes
         self.id = id_
@@ -270,9 +272,15 @@ class Transaction:
         self.splits = check_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
-        if payee and not (isinstance(payee, str) or isinstance(payee, Payee)):
-            raise InvalidTransactionError('invalid payee: %s' % payee)
-        self.payee = payee or None
+        if payee:
+            if isinstance(payee, str):
+                self.payee = Payee(name=payee)
+            elif isinstance(payee, Payee):
+                self.payee = payee
+            else:
+                raise InvalidTransactionError('invalid payee: %s' % payee)
+        else:
+            self.payee = None
         self.description = description
         self.status = self._handle_status(status)
         self.id = id_
@@ -718,16 +726,13 @@ class SQLiteStorage:
     def save_txn(self, txn):
         c = self._db_connection.cursor()
         if txn.payee:
-            #if payee is a string, we need to create a Payee object and save it first
-            if isinstance(txn.payee, str):
-                payee = self.get_payee(name=txn.payee)
-                if not payee:
-                    payee_obj = Payee(name=txn.payee)
-                    self.save_payee(payee_obj)
-                    payee = payee_obj.id
-                    txn.payee = payee_obj
-            else:
-                payee = txn.payee.id
+            if not txn.payee.id: #Payee may not have been saved in DB yet
+                db_payee = self.get_payee(name=txn.payee.name)
+                if db_payee:
+                    txn.payee.id = db_payee.id
+                else:
+                    self.save_payee(txn.payee)
+            payee = txn.payee.id
         else:
             payee = None
         if txn.id:
