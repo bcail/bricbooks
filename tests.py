@@ -596,6 +596,10 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(b.get_budget_data(),
                 {housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'}, food: {'amount': D(35)}, transportation: {}})
 
+    def test_sparse_init(self):
+        b = pft.Budget(year=2018)
+        self.assertEqual(b.start_date, date(2018, 1, 1))
+
     def test_percent_rounding(self):
         self.assertEqual(pft.Budget.round_percent_available(D('1.1')), D(1))
         self.assertEqual(pft.Budget.round_percent_available(D('1.8')), D(2))
@@ -1051,6 +1055,17 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0][0], '15')
+
+    def test_save_budget_sparse(self):
+        storage = pft.SQLiteStorage(':memory:')
+        b = pft.Budget(year=2018)
+        storage.save_budget(b)
+        cursor = storage._db_connection.cursor()
+        records = cursor.execute('SELECT * FROM budgets').fetchall()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0][2], '2018-01-01')
+        records = cursor.execute('SELECT * FROM budget_values').fetchall()
+        self.assertEqual(records, [])
 
     def test_save_budget_file(self):
         #test that save actually gets committed
@@ -1622,7 +1637,7 @@ class TestQtGUI(unittest.TestCase):
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.get_budget_data()[housing]['amount'], D(15))
-        budget_display = pft.BudgetDisplay(budget=budget, storage=storage, reload_budget=fake_method)
+        budget_display = pft.BudgetDisplay(storage=storage, reload_budget=fake_method, current_budget=budget)
         widget = budget_display.get_widget()
         QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
         budget_display.data[housing.id]['budget_entry'].setText('30')

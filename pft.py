@@ -96,7 +96,7 @@ def get_date(val):
             return date(int(year), int(month), int(day))
     if isinstance(val, date):
         return val
-    raise RuntimeError('invalid date')
+    raise RuntimeError('invalid date %s' % val)
 
 
 def get_files(directory):
@@ -512,18 +512,19 @@ class Budget:
         else:
             raise BudgetError('must pass in dates')
         self._budget_data = {}
-        for account, info in account_budget_info.items():
-            keep_info = {}
-            for key, value in info.items():
-                if value == '':
-                    pass
-                elif key == 'notes':
-                    keep_info[key] = value
-                elif isinstance(value, str):
-                    keep_info[key] = Decimal(value)
-                else:
-                    keep_info[key] = value
-            self._budget_data[account] = keep_info
+        if account_budget_info:
+            for account, info in account_budget_info.items():
+                keep_info = {}
+                for key, value in info.items():
+                    if value == '':
+                        pass
+                    elif key == 'notes':
+                        keep_info[key] = value
+                    elif isinstance(value, str):
+                        keep_info[key] = Decimal(value)
+                    else:
+                        keep_info[key] = value
+                self._budget_data[account] = keep_info
         self.id = id_
         self._income_spending_info = income_spending_info
 
@@ -531,7 +532,10 @@ class Budget:
         return '%s %s-%s' % (self.id, self.start_date, self.end_date)
 
     def get_budget_data(self):
-        return self._budget_data
+        if self._budget_data:
+            return self._budget_data
+        else:
+            return None
 
     def get_report_display(self, income_spending_info=None):
         if self._income_spending_info is None:
@@ -780,12 +784,14 @@ class SQLiteStorage:
         else:
             c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
             budget.id = c.lastrowid
-        for account, info in budget.get_budget_data().items():
-            if info:
-                carryover = str(info.get('carryover', ''))
-                notes = info.get('notes', '')
-                values = (budget.id, account.id, str(info['amount']), carryover, notes)
-                c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+        budget_data = budget.get_budget_data()
+        if budget_data:
+            for account, info in budget_data.items():
+                if info:
+                    carryover = str(info.get('carryover', ''))
+                    notes = info.get('notes', '')
+                    values = (budget.id, account.id, str(info['amount']), carryover, notes)
+                    c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, budget_id):
@@ -1607,72 +1613,130 @@ class LedgerDisplay:
         self.txns_display.display_new_txn(txn)
 
 
+class BudgetForm:
+
+    def __init__(self, save_budget):
+        self._widgets = {}
+        self._save_budget = save_budget
+
+    def show_form(self):
+        self._display = QtWidgets.QDialog()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._show_widgets(layout, self._widgets)
+        self._display.setLayout(layout)
+        self._display.open()
+
+    def _show_widgets(self, layout, widgets):
+        row = 0
+        for index, label in enumerate(['Start Date', 'End Date']):
+            layout.addWidget(QtWidgets.QLabel(label), row, index)
+        row += 1
+        start_date = QtWidgets.QLineEdit()
+        layout.addWidget(start_date, row, 0)
+        end_date = QtWidgets.QLineEdit()
+        layout.addWidget(end_date, row, 1)
+        add_button = QtWidgets.QPushButton('Add')
+        add_button.clicked.connect(self._save)
+        layout.addWidget(add_button, row+1, 0)
+        widgets['start_date'] = start_date
+        widgets['end_date'] = end_date
+
+    def _save(self):
+        start_date = self._widgets['start_date'].text()
+        end_date = self._widgets['end_date'].text()
+        b = Budget(start_date=start_date, end_date=end_date)
+        self._display.accept()
+        self._save_budget(b)
+
+
 class BudgetDisplay:
 
-    def __init__(self, budget, storage, reload_budget):
-        self.budget = budget
+    def __init__(self, storage, reload_budget, current_budget=None):
         self.storage = storage
         self.reload_budget = reload_budget
+        if current_budget:
+            self._current_budget = current_budget
+        else:
+            self._current_budget = self.storage.get_budgets()[0]
 
     def get_widget(self):
         self.main_widget = QtWidgets.QWidget()
         self.layout = QtWidgets.QGridLayout()
         self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.addWidget(QtWidgets.QLabel('Category'), 0, 0)
-        self.layout.addWidget(QtWidgets.QLabel('Amount'), 0, 1)
-        self.layout.addWidget(QtWidgets.QLabel('Income'), 0, 2)
-        self.layout.addWidget(QtWidgets.QLabel('Carryover'), 0, 3)
-        self.layout.addWidget(QtWidgets.QLabel('Total Budget'), 0, 4)
-        self.layout.addWidget(QtWidgets.QLabel('Spent'), 0, 5)
-        self.layout.addWidget(QtWidgets.QLabel('Remaining'), 0, 6)
-        self.layout.addWidget(QtWidgets.QLabel('Percent Available'), 0, 7)
-        row_index = 1
+        row = 0
+        self.budget_select_combo = QtWidgets.QComboBox()
+        current_index = 0
+        budgets = self.storage.get_budgets()
+        for index, budget in enumerate(budgets):
+            if budget.id == self._current_budget.id:
+                current_index = index
+            self.budget_select_combo.addItem(str(budget))
+        self.budget_select_combo.setCurrentIndex(current_index)
+        self.budget_select_combo.currentIndexChanged.connect(self._update_budget)
+        self.layout.addWidget(self.budget_select_combo, row, 0)
+        self.add_button = QtWidgets.QPushButton('New Budget')
+        self.add_button.clicked.connect(self._open_form)
+        self.layout.addWidget(self.add_button, row, 1)
+        row += 1
+        self.layout.addWidget(QtWidgets.QLabel('Category'), row, 0)
+        self.layout.addWidget(QtWidgets.QLabel('Amount'), row, 1)
+        self.layout.addWidget(QtWidgets.QLabel('Income'), row, 2)
+        self.layout.addWidget(QtWidgets.QLabel('Carryover'), row, 3)
+        self.layout.addWidget(QtWidgets.QLabel('Total Budget'), row, 4)
+        self.layout.addWidget(QtWidgets.QLabel('Spent'), row, 5)
+        self.layout.addWidget(QtWidgets.QLabel('Remaining'), row, 6)
+        self.layout.addWidget(QtWidgets.QLabel('Percent Available'), row, 7)
+        row += 1
         self.data = {}
-        budget_report = self.budget.get_report_display()
+        budget_report = self._current_budget.get_report_display()
         for account, info in budget_report['income'].items():
-            self.layout.addWidget(QtWidgets.QLabel(account.name), row_index, 0)
+            self.layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
             budget_label = QtWidgets.QLabel(info['amount'])
-            self.layout.addWidget(budget_label, row_index, 1)
-            self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
+            self.layout.addWidget(budget_label, row, 1)
+            self.layout.addWidget(QtWidgets.QLabel(info['income']), row, 2)
             carryover_label = QtWidgets.QLabel(info['carryover'])
-            self.layout.addWidget(carryover_label, row_index, 3)
-            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row_index, 5)
-            self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row_index, 6)
-            self.layout.addWidget(QtWidgets.QLabel(info['percent']), row_index, 7)
+            self.layout.addWidget(carryover_label, row, 3)
+            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row, 5)
+            self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row, 6)
+            self.layout.addWidget(QtWidgets.QLabel(info['percent']), row, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
-            row_data['row_index'] = row_index
+            row_data['row'] = row
             row_data['account'] = account
             self.data[account.id] = row_data
-            row_index += 1
+            row += 1
         for account, info in budget_report['expense'].items():
-            self.layout.addWidget(QtWidgets.QLabel(account.name), row_index, 0)
+            self.layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
             budget_label = QtWidgets.QLabel(info['amount'])
-            self.layout.addWidget(budget_label, row_index, 1)
-            self.layout.addWidget(QtWidgets.QLabel(info['income']), row_index, 2)
+            self.layout.addWidget(budget_label, row, 1)
+            self.layout.addWidget(QtWidgets.QLabel(info['income']), row, 2)
             carryover_label = QtWidgets.QLabel(info['carryover'])
-            self.layout.addWidget(carryover_label, row_index, 3)
-            self.layout.addWidget(QtWidgets.QLabel(info['total_budget']), row_index, 4)
-            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row_index, 5)
-            self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row_index, 6)
-            self.layout.addWidget(QtWidgets.QLabel(info['percent_available']), row_index, 7)
+            self.layout.addWidget(carryover_label, row, 3)
+            self.layout.addWidget(QtWidgets.QLabel(info['total_budget']), row, 4)
+            self.layout.addWidget(QtWidgets.QLabel(info['spent']), row, 5)
+            self.layout.addWidget(QtWidgets.QLabel(info['remaining']), row, 6)
+            self.layout.addWidget(QtWidgets.QLabel(info['percent_available']), row, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
-            row_data['row_index'] = row_index
+            row_data['row'] = row
             row_data['account'] = account
             self.data[account.id] = row_data
-            row_index += 1
-        self.button_row_index = row_index
+            row += 1
+        self.button_row = row
         self._edit_button = QtWidgets.QPushButton('Edit')
         self._edit_button.clicked.connect(self._edit)
-        self.layout.addWidget(self._edit_button, self.button_row_index, 0)
-        self.layout.addWidget(QtWidgets.QLabel(''), row_index+1, 0)
-        self.layout.setRowStretch(row_index+1, 1)
+        self.layout.addWidget(self._edit_button, self.button_row, 0)
+        self.layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
+        self.layout.setRowStretch(row+1, 1)
         self.main_widget.setLayout(self.layout)
         scroll = QtWidgets.QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(self.main_widget)
         return scroll
+
+    def _update_budget(self):
+        pass
 
     def _save(self):
         account_budget_info = {}
@@ -1682,7 +1746,7 @@ class BudgetDisplay:
                     'amount': info['budget_entry'].text(),
                     'carryover': info['carryover_entry'].text()
                 }
-        b = Budget(id_=self.budget.id, start_date=self.budget.start_date, end_date=self.budget.end_date, account_budget_info=account_budget_info)
+        b = Budget(id_=self._current_budget.id, start_date=self._current_budget.start_date, end_date=self._current_budget.end_date, account_budget_info=account_budget_info)
         self.storage.save_budget(b)
         self.reload_budget()
 
@@ -1696,17 +1760,25 @@ class BudgetDisplay:
             info['carryover_label'].deleteLater()
             budget_entry = QtWidgets.QLineEdit()
             budget_entry.setText(budget_val)
-            self.layout.addWidget(budget_entry, info['row_index'], 1)
+            self.layout.addWidget(budget_entry, info['row'], 1)
             info['budget_entry'] = budget_entry
             carryover_entry = QtWidgets.QLineEdit()
             carryover_entry.setText(carryover_val)
-            self.layout.addWidget(carryover_entry, info['row_index'], 3)
+            self.layout.addWidget(carryover_entry, info['row'], 3)
             info['carryover_entry'] = carryover_entry
         self.layout.removeWidget(self._edit_button)
         self._edit_button.deleteLater()
         self._save_button = QtWidgets.QPushButton('Save')
         self._save_button.clicked.connect(self._save)
-        self.layout.addWidget(self._save_button, self.button_row_index, 0)
+        self.layout.addWidget(self._save_button, self.button_row, 0)
+
+    def _save_budget_and_reload(self, budget):
+        self.storage.save_budget(budget)
+        self.reload_budget()
+
+    def _open_form(self):
+        self.add_budget_display = BudgetForm(save_budget=self._save_budget_and_reload)
+        self.add_budget_display.show_form()
 
 
 def show_error(msg):
@@ -1814,12 +1886,11 @@ class PFT_GUI_QT:
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
-    def _show_budget(self):
+    def _show_budget(self, current_budget=None):
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        budgets = self.storage.get_budgets()
-        self.budget_display = BudgetDisplay(budgets[0], self.storage, self._show_budget)
+        self.budget_display = BudgetDisplay(self.storage, self._show_budget, current_budget=current_budget)
         self.main_widget = self.budget_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
