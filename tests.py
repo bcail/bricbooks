@@ -1096,17 +1096,19 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(food)
         transportation = get_test_account(type_=pft.AccountType.EXPENSE, name='Transportation')
         storage.save_account(transportation)
-        txn1 = pft.Transaction(txn_date=date(2017, 1, 25),
+        txn1 = pft.Transaction(txn_date=date(2018, 1, 25),
                 splits={checking: '-101', housing: '101'})
-        txn2 = pft.Transaction(txn_date=date(2017, 2, 28),
+        txn2 = pft.Transaction(txn_date=date(2018, 2, 28),
                 splits={checking: '-46.23', food: '46.23'})
-        txn3 = pft.Transaction(txn_date=date(2017, 3, 28),
+        txn3 = pft.Transaction(txn_date=date(2018, 3, 28),
                 splits={savings: '-56.23', food: '56.23'})
-        txn4 = pft.Transaction(txn_date=date(2017, 4, 28),
+        txn4 = pft.Transaction(txn_date=date(2018, 4, 28),
                 splits={checking: '-15', savings: 15})
-        txn5 = pft.Transaction(txn_date=date(2017, 5, 28),
+        txn5 = pft.Transaction(txn_date=date(2018, 5, 28),
                 splits={checking: 15, food: '-15'})
-        for t in [txn1, txn2, txn3, txn4, txn5]:
+        txn6 = pft.Transaction(txn_date=date(2017, 1, 26),
+                splits={checking: '-108', housing: '108'})
+        for t in [txn1, txn2, txn3, txn4, txn5, txn6]:
             storage.save_txn(t)
         cursor = storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))

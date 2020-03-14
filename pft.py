@@ -810,7 +810,7 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Decimal(0)
             income = Decimal(0)
-            txn_splits_records = self._db_connection.execute('SELECT amount FROM txn_splits WHERE account_id = ?', (account.id,)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT txn_splits.amount FROM txn_splits INNER JOIN transactions ON txn_splits.txn_id = transactions.id WHERE txn_splits.account_id = ? AND transactions.txn_date > ? AND transactions.txn_date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
                 amt = Decimal(record[0])
                 if account.type == AccountType.EXPENSE:
