@@ -1532,6 +1532,7 @@ class LedgerDisplay:
             if accounts:
                 current_account = accounts[0]
         self._current_account = current_account
+        self.txns_display_widget = None
 
     def get_widget(self):
         self.widget, self.layout = self._setup_main()
@@ -1555,7 +1556,11 @@ class LedgerDisplay:
     def _display_ledger(self, layout, account, filter_text=''):
         self.ledger = self.storage.get_ledger(account=account)
         self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, filter_text)
-        layout.addWidget(self.txns_display.get_widget(), self._ledger_txns_row_index, 0, 1, 9)
+        if self.txns_display_widget:
+            layout.removeWidget(self.txns_display_widget)
+            self.txns_display_widget.deleteLater()
+        self.txns_display_widget = self.txns_display.get_widget()
+        layout.addWidget(self.txns_display_widget, self._ledger_txns_row_index, 0, 1, 9)
 
     def _update_account(self, index):
         self._current_account = self.storage.get_accounts()[index]
@@ -1719,6 +1724,7 @@ class BudgetDisplay:
             if budgets:
                 current_budget = budgets[0]
         self._current_budget = current_budget
+        self.budget_data_display_widget = None
 
     def get_widget(self):
         self.widget, self.layout, self._row_index = self._setup_main()
@@ -1739,7 +1745,11 @@ class BudgetDisplay:
 
     def _display_budget(self, layout, budget, row):
         self.budget_data_display = BudgetDataDisplay(budget)
-        layout.addWidget(self.budget_data_display.get_widget(), row, 0, 1, 8)
+        if self.budget_data_display_widget:
+            layout.removeWidget(self.budget_data_display_widget)
+            self.budget_data_display_widget.deleteLater()
+        self.budget_data_display_widget = self.budget_data_display.get_widget()
+        layout.addWidget(self.budget_data_display_widget, row, 0, 1, 8)
 
     def _update_budget(self, index=0):
         self._current_budget = self.storage.get_budgets()[index]
