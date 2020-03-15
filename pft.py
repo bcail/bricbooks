@@ -1656,14 +1656,16 @@ class BudgetForm:
 
 class BudgetDataDisplay:
 
-    def __init__(self, budget):
+    def __init__(self, budget, save_budget):
         self._budget = budget
+        self._save_budget = save_budget
 
     def get_widget(self):
         self.main_widget = QtWidgets.QScrollArea()
         self.main_widget.setWidgetResizable(True)
         widget = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
+        self.layout = QtWidgets.QGridLayout()
+        layout = self.layout
         widget.setLayout(layout)
         row = 0
         self.data = {}
@@ -1711,8 +1713,38 @@ class BudgetDataDisplay:
         self.main_widget.setWidget(widget)
         return self.main_widget
 
+    def _save(self):
+        account_budget_info = {}
+        for acc_id, info in self.data.items():
+            account = info['account']
+            account_budget_info[account] = {
+                    'amount': info['budget_entry'].text(),
+                    'carryover': info['carryover_entry'].text()
+                }
+        b = Budget(id_=self._budget.id, start_date=self._budget.start_date, end_date=self._budget.end_date, account_budget_info=account_budget_info)
+        self._save_budget(b)
+
     def _edit(self):
-        pass
+        for cat_id, info in self.data.items():
+            budget_val = info['budget_label'].text()
+            carryover_val = info['carryover_label'].text()
+            self.layout.removeWidget(info['budget_label'])
+            info['budget_label'].deleteLater()
+            self.layout.removeWidget(info['carryover_label'])
+            info['carryover_label'].deleteLater()
+            budget_entry = QtWidgets.QLineEdit()
+            budget_entry.setText(budget_val)
+            self.layout.addWidget(budget_entry, info['row'], 1)
+            info['budget_entry'] = budget_entry
+            carryover_entry = QtWidgets.QLineEdit()
+            carryover_entry.setText(carryover_val)
+            self.layout.addWidget(carryover_entry, info['row'], 3)
+            info['carryover_entry'] = carryover_entry
+        self.layout.removeWidget(self._edit_button)
+        self._edit_button.deleteLater()
+        self._save_button = QtWidgets.QPushButton('Save')
+        self._save_button.clicked.connect(self._save)
+        self.layout.addWidget(self._save_button, self.button_row, 0)
 
 
 class BudgetDisplay:
@@ -1744,7 +1776,7 @@ class BudgetDisplay:
         return widget, layout, row_index
 
     def _display_budget(self, layout, budget, row):
-        self.budget_data_display = BudgetDataDisplay(budget)
+        self.budget_data_display = BudgetDataDisplay(budget, save_budget=self._save_budget_and_reload)
         if self.budget_data_display_widget:
             layout.removeWidget(self.budget_data_display_widget)
             self.budget_data_display_widget.deleteLater()
@@ -1779,40 +1811,6 @@ class BudgetDisplay:
         layout.addWidget(QtWidgets.QLabel('Remaining'), row, 6)
         layout.addWidget(QtWidgets.QLabel('Percent Available'), row, 7)
         return row + 1
-
-    def _save(self):
-        account_budget_info = {}
-        for acc_id, info in self.data.items():
-            account = info['account']
-            account_budget_info[account] = {
-                    'amount': info['budget_entry'].text(),
-                    'carryover': info['carryover_entry'].text()
-                }
-        b = Budget(id_=self._current_budget.id, start_date=self._current_budget.start_date, end_date=self._current_budget.end_date, account_budget_info=account_budget_info)
-        self.storage.save_budget(b)
-        self._update_budget()
-
-    def _edit(self):
-        for cat_id, info in self.data.items():
-            budget_val = info['budget_label'].text()
-            carryover_val = info['carryover_label'].text()
-            self.layout.removeWidget(info['budget_label'])
-            info['budget_label'].deleteLater()
-            self.layout.removeWidget(info['carryover_label'])
-            info['carryover_label'].deleteLater()
-            budget_entry = QtWidgets.QLineEdit()
-            budget_entry.setText(budget_val)
-            self.layout.addWidget(budget_entry, info['row'], 1)
-            info['budget_entry'] = budget_entry
-            carryover_entry = QtWidgets.QLineEdit()
-            carryover_entry.setText(carryover_val)
-            self.layout.addWidget(carryover_entry, info['row'], 3)
-            info['carryover_entry'] = carryover_entry
-        self.layout.removeWidget(self._edit_button)
-        self._edit_button.deleteLater()
-        self._save_button = QtWidgets.QPushButton('Save')
-        self._save_button.clicked.connect(self._save)
-        self.layout.addWidget(self._save_button, self.button_row, 0)
 
     def _save_budget_and_reload(self, budget):
         self.storage.save_budget(budget)
