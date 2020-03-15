@@ -1142,8 +1142,8 @@ class TestSQLiteStorage(unittest.TestCase):
         b2 = pft.Budget(year=2019)
         storage.save_budget(b2)
         budgets = storage.get_budgets()
-        self.assertEqual(budgets[0].start_date, date(2018, 1, 1))
-        self.assertEqual(budgets[1].start_date, date(2019, 1, 1))
+        self.assertEqual(budgets[0].start_date, date(2019, 1, 1))
+        self.assertEqual(budgets[1].start_date, date(2018, 1, 1))
 
     def test_get_budget_reports(self):
         storage = pft.SQLiteStorage(':memory:')

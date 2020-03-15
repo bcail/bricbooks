@@ -839,7 +839,7 @@ class SQLiteStorage:
     def get_budgets(self):
         budgets = []
         c = self._db_connection.cursor()
-        budget_records = c.execute('SELECT id FROM budgets').fetchall()
+        budget_records = c.execute('SELECT id FROM budgets ORDER BY start_date DESC').fetchall()
         for budget_record in budget_records:
             budget_id = int(budget_record[0])
             budgets.append(self.get_budget(budget_id))
