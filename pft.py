@@ -1814,7 +1814,7 @@ class BudgetDisplay:
 
     def _save_budget_and_reload(self, budget):
         self.storage.save_budget(budget)
-        self._update_budget()
+        self._update_budget(index=self.budget_select_combo.currentIndex())
 
     def _open_form(self):
         self.add_budget_display = BudgetForm(save_budget=self._save_budget_and_reload)
