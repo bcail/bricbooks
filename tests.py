@@ -587,14 +587,20 @@ class TestBudget(unittest.TestCase):
         housing = get_test_account(id_=1, type_=pft.AccountType.EXPENSE, name='Housing')
         food = get_test_account(id_=2, type_=pft.AccountType.EXPENSE, name='Food')
         transportation = get_test_account(id_=3, type_=pft.AccountType.EXPENSE, name='Transportation')
+        rent = get_test_account(id_=4, type_=pft.AccountType.EXPENSE, name='Rent')
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
-                food: {'amount': '35', 'carryover': ''},
+                food: {'amount': '35', 'carryover': '0'},
                 transportation: {},
+                rent: {'amount': D(0), 'notes': ''},
             }
         b = pft.Budget(year=2018, account_budget_info=account_budget_info)
-        self.assertEqual(b.get_budget_data(),
-                {housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'}, food: {'amount': D(35)}, transportation: {}})
+        self.assertEqual(b.get_budget_data(), {
+                    housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
+                    food: {'amount': D(35), 'carryover': D(0)},
+                    transportation: {},
+                    rent: {'amount': D(0)},
+                })
 
     def test_sparse_init(self):
         b = pft.Budget(year=2018)
@@ -612,18 +618,20 @@ class TestBudget(unittest.TestCase):
         transportation = get_test_account(id_=3, type_=pft.AccountType.EXPENSE, name='Transportation')
         something = get_test_account(id_=4, type_=pft.AccountType.EXPENSE, name='Something')
         wages = get_test_account(id_=5, type_=pft.AccountType.INCOME, name='Wages')
+        interest = get_test_account(id_=6, type_=pft.AccountType.INCOME, name='Interest')
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(5)},
                 food: {},
                 transportation: {'amount': D(10)},
                 something: {'amount': D(0)},
-                wages: {'amount': D(100)},
+                wages: {'amount': D(100), 'notes': 'note 1'},
+                interest: {},
             }
         budget = pft.Budget(year=2018, account_budget_info=account_budget_info)
         with self.assertRaises(pft.BudgetError) as cm:
             budget.get_report_display()
         self.assertEqual(str(cm.exception), 'must pass in income_spending_info to get the report display')
-        income_spending_info = {housing: {'income': D(5), 'spent': D(10)}, food: {}, wages: {'income': D(80)}}
+        income_spending_info = {housing: {'income': D(5), 'spent': D(10)}, food: {'income': ''}, wages: {'income': D(80)}}
         budget = pft.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display()
         housing_info = budget_report['expense'][housing]
@@ -635,25 +643,12 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['remaining'], '15')
         self.assertEqual(housing_info['percent_available'], '60%')
         food_info = budget_report['expense'][food]
-        self.assertEqual(food_info,
-                {
-                    'amount': '',
-                    'income': '',
-                    'carryover': '',
-                    'total_budget': '',
-                    'spent': '',
-                    'remaining': '',
-                    'percent_available': '',
-                }
-            )
+        self.assertEqual(food_info, {})
         transportation_info = budget_report['expense'][transportation]
         self.assertEqual(transportation_info,
                 {
                     'amount': '10',
-                    'income': '',
-                    'carryover': '',
                     'total_budget': '10',
-                    'spent': '',
                     'remaining': '10',
                     'percent_available': '100%',
                 }
@@ -663,10 +658,12 @@ class TestBudget(unittest.TestCase):
                 {
                     'amount': '100',
                     'income': '80',
-                    'percent': '80%',
                     'remaining': '20',
+                    'remaining_percent': '80%',
+                    'notes': 'note 1',
                 }
             )
+        self.assertEqual(budget_report['income'][interest], {})
 
 
 TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_txn_splits',), ('transactions',), ('txn_splits',), ('misc',)]
@@ -1091,6 +1088,8 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
+        wages = get_test_account(name='Wages', type_=pft.AccountType.INCOME)
+        storage.save_account(wages)
         housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
@@ -1109,22 +1108,26 @@ class TestSQLiteStorage(unittest.TestCase):
                 splits={checking: 15, food: '-15'})
         txn6 = pft.Transaction(txn_date=date(2017, 1, 26),
                 splits={checking: '-108', housing: '108'})
-        for t in [txn1, txn2, txn3, txn4, txn5, txn6]:
+        txn7 = pft.Transaction(txn_date=date(2018, 2, 5),
+                splits={checking: '100', wages: '-100'})
+        for t in [txn1, txn2, txn3, txn4, txn5, txn6, txn7]:
             storage.save_txn(t)
         cursor = storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135', 'hello'))
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70', '15'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, wages.id, '70', None))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.start_date, date(2018, 1, 1))
         self.assertEqual(budget.end_date, date(2018, 12, 31))
 
+        budget_data = budget.get_budget_data()
+        self.assertEqual(budget_data[wages], {'amount': D(70)})
+
         report_display = budget.get_report_display()['expense']
         self.assertEqual(report_display[housing]['amount'], '135')
-        self.assertEqual(report_display[housing]['carryover'], '')
-        self.assertEqual(report_display[housing]['income'], '')
         self.assertEqual(report_display[housing]['spent'], '101')
         self.assertEqual(report_display[housing]['notes'], 'hello')
 
@@ -1133,8 +1136,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(report_display[food]['income'], '15')
         self.assertEqual(report_display[food]['spent'], '102.46')
 
-        self.assertEqual(report_display[transportation]['amount'], '')
-        self.assertEqual(report_display[transportation]['spent'], '')
+        self.assertEqual(report_display[transportation], {})
 
     def test_get_budgets(self):
         storage = pft.SQLiteStorage(':memory:')

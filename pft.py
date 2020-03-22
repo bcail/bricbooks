@@ -70,6 +70,9 @@ class InvalidAccountNameError(InvalidAccountError):
 class InvalidPayeeError(RuntimeError):
     pass
 
+class InvalidDecimalAmount(RuntimeError):
+    pass
+
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -200,6 +203,18 @@ class Payee:
         return self.id
 
 
+def get_decimal_amount(value):
+    if isinstance(value, Decimal):
+        return value
+    elif isinstance(value, (int, str)):
+        try:
+            return Decimal(value)
+        except InvalidOperation:
+            raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
+    else:
+        raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
+
+
 def check_txn_splits(input_splits):
     if not input_splits or len(input_splits.items()) < 2:
         raise InvalidTransactionError('transaction must have at least 2 splits')
@@ -208,11 +223,9 @@ def check_txn_splits(input_splits):
     for account, amount in input_splits.items():
         if not account:
             raise InvalidTransactionError('must have a valid account in splits')
-        if isinstance(amount, Decimal):
-            decimal_amount = amount
-        elif isinstance(amount, (int, str)):
-            decimal_amount = Decimal(amount)
-        else:
+        try:
+            decimal_amount = get_decimal_amount(amount)
+        except InvalidDecimalAmount:
             raise InvalidTransactionError('invalid split amount: %s' % amount)
         #check for fractions of cents
         amt_str = str(decimal_amount)
@@ -237,9 +250,9 @@ class Transaction:
         splits = {}
         categories = {}
         try:
-            amount = Decimal(deposit or withdrawal)
-        except InvalidOperation:
-            raise InvalidTransactionError('invalid deposit/withdrawal')
+            amount = get_decimal_amount(deposit or withdrawal)
+        except InvalidDecimalAmount:
+            raise InvalidTransactionError('invalid deposit/withdrawal: deposit %s; withdrawal %s' % (deposit, withdrawal))
         if isinstance(input_categories, Account):
             categories[input_categories] = amount
         elif isinstance(input_categories, dict):
@@ -517,14 +530,21 @@ class Budget:
             for account, info in account_budget_info.items():
                 keep_info = {}
                 for key, value in info.items():
-                    if value == '':
-                        pass
+                    if key in ['amount', 'carryover']:
+                        if isinstance(value, Decimal):
+                            keep_info[key] = value
+                        elif not value:
+                            continue
+                        else:
+                            try:
+                                keep_info[key] = get_decimal_amount(value)
+                            except InvalidDecimalAmount:
+                                raise BudgetError('invalid decimal amount: %s' % value)
                     elif key == 'notes':
-                        keep_info[key] = value
-                    elif isinstance(value, str):
-                        keep_info[key] = Decimal(value)
+                        if value:
+                            keep_info[key] = value
                     else:
-                        keep_info[key] = value
+                        raise BudgetError('invalid budget info: %s' % info)
                 self._budget_data[account] = keep_info
         self.id = id_
         self._income_spending_info = income_spending_info
@@ -533,19 +553,31 @@ class Budget:
         return '%s - %s' % (self.start_date, self.end_date)
 
     def get_budget_data(self):
-        if self._budget_data:
-            return self._budget_data
-        else:
-            return None
+        '''returns {account1: {'amount': xxx}, account2: {}, ...}'''
+        return self._budget_data
 
-    def get_report_display(self, income_spending_info=None):
+    def get_report_display(self):
+        '''adds income & spending data to budget data, & converts to strings, for a budget report to display
+        { 'expense': {
+                expense_account1: {'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'percent_available': '50%', 'notes': 'note1'},
+                expense_account2: {'amount': '5', 'total_budget': '5', 'remaining': '5', 'percent_available': '100%'},
+                expense_account3: {},
+            },
+          'income': {
+                income_account1: {'amount': '10', 'income': '7', 'remaining': '3', 'remaining_percent': '70%', 'notes': 'note2'},
+                                    #may also want to have current status based on how much time remaining (70% through the year, only 60% income so far, ...)
+                income_account2: {},
+          } }
+        '''
         if self._income_spending_info is None:
             raise BudgetError('must pass in income_spending_info to get the report display')
         report = {'expense': {}, 'income': {}}
         for account, budget_info in self._budget_data.items():
             report_info = {}
             report_info.update(budget_info)
-            report_info.update(self._income_spending_info.get(account, {}))
+            for key, value in self._income_spending_info.get(account, {}).items():
+                if value:
+                    report_info[key] = value
             if 'amount' in report_info:
                 carryover = report_info.get('carryover', Decimal(0))
                 income = report_info.get('income', Decimal(0))
@@ -557,26 +589,11 @@ class Budget:
                         percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
                         report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(percent_available))
                     except InvalidOperation:
-                        report_info['percent_available'] = ''
+                        report_info['percent_available'] = 'error'
                 else:
                     report_info['remaining'] = report_info['amount'] - income
                     percent = (income / report_info['amount']) * Decimal(100)
-                    report_info['percent'] = '{}%'.format(Budget.round_percent_available(percent))
-            else:
-                report_info['amount'] = ''
-                report_info['total_budget'] = ''
-                report_info['remaining'] = ''
-                if account.type == AccountType.EXPENSE:
-                    report_info['percent_available'] = ''
-                else:
-                    report_info['percent'] = ''
-            if account.type == AccountType.EXPENSE:
-                if 'carryover' not in report_info:
-                    report_info['carryover'] = ''
-                if 'spent' not in report_info:
-                    report_info['spent'] = ''
-            if 'income' not in report_info:
-                report_info['income'] = ''
+                    report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(percent))
             if account.type == AccountType.EXPENSE:
                 report['expense'][account] = report_info
             else:
@@ -826,16 +843,11 @@ class SQLiteStorage:
             budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                all_expense_budget_info[account]['amount'] = Decimal(r[0])
-                if r[1]:
-                    all_expense_budget_info[account]['carryover'] = Decimal(r[1])
-                else:
-                    all_expense_budget_info[account]['carryover'] = Decimal(0)
-                if r[2]:
-                    all_expense_budget_info[account]['notes'] = r[2]
+                all_expense_budget_info[account]['amount'] = r[0]
+                all_expense_budget_info[account]['carryover'] = r[1]
+                all_expense_budget_info[account]['notes'] = r[2]
             else:
-                all_expense_budget_info[account]['budget'] = Decimal(0)
-                all_expense_budget_info[account]['carryover'] = Decimal(0)
+                all_expense_budget_info[account] = {}
         return Budget(id_=budget_id, start_date=start_date, end_date=end_date, account_budget_info=all_expense_budget_info,
                 income_spending_info=all_income_spending_info)
 
