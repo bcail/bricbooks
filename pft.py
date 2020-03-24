@@ -1740,14 +1740,14 @@ class BudgetDataDisplay:
         budget_report = budget.get_report_display()
         for account, info in budget_report['income'].items():
             layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
-            budget_label = QtWidgets.QLabel(info['amount'])
+            budget_label = QtWidgets.QLabel(info.get('amount', ''))
             layout.addWidget(budget_label, row, 1)
-            layout.addWidget(QtWidgets.QLabel(info['income']), row, 2)
-            carryover_label = QtWidgets.QLabel(info['carryover'])
+            layout.addWidget(QtWidgets.QLabel(info.get('income', '')), row, 2)
+            carryover_label = QtWidgets.QLabel(info.get('carryover', ''))
             layout.addWidget(carryover_label, row, 3)
-            layout.addWidget(QtWidgets.QLabel(info['spent']), row, 5)
-            layout.addWidget(QtWidgets.QLabel(info['remaining']), row, 6)
-            layout.addWidget(QtWidgets.QLabel(info['percent']), row, 7)
+            layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
+            layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
+            layout.addWidget(QtWidgets.QLabel(info.get('percent', '')), row, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row'] = row
@@ -1756,15 +1756,15 @@ class BudgetDataDisplay:
             row += 1
         for account, info in budget_report['expense'].items():
             layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
-            budget_label = QtWidgets.QLabel(info['amount'])
+            budget_label = QtWidgets.QLabel(info.get('amount', ''))
             layout.addWidget(budget_label, row, 1)
-            layout.addWidget(QtWidgets.QLabel(info['income']), row, 2)
-            carryover_label = QtWidgets.QLabel(info['carryover'])
+            layout.addWidget(QtWidgets.QLabel(info.get('income', '')), row, 2)
+            carryover_label = QtWidgets.QLabel(info.get('carryover', ''))
             layout.addWidget(carryover_label, row, 3)
-            layout.addWidget(QtWidgets.QLabel(info['total_budget']), row, 4)
-            layout.addWidget(QtWidgets.QLabel(info['spent']), row, 5)
-            layout.addWidget(QtWidgets.QLabel(info['remaining']), row, 6)
-            layout.addWidget(QtWidgets.QLabel(info['percent_available']), row, 7)
+            layout.addWidget(QtWidgets.QLabel(info.get('total_budget', '')), row, 4)
+            layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
+            layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
+            layout.addWidget(QtWidgets.QLabel(info.get('percent_available', '')), row, 7)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row'] = row
