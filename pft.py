@@ -211,14 +211,14 @@ def get_decimal_amount(value):
         try:
             decimal_value = Decimal(value)
         except InvalidOperation:
-            raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
+            raise InvalidDecimalAmount('bad decimal value: %s' % value)
     else:
-        raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
+        raise InvalidDecimalAmount('bad decimal value: %s' % value)
     decimal_value_str = str(decimal_value)
     if '.' in decimal_value_str:
         _, decimals = decimal_value_str.split('.')
         if len(decimals) > 2:
-            raise InvalidDecimalAmount('no fractions of cents in a transaction')
+            raise InvalidDecimalAmount('no fractions of cents allowed: %s' % value)
     return decimal_value
 
 
@@ -232,8 +232,8 @@ def check_txn_splits(input_splits):
             raise InvalidTransactionError('must have a valid account in splits')
         try:
             decimal_amount = get_decimal_amount(amount)
-        except InvalidDecimalAmount:
-            raise InvalidTransactionError('invalid split amount: %s' % amount)
+        except InvalidDecimalAmount as e:
+            raise InvalidTransactionError('invalid split: %s' % e)
         #check for fractions of cents
         amt_str = str(decimal_amount)
         total += decimal_amount
@@ -254,8 +254,8 @@ class Transaction:
         categories = {}
         try:
             amount = get_decimal_amount(deposit or withdrawal)
-        except InvalidDecimalAmount:
-            raise InvalidTransactionError('invalid deposit/withdrawal: deposit %s; withdrawal %s' % (deposit, withdrawal))
+        except InvalidDecimalAmount as e:
+            raise InvalidTransactionError('invalid deposit/withdrawal: %s' % e)
         if isinstance(input_categories, Account):
             categories[input_categories] = amount
         elif isinstance(input_categories, dict):
@@ -541,8 +541,8 @@ class Budget:
                         else:
                             try:
                                 keep_info[key] = get_decimal_amount(value)
-                            except InvalidDecimalAmount:
-                                raise BudgetError('invalid decimal amount: %s' % value)
+                            except InvalidDecimalAmount as e:
+                                raise BudgetError('invalid budget amount: %s' % e)
                     elif key == 'notes':
                         if value:
                             keep_info[key] = value
