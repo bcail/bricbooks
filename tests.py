@@ -116,10 +116,10 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'invalid split amount: 101.1')
         with self.assertRaises(pft.InvalidTransactionError) as cm:
             pft.Transaction(splits={self.checking: '123.456', self.savings: '-123.45'})
-        self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
+        self.assertEqual(str(cm.exception), 'invalid split amount: 123.456')
         with self.assertRaises(pft.InvalidTransactionError) as cm:
             pft.Transaction(splits={self.checking: D('123.456'), self.savings: D(123)})
-        self.assertEqual(str(cm.exception), 'no fractions of cents in a transaction')
+        self.assertEqual(str(cm.exception), 'invalid split amount: 123.456')
 
     def test_invalid_txn_date(self):
         with self.assertRaises(pft.InvalidTransactionError) as cm:

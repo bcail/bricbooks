@@ -204,15 +204,22 @@ class Payee:
 
 
 def get_decimal_amount(value):
+    decimal_value = None
     if isinstance(value, Decimal):
-        return value
+        decimal_value = value
     elif isinstance(value, (int, str)):
         try:
-            return Decimal(value)
+            decimal_value = Decimal(value)
         except InvalidOperation:
             raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
     else:
         raise InvalidDecimalAmount('invalid value for decimal: %s' % value)
+    decimal_value_str = str(decimal_value)
+    if '.' in decimal_value_str:
+        _, decimals = decimal_value_str.split('.')
+        if len(decimals) > 2:
+            raise InvalidDecimalAmount('no fractions of cents in a transaction')
+    return decimal_value
 
 
 def check_txn_splits(input_splits):
@@ -229,10 +236,6 @@ def check_txn_splits(input_splits):
             raise InvalidTransactionError('invalid split amount: %s' % amount)
         #check for fractions of cents
         amt_str = str(decimal_amount)
-        if '.' in amt_str:
-            _, decimals = amt_str.split('.')
-            if len(decimals) > 2:
-                raise InvalidTransactionError('no fractions of cents in a transaction')
         total += decimal_amount
         splits[account] = decimal_amount
     if total != Decimal(0):
