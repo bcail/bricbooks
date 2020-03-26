@@ -1642,9 +1642,15 @@ class BudgetForm:
         if budget and accounts:
             raise BudgetError('pass budget or accounts, not both')
         self._budget = budget
-        self._widgets = {}
+        self._widgets = {'budget_data': {}}
         self._save_budget = save_budget
         self._accounts = accounts
+        if self._budget:
+            self._budget_data = self._budget.get_budget_data()
+        else:
+            self._budget_data = {}
+            for account in self._accounts:
+                self._budget_data[account] = {}
 
     def show_form(self):
         self._display = QtWidgets.QDialog()
@@ -1672,18 +1678,16 @@ class BudgetForm:
         layout.addWidget(QtWidgets.QLabel('Amount'), row, 1)
         layout.addWidget(QtWidgets.QLabel('Carryover'), row, 2)
         row += 1
-        if self._budget:
-            budget_data = self._budget.get_budget_data()
-        else:
-            budget_data = {}
-            for account in self._accounts:
-                budget_data[account] = {}
-        for account, info in budget_data.items():
+        for account, info in self._budget_data.items():
             layout.addWidget(QtWidgets.QLabel(str(account)), row, 0)
             amount = QtWidgets.QLineEdit()
             carryover = QtWidgets.QLineEdit()
             amount.setText(str(info.get('amount', '')))
             carryover.setText(str(info.get('carryover', '')))
+            widgets['budget_data'][account] = {
+                    'amount': amount,
+                    'carryover': carryover,
+                }
             layout.addWidget(amount, row, 1)
             layout.addWidget(carryover, row, 2)
             row += 1
@@ -1694,10 +1698,13 @@ class BudgetForm:
     def _save(self):
         start_date = self._widgets['start_date'].text()
         end_date = self._widgets['end_date'].text()
+        account_budget_info = {}
+        for account, widgets in self._widgets['budget_data'].items():
+            account_budget_info[account] = {'amount': widgets['amount'].text(), 'carryover': widgets['carryover'].text()}
         if self._budget:
-            b = Budget(start_date=start_date, end_date=end_date, id_=self._budget.id)
+            b = Budget(start_date=start_date, end_date=end_date, id_=self._budget.id, account_budget_info=account_budget_info)
         else:
-            b = Budget(start_date=start_date, end_date=end_date)
+            b = Budget(start_date=start_date, end_date=end_date, account_budget_info=account_budget_info)
         self._display.accept()
         self._save_budget(b)
 

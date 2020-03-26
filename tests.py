@@ -1653,12 +1653,22 @@ class TestQtGUI(unittest.TestCase):
         budget = storage.get_budgets()[0]
         budget_display = pft.BudgetDisplay(storage=storage, current_budget=budget)
         widget = budget_display.get_widget()
-        #QtTest.QTest.mouseClick(budget_display._edit_button, QtCore.Qt.LeftButton)
-        #budget_display.data[housing.id]['budget_entry'].setText('30')
-        #QtTest.QTest.mouseClick(budget_display._save_button, QtCore.Qt.LeftButton) #now it's the save button
-        #budgets = storage.get_budgets()
-        #self.assertEqual(len(budgets), 1)
-        #self.assertEqual(budgets[0].get_budget_data()[housing]['amount'], D(30))
+
+    def test_budget_create(self):
+        storage = pft.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        storage.save_account(food)
+        budget_form = pft.BudgetForm(accounts=[housing, food], save_budget=storage.save_budget)
+        budget_form.show_form()
+        budget_form._widgets['start_date'].setText('2020-01-01')
+        budget_form._widgets['end_date'].setText('2020-12-31')
+        budget_form._widgets['budget_data'][housing]['amount'].setText('500')
+        budget_form._save()
+        budget = storage.get_budgets()[0]
+        self.assertEqual(budget.start_date, date(2020, 1, 1))
+        self.assertEqual(budget.get_budget_data()[housing]['amount'], D(500))
 
 
 class TestLoadTestData(unittest.TestCase):
