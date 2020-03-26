@@ -1636,11 +1636,15 @@ class LedgerDisplay:
 
 
 class BudgetForm:
+    '''Handle editing an existing budget or creating a new one'''
 
-    def __init__(self, budget, save_budget):
+    def __init__(self, budget=None, accounts=None, save_budget=None):
+        if budget and accounts:
+            raise BudgetError('pass budget or accounts, not both')
         self._budget = budget
         self._widgets = {}
         self._save_budget = save_budget
+        self._accounts = accounts
 
     def show_form(self):
         self._display = QtWidgets.QDialog()
@@ -1662,52 +1666,30 @@ class BudgetForm:
             end_date.setText(str(self._budget.end_date))
         layout.addWidget(start_date, row, 0)
         layout.addWidget(end_date, row, 1)
+        widgets['start_date'] = start_date
+        widgets['end_date'] = end_date
         row += 1
+        layout.addWidget(QtWidgets.QLabel('Amount'), row, 1)
+        layout.addWidget(QtWidgets.QLabel('Carryover'), row, 2)
+        row += 1
+        if self._budget:
+            budget_data = self._budget.get_budget_data()
+        else:
+            budget_data = {}
+            for account in self._accounts:
+                budget_data[account] = {}
+        for account, info in budget_data.items():
+            layout.addWidget(QtWidgets.QLabel(str(account)), row, 0)
+            amount = QtWidgets.QLineEdit()
+            carryover = QtWidgets.QLineEdit()
+            amount.setText(str(info.get('amount', '')))
+            carryover.setText(str(info.get('carryover', '')))
+            layout.addWidget(amount, row, 1)
+            layout.addWidget(carryover, row, 2)
+            row += 1
         save_button = QtWidgets.QPushButton('Save')
         save_button.clicked.connect(self._save)
         layout.addWidget(save_button, row, 0)
-        widgets['start_date'] = start_date
-        widgets['end_date'] = end_date
-    #def _show_widgets(self, layout, widgets):
-    #    row = 0
-    #    budget_report = self._budget.get_report_display()
-    #    for account, info in budget_report['income'].items():
-    #        amount_entry = QtWidgets.QLineEdit()
-    #        amount_entry.setText(info['amount'])
-    #        carryover_entry = QtWidgets.QLineEdit()
-    #        carryover_entry.setText(info['carryover'])
-    #        layout.addWidget(amount_entry, row, 0)
-    #        layout.addWidget(carryover_entry, row, 1)
-    #        row += 1
-    #    for account, info in budget_report['expense'].items():
-    #        amount_entry = QtWidgets.QLineEdit()
-    #        amount_entry.setText(info['amount'])
-    #        carryover_entry = QtWidgets.QLineEdit()
-    #        carryover_entry.setText(info['carryover'])
-    #        layout.addWidget(amount_entry, row, 0)
-    #        layout.addWidget(carryover_entry, row, 1)
-    #        row += 1
-        #for cat_id, info in self._data.items():
-        #    budget_val = info['budget_label'].text()
-        #    carryover_val = info['carryover_label'].text()
-        #    self.layout.removeWidget(info['budget_label'])
-        #    info['budget_label'].deleteLater()
-        #    self.layout.removeWidget(info['carryover_label'])
-        #    info['carryover_label'].deleteLater()
-        #    budget_entry = QtWidgets.QLineEdit()
-        #    budget_entry.setText(budget_val)
-        #    self.layout.addWidget(budget_entry, info['row'], 1)
-        #    info['budget_entry'] = budget_entry
-        #    carryover_entry = QtWidgets.QLineEdit()
-        #    carryover_entry.setText(carryover_val)
-        #    self.layout.addWidget(carryover_entry, info['row'], 3)
-        #    info['carryover_entry'] = carryover_entry
-        #self.layout.removeWidget(self._edit_button)
-        #self._edit_button.deleteLater()
-        #self._save_button = QtWidgets.QPushButton('Save')
-        #self._save_button.clicked.connect(self._save)
-        #self.layout.addWidget(self._save_button, self.button_row, 0)
-
 
     def _save(self):
         start_date = self._widgets['start_date'].text()
@@ -1851,7 +1833,12 @@ class BudgetDisplay:
         self._update_budget(index=self.budget_select_combo.currentIndex())
 
     def _open_form(self, budget):
-        self.budget_form = BudgetForm(budget=budget, save_budget=self._save_budget_and_reload)
+        if budget:
+            self.budget_form = BudgetForm(budget=budget, save_budget=self._save_budget_and_reload)
+        else:
+            income_and_expense_accounts = self.storage.get_accounts(type_=AccountType.INCOME)
+            income_and_expense_accounts.extend(self.storage.get_accounts(type_=AccountType.EXPENSE))
+            self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=self._save_budget_and_reload)
         self.budget_form.show_form()
 
 
