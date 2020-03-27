@@ -555,6 +555,14 @@ class Budget:
     def __str__(self):
         return '%s - %s' % (self.start_date, self.end_date)
 
+    def __eq__(self, other_budget):
+        if not other_budget:
+            return False
+        if self.id and other_budget.id:
+            return self.id == other_budget.id
+        else:
+            raise BudgetError("Can't compare budgets without an id")
+
     def get_budget_data(self):
         '''returns {account1: {'amount': xxx}, account2: {}, ...}'''
         return self._budget_data
@@ -1775,7 +1783,8 @@ class BudgetDisplay:
             if budgets:
                 current_budget = budgets[0]
         self._current_budget = current_budget
-        self.budget_data_display_widget = None
+        self._budget_select_combo = None
+        self._budget_data_display_widget = None
 
     def get_widget(self):
         self.widget, self.layout, self._row_index = self._setup_main()
@@ -1796,11 +1805,11 @@ class BudgetDisplay:
 
     def _display_budget(self, layout, budget, row):
         self.budget_data_display = BudgetDataDisplay(budget, save_budget=self._save_budget_and_reload)
-        if self.budget_data_display_widget:
-            layout.removeWidget(self.budget_data_display_widget)
-            self.budget_data_display_widget.deleteLater()
-        self.budget_data_display_widget = self.budget_data_display.get_widget()
-        layout.addWidget(self.budget_data_display_widget, row, 0, 1, 8)
+        if self._budget_data_display_widget:
+            layout.removeWidget(self._budget_data_display_widget)
+            self._budget_data_display_widget.deleteLater()
+        self._budget_data_display_widget = self.budget_data_display.get_widget()
+        layout.addWidget(self._budget_data_display_widget, row, 0, 1, 8)
         row += 1
         self._edit_button = QtWidgets.QPushButton('Edit')
         self._edit_button.clicked.connect(partial(self._open_form, budget=budget))
@@ -1811,16 +1820,16 @@ class BudgetDisplay:
         self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
     def _show_headings(self, layout, row):
-        self.budget_select_combo = QtWidgets.QComboBox()
+        self._budget_select_combo = QtWidgets.QComboBox()
         current_index = 0
         budgets = self.storage.get_budgets()
         for index, budget in enumerate(budgets):
             if budget.id == self._current_budget.id:
                 current_index = index
-            self.budget_select_combo.addItem(str(budget), budget)
-        self.budget_select_combo.setCurrentIndex(current_index)
-        self.budget_select_combo.currentIndexChanged.connect(self._update_budget)
-        layout.addWidget(self.budget_select_combo, row, 0)
+            self._budget_select_combo.addItem(str(budget), budget)
+        self._budget_select_combo.setCurrentIndex(current_index)
+        self._budget_select_combo.currentIndexChanged.connect(self._update_budget)
+        layout.addWidget(self._budget_select_combo, row, 0)
         self.add_button = QtWidgets.QPushButton('New Budget')
         self.add_button.clicked.connect(partial(self._open_form, budget=None))
         layout.addWidget(self.add_button, row, 1)
@@ -1837,7 +1846,7 @@ class BudgetDisplay:
 
     def _save_budget_and_reload(self, budget):
         self.storage.save_budget(budget)
-        self._update_budget(index=self.budget_select_combo.currentIndex())
+        self._update_budget(index=self._budget_select_combo.currentIndex())
 
     def _open_form(self, budget):
         if budget:

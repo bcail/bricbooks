@@ -1662,14 +1662,18 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(food)
         budget_display = pft.BudgetDisplay(storage=storage)
         budget_display.get_widget()
+        self.assertEqual(budget_display._current_budget, None)
         QtTest.QTest.mouseClick(budget_display.add_button, QtCore.Qt.LeftButton)
         budget_display.budget_form._widgets['start_date'].setText('2020-01-01')
         budget_display.budget_form._widgets['end_date'].setText('2020-12-31')
         budget_display.budget_form._widgets['budget_data'][housing]['amount'].setText('500')
         budget_display.budget_form._save()
+        #verify budget saved in storage
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2020, 1, 1))
         self.assertEqual(budget.get_budget_data()[housing]['amount'], D(500))
+        #verify BudgetDisplay updated
+        self.assertEqual(budget_display._current_budget, budget)
 
 
 class TestLoadTestData(unittest.TestCase):
