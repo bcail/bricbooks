@@ -1782,8 +1782,8 @@ class BudgetDisplay:
         if self._current_budget:
             self._display_budget(self.layout, self._current_budget, self._row_index)
         else:
-            self.layout.addWidget(QtWidgets.QLabel(''), row_index, 0, 1, 6)
-            self.layout.setRowStretch(row_index, 1)
+            self.layout.addWidget(QtWidgets.QLabel(''), self._row_index, 0, 1, 6)
+            self.layout.setRowStretch(self._row_index, 1)
         return self.widget
 
     def _setup_main(self):
