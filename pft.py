@@ -1817,6 +1817,7 @@ class BudgetDisplay:
 
     def _update_budget(self, index=0):
         self._current_budget = self.storage.get_budgets()[index]
+        self._budget_select_combo.setCurrentIndex(index)
         self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
     def _show_headings(self, layout, row):
@@ -1824,7 +1825,7 @@ class BudgetDisplay:
         current_index = 0
         budgets = self.storage.get_budgets()
         for index, budget in enumerate(budgets):
-            if budget.id == self._current_budget.id:
+            if budget == self._current_budget:
                 current_index = index
             self._budget_select_combo.addItem(str(budget), budget)
         self._budget_select_combo.setCurrentIndex(current_index)
@@ -1844,9 +1845,15 @@ class BudgetDisplay:
         layout.addWidget(QtWidgets.QLabel('Percent Available'), row, 7)
         return row + 1
 
-    def _save_budget_and_reload(self, budget):
+    def _save_budget_and_reload(self, budget, new_budget=False):
         self.storage.save_budget(budget)
-        self._update_budget(index=self._budget_select_combo.currentIndex())
+        self._current_budget = budget
+        if new_budget:
+            #need to add new budget to select combo and select it
+            num_items = self._budget_select_combo.count()
+            self._budget_select_combo.addItem(str(budget), budget)
+            self._budget_select_combo.setCurrentIndex(num_items)
+        self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
     def _open_form(self, budget):
         if budget:
@@ -1854,7 +1861,7 @@ class BudgetDisplay:
         else:
             income_and_expense_accounts = self.storage.get_accounts(type_=AccountType.INCOME)
             income_and_expense_accounts.extend(self.storage.get_accounts(type_=AccountType.EXPENSE))
-            self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=self._save_budget_and_reload)
+            self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=partial(self._save_budget_and_reload, new_budget=True))
         self.budget_form.show_form()
 
 

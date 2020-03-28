@@ -1663,6 +1663,8 @@ class TestQtGUI(unittest.TestCase):
         budget_display = pft.BudgetDisplay(storage=storage)
         budget_display.get_widget()
         self.assertEqual(budget_display._current_budget, None)
+        self.assertEqual(budget_display._budget_select_combo.currentText(), '')
+        self.assertEqual(budget_display._budget_select_combo.currentData(), None)
         QtTest.QTest.mouseClick(budget_display.add_button, QtCore.Qt.LeftButton)
         budget_display.budget_form._widgets['start_date'].setText('2020-01-01')
         budget_display.budget_form._widgets['end_date'].setText('2020-12-31')
@@ -1674,6 +1676,8 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(budget.get_budget_data()[housing]['amount'], D(500))
         #verify BudgetDisplay updated
         self.assertEqual(budget_display._current_budget, budget)
+        self.assertEqual(budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
+        self.assertEqual(budget_display._budget_select_combo.currentData(), budget)
 
 
 class TestLoadTestData(unittest.TestCase):
