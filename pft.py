@@ -1140,6 +1140,8 @@ class SplitTransactionEditor:
 
     def _show_split_editor(self):
         split_editor = QtWidgets.QDialog()
+        main_layout = QtWidgets.QGridLayout()
+        main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         row = 0
         for account in self._all_accounts:
@@ -1157,7 +1159,12 @@ class SplitTransactionEditor:
         cancel_button.clicked.connect(split_editor.reject)
         layout.addWidget(ok_button, row, 0)
         layout.addWidget(cancel_button, row, 1)
-        split_editor.setLayout(layout)
+        main_widget.setLayout(layout)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(main_widget)
+        main_layout.addWidget(scroll, 0, 0)
+        split_editor.setLayout(main_layout)
         split_editor.exec_()
 
     def get_txn_splits(self):

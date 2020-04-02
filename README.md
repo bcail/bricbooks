@@ -7,6 +7,7 @@ Python Finance Tracking
 
 TODO
 ----
+- update Payee for transaction form - change to "Pay to / From"? change it dynamically based on deposit or withdrawal? Update heading for ledger view?
 - Ledger - make sure ledger txns are aligned to the top if they don't fill the window (as they're added)
 - catch exceptions and give good error messages in the UI
 - add scheduled transactions
