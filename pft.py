@@ -654,7 +654,7 @@ class SQLiteStorage:
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT, status TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT,'\
+        conn.execute('CREATE TABLE txn_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, description TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))

@@ -817,8 +817,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', pft.Transaction.CLEARED))
         c.execute('SELECT * FROM txn_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '-101'),
-                                             (2, 1, 2, '101')])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '-101', None),
+                                             (2, 1, 2, '101', None)])
 
     def test_save_txn_payee_string(self):
         storage = pft.SQLiteStorage(':memory:')
@@ -891,8 +891,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, None, date.today().strftime('%Y-%m-%d'), None, None, None))
         c.execute('SELECT * FROM txn_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '101'),
-                                             (2, 1, 2, '-101')])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '101', None),
+                                             (2, 1, 2, '-101', None)])
 
     def test_round_trip(self):
         storage = pft.SQLiteStorage(':memory:')
