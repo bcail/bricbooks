@@ -622,6 +622,8 @@ class Budget:
 class SQLiteStorage:
 
     def __init__(self, conn_name):
+        if not conn_name:
+            raise SQLiteStorageError('invalid SQLite connection name: %s' % conn_name)
         #conn_name is either ':memory:' or the name of the data file
         if conn_name == ':memory:':
             self._db_connection = sqlite3.connect(conn_name)
@@ -2124,6 +2126,9 @@ if __name__ == '__main__':
         raise Exception('no such file: "%s"' % args.file_name)
 
     if args.cli:
+        if not args.file_name:
+            print('file name argument required for CLI mode')
+            sys.exit(1)
         CLI(args.file_name).run()
         sys.exit(0)
 

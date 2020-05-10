@@ -689,7 +689,13 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
-    def test_init_no_file(self):
+    def test_init_no_filename(self):
+        with self.assertRaises(pft.SQLiteStorageError) as exc_cm:
+            pft.SQLiteStorage('')
+        with self.assertRaises(pft.SQLiteStorageError) as exc_cm:
+            pft.SQLiteStorage(None)
+
+    def test_init_file_doesnt_exist(self):
         storage = pft.SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
