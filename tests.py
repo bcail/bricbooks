@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal as D
+import io
 import os
 import sqlite3
 import tempfile
@@ -1316,6 +1317,18 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
 
+class TestCLI(unittest.TestCase):
+    #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
+
+    def test_list_accounts(self):
+        memory_buffer = io.StringIO()
+        cli = pft.CLI(':memory:', print_file=memory_buffer)
+        checking = get_test_account()
+        cli.storage.save_account(checking)
+        cli._list_accounts()
+        self.assertEqual(memory_buffer.getvalue(), '1 - Checking\n')
+
+
 def fake_method():
     pass
 
@@ -1709,6 +1722,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(TestLedger, 'test'))
         suite.addTest(unittest.makeSuite(TestBudget, 'test'))
         suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
+        suite.addTest(unittest.makeSuite(TestCLI, 'test'))
         suite.addTest(unittest.makeSuite(TestLoadTestData, 'test'))
         runner = unittest.TextTestRunner()
         runner.run(suite)

@@ -1990,12 +1990,13 @@ class PFT_GUI_QT:
 
 class CLI:
 
-    def __init__(self, filename):
+    def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
+        self.print_file = print_file
 
     def _list_accounts(self):
         for a in self.storage.get_accounts():
-            print('%s - %s' % (a.id, a.name))
+            print('%s - %s' % (a.id, a.name), file=self.print_file)
 
     def _list_account_txns(self):
         acc_id = input('Account ID: ')
