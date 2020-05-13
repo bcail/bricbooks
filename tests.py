@@ -1328,6 +1328,25 @@ class TestCLI(unittest.TestCase):
         cli._list_accounts()
         self.assertEqual(memory_buffer.getvalue(), '1 - Checking\n')
 
+    @patch('builtins.input')
+    def test_list_account_txns(self, input_mock):
+        input_mock.return_value = '1'
+        memory_buffer = io.StringIO()
+        cli = pft.CLI(':memory:', print_file=memory_buffer)
+        checking = get_test_account()
+        cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        cli.storage.save_account(savings)
+        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
+        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        cli.storage.save_txn(txn)
+        cli.storage.save_txn(txn2)
+        cli._list_account_txns()
+        output = '''2017-01-01 |  | 5 | 5
+2017-01-02 |  | 5 | 10
+'''
+        self.assertEqual(memory_buffer.getvalue(), output)
+
 
 def fake_method():
     pass

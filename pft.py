@@ -2002,8 +2002,8 @@ class CLI:
         acc_id = input('Account ID: ')
         ledger = self.storage.get_ledger(int(acc_id))
         for t in ledger.get_sorted_txns_with_balance():
-            tds = get_display_strings_for_ledger(storage.get_account(int(acc_id)), t)
-            print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
+            tds = get_display_strings_for_ledger(self.storage.get_account(int(acc_id)), t)
+            print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance), file=self.print_file)
 
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
