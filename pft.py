@@ -2005,6 +2005,25 @@ class CLI:
             tds = get_display_strings_for_ledger(self.storage.get_account(int(acc_id)), t)
             print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance), file=self.print_file)
 
+    def _create_txn(self):
+        print('Create Transaction:', file=self.print_file)
+        withdrawal_account_id = input('  withdrawal account id: ')
+        withdrawal_account = self.storage.get_account(int(withdrawal_account_id))
+        deposit_account_id = input('  deposit account id: ')
+        deposit_account = self.storage.get_account(int(deposit_account_id))
+        amount = input('  amount: ')
+        txn_date = input('  date: ')
+        splits = {
+                withdrawal_account: '-%s' % amount,
+                deposit_account: amount,
+            }
+        self.storage.save_txn(
+            Transaction(
+                txn_date=txn_date,
+                splits=splits,
+            )
+        )
+
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
             print(st)
@@ -2081,6 +2100,7 @@ class CLI:
 
     def run(self):
         help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
+            + '\nct - create transaction'\
             + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
             + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
             + '\nCtrl-d - quit'
@@ -2097,6 +2117,8 @@ class CLI:
                 self._list_accounts()
             elif cmd == 'lt':
                 self._list_account_txns()
+            elif cmd == 'ct':
+                self._create_txn()
             elif cmd == 'lst':
                 self._list_scheduled_txns()
             elif cmd == 'cst':

@@ -1347,6 +1347,20 @@ class TestCLI(unittest.TestCase):
 '''
         self.assertEqual(memory_buffer.getvalue(), output)
 
+    @patch('builtins.input')
+    def test_create_txn(self, input_mock):
+        input_mock.side_effect = ['1', '2', '15', '2019-02-24']
+        memory_buffer = io.StringIO()
+        cli = pft.CLI(':memory:', print_file=memory_buffer)
+        checking = get_test_account()
+        cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        cli.storage.save_account(savings)
+        cli._create_txn()
+        ledger = cli.storage.get_ledger(1)
+        txn = ledger.get_sorted_txns_with_balance()[0]
+        self.assertEqual(txn.txn_date, date(2019, 2, 24))
+
 
 def fake_method():
     pass
