@@ -177,9 +177,13 @@ class Account:
         return self.id
 
     def _check_type(self, type_):
-        if not isinstance(type_, AccountType):
-            raise InvalidAccountError('Invalid account type "%s"' % type_)
-        return type_
+        if isinstance(type_, AccountType):
+            return type_
+        else:
+            try:
+                return AccountType(int(type_))
+            except ValueError:
+                raise InvalidAccountError('Invalid account type "%s"' % type_)
 
 
 class Payee:
@@ -1998,6 +2002,15 @@ class CLI:
         for a in self.storage.get_accounts():
             print('%s - %s' % (a.id, a.name), file=self.print_file)
 
+    def _create_account(self):
+        print('Create Account:', file=self.print_file)
+        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
+        acct_type = input('  Type (%s): ' % acct_type_options)
+        name = input('Name: ')
+        self.storage.save_account(
+                Account(name=name, type_=acct_type)
+            )
+
     def _list_account_txns(self):
         acc_id = input('Account ID: ')
         ledger = self.storage.get_ledger(int(acc_id))
@@ -2099,8 +2112,8 @@ class CLI:
         self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
     def run(self):
-        help_msg = 'h - help\nl - list accounts\nlt - list account txns'\
-            + '\nct - create transaction'\
+        help_msg = 'h - help\nl - list accounts\nca - create account'\
+            + '\nlt - list account txns\nct - create transaction'\
             + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
             + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
             + '\nCtrl-d - quit'
@@ -2115,6 +2128,8 @@ class CLI:
                 print(help_msg)
             elif cmd == 'l':
                 self._list_accounts()
+            elif cmd == 'ca':
+                self._create_account()
             elif cmd == 'lt':
                 self._list_account_txns()
             elif cmd == 'ct':
@@ -2127,6 +2142,8 @@ class CLI:
                 self._display_scheduled_txn()
             elif cmd == 'est':
                 self._edit_scheduled_txn()
+            else:
+                print('Invalid command: "%s"' % cmd)
 
 
 def parse_args():

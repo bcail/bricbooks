@@ -72,6 +72,8 @@ class TestAccount(unittest.TestCase):
         with self.assertRaises(pft.InvalidAccountError) as cm:
             pft.Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
+        a = pft.Account(id_=1, type_='0', name='Checking')
+        self.assertEqual(a.type, pft.AccountType.ASSET)
 
     def test_eq(self):
         a = pft.Account(id_=1, type_=pft.AccountType.ASSET, name='Checking')
@@ -1320,44 +1322,49 @@ class TestSQLiteStorage(unittest.TestCase):
 class TestCLI(unittest.TestCase):
     #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
 
+    def setUp(self):
+        self.memory_buffer = io.StringIO()
+        self.cli = pft.CLI(':memory:', print_file=self.memory_buffer)
+
     def test_list_accounts(self):
-        memory_buffer = io.StringIO()
-        cli = pft.CLI(':memory:', print_file=memory_buffer)
         checking = get_test_account()
-        cli.storage.save_account(checking)
-        cli._list_accounts()
-        self.assertEqual(memory_buffer.getvalue(), '1 - Checking\n')
+        self.cli.storage.save_account(checking)
+        self.cli._list_accounts()
+        self.assertEqual(self.memory_buffer.getvalue(), '1 - Checking\n')
+
+    @patch('builtins.input')
+    def test_create_account(self, input_mock):
+        input_mock.side_effect = ['0', 'Checking']
+        self.cli._create_account()
+        accounts = self.cli.storage.get_accounts()
+        self.assertEqual(accounts[0].name, 'Checking')
 
     @patch('builtins.input')
     def test_list_account_txns(self, input_mock):
         input_mock.return_value = '1'
-        memory_buffer = io.StringIO()
-        cli = pft.CLI(':memory:', print_file=memory_buffer)
         checking = get_test_account()
-        cli.storage.save_account(checking)
+        self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        cli.storage.save_account(savings)
+        self.cli.storage.save_account(savings)
         txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
         txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
-        cli.storage.save_txn(txn)
-        cli.storage.save_txn(txn2)
-        cli._list_account_txns()
+        self.cli.storage.save_txn(txn)
+        self.cli.storage.save_txn(txn2)
+        self.cli._list_account_txns()
         output = '''2017-01-01 |  | 5 | 5
 2017-01-02 |  | 5 | 10
 '''
-        self.assertEqual(memory_buffer.getvalue(), output)
+        self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_create_txn(self, input_mock):
         input_mock.side_effect = ['1', '2', '15', '2019-02-24']
-        memory_buffer = io.StringIO()
-        cli = pft.CLI(':memory:', print_file=memory_buffer)
         checking = get_test_account()
-        cli.storage.save_account(checking)
+        self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        cli.storage.save_account(savings)
-        cli._create_txn()
-        ledger = cli.storage.get_ledger(1)
+        self.cli.storage.save_account(savings)
+        self.cli._create_txn()
+        ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
 
