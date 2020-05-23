@@ -1334,10 +1334,19 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_account(self, input_mock):
-        input_mock.side_effect = ['0', 'Checking']
+        input_mock.side_effect = ['Checking', '0']
         self.cli._create_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking')
+
+    @patch('builtins.input')
+    def test_edit_account(self, input_mock):
+        input_mock.side_effect = ['1', 'Checking updated', '0']
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        self.cli._edit_account()
+        accounts = self.cli.storage.get_accounts()
+        self.assertEqual(accounts[0].name, 'Checking updated')
 
     @patch('builtins.input')
     def test_list_account_txns(self, input_mock):

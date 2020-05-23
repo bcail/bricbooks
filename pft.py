@@ -11,6 +11,7 @@ from enum import Enum
 from functools import partial
 import os
 from pathlib import Path
+import readline
 import sqlite3
 import subprocess
 import sys
@@ -1994,6 +1995,15 @@ class PFT_GUI_QT:
 
 class CLI:
 
+    @staticmethod
+    def get_input(prompt='', prefill=''):
+        #https://stackoverflow.com/a/2533142
+        readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
+        try:
+            return input(prompt)
+        finally:
+            readline.set_startup_hook()
+
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
         self.print_file = print_file
@@ -2004,11 +2014,21 @@ class CLI:
 
     def _create_account(self):
         print('Create Account:', file=self.print_file)
+        name = input('  name: ')
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = input('  Type (%s): ' % acct_type_options)
-        name = input('Name: ')
+        acct_type = input('  type (%s): ' % acct_type_options)
         self.storage.save_account(
                 Account(name=name, type_=acct_type)
+            )
+
+    def _edit_account(self):
+        acc_id = input('Account ID: ')
+        account = self.storage.get_account(acc_id)
+        name = CLI.get_input(prompt='  name: ', prefill=account.name)
+        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
+        acct_type = CLI.get_input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
+        self.storage.save_account(
+                Account(id_=acc_id, name=name, type_=acct_type)
             )
 
     def _list_account_txns(self):
@@ -2112,10 +2132,10 @@ class CLI:
         self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
     def run(self):
-        help_msg = 'h - help\nl - list accounts\nca - create account'\
-            + '\nlt - list account txns\nct - create transaction'\
-            + '\nlst - list scheduled transactions\ncst - create scheduled transaction'\
-            + '\ndst - display scheduled transaction\nest - edit scheduled transaction'\
+        help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
+            + '\nl - list account txns\ntc - create transaction'\
+            + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
+            + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
             + '\nCtrl-d - quit'
         print('Command-line PFT\n%s' % help_msg)
         while True:
@@ -2126,21 +2146,23 @@ class CLI:
                 break
             if cmd == 'h':
                 print(help_msg)
-            elif cmd == 'l':
+            elif cmd == 'a':
                 self._list_accounts()
-            elif cmd == 'ca':
+            elif cmd == 'ac':
                 self._create_account()
-            elif cmd == 'lt':
+            elif cmd == 'ae':
+                self._edit_account()
+            elif cmd == 'l':
                 self._list_account_txns()
-            elif cmd == 'ct':
+            elif cmd == 'tc':
                 self._create_txn()
-            elif cmd == 'lst':
+            elif cmd == 'stl':
                 self._list_scheduled_txns()
-            elif cmd == 'cst':
+            elif cmd == 'stc':
                 self._create_scheduled_txn()
-            elif cmd == 'dst':
+            elif cmd == 'std':
                 self._display_scheduled_txn()
-            elif cmd == 'est':
+            elif cmd == 'ste':
                 self._edit_scheduled_txn()
             else:
                 print('Invalid command: "%s"' % cmd)
