@@ -11,10 +11,13 @@ from enum import Enum
 from functools import partial
 import os
 from pathlib import Path
-import readline
 import sqlite3
 import subprocess
 import sys
+try:
+    import readline
+except ImportError:
+    readline = None
 
 
 TITLE = 'Python Finance Tracking'
@@ -1998,11 +2001,13 @@ class CLI:
     @staticmethod
     def get_input(prompt='', prefill=''):
         #https://stackoverflow.com/a/2533142
-        readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
+        if readline:
+            readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
         try:
             return input(prompt)
         finally:
-            readline.set_startup_hook()
+            if readline:
+                readline.set_startup_hook()
 
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
