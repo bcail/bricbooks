@@ -2027,7 +2027,7 @@ class CLI:
             )
 
     def _edit_account(self):
-        acc_id = input('Account ID: ')
+        acc_id = CLI.get_input('Account ID: ')
         account = self.storage.get_account(acc_id)
         name = CLI.get_input(prompt='  name: ', prefill=account.name)
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
@@ -2061,6 +2061,32 @@ class CLI:
                 splits=splits,
             )
         )
+
+    def _edit_txn(self):
+        txn_id = CLI.get_input(prompt='Txn ID: ')
+        txn = self.storage.get_txn(txn_id)
+        edited_txn_info = {'id_': txn.id}
+        txn_date = CLI.get_input(prompt='  date: ')
+        edited_txn_info['txn_date'] = txn_date
+        print('Splits:')
+        new_splits = {}
+        for account, orig_amount in txn.splits.items():
+            amount = CLI.get_input(prompt='%s amount (%s): ' % (account.name, orig_amount))
+            if amount:
+                new_splits[account] = amount
+        while True:
+            acct_id = CLI.get_input(prompt='new account ID: ')
+            if acct_id:
+                amt = CLI.get_input(prompt=' amount: ')
+                if amt:
+                    new_splits[storage.get_account(acct_id)] = amt
+                else:
+                    break
+            else:
+                break
+        edited_txn_info['splits'] = new_splits
+        updated_txn = Transaction(**edited_txn_info)
+        self.storage.save_txn(updated_txn)
 
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
@@ -2138,7 +2164,7 @@ class CLI:
 
     def run(self):
         help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
-            + '\nl - list account txns\ntc - create transaction'\
+            + '\nl - list account txns\ntc - create transaction\nte - edit transaction'\
             + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
             + '\nCtrl-d - quit'
@@ -2161,6 +2187,8 @@ class CLI:
                 self._list_account_txns()
             elif cmd == 'tc':
                 self._create_txn()
+            elif cmd == 'te':
+                self._edit_txn()
             elif cmd == 'stl':
                 self._list_scheduled_txns()
             elif cmd == 'stc':

@@ -1377,6 +1377,21 @@ class TestCLI(unittest.TestCase):
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
 
+    @patch('builtins.input')
+    def test_edit_txn(self, input_mock):
+        input_mock.side_effect = ['1', '2017-02-13', '7', '-7', '']
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
+        self.cli.storage.save_txn(txn)
+        self.cli._edit_txn()
+        ledger = self.cli.storage.get_ledger(1)
+        txn = ledger.get_sorted_txns_with_balance()[0]
+        self.assertEqual(txn.txn_date, date(2017, 2, 13))
+        self.assertEqual(txn.splits[checking], 7)
+
 
 def fake_method():
     pass
