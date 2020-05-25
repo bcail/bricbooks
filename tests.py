@@ -1338,6 +1338,8 @@ class TestCLI(unittest.TestCase):
         self.cli._create_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking')
+        output = 'Create Account:\n  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE): '
+        self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_edit_account(self, input_mock):
@@ -1347,6 +1349,8 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
+        output = 'Account ID:   name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE): '
+        self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_list_account_txns(self, input_mock):
@@ -1360,7 +1364,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns()
-        output = '''2017-01-01 |  | 5 | 5
+        output = '''Account ID: 2017-01-01 |  | 5 | 5
 2017-01-02 |  | 5 | 10
 '''
         self.assertEqual(self.memory_buffer.getvalue(), output)

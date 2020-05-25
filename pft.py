@@ -1998,59 +1998,59 @@ class PFT_GUI_QT:
 
 class CLI:
 
-    @staticmethod
-    def get_input(prompt='', prefill=''):
+    def __init__(self, filename, print_file=None):
+        self.storage = SQLiteStorage(filename)
+        self.print = partial(print, file=print_file)
+
+    def _get_input(self, prompt='', prefill=''):
         #https://stackoverflow.com/a/2533142
         if readline:
             readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
+        self.print(prompt, end='')
         try:
-            return input(prompt)
+            return input()
         finally:
             if readline:
                 readline.set_startup_hook()
 
-    def __init__(self, filename, print_file=None):
-        self.storage = SQLiteStorage(filename)
-        self.print_file = print_file
-
     def _list_accounts(self):
         for a in self.storage.get_accounts():
-            print('%s - %s' % (a.id, a.name), file=self.print_file)
+            self.print('%s - %s' % (a.id, a.name))
 
     def _create_account(self):
-        print('Create Account:', file=self.print_file)
-        name = input('  name: ')
+        self.print('Create Account:')
+        name = self._get_input('  name: ')
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = input('  type (%s): ' % acct_type_options)
+        acct_type = self._get_input('  type (%s): ' % acct_type_options)
         self.storage.save_account(
                 Account(name=name, type_=acct_type)
             )
 
     def _edit_account(self):
-        acc_id = CLI.get_input('Account ID: ')
+        acc_id = self._get_input('Account ID: ')
         account = self.storage.get_account(acc_id)
-        name = CLI.get_input(prompt='  name: ', prefill=account.name)
+        name = self._get_input(prompt='  name: ', prefill=account.name)
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = CLI.get_input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
+        acct_type = self._get_input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
         self.storage.save_account(
                 Account(id_=acc_id, name=name, type_=acct_type)
             )
 
     def _list_account_txns(self):
-        acc_id = input('Account ID: ')
+        acc_id = self._get_input('Account ID: ')
         ledger = self.storage.get_ledger(int(acc_id))
         for t in ledger.get_sorted_txns_with_balance():
             tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
-            print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance), file=self.print_file)
+            self.print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
 
     def _create_txn(self):
-        print('Create Transaction:', file=self.print_file)
-        withdrawal_account_id = input('  withdrawal account id: ')
+        self.print('Create Transaction:')
+        withdrawal_account_id = self._get_input('  withdrawal account id: ')
         withdrawal_account = self.storage.get_account(withdrawal_account_id)
-        deposit_account_id = input('  deposit account id: ')
+        deposit_account_id = self._get_input('  deposit account id: ')
         deposit_account = self.storage.get_account(deposit_account_id)
-        amount = input('  amount: ')
-        txn_date = input('  date: ')
+        amount = self._get_input('  amount: ')
+        txn_date = self._get_input('  date: ')
         splits = {
                 withdrawal_account: '-%s' % amount,
                 deposit_account: amount,
@@ -2063,21 +2063,21 @@ class CLI:
         )
 
     def _edit_txn(self):
-        txn_id = CLI.get_input(prompt='Txn ID: ')
+        txn_id = self._get_input(prompt='Txn ID: ')
         txn = self.storage.get_txn(txn_id)
         edited_txn_info = {'id_': txn.id}
-        txn_date = CLI.get_input(prompt='  date: ')
+        txn_date = self._get_input(prompt='  date: ')
         edited_txn_info['txn_date'] = txn_date
-        print('Splits:')
+        self.print('Splits:')
         new_splits = {}
         for account, orig_amount in txn.splits.items():
-            amount = CLI.get_input(prompt='%s amount (%s): ' % (account.name, orig_amount))
+            amount = self._get_input(prompt='%s amount (%s): ' % (account.name, orig_amount))
             if amount:
                 new_splits[account] = amount
         while True:
-            acct_id = CLI.get_input(prompt='new account ID: ')
+            acct_id = self._get_input(prompt='new account ID: ')
             if acct_id:
-                amt = CLI.get_input(prompt=' amount: ')
+                amt = self._get_input(prompt=' amount: ')
                 if amt:
                     new_splits[storage.get_account(acct_id)] = amt
                 else:
@@ -2090,19 +2090,19 @@ class CLI:
 
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
-            print(st)
+            self.print(st)
 
     def _create_scheduled_txn(self):
-        print('Create Scheduled Transaction:')
-        name = input('  name: ')
+        self.print('Create Scheduled Transaction:')
+        name = self._get_input('  name: ')
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = input('  frequency (%s): ' % frequency_options)
-        next_due_date = input('  next due date (yyyy-mm-dd): ')
-        withdrawal_account_id = input('  withdrawal account id: ')
+        frequency = self._get_input('  frequency (%s): ' % frequency_options)
+        next_due_date = self._get_input('  next due date (yyyy-mm-dd): ')
+        withdrawal_account_id = self._get_input('  withdrawal account id: ')
         withdrawal_account = storage.get_account(withdrawal_account_id)
-        deposit_account_id = input('  deposit account id: ')
+        deposit_account_id = self._get_input('  deposit account id: ')
         deposit_account = storage.get_account(deposit_account_id)
-        amount = input('  amount: ')
+        amount = self._get_input('  amount: ')
         splits = {
                 withdrawal_account: '-%s' % amount,
                 deposit_account: amount,
@@ -2117,41 +2117,41 @@ class CLI:
         )
 
     def _display_scheduled_txn(self):
-        scheduled_txn_id = input('Enter scheduled txn ID: ')
+        scheduled_txn_id = self._get_input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
-        print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
-        print('  %s' % scheduled_txn.frequency)
-        print('  %s' % scheduled_txn.next_due_date)
+        self.print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
+        self.print('  %s' % scheduled_txn.frequency)
+        self.print('  %s' % scheduled_txn.next_due_date)
         splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
-        print('  %s' % splits_str)
+        self.print('  %s' % splits_str)
         if scheduled_txn.txn_type:
-            print('  %s' % scheduled_txn.txn_type)
+            self.print('  %s' % scheduled_txn.txn_type)
         if scheduled_txn.payee:
-            print('  %s' % scheduled_txn.payee)
+            self.print('  %s' % scheduled_txn.payee)
         if scheduled_txn.description:
-            print('  %s' % scheduled_txn.description)
+            self.print('  %s' % scheduled_txn.description)
 
     def _edit_scheduled_txn(self):
-        scheduled_txn_id = input('Enter scheduled txn ID: ')
+        scheduled_txn_id = self._get_input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
         edited_scheduled_txn_info = {'id_': scheduled_txn.id}
-        name = input('name [%s]: ' % scheduled_txn.name)
+        name = self._get_input('name [%s]: ' % scheduled_txn.name)
         edited_scheduled_txn_info['name'] = name or scheduled_txn.name
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
+        frequency = self._get_input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
         edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
-        next_due_date = input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
+        next_due_date = self._get_input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
         edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
-        print('Splits:')
+        self.print('Splits:')
         new_splits = {}
         for account, orig_amount in scheduled_txn.splits.items():
-            amount = input('%s amount (%s): ' % (account.name, orig_amount))
+            amount = self._get_input('%s amount (%s): ' % (account.name, orig_amount))
             if amount:
                 new_splits[account] = amount
         while True:
-            acct_id = input('new account ID: ')
+            acct_id = self._get_input('new account ID: ')
             if acct_id:
-                amt = input(' amount: ')
+                amt = self._get_input(' amount: ')
                 if amt:
                     new_splits[storage.get_account(acct_id)] = amt
                 else:
@@ -2168,15 +2168,15 @@ class CLI:
             + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
             + '\nCtrl-d - quit'
-        print('Command-line PFT\n%s' % help_msg)
+        self.print('Command-line PFT\n%s' % help_msg)
         while True:
             try:
-                cmd = input('>>> ')
+                cmd = self._get_input('>>> ')
             except EOFError:
-                print('\n')
+                self.print('\n')
                 break
             if cmd == 'h':
-                print(help_msg)
+                self.print(help_msg)
             elif cmd == 'a':
                 self._list_accounts()
             elif cmd == 'ac':
@@ -2198,7 +2198,7 @@ class CLI:
             elif cmd == 'ste':
                 self._edit_scheduled_txn()
             else:
-                print('Invalid command: "%s"' % cmd)
+                self.print('Invalid command: "%s"' % cmd)
 
 
 def parse_args():
