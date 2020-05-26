@@ -1334,22 +1334,23 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_account(self, input_mock):
-        input_mock.side_effect = ['Checking', '0']
+        input_mock.side_effect = ['Checking', '0', '400']
         self.cli._create_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking')
-        output = 'Create Account:\n  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE): '
+        output = 'Create Account:\n  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id: '
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_edit_account(self, input_mock):
-        input_mock.side_effect = ['1', 'Checking updated', '0']
+        input_mock.side_effect = ['1', 'Checking updated', '0', '400']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         self.cli._edit_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
-        output = 'Account ID:   name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE): '
+        self.assertEqual(accounts[0].user_id, '400')
+        output = 'Account ID:   name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id: '
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')

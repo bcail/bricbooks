@@ -801,7 +801,7 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def get_ledger(self, account):
-        if isinstance(account, int):
+        if not isinstance(account, Account):
             account = self.get_account(account)
         ledger = Ledger(account=account)
         db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM txn_splits WHERE account_id = ?', (account.id,)).fetchall()
@@ -2004,13 +2004,13 @@ class CLI:
 
     def input(self, prompt='', prefill=''):
         #https://stackoverflow.com/a/2533142
-        if readline:
+        if prefill and readline:
             readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
         self.print(prompt, end='')
         try:
             return input()
         finally:
-            if readline:
+            if prefill and readline:
                 readline.set_startup_hook()
 
     def _list_accounts(self):
@@ -2022,8 +2022,9 @@ class CLI:
         name = self.input('  name: ')
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
         acct_type = self.input('  type (%s): ' % acct_type_options)
+        user_id = self.input(prompt='  user id: ')
         self.storage.save_account(
-                Account(name=name, type_=acct_type)
+                Account(name=name, type_=acct_type, user_id=user_id)
             )
 
     def _edit_account(self):
@@ -2032,13 +2033,14 @@ class CLI:
         name = self.input(prompt='  name: ', prefill=account.name)
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
         acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
+        user_id = self.input(prompt='  user id: ', prefill=account.user_id)
         self.storage.save_account(
-                Account(id_=acc_id, name=name, type_=acct_type)
+                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id)
             )
 
     def _list_account_txns(self):
         acc_id = self.input('Account ID: ')
-        ledger = self.storage.get_ledger(int(acc_id))
+        ledger = self.storage.get_ledger(acc_id)
         for t in ledger.get_sorted_txns_with_balance():
             tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
             self.print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
