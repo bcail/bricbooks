@@ -2162,19 +2162,9 @@ class CLI:
         updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
         self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
-    def run(self):
-        help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
-            + '\nl - list account txns\ntc - create transaction\nte - edit transaction'\
-            + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
-            + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
-            + '\nCtrl-d - quit'
-        self.print('Command-line PFT\n%s' % help_msg)
+    def _command_loop(self):
         while True:
-            try:
-                cmd = self.input('>>> ')
-            except EOFError:
-                self.print('\n')
-                break
+            cmd = self.input('>>> ')
             if cmd == 'h':
                 self.print(help_msg)
             elif cmd == 'a':
@@ -2199,6 +2189,23 @@ class CLI:
                 self._edit_scheduled_txn()
             else:
                 self.print('Invalid command: "%s"' % cmd)
+
+    def run(self):
+        help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
+            + '\nl - list account txns\ntc - create transaction\nte - edit transaction'\
+            + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
+            + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
+            + '\nCtrl-d - quit'
+        self.print('Command-line PFT\n%s' % help_msg)
+        try:
+            self._command_loop()
+        except (EOFError, KeyboardInterrupt):
+            self.print('\n')
+            sys.exit(0)
+        except:
+            import traceback
+            self.print(traceback.format_exc())
+            sys.exit(1)
 
 
 def parse_args():
@@ -2225,7 +2232,6 @@ if __name__ == '__main__':
             print('file name argument required for CLI mode')
             sys.exit(1)
         CLI(args.file_name).run()
-        sys.exit(0)
 
     try:
         from PySide2 import QtWidgets
