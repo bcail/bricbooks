@@ -2002,7 +2002,7 @@ class CLI:
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
 
-    def _get_input(self, prompt='', prefill=''):
+    def input(self, prompt='', prefill=''):
         #https://stackoverflow.com/a/2533142
         if readline:
             readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
@@ -2019,25 +2019,25 @@ class CLI:
 
     def _create_account(self):
         self.print('Create Account:')
-        name = self._get_input('  name: ')
+        name = self.input('  name: ')
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = self._get_input('  type (%s): ' % acct_type_options)
+        acct_type = self.input('  type (%s): ' % acct_type_options)
         self.storage.save_account(
                 Account(name=name, type_=acct_type)
             )
 
     def _edit_account(self):
-        acc_id = self._get_input('Account ID: ')
+        acc_id = self.input('Account ID: ')
         account = self.storage.get_account(acc_id)
-        name = self._get_input(prompt='  name: ', prefill=account.name)
+        name = self.input(prompt='  name: ', prefill=account.name)
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = self._get_input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
+        acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
         self.storage.save_account(
                 Account(id_=acc_id, name=name, type_=acct_type)
             )
 
     def _list_account_txns(self):
-        acc_id = self._get_input('Account ID: ')
+        acc_id = self.input('Account ID: ')
         ledger = self.storage.get_ledger(int(acc_id))
         for t in ledger.get_sorted_txns_with_balance():
             tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
@@ -2045,12 +2045,12 @@ class CLI:
 
     def _create_txn(self):
         self.print('Create Transaction:')
-        withdrawal_account_id = self._get_input('  withdrawal account id: ')
+        withdrawal_account_id = self.input('  withdrawal account id: ')
         withdrawal_account = self.storage.get_account(withdrawal_account_id)
-        deposit_account_id = self._get_input('  deposit account id: ')
+        deposit_account_id = self.input('  deposit account id: ')
         deposit_account = self.storage.get_account(deposit_account_id)
-        amount = self._get_input('  amount: ')
-        txn_date = self._get_input('  date: ')
+        amount = self.input('  amount: ')
+        txn_date = self.input('  date: ')
         splits = {
                 withdrawal_account: '-%s' % amount,
                 deposit_account: amount,
@@ -2063,21 +2063,21 @@ class CLI:
         )
 
     def _edit_txn(self):
-        txn_id = self._get_input(prompt='Txn ID: ')
+        txn_id = self.input(prompt='Txn ID: ')
         txn = self.storage.get_txn(txn_id)
         edited_txn_info = {'id_': txn.id}
-        txn_date = self._get_input(prompt='  date: ')
+        txn_date = self.input(prompt='  date: ')
         edited_txn_info['txn_date'] = txn_date
         self.print('Splits:')
         new_splits = {}
         for account, orig_amount in txn.splits.items():
-            amount = self._get_input(prompt='%s amount (%s): ' % (account.name, orig_amount))
+            amount = self.input(prompt='%s amount (%s): ' % (account.name, orig_amount))
             if amount:
                 new_splits[account] = amount
         while True:
-            acct_id = self._get_input(prompt='new account ID: ')
+            acct_id = self.input(prompt='new account ID: ')
             if acct_id:
-                amt = self._get_input(prompt=' amount: ')
+                amt = self.input(prompt=' amount: ')
                 if amt:
                     new_splits[storage.get_account(acct_id)] = amt
                 else:
@@ -2094,15 +2094,15 @@ class CLI:
 
     def _create_scheduled_txn(self):
         self.print('Create Scheduled Transaction:')
-        name = self._get_input('  name: ')
+        name = self.input('  name: ')
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = self._get_input('  frequency (%s): ' % frequency_options)
-        next_due_date = self._get_input('  next due date (yyyy-mm-dd): ')
-        withdrawal_account_id = self._get_input('  withdrawal account id: ')
+        frequency = self.input('  frequency (%s): ' % frequency_options)
+        next_due_date = self.input('  next due date (yyyy-mm-dd): ')
+        withdrawal_account_id = self.input('  withdrawal account id: ')
         withdrawal_account = storage.get_account(withdrawal_account_id)
-        deposit_account_id = self._get_input('  deposit account id: ')
+        deposit_account_id = self.input('  deposit account id: ')
         deposit_account = storage.get_account(deposit_account_id)
-        amount = self._get_input('  amount: ')
+        amount = self.input('  amount: ')
         splits = {
                 withdrawal_account: '-%s' % amount,
                 deposit_account: amount,
@@ -2117,7 +2117,7 @@ class CLI:
         )
 
     def _display_scheduled_txn(self):
-        scheduled_txn_id = self._get_input('Enter scheduled txn ID: ')
+        scheduled_txn_id = self.input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
         self.print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
         self.print('  %s' % scheduled_txn.frequency)
@@ -2132,26 +2132,26 @@ class CLI:
             self.print('  %s' % scheduled_txn.description)
 
     def _edit_scheduled_txn(self):
-        scheduled_txn_id = self._get_input('Enter scheduled txn ID: ')
+        scheduled_txn_id = self.input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
         edited_scheduled_txn_info = {'id_': scheduled_txn.id}
-        name = self._get_input('name [%s]: ' % scheduled_txn.name)
+        name = self.input('name [%s]: ' % scheduled_txn.name)
         edited_scheduled_txn_info['name'] = name or scheduled_txn.name
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = self._get_input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
+        frequency = self.input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
         edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
-        next_due_date = self._get_input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
+        next_due_date = self.input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
         edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
         self.print('Splits:')
         new_splits = {}
         for account, orig_amount in scheduled_txn.splits.items():
-            amount = self._get_input('%s amount (%s): ' % (account.name, orig_amount))
+            amount = self.input('%s amount (%s): ' % (account.name, orig_amount))
             if amount:
                 new_splits[account] = amount
         while True:
-            acct_id = self._get_input('new account ID: ')
+            acct_id = self.input('new account ID: ')
             if acct_id:
-                amt = self._get_input(' amount: ')
+                amt = self.input(' amount: ')
                 if amt:
                     new_splits[storage.get_account(acct_id)] = amt
                 else:
@@ -2171,7 +2171,7 @@ class CLI:
         self.print('Command-line PFT\n%s' % help_msg)
         while True:
             try:
-                cmd = self._get_input('>>> ')
+                cmd = self.input('>>> ')
             except EOFError:
                 self.print('\n')
                 break
