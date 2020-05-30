@@ -2002,41 +2002,45 @@ class CLI:
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
 
-    def input(self, prompt='', prefill=''):
+    def input(self, prompt='', prefill=None):
         #https://stackoverflow.com/a/2533142
-        if prefill and readline:
+        if (prefill is not None) and readline:
             readline.set_startup_hook(lambda: readline.insert_text(str(prefill)))
         self.print(prompt, end='')
         try:
             return input()
         finally:
-            if prefill and readline:
+            if (prefill is not None) and readline:
                 readline.set_startup_hook()
 
     def _list_accounts(self):
         for a in self.storage.get_accounts():
             self.print('%s - %s' % (a.id, a.name))
 
+    def _get_and_save_account(self, account=None):
+        acc_id = None
+        name_prefill = acct_type_prefill = user_id_prefill = ''
+        if account:
+            acc_id = account.id
+            name_prefill = account.name
+            acct_type_prefill = account.type.value
+            user_id_prefill = account.user_id
+        name = self.input(prompt='  name: ', prefill=name_prefill)
+        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
+        acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=acct_type_prefill)
+        user_id = self.input(prompt='  user id: ', prefill=user_id_prefill)
+        self.storage.save_account(
+                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id)
+            )
+
     def _create_account(self):
         self.print('Create Account:')
-        name = self.input('  name: ')
-        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = self.input('  type (%s): ' % acct_type_options)
-        user_id = self.input(prompt='  user id: ')
-        self.storage.save_account(
-                Account(name=name, type_=acct_type, user_id=user_id)
-            )
+        self._get_and_save_account()
 
     def _edit_account(self):
         acc_id = self.input('Account ID: ')
         account = self.storage.get_account(acc_id)
-        name = self.input(prompt='  name: ', prefill=account.name)
-        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
-        acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=account.type.value)
-        user_id = self.input(prompt='  user id: ', prefill=account.user_id)
-        self.storage.save_account(
-                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id)
-            )
+        self._get_and_save_account(account=account)
 
     def _list_account_txns(self):
         acc_id = self.input('Account ID: ')
