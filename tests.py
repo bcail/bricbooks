@@ -1330,7 +1330,8 @@ class TestCLI(unittest.TestCase):
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         self.cli._list_accounts()
-        self.assertEqual(self.memory_buffer.getvalue(), '1 - Checking\n')
+        output = '%s\n 1    | ASSET       |         | Checking                       |                               \n' % pft.CLI.ACCOUNT_LIST_HEADER
+        self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_create_account(self, input_mock):

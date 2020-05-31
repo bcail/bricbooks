@@ -1998,6 +1998,9 @@ class PFT_GUI_QT:
 
 class CLI:
 
+    ACCOUNT_LIST_HEADER = ' ID   | Type        | User ID | Name                           | Parent\n'\
+        '==============================================================================================='
+
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
@@ -2014,8 +2017,17 @@ class CLI:
                 readline.set_startup_hook()
 
     def _list_accounts(self):
+        self.print(self.ACCOUNT_LIST_HEADER)
         for a in self.storage.get_accounts():
-            self.print('%s - %s' % (a.id, a.name))
+            if a.user_id:
+                user_id = a.user_id
+            else:
+                user_id = ''
+            if a.parent:
+                parent = a.parent.name
+            else:
+                parent = ''
+            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, user_id, a.name, parent))
 
     def _get_and_save_account(self, account=None):
         acc_id = None
