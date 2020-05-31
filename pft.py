@@ -2041,8 +2041,12 @@ class CLI:
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
         acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=acct_type_prefill)
         user_id = self.input(prompt='  user id: ', prefill=user_id_prefill)
+        parent_id = self.input(prompt='  parent account id: ')
+        parent = None
+        if parent_id:
+            parent = self.storage.get_account(parent_id)
         self.storage.save_account(
-                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id)
+                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id, parent=parent)
             )
 
     def _create_account(self):

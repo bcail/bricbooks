@@ -1320,9 +1320,11 @@ class TestSQLiteStorage(unittest.TestCase):
 
 
 class TestCLI(unittest.TestCase):
-    #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
+
+    ACCOUNT_FORM_OUTPUT = '  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id:   parent account id: '
 
     def setUp(self):
+        #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
         self.memory_buffer = io.StringIO()
         self.cli = pft.CLI(':memory:', print_file=self.memory_buffer)
 
@@ -1335,23 +1337,29 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_account(self, input_mock):
-        input_mock.side_effect = ['Checking', '0', '400']
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        input_mock.side_effect = ['Checking', '0', '400', str(savings.id)]
         self.cli._create_account()
         accounts = self.cli.storage.get_accounts()
-        self.assertEqual(accounts[0].name, 'Checking')
-        output = 'Create Account:\n  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id: '
+        self.assertEqual(accounts[1].name, 'Checking')
+        self.assertEqual(accounts[1].parent, savings)
+        output = 'Create Account:\n%s' % self.ACCOUNT_FORM_OUTPUT
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_edit_account(self, input_mock):
-        input_mock.side_effect = ['1', 'Checking updated', '0', '400']
+        input_mock.side_effect = ['1', 'Checking updated', '0', '400', '2']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
         self.cli._edit_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
         self.assertEqual(accounts[0].user_id, '400')
-        output = 'Account ID:   name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id: '
+        self.assertEqual(accounts[0].parent, savings)
+        output = 'Account ID: %s' % self.ACCOUNT_FORM_OUTPUT
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
