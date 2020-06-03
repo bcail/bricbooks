@@ -2027,7 +2027,7 @@ class CLI:
                 parent = a.parent.name
             else:
                 parent = ''
-            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, user_id, a.name, parent))
+            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, user_id[:7], a.name[:30], parent[:30]))
 
     def _get_and_save_account(self, account=None):
         acc_id = None

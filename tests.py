@@ -1329,10 +1329,10 @@ class TestCLI(unittest.TestCase):
         self.cli = pft.CLI(':memory:', print_file=self.memory_buffer)
 
     def test_list_accounts(self):
-        checking = get_test_account()
+        checking = get_test_account(name='Checking account with long name cut off')
         self.cli.storage.save_account(checking)
         self.cli._list_accounts()
-        output = '%s\n 1    | ASSET       |         | Checking                       |                               \n' % pft.CLI.ACCOUNT_LIST_HEADER
+        output = '%s\n 1    | ASSET       |         | Checking account with long nam |                               \n' % pft.CLI.ACCOUNT_LIST_HEADER
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
