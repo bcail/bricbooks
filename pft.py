@@ -2001,7 +2001,8 @@ class CLI:
     ACCOUNT_LIST_HEADER = ' ID   | Type        | User ID | Name                           | Parent\n'\
         '==============================================================================================='
 
-    TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Categories                    | Withdrawal |  Deposit   |  Balance'
+    TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal |  Deposit   |  Balance\n'\
+        '================================================================================================================================================================'
 
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
