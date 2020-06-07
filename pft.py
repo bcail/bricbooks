@@ -2001,6 +2001,8 @@ class CLI:
     ACCOUNT_LIST_HEADER = ' ID   | Type        | User ID | Name                           | Parent\n'\
         '==============================================================================================='
 
+    TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Categories                    | Withdrawal |  Deposit   |  Balance'
+
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
@@ -2061,9 +2063,13 @@ class CLI:
     def _list_account_txns(self):
         acc_id = self.input('Account ID: ')
         ledger = self.storage.get_ledger(acc_id)
+        self.print(ledger.account.name)
+        self.print(self.TXN_LIST_HEADER)
         for t in ledger.get_sorted_txns_with_balance():
             tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
-            self.print('%s | %s | %s | %s' % (tds['txn_date'], tds['withdrawal'], tds['deposit'], t.balance))
+            self.print(' {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
+                tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
+            )
 
     def _create_txn(self):
         self.print('Create Transaction:')

@@ -1332,7 +1332,8 @@ class TestCLI(unittest.TestCase):
         checking = get_test_account(name='Checking account with long name cut off')
         self.cli.storage.save_account(checking)
         self.cli._list_accounts()
-        output = '%s\n 1    | ASSET       |         | Checking account with long nam |                               \n' % pft.CLI.ACCOUNT_LIST_HEADER
+        output = '%s\n' % pft.CLI.ACCOUNT_LIST_HEADER
+        output += ' 1    | ASSET       |         | Checking account with long nam |                               \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
@@ -1364,19 +1365,20 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_list_account_txns(self, input_mock):
+        self.maxDiff = None
         input_mock.return_value = '1'
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
-        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns()
-        output = '''Account ID: 2017-01-01 |  | 5 | 5
-2017-01-02 |  | 5 | 10
-'''
+        output = 'Account ID: Checking\n%s\n' % pft.CLI.TXN_LIST_HEADER
+        output += ' 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
+        output += ' 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
