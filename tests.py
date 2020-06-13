@@ -1394,6 +1394,9 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[checking], D(-15))
         self.assertEqual(txn.splits[savings], D(15))
+        output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID: '
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertEqual(buffer_value, output)
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
@@ -1408,11 +1411,15 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_txn(txn)
         self.cli._edit_txn()
         ledger = self.cli.storage.get_ledger(1)
-        txn = ledger.get_sorted_txns_with_balance()[0]
-        self.assertEqual(txn.txn_date, date(2017, 2, 13))
-        self.assertEqual(txn.splits[checking], -90)
-        self.assertEqual(txn.splits[savings], 50)
-        self.assertEqual(txn.splits[another_account], 40)
+        edited_txn = ledger.get_txn(id_=txn.id)
+        self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
+        self.assertEqual(edited_txn.splits[checking], -90)
+        self.assertEqual(edited_txn.splits[savings], 50)
+        self.assertEqual(edited_txn.splits[another_account], 40)
+        output = 'Txn ID:   date: Splits:\n'
+        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID: '
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertEqual(buffer_value, output)
 
 
 def fake_method():

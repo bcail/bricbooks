@@ -2072,11 +2072,18 @@ class CLI:
                 tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
             )
 
-    def _create_txn(self):
-        self.print('Create Transaction:')
-        txn_date = self.input(prompt='  date: ')
+    def _get_and_save_txn(self, txn=None):
+        info = {}
+        if txn:
+            info['id_'] = txn.id
+        info['txn_date'] = self.input(prompt='  date: ')
         self.print('Splits:')
         new_splits = {}
+        if txn:
+            for account, orig_amount in txn.splits.items():
+                amount = self.input(prompt='%s amount (%s): ' % (account.name, orig_amount))
+                if amount:
+                    new_splits[account] = amount
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
@@ -2087,38 +2094,17 @@ class CLI:
                     break
             else:
                 break
-        self.storage.save_txn(
-            Transaction(
-                txn_date=txn_date,
-                splits=new_splits,
-            )
-        )
+        info['splits'] = new_splits
+        self.storage.save_txn(Transaction(**info))
+
+    def _create_txn(self):
+        self.print('Create Transaction:')
+        self._get_and_save_txn()
 
     def _edit_txn(self):
         txn_id = self.input(prompt='Txn ID: ')
         txn = self.storage.get_txn(txn_id)
-        edited_txn_info = {'id_': txn.id}
-        txn_date = self.input(prompt='  date: ')
-        edited_txn_info['txn_date'] = txn_date
-        self.print('Splits:')
-        new_splits = {}
-        for account, orig_amount in txn.splits.items():
-            amount = self.input(prompt='%s amount (%s): ' % (account.name, orig_amount))
-            if amount:
-                new_splits[account] = amount
-        while True:
-            acct_id = self.input(prompt='new account ID: ')
-            if acct_id:
-                amt = self.input(prompt=' amount: ')
-                if amt:
-                    new_splits[self.storage.get_account(acct_id)] = amt
-                else:
-                    break
-            else:
-                break
-        edited_txn_info['splits'] = new_splits
-        updated_txn = Transaction(**edited_txn_info)
-        self.storage.save_txn(updated_txn)
+        self._get_and_save_txn(txn=txn)
 
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
