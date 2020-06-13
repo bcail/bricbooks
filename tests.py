@@ -1383,7 +1383,7 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_txn(self, input_mock):
-        input_mock.side_effect = ['1', '2', '15', '2019-02-24']
+        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
@@ -1392,21 +1392,27 @@ class TestCLI(unittest.TestCase):
         ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
+        self.assertEqual(txn.splits[checking], D(-15))
+        self.assertEqual(txn.splits[savings], D(15))
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
-        input_mock.side_effect = ['1', '2017-02-13', '7', '-7', '']
+        input_mock.side_effect = ['1', '2017-02-13', '-90', '50', '3', '40', '']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
+        another_account = get_test_account(name='Another')
+        self.cli.storage.save_account(another_account)
         txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
         self.cli.storage.save_txn(txn)
         self.cli._edit_txn()
         ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2017, 2, 13))
-        self.assertEqual(txn.splits[checking], 7)
+        self.assertEqual(txn.splits[checking], -90)
+        self.assertEqual(txn.splits[savings], 50)
+        self.assertEqual(txn.splits[another_account], 40)
 
 
 def fake_method():

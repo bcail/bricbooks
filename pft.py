@@ -2074,20 +2074,23 @@ class CLI:
 
     def _create_txn(self):
         self.print('Create Transaction:')
-        withdrawal_account_id = self.input('  withdrawal account id: ')
-        withdrawal_account = self.storage.get_account(withdrawal_account_id)
-        deposit_account_id = self.input('  deposit account id: ')
-        deposit_account = self.storage.get_account(deposit_account_id)
-        amount = self.input('  amount: ')
-        txn_date = self.input('  date: ')
-        splits = {
-                withdrawal_account: '-%s' % amount,
-                deposit_account: amount,
-            }
+        txn_date = self.input(prompt='  date: ')
+        self.print('Splits:')
+        new_splits = {}
+        while True:
+            acct_id = self.input(prompt='new account ID: ')
+            if acct_id:
+                amt = self.input(prompt=' amount: ')
+                if amt:
+                    new_splits[self.storage.get_account(acct_id)] = amt
+                else:
+                    break
+            else:
+                break
         self.storage.save_txn(
             Transaction(
                 txn_date=txn_date,
-                splits=splits,
+                splits=new_splits,
             )
         )
 
@@ -2108,7 +2111,7 @@ class CLI:
             if acct_id:
                 amt = self.input(prompt=' amount: ')
                 if amt:
-                    new_splits[storage.get_account(acct_id)] = amt
+                    new_splits[self.storage.get_account(acct_id)] = amt
                 else:
                     break
             else:
