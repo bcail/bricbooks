@@ -2095,6 +2095,11 @@ class CLI:
             else:
                 break
         info['splits'] = new_splits
+        info['txn_type'] = self.input(prompt='  type: ')
+        payee_id = self.input(prompt='  payee id: ')
+        info['payee'] = self.storage.get_payee(payee_id)
+        info['description'] = self.input(prompt='  description: ')
+        info['status'] = self.input(prompt='  status: ')
         self.storage.save_txn(Transaction(**info))
 
     def _create_txn(self):

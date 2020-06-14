@@ -1383,24 +1383,32 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_txn(self, input_mock):
-        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
+        payee = pft.Payee(name='payee 1')
+        self.cli.storage.save_payee(payee)
+        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
+                'type 1', str(payee.id), 'description', 'C']
         self.cli._create_txn()
         ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[checking], D(-15))
         self.assertEqual(txn.splits[savings], D(15))
-        output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID: '
+        self.assertEqual(txn.txn_type, 'type 1')
+        self.assertEqual(txn.payee, payee)
+        self.assertEqual(txn.description, 'description')
+        self.assertEqual(txn.status, 'C')
+        output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID:   type:   payee id:   description:   status: '
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
-        input_mock.side_effect = ['1', '2017-02-13', '-90', '50', '3', '40', '']
+        input_mock.side_effect = ['1', '2017-02-13', '-90', '50', '3', '40', '',
+                '', '', 'new description', '']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
@@ -1416,8 +1424,9 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(edited_txn.splits[checking], -90)
         self.assertEqual(edited_txn.splits[savings], 50)
         self.assertEqual(edited_txn.splits[another_account], 40)
+        self.assertEqual(edited_txn.description, 'new description')
         output = 'Txn ID:   date: Splits:\n'
-        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID: '
+        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID:   type:   payee id:   description:   status: '
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
