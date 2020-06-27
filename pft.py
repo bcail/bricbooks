@@ -2004,6 +2004,19 @@ class CLI:
     TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal |  Deposit   |  Balance\n'\
         '================================================================================================================================================================'
 
+    NUM_TXNS_IN_PAGE = 5
+
+    @staticmethod
+    def get_page(items, num_txns_in_page, page=1):
+        start = 0 + (page-1)*num_txns_in_page
+        end = start+num_txns_in_page
+        page_items = items[start:end]
+        if end < len(items):
+            more_items = True
+        else:
+            more_items = False
+        return page_items, more_items
+
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
@@ -2061,16 +2074,30 @@ class CLI:
         account = self.storage.get_account(acc_id)
         self._get_and_save_account(account=account)
 
-    def _list_account_txns(self):
+    def _list_account_txns(self, num_txns_in_page=None):
+        if not num_txns_in_page:
+            num_txns_in_page = self.NUM_TXNS_IN_PAGE
         acc_id = self.input('Account ID: ')
         ledger = self.storage.get_ledger(acc_id)
         self.print(ledger.account.name)
         self.print(self.TXN_LIST_HEADER)
-        for t in ledger.get_sorted_txns_with_balance():
-            tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
-            self.print(' {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
-            )
+        txns = ledger.get_sorted_txns_with_balance()
+        page_index = 1
+        while True:
+            paged_txns, more_txns = CLI.get_page(txns, num_txns_in_page=num_txns_in_page, page=page_index)
+            for t in paged_txns:
+                tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
+                self.print(' {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
+                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
+                )
+            if more_txns:
+                x = self.input('(n)ext page ')
+                if x == 'n':
+                    page_index += 1
+                else:
+                    break
+            else:
+                break
 
     def _get_and_save_txn(self, txn=None):
         info = {}

@@ -1382,6 +1382,28 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
+    def test_list_account_txns_paged(self, input_mock):
+        input_mock.return_value = '1'
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
+        self.cli.storage.save_txn(txn)
+        self.cli.storage.save_txn(txn2)
+        self.cli._list_account_txns(num_txns_in_page=1)
+        printed_output = self.memory_buffer.getvalue()
+        self.assertTrue('(n)ext page' in printed_output)
+
+    def test_get_page(self):
+        self.assertEqual(pft.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))
+        self.assertEqual(pft.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=3), ([3], False))
+        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=3), ([5], False))
+        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=2), ([3, 4], True))
+        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4], num_txns_in_page=2, page=2), ([3, 4], False))
+
+    @patch('builtins.input')
     def test_create_txn(self, input_mock):
         checking = get_test_account()
         self.cli.storage.save_account(checking)
