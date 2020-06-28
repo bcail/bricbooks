@@ -1452,6 +1452,24 @@ class TestCLI(unittest.TestCase):
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
+    def test_list_budget(self):
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        self.cli.storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        self.cli.storage.save_account(food)
+        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        self.cli.storage.save_account(wages)
+        b = pft.Budget(year=2018, account_budget_info={
+            housing: {'amount': D(15), 'carryover': D(0)},
+            food: {'amount': D(25), 'carryover': D(0)},
+            wages: {'amount': D(100)},
+        })
+        self.cli.storage.save_budget(b)
+        self.cli._list_budgets()
+        output = '2018-01-01 - 2018-12-31\n'
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertEqual(buffer_value, output)
+
 
 def fake_method():
     pass

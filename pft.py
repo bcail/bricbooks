@@ -2217,6 +2217,10 @@ class CLI:
         updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
         self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
+    def _list_budgets(self):
+        for b in self.storage.get_budgets():
+            self.print(b)
+
     def _command_loop(self):
         while True:
             cmd = self.input('>>> ')
@@ -2242,14 +2246,17 @@ class CLI:
                 self._display_scheduled_txn()
             elif cmd == 'ste':
                 self._edit_scheduled_txn()
+            elif cmd == 'b':
+                self._list_budgets()
             else:
                 self.print('Invalid command: "%s"' % cmd)
 
     def run(self):
         help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
-            + '\nl - list account txns\ntc - create transaction\nte - edit transaction'\
+            + '\nl - list txns\ntc - create transaction\nte - edit transaction'\
             + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
+            + '\nb - list budgets'\
             + '\nCtrl-d - quit'
         self.print('Command-line PFT\n%s' % help_msg)
         try:
