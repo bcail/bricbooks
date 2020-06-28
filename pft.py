@@ -2004,7 +2004,7 @@ class CLI:
     TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal |  Deposit   |  Balance\n'\
         '================================================================================================================================================================'
 
-    NUM_TXNS_IN_PAGE = 5
+    NUM_TXNS_IN_PAGE = 50
 
     @staticmethod
     def get_page(items, num_txns_in_page, page=1):
@@ -2091,9 +2091,14 @@ class CLI:
                     tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
                 )
             if more_txns:
-                x = self.input('(n)ext page ')
+                prompt = '(n)ext page '
+                if page_index > 1:
+                    prompt = '(p)revious page, ' + prompt
+                x = self.input(prompt=prompt)
                 if x == 'n':
                     page_index += 1
+                elif x == 'p':
+                    page_index -= 1
                 else:
                     break
             else:
