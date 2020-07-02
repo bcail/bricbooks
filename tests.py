@@ -1452,6 +1452,27 @@ class TestCLI(unittest.TestCase):
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
+    def test_list_scheduled_txns(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(checking)
+        self.cli.storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.cli.storage.save_scheduled_transaction(st)
+        self.cli._list_scheduled_txns()
+        output = '1: weekly 1'
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertTrue(buffer_value.startswith(output))
+
     def test_list_budget(self):
         housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
