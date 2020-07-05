@@ -1479,7 +1479,7 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
         self.cli.storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '2', '15']
+        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', '2', '15', '']
         self.cli._create_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)

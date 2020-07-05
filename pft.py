@@ -2153,15 +2153,18 @@ class CLI:
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
         frequency = self.input('  frequency (%s): ' % frequency_options)
         next_due_date = self.input('  next due date (yyyy-mm-dd): ')
-        withdrawal_account_id = self.input('  withdrawal account id: ')
-        withdrawal_account = self.storage.get_account(withdrawal_account_id)
-        deposit_account_id = self.input('  deposit account id: ')
-        deposit_account = self.storage.get_account(deposit_account_id)
-        amount = self.input('  amount: ')
-        splits = {
-                withdrawal_account: '-%s' % amount,
-                deposit_account: amount,
-            }
+        self.print('Splits:')
+        splits = {}
+        while True:
+            acct_id = self.input(prompt='new account ID: ')
+            if acct_id:
+                amt = self.input(prompt=' amount: ')
+                if amt:
+                    splits[self.storage.get_account(acct_id)] = amt
+                else:
+                    break
+            else:
+                break
         self.storage.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
