@@ -2154,15 +2154,15 @@ class CLI:
         frequency = self.input('  frequency (%s): ' % frequency_options)
         next_due_date = self.input('  next due date (yyyy-mm-dd): ')
         withdrawal_account_id = self.input('  withdrawal account id: ')
-        withdrawal_account = storage.get_account(withdrawal_account_id)
+        withdrawal_account = self.storage.get_account(withdrawal_account_id)
         deposit_account_id = self.input('  deposit account id: ')
-        deposit_account = storage.get_account(deposit_account_id)
+        deposit_account = self.storage.get_account(deposit_account_id)
         amount = self.input('  amount: ')
         splits = {
                 withdrawal_account: '-%s' % amount,
                 deposit_account: amount,
             }
-        storage.save_scheduled_transaction(
+        self.storage.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
                 frequency=frequency,
