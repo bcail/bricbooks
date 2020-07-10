@@ -1491,6 +1491,29 @@ class TestCLI(unittest.TestCase):
                     savings: 15,
                 })
 
+    @patch('builtins.input')
+    def test_edit_scheduled_txn(self, input_mock):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(checking)
+        self.cli.storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.cli.storage.save_scheduled_transaction(st)
+        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '15', '']
+        self.cli._edit_scheduled_txn()
+        scheduled_txns = self.cli.storage.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].splits[checking], -15)
+
     def test_list_budget(self):
         housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)

@@ -2211,7 +2211,7 @@ class CLI:
             if acct_id:
                 amt = self.input(' amount: ')
                 if amt:
-                    new_splits[storage.get_account(acct_id)] = amt
+                    new_splits[self.storage.get_account(acct_id)] = amt
                 else:
                     break
             else:
