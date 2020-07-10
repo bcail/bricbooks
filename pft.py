@@ -1864,11 +1864,12 @@ class BudgetDisplay:
 
     def _save_budget_and_reload(self, budget, new_budget=False):
         self.storage.save_budget(budget)
-        self._current_budget = budget
+        #need to reload budget from storage here, so txn info is picked up
+        self._current_budget = self.storage.get_budget(budget_id=budget.id)
         if new_budget:
             #need to add new budget to select combo and select it
             num_items = self._budget_select_combo.count()
-            self._budget_select_combo.addItem(str(budget), budget)
+            self._budget_select_combo.addItem(str(self._current_budget), self._current_budget)
             self._budget_select_combo.setCurrentIndex(num_items)
         self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
