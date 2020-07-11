@@ -1514,7 +1514,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].splits[checking], -15)
 
-    def test_list_budget(self):
+    def test_list_budgets(self):
         housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
@@ -1531,6 +1531,20 @@ class TestCLI(unittest.TestCase):
         output = '2018-01-01 - 2018-12-31\n'
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
+
+    @patch('builtins.input')
+    def test_create_budget(self, input_mock):
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        self.cli.storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        self.cli.storage.save_account(food)
+        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        input_mock.side_effect = ['2019-01-10', '2019-11-30']
+        self.cli.storage.save_account(wages)
+        self.cli._create_budget()
+        budget = self.cli.storage.get_budgets()[0]
+        self.assertEqual(budget.start_date, date(2019, 1, 10))
+        self.assertEqual(budget.end_date, date(2019, 11, 30))
 
 
 def fake_method():

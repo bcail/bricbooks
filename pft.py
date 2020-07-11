@@ -2225,6 +2225,17 @@ class CLI:
         for b in self.storage.get_budgets():
             self.print(b)
 
+    def _create_budget(self):
+        self.print('Create Budget:')
+        start_date = self.input(prompt='  start date: ')
+        end_date = self.input(prompt='  end date: ')
+        self.storage.save_budget(
+                Budget(
+                    start_date=start_date,
+                    end_date=end_date,
+                )
+            )
+
     def _command_loop(self):
         while True:
             cmd = self.input('>>> ')
@@ -2252,6 +2263,8 @@ class CLI:
                 self._edit_scheduled_txn()
             elif cmd == 'b':
                 self._list_budgets()
+            elif cmd == 'bc':
+                self._create_budget()
             else:
                 self.print('Invalid command: "%s"' % cmd)
 
@@ -2260,7 +2273,7 @@ class CLI:
             + '\nl - list txns\ntc - create transaction\nte - edit transaction'\
             + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
-            + '\nb - list budgets'\
+            + '\nb - list budgets\nbc - create budget'\
             + '\nCtrl-d - quit'
         self.print('Command-line PFT\n%s' % help_msg)
         try:
