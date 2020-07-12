@@ -2229,10 +2229,29 @@ class CLI:
         self.print('Create Budget:')
         start_date = self.input(prompt='  start date: ')
         end_date = self.input(prompt='  end date: ')
+        account_info = {}
+        while True:
+            acct_id = self.input('new account ID: ')
+            if acct_id:
+                amt = self.input(' amount: ')
+                if amt:
+                    account = self.storage.get_account(acct_id)
+                    account_info[account] = {'amount': amt}
+                    carryover = self.input(' carryover: ')
+                    if carryover:
+                        account_info[account]['carryover'] = carryover
+                    notes = self.input(' notes: ')
+                    if notes:
+                        account_info[account]['notes'] = notes
+                else:
+                    break
+            else:
+                break
         self.storage.save_budget(
                 Budget(
                     start_date=start_date,
                     end_date=end_date,
+                    account_budget_info=account_info,
                 )
             )
 

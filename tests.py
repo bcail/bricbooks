@@ -1539,12 +1539,16 @@ class TestCLI(unittest.TestCase):
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
         wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
-        input_mock.side_effect = ['2019-01-10', '2019-11-30']
+        input_mock.side_effect = ['2019-01-10', '2019-11-30', str(housing.id), '100', '', '', '']
         self.cli.storage.save_account(wages)
         self.cli._create_budget()
         budget = self.cli.storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))
         self.assertEqual(budget.end_date, date(2019, 11, 30))
+        budget_data = budget.get_budget_data()
+        self.assertEqual(budget_data[housing], {'amount': 100})
+        self.assertEqual(budget_data[food], {})
+        self.assertEqual(budget_data[wages], {})
 
 
 def fake_method():
