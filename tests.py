@@ -1539,8 +1539,8 @@ class TestCLI(unittest.TestCase):
         food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
         wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
-        input_mock.side_effect = ['2019-01-10', '2019-11-30', str(housing.id), '100', '', '', '']
         self.cli.storage.save_account(wages)
+        input_mock.side_effect = ['2019-01-10', '2019-11-30', str(housing.id), '100', '', '', '']
         self.cli._create_budget()
         budget = self.cli.storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))
@@ -1549,6 +1549,29 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(budget_data[housing], {'amount': 100})
         self.assertEqual(budget_data[food], {})
         self.assertEqual(budget_data[wages], {})
+
+    @patch('builtins.input')
+    def test_edit_budget(self, input_mock):
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        self.cli.storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        self.cli.storage.save_account(food)
+        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        self.cli.storage.save_account(wages)
+        b = pft.Budget(year=2018, account_budget_info={
+            housing: {'amount': D(15), 'carryover': D(0)},
+            food: {'amount': D(25), 'carryover': D(0)},
+            wages: {'amount': D(100)},
+        })
+        self.cli.storage.save_budget(b)
+        input_mock.side_effect = [str(b.id), '2019-01-10', '2019-11-30', '40', '', '', '', '', '', '100', '', '', '']
+        self.cli._edit_budget()
+        budget = self.cli.storage.get_budgets()[0]
+        self.assertEqual(budget.start_date, date(2019, 1, 10))
+        budget_data = budget.get_budget_data()
+        self.assertEqual(budget_data[housing]['amount'], 40)
+        self.assertEqual(budget_data[food], {})
+        self.assertEqual(budget_data[wages]['amount'], 100)
 
 
 def fake_method():
