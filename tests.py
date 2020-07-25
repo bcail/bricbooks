@@ -1560,11 +1560,11 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(wages)
         b = pft.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
+            food: {},
             wages: {'amount': D(100)},
         })
         self.cli.storage.save_budget(b)
-        input_mock.side_effect = [str(b.id), '2019-01-10', '2019-11-30', '40', '', '', '', '', '', '100', '', '', '']
+        input_mock.side_effect = [str(b.id), '2019-01-10', '2019-11-30', '40', '', '', '', '', '', '100', '', '']
         self.cli._edit_budget()
         budget = self.cli.storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))

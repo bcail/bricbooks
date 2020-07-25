@@ -840,13 +840,13 @@ class SQLiteStorage:
         records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (budget_id,)).fetchall()
         start_date = get_date(records[0][0])
         end_date = get_date(records[0][1])
-        all_expense_budget_info = {}
+        account_budget_info = {}
         all_income_spending_info = {}
         income_and_expense_accounts = []
         income_and_expense_accounts.extend(self.get_accounts(type_=AccountType.EXPENSE))
         income_and_expense_accounts.extend(self.get_accounts(type_=AccountType.INCOME))
         for account in income_and_expense_accounts:
-            all_expense_budget_info[account] = {}
+            account_budget_info[account] = {}
             all_income_spending_info[account] = {}
             #get spent & income values for each expense account
             spent = Decimal(0)
@@ -864,12 +864,12 @@ class SQLiteStorage:
             budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                all_expense_budget_info[account]['amount'] = r[0]
-                all_expense_budget_info[account]['carryover'] = r[1]
-                all_expense_budget_info[account]['notes'] = r[2]
+                account_budget_info[account]['amount'] = r[0]
+                account_budget_info[account]['carryover'] = r[1]
+                account_budget_info[account]['notes'] = r[2]
             else:
-                all_expense_budget_info[account] = {}
-        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, account_budget_info=all_expense_budget_info,
+                account_budget_info[account] = {}
+        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, account_budget_info=account_budget_info,
                 income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
@@ -2261,8 +2261,9 @@ class CLI:
         start_date = self.input(prompt='  start date: ')
         end_date = self.input(prompt='  end date: ')
         account_info = {}
+        #budget data includes all expense & income accounts
         for account, info in budget.get_budget_data().items():
-            amt = self.input(' amount: ', prefill=info['amount'])
+            amt = self.input(' amount: ', prefill=info.get('amount', ''))
             account_info[account] = {'amount': amt}
             carryover = self.input(' carryover: ', prefill=info.get('carryover', ''))
             if carryover:
@@ -2270,23 +2271,6 @@ class CLI:
             notes = self.input(' notes: ', prefill=info.get('notes', ''))
             if notes:
                 account_info[account]['notes'] = notes
-        while True:
-            acct_id = self.input('new account ID: ')
-            if acct_id:
-                amt = self.input(' amount: ')
-                if amt:
-                    account = self.storage.get_account(acct_id)
-                    account_info[account] = {'amount': amt}
-                    carryover = self.input(' carryover: ')
-                    if carryover:
-                        account_info[account]['carryover'] = carryover
-                    notes = self.input(' notes: ')
-                    if notes:
-                        account_info[account]['notes'] = notes
-                else:
-                    break
-            else:
-                break
         self.storage.save_budget(
                 Budget(
                     start_date=start_date,
