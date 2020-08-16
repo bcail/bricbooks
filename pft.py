@@ -2107,7 +2107,7 @@ class CLI:
 
     def _get_and_save_txn(self, txn=None):
         info = {}
-        if txn:
+        if txn and not isinstance(txn, ScheduledTransaction):
             info['id_'] = txn.id
         info['txn_date'] = self.input(prompt='  date: ')
         self.print('Splits:')
@@ -2147,6 +2147,19 @@ class CLI:
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():
             self.print(st)
+        self._enter_scheduled_txn()
+
+    def _enter_scheduled_txn(self):
+        self.print('Enter next transaction for a scheduled transaction:')
+        while True:
+            scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
+            if scheduled_txn_id:
+                scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+                self._get_and_save_txn(txn=scheduled_txn)
+                scheduled_txn.next_txn_entered()
+                self.storage.save_scheduled_transaction(scheduled_txn)
+            else:
+                break
 
     def _create_scheduled_txn(self):
         self.print('Create Scheduled Transaction:')
@@ -2290,13 +2303,13 @@ class CLI:
                 self._create_account()
             elif cmd == 'ae':
                 self._edit_account()
-            elif cmd == 'l':
+            elif cmd == 't':
                 self._list_account_txns()
             elif cmd == 'tc':
                 self._create_txn()
             elif cmd == 'te':
                 self._edit_txn()
-            elif cmd == 'stl':
+            elif cmd == 'st':
                 self._list_scheduled_txns()
             elif cmd == 'stc':
                 self._create_scheduled_txn()
@@ -2308,15 +2321,17 @@ class CLI:
                 self._list_budgets()
             elif cmd == 'bc':
                 self._create_budget()
+            elif cmd == 'be':
+                self._edit_budget()
             else:
                 self.print('Invalid command: "%s"' % cmd)
 
     def run(self):
         help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
-            + '\nl - list txns\ntc - create transaction\nte - edit transaction'\
-            + '\nstl - list scheduled transactions\nstc - create scheduled transaction'\
+            + '\nt - list txns\ntc - create transaction\nte - edit transaction'\
+            + '\nst - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
-            + '\nb - list budgets\nbc - create budget'\
+            + '\nb - list budgets\nbc - create budget\nbe - edit budget'\
             + '\nCtrl-d - quit'
         self.print('Command-line PFT\n%s' % help_msg)
         try:

@@ -1452,7 +1452,9 @@ class TestCLI(unittest.TestCase):
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
-    def test_list_scheduled_txns(self):
+    @patch('builtins.input')
+    def test_list_scheduled_txns(self, input_mock):
+        input_mock.side_effect = ['']
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
@@ -1472,6 +1474,32 @@ class TestCLI(unittest.TestCase):
         output = '1: weekly 1'
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue(buffer_value.startswith(output))
+
+    @patch('builtins.input')
+    def test_enter_scheduled_txn(self, input_mock):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(checking)
+        self.cli.storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.cli.storage.save_scheduled_transaction(st)
+        input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '101', '', '', '', '', '', '']
+        self.cli._list_scheduled_txns()
+        ledger = self.cli.storage.get_ledger(checking.id)
+        txn = ledger.get_sorted_txns_with_balance()[0]
+        self.assertEqual(txn.splits, valid_splits)
+        self.assertEqual(txn.txn_date, date(2019, 1, 2))
+        scheduled_txn = self.cli.storage.get_scheduled_transaction(st.id)
+        self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
 
     @patch('builtins.input')
     def test_create_scheduled_txn(self, input_mock):
