@@ -2129,8 +2129,11 @@ class CLI:
                 break
         info['splits'] = new_splits
         info['txn_type'] = self.input(prompt='  type: ')
-        payee_id = self.input(prompt='  payee id: ')
-        info['payee'] = self.storage.get_payee(payee_id)
+        payee = self.input(prompt='  payee (id or \'name): ')
+        if payee.startswith("'"):
+            info['payee'] = Payee(payee[1:])
+        else:
+            info['payee'] = self.storage.get_payee(payee)
         info['description'] = self.input(prompt='  description: ')
         info['status'] = self.input(prompt='  status: ')
         self.storage.save_txn(Transaction(**info))

@@ -1423,9 +1423,39 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(txn.payee, payee)
         self.assertEqual(txn.description, 'description')
         self.assertEqual(txn.status, 'C')
-        output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID:   type:   payee id:   description:   status: '
+        output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID:   type:   payee (id or \'name):   description:   status: '
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
+
+    @patch('builtins.input')
+    def test_create_txn_new_payee(self, input_mock):
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
+                'type 1', "'payee 1", 'description', 'C']
+        self.cli._create_txn()
+        ledger = self.cli.storage.get_ledger(1)
+        txn = ledger.get_sorted_txns_with_balance()[0]
+        self.assertEqual(txn.payee.name, 'payee 1')
+
+    @patch('builtins.input')
+    def test_create_txn_existing_payee_by_name(self, input_mock):
+        '''make sure the user can enter the payee's name, even if the payee is already
+        in the DB'''
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        payee = pft.Payee(name='payee 1')
+        self.cli.storage.save_payee(payee)
+        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
+                'type 1', "'payee 1", 'description', 'C']
+        self.cli._create_txn()
+        ledger = self.cli.storage.get_ledger(1)
+        txn = ledger.get_sorted_txns_with_balance()[0]
+        self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
@@ -1448,7 +1478,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(edited_txn.splits[another_account], 40)
         self.assertEqual(edited_txn.description, 'new description')
         output = 'Txn ID:   date: Splits:\n'
-        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID:   type:   payee id:   description:   status: '
+        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID:   type:   payee (id or \'name):   description:   status: '
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 
