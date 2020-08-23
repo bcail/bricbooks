@@ -717,6 +717,13 @@ class SQLiteStorage:
                 notes=info[2]
             )
 
+    def get_payees(self):
+        results = self._db_connection.execute('SELECT id, name, notes FROM payees').fetchall()
+        payees = []
+        for r in results:
+            payees.append(Payee(id_=r[0], name=r[1], notes=r[2]))
+        return payees
+
     def save_payee(self, payee):
         c = self._db_connection.cursor()
         if payee.id:
@@ -2130,6 +2137,9 @@ class CLI:
         info['splits'] = new_splits
         info['txn_type'] = self.input(prompt='  type: ')
         payee = self.input(prompt='  payee (id or \'name): ')
+        if payee == 'p':
+            self._list_payees()
+            payee = self.input(prompt='  payee (id or \'name): ')
         if payee.startswith("'"):
             info['payee'] = Payee(payee[1:])
         else:
@@ -2146,6 +2156,10 @@ class CLI:
         txn_id = self.input(prompt='Txn ID: ')
         txn = self.storage.get_txn(txn_id)
         self._get_and_save_txn(txn=txn)
+
+    def _list_payees(self):
+        for p in self.storage.get_payees():
+            self.print('%s: %s' % (p.id, p.name))
 
     def _list_scheduled_txns(self):
         for st in self.storage.get_scheduled_transactions():

@@ -1458,6 +1458,21 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
+    def test_create_txn_list_payees(self, input_mock):
+        '''make sure user can list payees if desired'''
+        checking = get_test_account()
+        self.cli.storage.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(savings)
+        payee = pft.Payee(name='payee 1')
+        self.cli.storage.save_payee(payee)
+        input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
+                'type 1', 'p', "'payee 1", 'description', 'C']
+        self.cli._create_txn()
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertTrue('1: payee 1' in buffer_value)
+
+    @patch('builtins.input')
     def test_edit_txn(self, input_mock):
         input_mock.side_effect = ['1', '2017-02-13', '-90', '50', '3', '40', '',
                 '', '', 'new description', '']
