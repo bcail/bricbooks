@@ -891,6 +891,12 @@ class SQLiteStorage:
     def save_scheduled_transaction(self, scheduled_txn):
         c = self._db_connection.cursor()
         if scheduled_txn.payee:
+            if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
+                db_payee = self.get_payee(name=scheduled_txn.payee.name)
+                if db_payee:
+                    scheduled_txn.payee.id = db_payee.id
+                else:
+                    self.save_payee(scheduled_txn.payee)
             payee = scheduled_txn.payee.id
         else:
             payee = None
@@ -2196,12 +2202,25 @@ class CLI:
                     break
             else:
                 break
+        txn_type = self.input('  type: ')
+        p = self.input(prompt='  payee (id or \'name): ')
+        if p == 'p':
+            self._list_payees()
+            p = self.input(prompt='  payee (id or \'name): ')
+        if p.startswith("'"):
+            payee = Payee(p[1:])
+        else:
+            payee = self.storage.get_payee(p)
+        description = self.input('  description: ')
         self.storage.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
                 frequency=frequency,
                 next_due_date=next_due_date,
                 splits=splits,
+                txn_type=txn_type,
+                payee=payee,
+                description=description,
             )
         )
 

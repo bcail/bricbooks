@@ -1552,7 +1552,7 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
         self.cli.storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', '2', '15', '']
+        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', '2', '15', '', 't', '\'payee', 'desc']
         self.cli._create_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
@@ -1563,6 +1563,9 @@ class TestCLI(unittest.TestCase):
                     checking: -15,
                     savings: 15,
                 })
+        self.assertEqual(scheduled_txns[0].txn_type, 't')
+        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
+        self.assertEqual(scheduled_txns[0].description, 'desc')
 
     @patch('builtins.input')
     def test_edit_scheduled_txn(self, input_mock):
