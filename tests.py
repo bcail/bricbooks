@@ -1584,11 +1584,14 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli.storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '15', '']
+        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '15', '', 't', '\'payee', 'desc']
         self.cli._edit_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].splits[checking], -15)
+        self.assertEqual(scheduled_txns[0].txn_type, 't')
+        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
+        self.assertEqual(scheduled_txns[0].description, 'desc')
 
     def test_list_budgets(self):
         housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')

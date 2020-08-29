@@ -2267,6 +2267,16 @@ class CLI:
             else:
                 break
         edited_scheduled_txn_info['splits'] = new_splits
+        edited_scheduled_txn_info['txn_type'] = self.input('  type: ')
+        p = self.input(prompt='  payee (id or \'name): ')
+        if p == 'p':
+            self._list_payees()
+            p = self.input(prompt='  payee (id or \'name): ')
+        if p.startswith("'"):
+            edited_scheduled_txn_info['payee'] = Payee(p[1:])
+        else:
+            edited_scheduled_txn_info['payee'] = self.storage.get_payee(p)
+        edited_scheduled_txn_info['description'] = self.input('  description: ')
         updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
         self.storage.save_scheduled_transaction(updated_scheduled_txn)
 
