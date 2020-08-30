@@ -2184,14 +2184,33 @@ class CLI:
             else:
                 break
 
-    def _create_scheduled_txn(self):
-        self.print('Create Scheduled Transaction:')
+    def _display_scheduled_txn(self):
+        scheduled_txn_id = self.input('Enter scheduled txn ID: ')
+        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+        self.print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
+        self.print('  %s' % scheduled_txn.frequency)
+        self.print('  %s' % scheduled_txn.next_due_date)
+        splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
+        self.print('  %s' % splits_str)
+        if scheduled_txn.txn_type:
+            self.print('  %s' % scheduled_txn.txn_type)
+        if scheduled_txn.payee:
+            self.print('  %s' % scheduled_txn.payee)
+        if scheduled_txn.description:
+            self.print('  %s' % scheduled_txn.description)
+
+    def _get_and_save_scheduled_txn(self, scheduled_txn=None):
         name = self.input('  name: ')
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
         frequency = self.input('  frequency (%s): ' % frequency_options)
         next_due_date = self.input('  next due date (yyyy-mm-dd): ')
         self.print('Splits:')
         splits = {}
+        if scheduled_txn:
+            for account, orig_amount in scheduled_txn.splits.items():
+                amount = self.input('%s amount (%s): ' % (account.name, orig_amount))
+                if amount:
+                    splits[account] = amount
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
@@ -2212,6 +2231,9 @@ class CLI:
         else:
             payee = self.storage.get_payee(p)
         description = self.input('  description: ')
+        id_ = None
+        if scheduled_txn:
+            id_ = scheduled_txn.id
         self.storage.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
@@ -2221,64 +2243,18 @@ class CLI:
                 txn_type=txn_type,
                 payee=payee,
                 description=description,
+                id_=id_,
             )
         )
 
-    def _display_scheduled_txn(self):
-        scheduled_txn_id = self.input('Enter scheduled txn ID: ')
-        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
-        self.print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
-        self.print('  %s' % scheduled_txn.frequency)
-        self.print('  %s' % scheduled_txn.next_due_date)
-        splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
-        self.print('  %s' % splits_str)
-        if scheduled_txn.txn_type:
-            self.print('  %s' % scheduled_txn.txn_type)
-        if scheduled_txn.payee:
-            self.print('  %s' % scheduled_txn.payee)
-        if scheduled_txn.description:
-            self.print('  %s' % scheduled_txn.description)
+    def _create_scheduled_txn(self):
+        self.print('Create Scheduled Transaction:')
+        self._get_and_save_scheduled_txn()
 
     def _edit_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
-        edited_scheduled_txn_info = {'id_': scheduled_txn.id}
-        name = self.input('name [%s]: ' % scheduled_txn.name)
-        edited_scheduled_txn_info['name'] = name or scheduled_txn.name
-        frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = self.input('frequency (%s) [%s]: ' % (frequency_options, scheduled_txn.frequency.value))
-        edited_scheduled_txn_info['frequency'] = frequency or scheduled_txn.frequency
-        next_due_date = self.input('next due date [%s]: ' % str(scheduled_txn.next_due_date))
-        edited_scheduled_txn_info['next_due_date'] = next_due_date or scheduled_txn.next_due_date
-        self.print('Splits:')
-        new_splits = {}
-        for account, orig_amount in scheduled_txn.splits.items():
-            amount = self.input('%s amount (%s): ' % (account.name, orig_amount))
-            if amount:
-                new_splits[account] = amount
-        while True:
-            acct_id = self.input('new account ID: ')
-            if acct_id:
-                amt = self.input(' amount: ')
-                if amt:
-                    new_splits[self.storage.get_account(acct_id)] = amt
-                else:
-                    break
-            else:
-                break
-        edited_scheduled_txn_info['splits'] = new_splits
-        edited_scheduled_txn_info['txn_type'] = self.input('  type: ')
-        p = self.input(prompt='  payee (id or \'name): ')
-        if p == 'p':
-            self._list_payees()
-            p = self.input(prompt='  payee (id or \'name): ')
-        if p.startswith("'"):
-            edited_scheduled_txn_info['payee'] = Payee(p[1:])
-        else:
-            edited_scheduled_txn_info['payee'] = self.storage.get_payee(p)
-        edited_scheduled_txn_info['description'] = self.input('  description: ')
-        updated_scheduled_txn = ScheduledTransaction(**edited_scheduled_txn_info)
-        self.storage.save_scheduled_transaction(updated_scheduled_txn)
+        self._get_and_save_scheduled_txn(scheduled_txn=scheduled_txn)
 
     def _list_budgets(self):
         for b in self.storage.get_budgets():
