@@ -1380,8 +1380,8 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns()
         output = 'Account ID: Checking\n%s\n' % pft.CLI.TXN_LIST_HEADER
-        output += ' 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
-        output += ' 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
+        output += ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
+        output += ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')

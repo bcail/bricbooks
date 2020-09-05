@@ -2018,7 +2018,7 @@ class CLI:
     ACCOUNT_LIST_HEADER = ' ID   | Type        | User ID | Name                           | Parent\n'\
         '==============================================================================================='
 
-    TXN_LIST_HEADER = '  Date      | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal |  Deposit   |  Balance\n'\
+    TXN_LIST_HEADER = ' ID   | Date       | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal | Deposit    | Balance\n'\
         '================================================================================================================================================================'
 
     NUM_TXNS_IN_PAGE = 50
@@ -2104,8 +2104,8 @@ class CLI:
             paged_txns, more_txns = CLI.get_page(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
-                self.print(' {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance)
+                self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
+                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance, t.id)
                 )
             if more_txns:
                 prompt = '(n)ext page '
