@@ -1195,13 +1195,14 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_type='a',
                 payee=wendys,
                 description='something',
+                status='R',
             )
         storage.save_scheduled_transaction(st)
         self.assertEqual(st.id, 1)
         st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
-                (1, 'weekly 1', pft.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something'))
+                (1, 'weekly 1', pft.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something', 'R'))
         st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,amount FROM scheduled_txn_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101'))
@@ -1287,6 +1288,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_type='a',
                 payee=wendys,
                 description='something',
+                status='C',
             )
         storage.save_scheduled_transaction(st)
         scheduled_txn = storage.get_scheduled_transaction(st.id)
@@ -1296,6 +1298,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.txn_type, 'a')
         self.assertEqual(scheduled_txn.payee.name, 'Wendys')
         self.assertEqual(scheduled_txn.description, 'something')
+        self.assertEqual(scheduled_txn.status, 'C')
         self.assertEqual(scheduled_txn.splits, valid_splits)
 
     def test_get_scheduled_transaction_sparse(self):
@@ -1552,7 +1555,7 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
         self.cli.storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', '2', '15', '', 't', '\'payee', 'desc']
+        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', '2', '15', '', 't', '\'payee', 'desc', '']
         self.cli._create_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
@@ -1584,7 +1587,7 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli.storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '15', '', 't', '\'payee', 'desc']
+        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '15', '', 't', '\'payee', 'desc', '']
         self.cli._edit_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)

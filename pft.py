@@ -257,6 +257,18 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
+    def handle_status(status):
+        if status:
+            if status.upper() == Transaction.CLEARED:
+                return Transaction.CLEARED
+            elif status.upper() == Transaction.RECONCILED:
+                return Transaction.RECONCILED
+            else:
+                raise InvalidTransactionError('invalid status "%s"' % status)
+        else:
+            return None
+
+    @staticmethod
     def splits_from_user_info(account, deposit, withdrawal, input_categories):
         splits = {}
         categories = {}
@@ -306,7 +318,7 @@ class Transaction:
         else:
             self.payee = None
         self.description = description
-        self.status = self._handle_status(status)
+        self.status = Transaction.handle_status(status)
         self.id = id_
 
     def __str__(self):
@@ -327,17 +339,6 @@ class Transaction:
             return get_date(txn_date)
         except Exception:
             raise InvalidTransactionError('invalid txn_date "%s"' % txn_date)
-
-    def _handle_status(self, status):
-        if status:
-            if status.upper() == self.CLEARED:
-                return self.CLEARED
-            elif status.upper() == self.RECONCILED:
-                return self.RECONCILED
-            else:
-                raise InvalidTransactionError('invalid status "%s"' % status)
-        else:
-            return None
 
 
 def _categories_display(splits, main_account):
@@ -472,7 +473,7 @@ class ScheduledTransaction:
                 id_=id_
             )
 
-    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, id_=None):
+    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, status=None, id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -486,6 +487,7 @@ class ScheduledTransaction:
         self.txn_type = txn_type
         self.payee = payee
         self.description = description
+        self.status = Transaction.handle_status(status)
         self.id = id_
 
     def __str__(self):
@@ -658,7 +660,7 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT, status TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE scheduled_txn_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
@@ -901,16 +903,16 @@ class SQLiteStorage:
         else:
             payee = None
         if scheduled_txn.id:
-            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
+            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ?, status = ? WHERE id = ?',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.status, scheduled_txn.id))
             if c.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             c.execute('DELETE FROM scheduled_txn_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
             for account, amount in scheduled_txn.splits.items():
                 c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
         else:
-            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
+            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.status))
             scheduled_txn.id = c.lastrowid
             for account, amount in scheduled_txn.splits.items():
                 c.execute('INSERT INTO scheduled_txn_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
@@ -925,7 +927,7 @@ class SQLiteStorage:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
                 splits[account] = split_record[1]
-        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description,status FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
@@ -935,6 +937,7 @@ class SQLiteStorage:
                 txn_type=rows[0][3],
                 payee=payee,
                 description=rows[0][5],
+                status=rows[0][6],
                 id_=id_,
             )
         return st
@@ -2118,29 +2121,27 @@ class CLI:
             else:
                 break
 
-    def _get_and_save_txn(self, txn=None):
+    def _get_common_txn_info(self, txn=None):
+        '''get pieces of data common to txns and scheduled txns'''
         info = {}
-        if txn and not isinstance(txn, ScheduledTransaction):
-            info['id_'] = txn.id
-        info['txn_date'] = self.input(prompt='  date: ')
         self.print('Splits:')
-        new_splits = {}
+        splits = {}
         if txn:
             for account, orig_amount in txn.splits.items():
                 amount = self.input(prompt='%s amount (%s): ' % (account.name, orig_amount))
                 if amount:
-                    new_splits[account] = amount
+                    splits[account] = amount
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
                 amt = self.input(prompt=' amount: ')
                 if amt:
-                    new_splits[self.storage.get_account(acct_id)] = amt
+                    splits[self.storage.get_account(acct_id)] = amt
                 else:
                     break
             else:
                 break
-        info['splits'] = new_splits
+        info['splits'] = splits
         info['txn_type'] = self.input(prompt='  type: ')
         payee = self.input(prompt='  payee (id or \'name): ')
         if payee == 'p':
@@ -2152,6 +2153,14 @@ class CLI:
             info['payee'] = self.storage.get_payee(payee)
         info['description'] = self.input(prompt='  description: ')
         info['status'] = self.input(prompt='  status: ')
+        return info
+
+    def _get_and_save_txn(self, txn=None):
+        info = {}
+        if txn and not isinstance(txn, ScheduledTransaction):
+            info['id_'] = txn.id
+        info['txn_date'] = self.input(prompt='  date: ')
+        info.update(self._get_common_txn_info(txn=txn))
         self.storage.save_txn(Transaction(**info))
 
     def _create_txn(self):
@@ -2204,33 +2213,7 @@ class CLI:
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
         frequency = self.input('  frequency (%s): ' % frequency_options)
         next_due_date = self.input('  next due date (yyyy-mm-dd): ')
-        self.print('Splits:')
-        splits = {}
-        if scheduled_txn:
-            for account, orig_amount in scheduled_txn.splits.items():
-                amount = self.input('%s amount (%s): ' % (account.name, orig_amount))
-                if amount:
-                    splits[account] = amount
-        while True:
-            acct_id = self.input(prompt='new account ID: ')
-            if acct_id:
-                amt = self.input(prompt=' amount: ')
-                if amt:
-                    splits[self.storage.get_account(acct_id)] = amt
-                else:
-                    break
-            else:
-                break
-        txn_type = self.input('  type: ')
-        p = self.input(prompt='  payee (id or \'name): ')
-        if p == 'p':
-            self._list_payees()
-            p = self.input(prompt='  payee (id or \'name): ')
-        if p.startswith("'"):
-            payee = Payee(p[1:])
-        else:
-            payee = self.storage.get_payee(p)
-        description = self.input('  description: ')
+        common_info = self._get_common_txn_info(txn=scheduled_txn)
         id_ = None
         if scheduled_txn:
             id_ = scheduled_txn.id
@@ -2239,11 +2222,8 @@ class CLI:
                 name=name,
                 frequency=frequency,
                 next_due_date=next_due_date,
-                splits=splits,
-                txn_type=txn_type,
-                payee=payee,
-                description=description,
                 id_=id_,
+                **common_info,
             )
         )
 
