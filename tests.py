@@ -1496,7 +1496,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(edited_txn.splits[another_account], 40)
         self.assertEqual(edited_txn.description, 'new description')
         output = 'Txn ID:   date: Splits:\n'
-        output += 'Checking amount (5): Savings amount (-5): new account ID:  amount: new account ID:   type:   payee (id or \'name):   description:   status: '
+        output += 'Checking amount: Savings amount: new account ID:  amount: new account ID:   type:   payee (id or \'name):   description:   status: '
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 

@@ -2128,7 +2128,7 @@ class CLI:
         splits = {}
         if txn:
             for account, orig_amount in txn.splits.items():
-                amount = self.input(prompt='%s amount (%s): ' % (account.name, orig_amount))
+                amount = self.input(prompt='%s amount: ' % account.name, prefill=orig_amount)
                 if amount:
                     splits[account] = amount
         while True:
@@ -2142,8 +2142,20 @@ class CLI:
             else:
                 break
         info['splits'] = splits
-        info['txn_type'] = self.input(prompt='  type: ')
-        payee = self.input(prompt='  payee (id or \'name): ')
+        txn_type_prefill = ''
+        payee_prefill = ''
+        description_prefill = ''
+        status_prefill = ''
+        if txn:
+            txn_type_prefill = txn.txn_type or ''
+            if txn.payee:
+                payee_prefill = '\'%s' % txn.payee.name
+            else:
+                payee_prefill = ''
+            description_prefill = txn.description or ''
+            status_prefill = txn.status or ''
+        info['txn_type'] = self.input(prompt='  type: ', prefill=txn_type_prefill)
+        payee = self.input(prompt='  payee (id or \'name): ', prefill=payee_prefill)
         if payee == 'p':
             self._list_payees()
             payee = self.input(prompt='  payee (id or \'name): ')
@@ -2151,15 +2163,21 @@ class CLI:
             info['payee'] = Payee(payee[1:])
         else:
             info['payee'] = self.storage.get_payee(payee)
-        info['description'] = self.input(prompt='  description: ')
-        info['status'] = self.input(prompt='  status: ')
+        info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
+        info['status'] = self.input(prompt='  status: ', prefill=status_prefill)
         return info
 
     def _get_and_save_txn(self, txn=None):
         info = {}
-        if txn and not isinstance(txn, ScheduledTransaction):
-            info['id_'] = txn.id
-        info['txn_date'] = self.input(prompt='  date: ')
+        if txn:
+            if isinstance(txn, ScheduledTransaction):
+                date_prefill = date.today()
+            else:
+                info['id_'] = txn.id
+                date_prefill = txn.txn_date
+        else:
+            date_prefill = ''
+        info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
         info.update(self._get_common_txn_info(txn=txn))
         self.storage.save_txn(Transaction(**info))
 
@@ -2211,8 +2229,16 @@ class CLI:
     def _get_and_save_scheduled_txn(self, scheduled_txn=None):
         name = self.input('  name: ')
         frequency_options = ','.join(['%s-%s' % (f.value, f.name) for f in ScheduledTransactionFrequency])
-        frequency = self.input('  frequency (%s): ' % frequency_options)
-        next_due_date = self.input('  next due date (yyyy-mm-dd): ')
+        if scheduled_txn:
+            frequency_prefill = scheduled_txn.frequency
+        else:
+            frequency_prefill = ''
+        frequency = self.input('  frequency (%s): ' % frequency_options, prefill=frequency_prefill)
+        if scheduled_txn:
+            due_date_prefill = scheduled_txn.next_due_date
+        else:
+            due_date_prefill = ''
+        next_due_date = self.input('  next due date (yyyy-mm-dd): ', prefill=due_date_prefill)
         common_info = self._get_common_txn_info(txn=scheduled_txn)
         id_ = None
         if scheduled_txn:
