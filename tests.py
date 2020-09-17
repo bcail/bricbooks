@@ -1610,7 +1610,7 @@ class TestCLI(unittest.TestCase):
         })
         self.cli.storage.save_budget(b)
         self.cli._list_budgets()
-        output = '2018-01-01 - 2018-12-31\n'
+        output = '1: 2018-01-01 - 2018-12-31\n'
         buffer_value = self.memory_buffer.getvalue()
         self.assertEqual(buffer_value, output)
 

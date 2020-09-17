@@ -563,7 +563,10 @@ class Budget:
         self._income_spending_info = income_spending_info
 
     def __str__(self):
-        return '%s - %s' % (self.start_date, self.end_date)
+        if self.name:
+            return '%s: %s (%s - %s)' % (self.id, self.name, self.start_date, self.end_date)
+        else:
+            return '%s: %s - %s' % (self.id, self.start_date, self.end_date)
 
     def __eq__(self, other_budget):
         if not other_budget:
@@ -1809,6 +1812,13 @@ class BudgetDataDisplay:
 
 class BudgetDisplay:
 
+    @staticmethod
+    def budget_display_for_list(budget):
+        if budget.name:
+            return '%s (%s - %s)' % (budget.name, budget.start_date, budget.end_date)
+        else:
+            return '%s - %s' % (budget.start_date, budget.end_date)
+
     def __init__(self, storage, current_budget=None):
         self.storage = storage
         if not current_budget:
@@ -1860,7 +1870,7 @@ class BudgetDisplay:
         for index, budget in enumerate(budgets):
             if budget == self._current_budget:
                 current_index = index
-            self._budget_select_combo.addItem(str(budget), budget)
+            self._budget_select_combo.addItem(BudgetDisplay.budget_display_for_list(budget), budget)
         self._budget_select_combo.setCurrentIndex(current_index)
         self._budget_select_combo.currentIndexChanged.connect(self._update_budget)
         layout.addWidget(self._budget_select_combo, row, 0)
@@ -1885,7 +1895,7 @@ class BudgetDisplay:
         if new_budget:
             #need to add new budget to select combo and select it
             num_items = self._budget_select_combo.count()
-            self._budget_select_combo.addItem(str(self._current_budget), self._current_budget)
+            self._budget_select_combo.addItem(BudgetDisplay.budget_display_for_list(self._current_budget), self._current_budget)
             self._budget_select_combo.setCurrentIndex(num_items)
         self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
