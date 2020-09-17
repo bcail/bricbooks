@@ -2224,17 +2224,17 @@ class CLI:
     def _display_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
         scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
-        self.print('%s - %s' % (scheduled_txn.id, scheduled_txn.name))
-        self.print('  %s' % scheduled_txn.frequency)
-        self.print('  %s' % scheduled_txn.next_due_date)
+        self.print('%s: %s' % (scheduled_txn.id, scheduled_txn.name))
+        self.print('  frequency: %s' % scheduled_txn.frequency.name)
+        self.print('  next due date: %s' % scheduled_txn.next_due_date)
         splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
-        self.print('  %s' % splits_str)
+        self.print('  splits: %s' % splits_str)
         if scheduled_txn.txn_type:
-            self.print('  %s' % scheduled_txn.txn_type)
+            self.print('  txn type: %s' % scheduled_txn.txn_type)
         if scheduled_txn.payee:
-            self.print('  %s' % scheduled_txn.payee)
+            self.print('  payee: %s' % scheduled_txn.payee)
         if scheduled_txn.description:
-            self.print('  %s' % scheduled_txn.description)
+            self.print('  description: %s' % scheduled_txn.description)
 
     def _get_and_save_scheduled_txn(self, scheduled_txn=None):
         name = self.input('  name: ')

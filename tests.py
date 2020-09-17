@@ -1524,6 +1524,28 @@ class TestCLI(unittest.TestCase):
         self.assertTrue(buffer_value.startswith(output))
 
     @patch('builtins.input')
+    def test_display_scheduled_txn(self, input_mock):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(checking)
+        self.cli.storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = pft.ScheduledTransaction(
+                name='weekly 1',
+                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.cli.storage.save_scheduled_transaction(st)
+        input_mock.side_effect = [str(st.id)]
+        self.cli._display_scheduled_txn()
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertTrue('2019-01-02' in buffer_value)
+
+    @patch('builtins.input')
     def test_enter_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
