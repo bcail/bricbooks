@@ -2276,6 +2276,14 @@ class CLI:
         for b in self.storage.get_budgets():
             self.print(b)
 
+    def _display_budget(self):
+        budget_id = self.input('Enter budget ID: ')
+        budget = self.storage.get_budget(budget_id)
+        self.print(budget)
+        account_budget_info = budget.get_budget_data()
+        for account, info in account_budget_info.items():
+            self.print(f' {account}: {info}')
+
     def _create_budget(self):
         self.print('Create Budget:')
         start_date = self.input(prompt='  start date: ')
@@ -2357,6 +2365,8 @@ class CLI:
                 self._edit_scheduled_txn()
             elif cmd == 'b':
                 self._list_budgets()
+            elif cmd == 'bd':
+                self._display_budget()
             elif cmd == 'bc':
                 self._create_budget()
             elif cmd == 'be':
@@ -2369,8 +2379,8 @@ class CLI:
             + '\nt - list txns\ntc - create transaction\nte - edit transaction'\
             + '\nst - list scheduled transactions\nstc - create scheduled transaction'\
             + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
-            + '\nb - list budgets\nbc - create budget\nbe - edit budget'\
-            + '\nCtrl-d - quit'
+            + '\nb - list budgets\nbd - display budget\nbc - create budget'\
+            + '\nbe - edit budget\nCtrl-d - quit'
         self.print('Command-line PFT\n%s' % help_msg)
         try:
             self._command_loop()
