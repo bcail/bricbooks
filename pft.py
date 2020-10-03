@@ -2348,57 +2348,50 @@ class CLI:
                 )
             )
 
-    def _command_loop(self):
+    def _print_help(self, info):
+        help_msg = 'h - help'
+        for cmd, info in info.items():
+            help_msg += f'\n{cmd} - {info["description"]}'
+        help_msg += '\nq - quit'
+        self.print(help_msg.strip())
+
+    def _command_loop(self, info):
         while True:
             cmd = self.input('>>> ')
-            if cmd == 'h':
-                self.print(help_msg)
-            elif cmd == 'a':
-                self._list_accounts()
-            elif cmd == 'ac':
-                self._create_account()
-            elif cmd == 'ae':
-                self._edit_account()
-            elif cmd == 't':
-                self._list_account_txns()
-            elif cmd == 'tc':
-                self._create_txn()
-            elif cmd == 'te':
-                self._edit_txn()
-            elif cmd == 'st':
-                self._list_scheduled_txns()
-            elif cmd == 'stc':
-                self._create_scheduled_txn()
-            elif cmd == 'std':
-                self._display_scheduled_txn()
-            elif cmd == 'ste':
-                self._edit_scheduled_txn()
-            elif cmd == 'b':
-                self._list_budgets()
-            elif cmd == 'bd':
-                self._display_budget()
-            elif cmd == 'bdr':
-                self._display_budget_report()
-            elif cmd == 'bc':
-                self._create_budget()
-            elif cmd == 'be':
-                self._edit_budget()
-            else:
+            try:
+                if cmd == 'h':
+                    self._print_help(info)
+                elif cmd == 'q':
+                    raise EOFError()
+                else:
+                    info[cmd]['function']()
+            except KeyError:
                 self.print('Invalid command: "%s"' % cmd)
 
     def run(self):
-        help_msg = 'h - help\na - list accounts\nac - create account\nae - edit account'\
-            + '\nt - list txns\ntc - create transaction\nte - edit transaction'\
-            + '\nst - list scheduled transactions\nstc - create scheduled transaction'\
-            + '\nstd - display scheduled transaction\nste - edit scheduled transaction'\
-            + '\nb - list budgets\nbd - display budget\nbdr - display budget report'\
-            + '\nbc - create budget\nbe - edit budget\nCtrl-d - quit'
-        self.print('Command-line PFT\n%s' % help_msg)
+        info = {
+            'a': {'description': 'list accounts', 'function': self._list_accounts},
+            'ac': {'description': 'create account', 'function': self._create_account},
+            'ae': {'description': 'edit account', 'function': self._edit_account},
+            't': {'description': 'list txns', 'function': self._list_account_txns},
+            'tc': {'description': 'create transaction', 'function': self._create_txn},
+            'te': {'description': 'edit transaction', 'function': self._edit_txn},
+            'st': {'description': 'list scheduled transactions', 'function': self._list_scheduled_txns},
+            'stc': {'description': 'create scheduled transaction', 'function': self._create_scheduled_txn},
+            'std': {'description': 'display scheduled transaction', 'function': self._display_scheduled_txn},
+            'ste': {'description': 'edit scheduled transaction', 'function': self._edit_scheduled_txn},
+            'b': {'description': 'list budgets', 'function': self._list_budgets},
+            'bd': {'description': 'display budget', 'function': self._display_budget},
+            'bdr': {'description': 'display budget report', 'function': self._display_budget_report},
+            'bc': {'description': 'create budget', 'function': self._create_budget},
+            'be': {'description': 'edit budget', 'function': self._edit_budget},
+        }
+        self.print('Command-line PFT')
+        self._print_help(info)
         try:
-            self._command_loop()
+            self._command_loop(info)
         except (EOFError, KeyboardInterrupt):
             self.print('\n')
-            sys.exit(0)
         except:
             import traceback
             self.print(traceback.format_exc())
@@ -2429,6 +2422,7 @@ if __name__ == '__main__':
             print('file name argument required for CLI mode')
             sys.exit(1)
         CLI(args.file_name).run()
+        sys.exit(0)
 
     try:
         from PySide2 import QtWidgets

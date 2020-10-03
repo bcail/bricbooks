@@ -5,7 +5,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch, MagicMock
 
 import pft
 import load_test_data
@@ -1330,6 +1330,14 @@ class TestCLI(unittest.TestCase):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
         self.memory_buffer = io.StringIO()
         self.cli = pft.CLI(':memory:', print_file=self.memory_buffer)
+
+    @patch('builtins.input')
+    def test_run(self, input_mock):
+        checking = get_test_account(name='Checking account')
+        self.cli.storage.save_account(checking)
+        input_mock.side_effect = ['h', 'a', 'q']
+        self.cli.run()
+        self.assertTrue('| Checking account' in self.memory_buffer.getvalue())
 
     def test_list_accounts(self):
         checking = get_test_account(name='Checking account with long name cut off')
