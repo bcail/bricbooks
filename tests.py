@@ -1652,6 +1652,33 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_budget(b)
         input_mock.side_effect = [str(b.id)]
         self.cli._display_budget()
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertTrue('2018-01-01 - 2018-12-31' in buffer_value)
+
+    @patch('builtins.input')
+    def test_display_budget_report(self, input_mock):
+        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        self.cli.storage.save_account(housing)
+        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        self.cli.storage.save_account(food)
+        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        self.cli.storage.save_account(wages)
+        b = pft.Budget(year=2018, account_budget_info={
+            housing: {'amount': D(15), 'carryover': D(0)},
+            food: {'amount': D(25), 'carryover': D(0)},
+            wages: {'amount': D(100)},
+        })
+        self.cli.storage.save_budget(b)
+        self.cli.storage.save_txn(
+                pft.Transaction(
+                    txn_date='2019-01-13',
+                    splits={wages: '-101', housing: 101},
+                )
+            )
+        input_mock.side_effect = [str(b.id)]
+        self.cli._display_budget_report()
+        buffer_value = self.memory_buffer.getvalue()
+        self.assertTrue('2018-01-01 - 2018-12-31' in buffer_value)
 
     @patch('builtins.input')
     def test_create_budget(self, input_mock):
