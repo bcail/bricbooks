@@ -1,8 +1,8 @@
 bricbooks
 =========
 
-[![Build Status](https://travis-ci.com/bcail/python_finance_tracking.svg?branch=master)](https://travis-ci.com/bcail/python_finance_tracking)
-[![Build status](https://ci.appveyor.com/api/projects/status/r8ri5uy970a38b36?svg=true)](https://ci.appveyor.com/project/bcail/python-finance-tracking)
+[![Build Status](https://travis-ci.com/github/bcail/bricbooks.svg?branch=master)](https://travis-ci.com/github/bcail/bricbooks)
+[![Build status](https://ci.appveyor.com/api/projects/status/ut4xroc2jymlhik7?svg=true)](https://ci.appveyor.com/project/bcail/bricbooks)
 
 
 TODO
