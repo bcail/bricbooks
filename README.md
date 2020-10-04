@@ -1,7 +1,7 @@
 bricbooks
 =========
 
-[![Build Status](https://travis-ci.com/github/bcail/bricbooks.svg?branch=master)](https://travis-ci.com/github/bcail/bricbooks)
+[![Build Status](https://travis-ci.com/bcail/bricbooks.svg?branch=master)](https://travis-ci.com/github/bcail/bricbooks)
 [![Build status](https://ci.appveyor.com/api/projects/status/ut4xroc2jymlhik7?svg=true)](https://ci.appveyor.com/project/bcail/bricbooks)
 
 
