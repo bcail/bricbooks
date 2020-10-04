@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
-import pft
+import bricbooks as pft
 import load_test_data
 
 
@@ -1791,7 +1791,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(storage.get_accounts()), 2)
         self.assertEqual(storage.get_accounts()[1].name, 'New Food')
 
-    @patch('pft.set_widget_error_state')
+    @patch('bricbooks.set_widget_error_state')
     def test_account_exception(self, mock_method):
         storage = pft.SQLiteStorage(':memory:')
         accounts_display = pft.AccountsDisplay(storage, reload_accounts=fake_method)

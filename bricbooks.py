@@ -20,7 +20,7 @@ except ImportError:
     readline = None
 
 
-TITLE = 'Python Finance Tracking'
+TITLE = 'bricbooks'
 PYSIDE2_VERSION = '5.14.0'
 CUR_DIR = Path(__file__).parent.resolve()
 

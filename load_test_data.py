@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from decimal import Decimal as D
 import random
-import pft
+import bricbooks as pft
 
 
 DEFAULT_DATA_FILENAME = 'data.sqlite3'
