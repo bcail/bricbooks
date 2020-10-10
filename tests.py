@@ -7,38 +7,38 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
-import bricbooks as pft
+import bricbooks as bb
 import load_test_data
 
 
-def get_test_account(id_=None, name='Checking', type_=pft.AccountType.ASSET):
-    return pft.Account(id_=id_, type_=type_, name=name)
+def get_test_account(id_=None, name='Checking', type_=bb.AccountType.ASSET):
+    return bb.Account(id_=id_, type_=type_, name=name)
 
 
 class TestUtils(unittest.TestCase):
 
     def test_get_date(self):
-        self.assertEqual(pft.get_date(date(2018, 1, 1)), date(2018, 1, 1))
-        self.assertEqual(pft.get_date('2018-01-01'), date(2018, 1, 1))
+        self.assertEqual(bb.get_date(date(2018, 1, 1)), date(2018, 1, 1))
+        self.assertEqual(bb.get_date('2018-01-01'), date(2018, 1, 1))
         with self.assertRaises(RuntimeError):
-            pft.get_date(10)
+            bb.get_date(10)
 
     def test_increment_month(self):
-        new_date = pft.increment_month(date(2018, 1, 1))
+        new_date = bb.increment_month(date(2018, 1, 1))
         self.assertEqual(new_date, date(2018, 2, 1))
-        new_date = pft.increment_month(date(2018, 12, 1))
+        new_date = bb.increment_month(date(2018, 12, 1))
         self.assertEqual(new_date, date(2019, 1, 1))
-        new_date = pft.increment_month(date(2018, 1, 31))
+        new_date = bb.increment_month(date(2018, 1, 31))
         self.assertEqual(new_date, date(2018, 2, 28))
-        new_date = pft.increment_month(date(2018, 3, 31))
+        new_date = bb.increment_month(date(2018, 3, 31))
         self.assertEqual(new_date, date(2018, 4, 30))
 
     def test_increment_quarter(self):
-        new_date = pft.increment_quarter(date(2018, 1, 31))
+        new_date = bb.increment_quarter(date(2018, 1, 31))
         self.assertEqual(new_date, date(2018, 4, 30))
-        new_date = pft.increment_quarter(date(2018, 12, 31))
+        new_date = bb.increment_quarter(date(2018, 12, 31))
         self.assertEqual(new_date, date(2019, 3, 31))
-        new_date = pft.increment_quarter(date(2018, 11, 30))
+        new_date = bb.increment_quarter(date(2018, 11, 30))
         self.assertEqual(new_date, date(2019, 2, 28))
 
     def test_find_files(self):
@@ -49,49 +49,49 @@ class TestUtils(unittest.TestCase):
             path4 = os.path.join(tmp, 'file.sql')
             for path in [path1, path2, path3, path4]:
                 with open(path, 'wb') as f: pass
-            self.assertEqual(sorted([str(f) for f in pft.get_files(tmp)]), [path3, path2])
+            self.assertEqual(sorted([str(f) for f in bb.get_files(tmp)]), [path3, path2])
 
 
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
-        a = pft.Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking')
-        self.assertEqual(a.type, pft.AccountType.ASSET)
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, user_id='400', name='Checking')
+        self.assertEqual(a.type, bb.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.parent, None)
         self.assertEqual(a.user_id, '400')
 
     def test_str(self):
-        a = pft.Account(id_=1, type_=pft.AccountType.ASSET, user_id='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, user_id='400', name='Checking')
         self.assertEqual(str(a), '400 - Checking')
 
     def test_account_type(self):
-        with self.assertRaises(pft.InvalidAccountError) as cm:
-            pft.Account(id_=1, name='Checking')
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            bb.Account(id_=1, name='Checking')
         self.assertEqual(str(cm.exception), 'Account must have a type')
-        with self.assertRaises(pft.InvalidAccountError) as cm:
-            pft.Account(id_=1, type_='asdf', name='Checking')
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            bb.Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
-        a = pft.Account(id_=1, type_='0', name='Checking')
-        self.assertEqual(a.type, pft.AccountType.ASSET)
+        a = bb.Account(id_=1, type_='0', name='Checking')
+        self.assertEqual(a.type, bb.AccountType.ASSET)
 
     def test_eq(self):
-        a = pft.Account(id_=1, type_=pft.AccountType.ASSET, name='Checking')
-        a2 = pft.Account(id_=2, type_=pft.AccountType.ASSET, name='Savings')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, name='Checking')
+        a2 = bb.Account(id_=2, type_=bb.AccountType.ASSET, name='Savings')
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = pft.Account(type_=pft.AccountType.ASSET, name='Other')
-        with self.assertRaises(pft.InvalidAccountError) as cm:
+        a3 = bb.Account(type_=bb.AccountType.ASSET, name='Other')
+        with self.assertRaises(bb.InvalidAccountError) as cm:
             a == a3
         self.assertEqual(str(cm.exception), "Can't compare accounts without an id")
 
     def test_parent(self):
-        housing = pft.Account(id_=1, type_=pft.AccountType.EXPENSE, name='Housing')
-        rent = pft.Account(id_=2, type_=pft.AccountType.EXPENSE, name='Rent', parent=housing)
+        housing = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
+        rent = bb.Account(id_=2, type_=bb.AccountType.EXPENSE, name='Rent', parent=housing)
         self.assertEqual(rent.parent, housing)
 
     def test_empty_strings_for_non_required_elements(self):
-        a = pft.Account(id_=1, type_=pft.AccountType.EXPENSE, name='Test', user_id='')
+        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', user_id='')
         self.assertEqual(a.user_id, None)
 
 
@@ -104,48 +104,48 @@ class TestTransaction(unittest.TestCase):
         self.txn_splits = {self.checking: D(100), self.savings: D('-100')}
 
     def test_splits_required(self):
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction()
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction()
         self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
 
     def test_splits_must_balance(self):
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits={self.checking: -100, self.savings: 90})
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits={self.checking: -100, self.savings: 90})
         self.assertEqual(str(cm.exception), "splits don't balance")
 
     def test_invalid_split_amounts(self):
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits={self.checking: 101.1, self.savings: '-101.1'})
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits={self.checking: 101.1, self.savings: '-101.1'})
         self.assertEqual(str(cm.exception), 'invalid split: bad decimal value: 101.1')
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits={self.checking: '123.456', self.savings: '-123.45'})
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits={self.checking: '123.456', self.savings: '-123.45'})
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits={self.checking: D('123.456'), self.savings: D(123)})
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits={self.checking: D('123.456'), self.savings: D(123)})
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
 
     def test_invalid_txn_date(self):
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits=self.valid_splits)
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits=self.valid_splits)
         self.assertEqual(str(cm.exception), 'transaction must have a txn_date')
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(splits=self.valid_splits, txn_date=10)
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(splits=self.valid_splits, txn_date=10)
         self.assertEqual(str(cm.exception), 'invalid txn_date "10"')
 
     def test_txn_date(self):
-        t = pft.Transaction(splits=self.valid_splits, txn_date=date.today())
+        t = bb.Transaction(splits=self.valid_splits, txn_date=date.today())
         self.assertEqual(t.txn_date, date.today())
-        t = pft.Transaction(splits=self.valid_splits, txn_date='2018-03-18')
+        t = bb.Transaction(splits=self.valid_splits, txn_date='2018-03-18')
         self.assertEqual(t.txn_date, date(2018, 3, 18))
-        t = pft.Transaction(splits=self.valid_splits, txn_date='3/18/2018')
+        t = bb.Transaction(splits=self.valid_splits, txn_date='3/18/2018')
         self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
                 txn_type='1234',
-                payee=pft.Payee('McDonalds'),
+                payee=bb.Payee('McDonalds'),
                 description='2 big macs',
             )
         self.assertEqual(t.splits, self.txn_splits)
@@ -156,16 +156,16 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.description, '2 big macs')
         self.assertEqual(t.status, None)
         #test passing status in as argument
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
-                status=pft.Transaction.CLEARED,
+                status=bb.Transaction.CLEARED,
             )
-        self.assertEqual(t.status, pft.Transaction.CLEARED)
+        self.assertEqual(t.status, bb.Transaction.CLEARED)
 
     def test_sparse_init(self):
         #pass minimal amount of info into Transaction & verify values
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
             )
@@ -176,13 +176,13 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.status, None)
 
     def test_txn_payee(self):
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
                 payee='',
             )
         self.assertEqual(t.payee, None)
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
                 payee='Burgers',
@@ -191,14 +191,14 @@ class TestTransaction(unittest.TestCase):
 
     def test_txn_from_user_info(self):
         #construct txn from user strings, as much as possible (except account & categories)
-        t = pft.Transaction.from_user_info(
+        t = bb.Transaction.from_user_info(
                 account=self.checking,
                 txn_type='1234',
                 deposit='101',
                 withdrawal='',
                 txn_date='2017-10-15',
                 description='something',
-                payee=pft.Payee('McDonalds'),
+                payee=bb.Payee('McDonalds'),
                 status='C',
                 categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
@@ -212,20 +212,20 @@ class TestTransaction(unittest.TestCase):
             self.checking: '-101',
             self.savings: '101',
         }
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
                 status='c',
             )
         self.assertEqual(t.status, 'C')
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
                 status='',
             )
         self.assertEqual(t.status, None)
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.Transaction(
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.Transaction(
                     splits=splits,
                     txn_date=date.today(),
                     status='d',
@@ -235,7 +235,7 @@ class TestTransaction(unittest.TestCase):
     def test_txn_splits_from_user_info(self):
         #test passing in list, just one account, ...
         house = get_test_account(id_=3, name='House')
-        splits = pft.Transaction.splits_from_user_info(
+        splits = bb.Transaction.splits_from_user_info(
                 account=self.checking,
                 deposit='',
                 withdrawal='100',
@@ -250,16 +250,16 @@ class TestTransaction(unittest.TestCase):
             )
 
     def test_get_display_strings(self):
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_type='1234',
                 txn_date=date.today(),
                 description='something',
-                payee=pft.Payee('McDonalds'),
+                payee=bb.Payee('McDonalds'),
                 status='C',
             )
         self.assertDictEqual(
-                pft.get_display_strings_for_ledger(account=self.checking, txn=t),
+                bb.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '1234',
                     'withdrawal': '',
@@ -272,7 +272,7 @@ class TestTransaction(unittest.TestCase):
                 }
             )
         self.assertDictEqual(
-                pft.get_display_strings_for_ledger(account=self.savings, txn=t),
+                bb.get_display_strings_for_ledger(account=self.savings, txn=t),
                 {
                     'txn_type': '1234',
                     'withdrawal': '100',
@@ -286,11 +286,11 @@ class TestTransaction(unittest.TestCase):
             )
 
     def test_get_display_strings_sparse(self):
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
             )
-        self.assertDictEqual(pft.get_display_strings_for_ledger(account=self.checking, txn=t),
+        self.assertDictEqual(bb.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '',
                     'withdrawal': '',
@@ -307,7 +307,7 @@ class TestTransaction(unittest.TestCase):
         a = get_test_account(id_=1)
         a2 = get_test_account(id_=2, name='Savings')
         a3 = get_test_account(id_=3, name='Other')
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={
                     a: -100,
                     a2: 65,
@@ -315,15 +315,15 @@ class TestTransaction(unittest.TestCase):
                 },
                 txn_date=date.today(),
             )
-        self.assertEqual(pft._categories_display(t.splits, main_account=a), 'multiple')
-        t = pft.Transaction(
+        self.assertEqual(bb._categories_display(t.splits, main_account=a), 'multiple')
+        t = bb.Transaction(
                 splits={
                     a: -100,
                     a2: 100
                 },
                 txn_date=date.today(),
             )
-        self.assertEqual(pft._categories_display(t.splits, main_account=a), 'Savings')
+        self.assertEqual(bb._categories_display(t.splits, main_account=a), 'Savings')
 
 
 class TestLedger(unittest.TestCase):
@@ -333,28 +333,28 @@ class TestLedger(unittest.TestCase):
         self.savings = get_test_account(id_=2, name='Savings')
 
     def test_init(self):
-        with self.assertRaises(pft.InvalidLedgerError) as cm:
-            pft.Ledger()
+        with self.assertRaises(bb.InvalidLedgerError) as cm:
+            bb.Ledger()
         self.assertEqual(str(cm.exception), 'ledger must have an account')
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         self.assertEqual(ledger.account, self.checking)
 
     def test_add_transaction(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         self.assertEqual(ledger._txns, {})
         splits = {self.checking: 100, self.savings: -100}
-        txn = pft.Transaction(id_=1, splits=splits, txn_date=date.today())
+        txn = bb.Transaction(id_=1, splits=splits, txn_date=date.today())
         ledger.add_transaction(txn)
         self.assertEqual(ledger._txns, {1: txn})
 
     def test_add_scheduled_txn(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         self.assertEqual(ledger._scheduled_txns, {})
         splits = {self.checking: 100, self.savings: -100}
-        scheduled_txn = pft.ScheduledTransaction(
+        scheduled_txn = bb.ScheduledTransaction(
             id_=1,
             name='weekly',
-            frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
             next_due_date=date.today()
         )
@@ -363,15 +363,15 @@ class TestLedger(unittest.TestCase):
             {1: scheduled_txn})
 
     def test_get_ledger_txns(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits1 = {self.checking: '32.45', self.savings: '-32.45'}
         splits2 = {self.checking: -12, self.savings: 12}
         splits3 = {self.checking: 1, self.savings: -1}
         splits4 = {self.checking: 10, self.savings: -10}
-        ledger.add_transaction(pft.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(pft.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(pft.Transaction(id_=3, splits=splits3, txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(pft.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
         self.assertEqual(ledger_records[0].balance, D(10))
@@ -383,19 +383,19 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].balance, D('31.45'))
 
     def test_get_scheduled_txns_due(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits = {self.checking: 100, self.savings: -100}
-        not_due_txn = pft.ScheduledTransaction(
+        not_due_txn = bb.ScheduledTransaction(
             id_=1,
             name='not due',
-            frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
             next_due_date=date.today() + timedelta(days=1),
         )
-        due_txn = pft.ScheduledTransaction(
+        due_txn = bb.ScheduledTransaction(
             id_=2,
             name='due',
-            frequency=pft.ScheduledTransactionFrequency.MONTHLY,
+            frequency=bb.ScheduledTransactionFrequency.MONTHLY,
             splits=splits,
             next_due_date=date.today()
         )
@@ -405,43 +405,43 @@ class TestLedger(unittest.TestCase):
             [due_txn])
 
     def test_search(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits1 = {self.checking: '32.45', self.savings: '-32.45'}
         splits2 = {self.checking: -12, self.savings: 12}
         splits3 = {self.checking: 1, self.savings: -1}
         splits4 = {self.checking: 10, self.savings: -10}
-        ledger.add_transaction(pft.Transaction(id_=1, splits=splits1, payee=pft.Payee('someone'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(pft.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(pft.Transaction(id_=3, splits=splits3, description='Some description', txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(pft.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, payee=bb.Payee('someone'), txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, description='Some description', txn_date=date(2017, 7, 30)))
+        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
         results = ledger.search('some')
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].description, 'Some description')
 
     def test_get_txn(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits1 = {self.checking: '-32.45', self.savings: '32.45'}
         splits2 = {self.checking: -12, self.savings: 12}
-        ledger.add_transaction(pft.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(pft.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
         txn = ledger.get_txn(id_=2)
         self.assertEqual(txn.splits[self.checking], D('-12'))
 
     def test_clear_txns(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits = {self.checking: 100, self.savings: -100}
-        ledger.add_transaction(pft.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5)))
         ledger.clear_txns()
         self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
 
     def test_get_payees(self):
-        ledger = pft.Ledger(account=self.checking)
+        ledger = bb.Ledger(account=self.checking)
         splits = {self.checking: '12.34', self.savings: '-12.34'}
-        burger_king = pft.Payee('Burger King', id_=1)
-        mcdonalds = pft.Payee('McDonalds', id_=2)
-        ledger.add_transaction(pft.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5), payee=mcdonalds))
-        ledger.add_transaction(pft.Transaction(id_=2, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
-        ledger.add_transaction(pft.Transaction(id_=3, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
+        burger_king = bb.Payee('Burger King', id_=1)
+        mcdonalds = bb.Payee('McDonalds', id_=2)
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5), payee=mcdonalds))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
         self.assertEqual(ledger.get_payees(), [burger_king, mcdonalds])
 
 
@@ -456,8 +456,8 @@ class TestScheduledTransaction(unittest.TestCase):
         }
 
     def test_invalid_frequency(self):
-        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
-            pft.ScheduledTransaction(
+        with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
+            bb.ScheduledTransaction(
                 name='w',
                 frequency='weekly',
                 next_due_date='2019-01-01',
@@ -466,37 +466,37 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'invalid frequency "weekly"')
 
     def test_invalid_splits(self):
-        with self.assertRaises(pft.InvalidTransactionError) as cm:
-            pft.ScheduledTransaction(
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            bb.ScheduledTransaction(
                 name='w',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-01',
                 splits={},
             )
         self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
 
     def test_invalid_next_due_date(self):
-        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
-            pft.ScheduledTransaction(
+        with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
+            bb.ScheduledTransaction(
                 name='w',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='abcd',
                 splits=self.valid_splits,
             )
         self.assertEqual(str(cm.exception), 'invalid date "abcd"')
-        with self.assertRaises(pft.InvalidScheduledTransactionError) as cm:
-            pft.ScheduledTransaction(
+        with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
+            bb.ScheduledTransaction(
                 name='w',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date=None,
                 splits=self.valid_splits,
             )
         self.assertEqual(str(cm.exception), 'invalid date "None"')
 
     def test_init(self):
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
                 txn_type='a',
@@ -504,7 +504,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 description='something',
             )
         self.assertEqual(st.name, 'weekly 1')
-        self.assertEqual(st.frequency, pft.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(st.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(st.next_due_date, date(2019, 1, 2))
         self.assertEqual(st.splits, self.valid_splits)
         self.assertEqual(st.txn_type, 'a')
@@ -512,58 +512,58 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(st.description, 'something')
 
     def test_init_frequency(self):
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=3,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
-        self.assertEqual(st.frequency, pft.ScheduledTransactionFrequency.QUARTERLY)
+        self.assertEqual(st.frequency, bb.ScheduledTransactionFrequency.QUARTERLY)
 
     def test_display_strings(self):
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
                 txn_type='a',
-                payee=pft.Payee('Wendys'),
+                payee=bb.Payee('Wendys'),
                 description='something',
             )
-        tds = pft.get_display_strings_for_ledger(account=self.checking, txn=st)
+        tds = bb.get_display_strings_for_ledger(account=self.checking, txn=st)
 
     def test_next_txn_entered(self):
         #WEEKLY
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
         st.next_txn_entered()
         self.assertEqual(st.next_due_date, date(2019, 1, 9))
         #MONTHLY
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='monthly 1',
-                frequency=pft.ScheduledTransactionFrequency.MONTHLY,
+                frequency=bb.ScheduledTransactionFrequency.MONTHLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
         st.next_txn_entered()
         self.assertEqual(st.next_due_date, date(2019, 2, 2))
         #QUARTERLY
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='quarterly 1',
-                frequency=pft.ScheduledTransactionFrequency.QUARTERLY,
+                frequency=bb.ScheduledTransactionFrequency.QUARTERLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
         st.next_txn_entered()
         self.assertEqual(st.next_due_date, date(2019, 4, 2))
         #ANNUALLY
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='annually 1',
-                frequency=pft.ScheduledTransactionFrequency.ANNUALLY,
+                frequency=bb.ScheduledTransactionFrequency.ANNUALLY,
                 next_due_date='2018-01-02',
                 splits=self.valid_splits,
             )
@@ -574,30 +574,30 @@ class TestScheduledTransaction(unittest.TestCase):
 class TestBudget(unittest.TestCase):
 
     def test_init_dates(self):
-        with self.assertRaises(pft.BudgetError) as cm:
-            pft.Budget()
+        with self.assertRaises(bb.BudgetError) as cm:
+            bb.Budget()
         self.assertEqual(str(cm.exception), 'must pass in dates')
-        b = pft.Budget(year=2018, account_budget_info={})
+        b = bb.Budget(year=2018, account_budget_info={})
         self.assertEqual(b.start_date, date(2018, 1, 1))
         self.assertEqual(b.end_date, date(2018, 12, 31))
-        b = pft.Budget(year='2018', account_budget_info={})
+        b = bb.Budget(year='2018', account_budget_info={})
         self.assertEqual(b.start_date, date(2018, 1, 1))
-        b = pft.Budget(start_date=date(2018, 1, 15), end_date=date(2019, 1, 14), account_budget_info={})
+        b = bb.Budget(start_date=date(2018, 1, 15), end_date=date(2019, 1, 14), account_budget_info={})
         self.assertEqual(b.start_date, date(2018, 1, 15))
         self.assertEqual(b.end_date, date(2019, 1, 14))
 
     def test_init(self):
-        housing = get_test_account(id_=1, type_=pft.AccountType.EXPENSE, name='Housing')
-        food = get_test_account(id_=2, type_=pft.AccountType.EXPENSE, name='Food')
-        transportation = get_test_account(id_=3, type_=pft.AccountType.EXPENSE, name='Transportation')
-        rent = get_test_account(id_=4, type_=pft.AccountType.EXPENSE, name='Rent')
+        housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
+        food = get_test_account(id_=2, type_=bb.AccountType.EXPENSE, name='Food')
+        transportation = get_test_account(id_=3, type_=bb.AccountType.EXPENSE, name='Transportation')
+        rent = get_test_account(id_=4, type_=bb.AccountType.EXPENSE, name='Rent')
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
                 food: {'amount': '35', 'carryover': '0'},
                 transportation: {},
                 rent: {'amount': D(0), 'notes': ''},
             }
-        b = pft.Budget(year=2018, account_budget_info=account_budget_info)
+        b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         self.assertEqual(b.get_budget_data(), {
                     housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
                     food: {'amount': D(35), 'carryover': D(0)},
@@ -606,22 +606,22 @@ class TestBudget(unittest.TestCase):
                 })
 
     def test_sparse_init(self):
-        b = pft.Budget(year=2018)
+        b = bb.Budget(year=2018)
         self.assertEqual(b.start_date, date(2018, 1, 1))
 
     def test_percent_rounding(self):
-        self.assertEqual(pft.Budget.round_percent_available(D('1.1')), D(1))
-        self.assertEqual(pft.Budget.round_percent_available(D('1.8')), D(2))
-        self.assertEqual(pft.Budget.round_percent_available(D('1.5')), D(2))
-        self.assertEqual(pft.Budget.round_percent_available(D('2.5')), D(3))
+        self.assertEqual(bb.Budget.round_percent_available(D('1.1')), D(1))
+        self.assertEqual(bb.Budget.round_percent_available(D('1.8')), D(2))
+        self.assertEqual(bb.Budget.round_percent_available(D('1.5')), D(2))
+        self.assertEqual(bb.Budget.round_percent_available(D('2.5')), D(3))
 
     def test_get_report_display(self):
-        housing = get_test_account(id_=1, type_=pft.AccountType.EXPENSE, name='Housing')
-        food = get_test_account(id_=2, type_=pft.AccountType.EXPENSE, name='Food')
-        transportation = get_test_account(id_=3, type_=pft.AccountType.EXPENSE, name='Transportation')
-        something = get_test_account(id_=4, type_=pft.AccountType.EXPENSE, name='Something')
-        wages = get_test_account(id_=5, type_=pft.AccountType.INCOME, name='Wages')
-        interest = get_test_account(id_=6, type_=pft.AccountType.INCOME, name='Interest')
+        housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
+        food = get_test_account(id_=2, type_=bb.AccountType.EXPENSE, name='Food')
+        transportation = get_test_account(id_=3, type_=bb.AccountType.EXPENSE, name='Transportation')
+        something = get_test_account(id_=4, type_=bb.AccountType.EXPENSE, name='Something')
+        wages = get_test_account(id_=5, type_=bb.AccountType.INCOME, name='Wages')
+        interest = get_test_account(id_=6, type_=bb.AccountType.INCOME, name='Interest')
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(5)},
                 food: {},
@@ -630,12 +630,12 @@ class TestBudget(unittest.TestCase):
                 wages: {'amount': D(100), 'notes': 'note 1'},
                 interest: {},
             }
-        budget = pft.Budget(year=2018, account_budget_info=account_budget_info)
-        with self.assertRaises(pft.BudgetError) as cm:
+        budget = bb.Budget(year=2018, account_budget_info=account_budget_info)
+        with self.assertRaises(bb.BudgetError) as cm:
             budget.get_report_display()
         self.assertEqual(str(cm.exception), 'must pass in income_spending_info to get the report display')
         income_spending_info = {housing: {'income': D(5), 'spent': D(10)}, food: {'income': ''}, wages: {'income': D(80)}}
-        budget = pft.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
+        budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display()
         housing_info = budget_report['expense'][housing]
         self.assertEqual(housing_info['amount'], '15')
@@ -688,43 +688,43 @@ class TestSQLiteStorage(unittest.TestCase):
             pass
 
     def test_init(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_init_no_filename(self):
-        with self.assertRaises(pft.SQLiteStorageError) as exc_cm:
-            pft.SQLiteStorage('')
-        with self.assertRaises(pft.SQLiteStorageError) as exc_cm:
-            pft.SQLiteStorage(None)
+        with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
+            bb.SQLiteStorage('')
+        with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
+            bb.SQLiteStorage(None)
 
     def test_init_file_doesnt_exist(self):
-        storage = pft.SQLiteStorage(self.file_name)
+        storage = bb.SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_init_empty_file(self):
         with open(self.file_name, 'wb') as f:
             pass
-        storage = pft.SQLiteStorage(self.file_name)
+        storage = bb.SQLiteStorage(self.file_name)
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_init_db_already_setup(self):
         #set up file
-        init_storage = pft.SQLiteStorage(self.file_name)
+        init_storage = bb.SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         #and now open it again and make sure everything's fine
-        storage = pft.SQLiteStorage(self.file_name)
+        storage = bb.SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_save_account(self):
-        storage = pft.SQLiteStorage(':memory:')
-        assets = pft.Account(type_=pft.AccountType.ASSET, name='All Assets')
+        storage = bb.SQLiteStorage(':memory:')
+        assets = bb.Account(type_=bb.AccountType.ASSET, name='All Assets')
         storage.save_account(assets)
-        checking = pft.Account(type_=pft.AccountType.ASSET, user_id='4010', name='Checking', parent=assets)
+        checking = bb.Account(type_=bb.AccountType.ASSET, user_id='4010', name='Checking', parent=assets)
         storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -733,17 +733,17 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, pft.AccountType.ASSET.value, '4010', 'Checking', assets.id, None))
-        savings = pft.Account(id_=checking.id, type_=pft.AccountType.ASSET, name='Savings')
+                (checking.id, bb.AccountType.ASSET.value, '4010', 'Checking', assets.id, None))
+        savings = bb.Account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, pft.AccountType.ASSET.value, None, 'Savings', None, None)])
+                [(savings.id, bb.AccountType.ASSET.value, None, 'Savings', None, None)])
 
     def test_save_account_error(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking', id_=1)
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
         #checking has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception):
@@ -754,22 +754,22 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(account_records, [])
 
     def test_save_account_foreignkey_error(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking', id_=9)
-        checking_child = pft.Account(type_=pft.AccountType.ASSET, name='Checking Child', parent=checking)
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         with self.assertRaises(Exception):
             storage.save_account(checking_child)
 
     def test_get_account(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, user_id, name) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, '4010', 'Checking'))
+        c.execute('INSERT INTO accounts(type, user_id, name) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, '4010', 'Checking'))
         account_id = c.lastrowid
-        c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (pft.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
+        c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
-        self.assertEqual(account.type, pft.AccountType.EXPENSE)
+        self.assertEqual(account.type, bb.AccountType.EXPENSE)
         self.assertEqual(account.user_id, '4010')
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.parent, None)
@@ -777,44 +777,44 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(sub_checking.parent, account)
 
     def test_get_accounts(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 3)
         self.assertEqual(accounts[0].name, 'Checking')
         self.assertEqual(accounts[1].name, 'Savings')
         self.assertEqual(accounts[2].name, 'Housing')
-        accounts = storage.get_accounts(type_=pft.AccountType.EXPENSE)
+        accounts = storage.get_accounts(type_=bb.AccountType.EXPENSE)
         self.assertEqual(len(accounts), 1)
         self.assertEqual(accounts[0].name, 'Housing')
 
     def test_payee_unique(self):
-        storage = pft.SQLiteStorage(':memory:')
-        payee = pft.Payee('payee')
+        storage = bb.SQLiteStorage(':memory:')
+        payee = bb.Payee('payee')
         storage.save_payee(payee)
         with self.assertRaises(Exception):
-            storage.save_payee(pft.Payee('payee'))
+            storage.save_payee(bb.Payee('payee'))
 
     def test_save_txn(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        chickfila = pft.Payee('Chick-fil-A')
+        chickfila = bb.Payee('Chick-fil-A')
         storage.save_payee(chickfila)
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={checking: D('-101'), savings: D(101)},
                 txn_date=date.today(),
                 txn_type='',
                 payee=chickfila,
                 description='chicken sandwich',
-                status=pft.Transaction.CLEARED,
+                status=bb.Transaction.CLEARED,
             )
         storage.save_txn(t)
         #make sure we save the id to the txn object
@@ -823,19 +823,19 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', pft.Transaction.CLEARED))
+                (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', bb.Transaction.CLEARED))
         c.execute('SELECT * FROM txn_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101', None),
                                              (2, 1, 2, '101', None)])
 
     def test_save_txn_payee_string(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={checking: D('-101'), savings: D(101)},
                 txn_date=date.today(),
                 payee='someone',
@@ -845,12 +845,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txn_from_db.payee.name, 'someone')
 
     def test_save_transaction_error(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={checking: D('-101'), savings: D(101)},
                 txn_date=date.today(),
                 id_=1
@@ -868,13 +868,13 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txn_split_records, [])
 
     def test_save_transaction_foreignkey_error(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        payee = pft.Payee('payee', id_=1)
-        t = pft.Transaction(
+        payee = bb.Payee('payee', id_=1)
+        t = bb.Transaction(
                 splits={checking: D('-101'), savings: D(101)},
                 txn_date=date.today(),
                 payee=payee,
@@ -883,12 +883,12 @@ class TestSQLiteStorage(unittest.TestCase):
             storage.save_txn(t)
 
     def test_save_sparse_txn(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={checking: '101', savings: '-101'},
                 txn_date=date.today(),
             )
@@ -904,15 +904,15 @@ class TestSQLiteStorage(unittest.TestCase):
                                              (2, 1, 2, '-101', None)])
 
     def test_round_trip(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        payee = pft.Payee('Five Guys')
+        payee = bb.Payee('Five Guys')
         storage.save_payee(payee)
         #create txn & save it
-        t = pft.Transaction(
+        t = bb.Transaction(
                 splits={checking: D('-101'), savings: D(101)},
                 txn_date=date.today(),
                 txn_type='123',
@@ -925,31 +925,31 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txn_from_db.payee, payee)
 
     def test_get_ledger(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
         savings2 = get_test_account(name='Savings 2')
         storage.save_account(savings2)
-        pizza_hut = pft.Payee('Pizza Hut')
+        pizza_hut = bb.Payee('Pizza Hut')
         storage.save_payee(pizza_hut)
-        subway = pft.Payee('Subway')
+        subway = bb.Payee('Subway')
         storage.save_payee(subway)
-        wendys = pft.Payee('Wendys')
+        wendys = bb.Payee('Wendys')
         storage.save_payee(wendys)
-        txn1 = pft.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=pizza_hut, description='inv #1', status=pft.Transaction.CLEARED,
+        txn1 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=pizza_hut, description='inv #1', status=bb.Transaction.CLEARED,
                 splits={checking: '101', savings: '-101'})
         storage.save_txn(txn1)
-        txn2 = pft.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', status=pft.Transaction.CLEARED,
+        txn2 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', status=bb.Transaction.CLEARED,
                 splits={checking: '46.23', savings:'-46.23'})
         storage.save_txn(txn2)
-        txn3 = pft.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', status=pft.Transaction.CLEARED,
+        txn3 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', status=bb.Transaction.CLEARED,
                 splits={savings2: '-6.53', savings: '6.53'})
         storage.save_txn(txn3)
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits={checking: -1, savings: 1},
                 txn_type='a',
@@ -957,9 +957,9 @@ class TestSQLiteStorage(unittest.TestCase):
                 description='something',
             )
         storage.save_scheduled_transaction(st)
-        st2 = pft.ScheduledTransaction(
+        st2 = bb.ScheduledTransaction(
                 name='weekly 2',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits={savings: -1, savings2: 1},
                 txn_type='a',
@@ -979,19 +979,19 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(txns), 2)
 
     def test_delete_txn_from_db(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        payee = pft.Payee('Waffle House')
-        subway_payee = pft.Payee('Subway')
+        payee = bb.Payee('Waffle House')
+        subway_payee = bb.Payee('Subway')
         storage.save_payee(payee)
         storage.save_payee(subway_payee)
-        txn = pft.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=payee,
+        txn = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=payee,
                 splits={checking: '101', savings: '-101'})
         storage.save_txn(txn)
-        txn2 = pft.Transaction(txn_date=date(2017, 1, 28), payee=subway_payee,
+        txn2 = bb.Transaction(txn_date=date(2017, 1, 28), payee=subway_payee,
                 splits={checking: '46.23', savings: '-46.23'})
         storage.save_txn(txn2)
         storage.delete_txn(txn.id)
@@ -1005,16 +1005,16 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual([r[0] for r in txn_splits_records], [txn2.id, txn2.id])
 
     def test_save_budget(self):
-        storage = pft.SQLiteStorage(':memory:')
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(0), 'notes': 'hello'},
                 food: {'amount': D(25), 'carryover': D(10)}
             }
-        b = pft.Budget(year=2018, account_budget_info=account_budget_info)
+        b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         storage.save_budget(b)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
@@ -1032,7 +1032,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[1][3], '25')
         self.assertEqual(records[1][4], '10')
         #test that old budget values are deleted
-        b = pft.Budget(start_date='2018-01-01', end_date='2018-12-24', account_budget_info={
+        b = bb.Budget(start_date='2018-01-01', end_date='2018-12-24', account_budget_info={
                 housing: {'amount': D(35), 'carryover': D(0)},
                 food: {'amount': D(45), 'carryover': D(0)},
             }, id_=b.id)
@@ -1045,16 +1045,16 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], '35')
 
     def test_save_budget_empty_category_info(self):
-        storage = pft.SQLiteStorage(':memory:')
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         account_budget_info = {
                 housing: {'amount': D(15), 'carryover': D(0)},
                 food: {},
             }
-        b = pft.Budget(year=2018, account_budget_info=account_budget_info)
+        b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         storage.save_budget(b)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets').fetchall()
@@ -1064,8 +1064,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], '15')
 
     def test_save_budget_sparse(self):
-        storage = pft.SQLiteStorage(':memory:')
-        b = pft.Budget(year=2018)
+        storage = bb.SQLiteStorage(':memory:')
+        b = bb.Budget(year=2018)
         storage.save_budget(b)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets').fetchall()
@@ -1076,48 +1076,48 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_budget_file(self):
         #test that save actually gets committed
-        storage = pft.SQLiteStorage(self.file_name)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(self.file_name)
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {'amount': D(25), 'carryover': D(0)},
         })
         storage.save_budget(b)
-        storage = pft.SQLiteStorage(self.file_name)
+        storage = bb.SQLiteStorage(self.file_name)
         cursor = storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
 
     def test_get_budget(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        wages = get_test_account(name='Wages', type_=pft.AccountType.INCOME)
+        wages = get_test_account(name='Wages', type_=bb.AccountType.INCOME)
         storage.save_account(wages)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        transportation = get_test_account(type_=pft.AccountType.EXPENSE, name='Transportation')
+        transportation = get_test_account(type_=bb.AccountType.EXPENSE, name='Transportation')
         storage.save_account(transportation)
-        txn1 = pft.Transaction(txn_date=date(2018, 1, 25),
+        txn1 = bb.Transaction(txn_date=date(2018, 1, 25),
                 splits={checking: '-101', housing: '101'})
-        txn2 = pft.Transaction(txn_date=date(2018, 2, 28),
+        txn2 = bb.Transaction(txn_date=date(2018, 2, 28),
                 splits={checking: '-46.23', food: '46.23'})
-        txn3 = pft.Transaction(txn_date=date(2018, 3, 28),
+        txn3 = bb.Transaction(txn_date=date(2018, 3, 28),
                 splits={savings: '-56.23', food: '56.23'})
-        txn4 = pft.Transaction(txn_date=date(2018, 4, 28),
+        txn4 = bb.Transaction(txn_date=date(2018, 4, 28),
                 splits={checking: '-15', savings: 15})
-        txn5 = pft.Transaction(txn_date=date(2018, 5, 28),
+        txn5 = bb.Transaction(txn_date=date(2018, 5, 28),
                 splits={checking: 15, food: '-15'})
-        txn6 = pft.Transaction(txn_date=date(2017, 1, 26),
+        txn6 = bb.Transaction(txn_date=date(2017, 1, 26),
                 splits={checking: '-108', housing: '108'})
-        txn7 = pft.Transaction(txn_date=date(2018, 2, 5),
+        txn7 = bb.Transaction(txn_date=date(2018, 2, 5),
                 splits={checking: '100', wages: '-100'})
         for t in [txn1, txn2, txn3, txn4, txn5, txn6, txn7]:
             storage.save_txn(t)
@@ -1148,20 +1148,20 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(report_display[transportation], {})
 
     def test_get_budgets(self):
-        storage = pft.SQLiteStorage(':memory:')
-        b = pft.Budget(year=2018)
+        storage = bb.SQLiteStorage(':memory:')
+        b = bb.Budget(year=2018)
         storage.save_budget(b)
-        b2 = pft.Budget(year=2019)
+        b2 = bb.Budget(year=2019)
         storage.save_budget(b2)
         budgets = storage.get_budgets()
         self.assertEqual(budgets[0].start_date, date(2019, 1, 1))
         self.assertEqual(budgets[1].start_date, date(2018, 1, 1))
 
     def test_get_budget_reports(self):
-        storage = pft.SQLiteStorage(':memory:')
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         cursor = storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
@@ -1176,20 +1176,20 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(expense_account.name, 'Housing')
 
     def test_save_scheduled_txn(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        wendys = pft.Payee('Wendys')
+        wendys = bb.Payee('Wendys')
         storage.save_payee(wendys)
         valid_splits={
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
                 txn_type='a',
@@ -1202,14 +1202,14 @@ class TestSQLiteStorage(unittest.TestCase):
         st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
-                (1, 'weekly 1', pft.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something', 'R'))
+                (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something', 'R'))
         st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,amount FROM scheduled_txn_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, '101'))
 
     def test_save_scheduled_transaction_error(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
@@ -1218,9 +1218,9 @@ class TestSQLiteStorage(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
                 id_=1
@@ -1238,20 +1238,20 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn_split_records, [])
 
     def test_update_scheduled_txn(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        wendys = pft.Payee('Wendys')
+        wendys = bb.Payee('Wendys')
         storage.save_payee(wendys)
         valid_splits={
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
                 txn_type='a',
@@ -1269,20 +1269,20 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(split_records), 2)
 
     def test_get_scheduled_transaction(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        wendys = pft.Payee('Wendys')
+        wendys = bb.Payee('Wendys')
         storage.save_payee(wendys)
         valid_splits={
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
                 txn_type='a',
@@ -1293,7 +1293,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_scheduled_transaction(st)
         scheduled_txn = storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.name, 'weekly 1')
-        self.assertEqual(scheduled_txn.frequency, pft.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
         self.assertEqual(scheduled_txn.txn_type, 'a')
         self.assertEqual(scheduled_txn.payee.name, 'Wendys')
@@ -1302,7 +1302,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.splits, valid_splits)
 
     def test_get_scheduled_transaction_sparse(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
@@ -1311,9 +1311,9 @@ class TestSQLiteStorage(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
@@ -1329,7 +1329,7 @@ class TestCLI(unittest.TestCase):
     def setUp(self):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
         self.memory_buffer = io.StringIO()
-        self.cli = pft.CLI(':memory:', print_file=self.memory_buffer)
+        self.cli = bb.CLI(':memory:', print_file=self.memory_buffer)
 
     @patch('builtins.input')
     def test_run(self, input_mock):
@@ -1343,7 +1343,7 @@ class TestCLI(unittest.TestCase):
         checking = get_test_account(name='Checking account with long name cut off')
         self.cli.storage.save_account(checking)
         self.cli._list_accounts()
-        output = '%s\n' % pft.CLI.ACCOUNT_LIST_HEADER
+        output = '%s\n' % bb.CLI.ACCOUNT_LIST_HEADER
         output += ' 1    | ASSET       |         | Checking account with long nam |                               \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
@@ -1382,12 +1382,12 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
-        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns()
-        output = 'Account ID: Checking\n%s\n' % pft.CLI.TXN_LIST_HEADER
+        output = 'Account ID: Checking\n%s\n' % bb.CLI.TXN_LIST_HEADER
         output += ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
         output += ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
@@ -1399,8 +1399,8 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
-        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
@@ -1408,11 +1408,11 @@ class TestCLI(unittest.TestCase):
         self.assertTrue('(n)ext page' in printed_output)
 
     def test_get_page(self):
-        self.assertEqual(pft.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))
-        self.assertEqual(pft.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=3), ([3], False))
-        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=3), ([5], False))
-        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=2), ([3, 4], True))
-        self.assertEqual(pft.CLI.get_page([1, 2, 3, 4], num_txns_in_page=2, page=2), ([3, 4], False))
+        self.assertEqual(bb.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))
+        self.assertEqual(bb.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=3), ([3], False))
+        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=3), ([5], False))
+        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=2), ([3, 4], True))
+        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4], num_txns_in_page=2, page=2), ([3, 4], False))
 
     @patch('builtins.input')
     def test_create_txn(self, input_mock):
@@ -1420,7 +1420,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        payee = pft.Payee(name='payee 1')
+        payee = bb.Payee(name='payee 1')
         self.cli.storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
                 'type 1', str(payee.id), 'description', 'C']
@@ -1459,7 +1459,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        payee = pft.Payee(name='payee 1')
+        payee = bb.Payee(name='payee 1')
         self.cli.storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
                 'type 1', "'payee 1", 'description', 'C']
@@ -1475,7 +1475,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        payee = pft.Payee(name='payee 1')
+        payee = bb.Payee(name='payee 1')
         self.cli.storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '2', '15', '',
                 'type 1', 'p', "'payee 1", 'description', 'C']
@@ -1493,7 +1493,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(savings)
         another_account = get_test_account(name='Another')
         self.cli.storage.save_account(another_account)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
         self.cli.storage.save_txn(txn)
         self.cli._edit_txn()
         ledger = self.cli.storage.get_ledger(1)
@@ -1519,9 +1519,9 @@ class TestCLI(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
@@ -1541,9 +1541,9 @@ class TestCLI(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
@@ -1563,9 +1563,9 @@ class TestCLI(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
@@ -1590,7 +1590,7 @@ class TestCLI(unittest.TestCase):
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'weekly 1')
-        self.assertEqual(scheduled_txns[0].frequency, pft.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].splits,
                 {
                     checking: -15,
@@ -1610,9 +1610,9 @@ class TestCLI(unittest.TestCase):
              checking: -101,
              savings: 101,
         }
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
@@ -1627,13 +1627,13 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].description, 'desc')
 
     def test_list_budgets(self):
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {'amount': D(25), 'carryover': D(0)},
             wages: {'amount': D(100)},
@@ -1646,13 +1646,13 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_display_budget(self, input_mock):
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {'amount': D(25), 'carryover': D(0)},
             wages: {'amount': D(100)},
@@ -1665,20 +1665,20 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_display_budget_report(self, input_mock):
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {'amount': D(25), 'carryover': D(0)},
             wages: {'amount': D(100)},
         })
         self.cli.storage.save_budget(b)
         self.cli.storage.save_txn(
-                pft.Transaction(
+                bb.Transaction(
                     txn_date='2019-01-13',
                     splits={wages: '-101', housing: 101},
                 )
@@ -1690,11 +1690,11 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_budget(self, input_mock):
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
         input_mock.side_effect = ['2019-01-10', '2019-11-30', str(housing.id), '100', '', '', '']
         self.cli._create_budget()
@@ -1708,13 +1708,13 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_edit_budget(self, input_mock):
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.cli.storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         self.cli.storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {},
             wages: {'amount': D(100)},
@@ -1740,14 +1740,14 @@ class TestQtGUI(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QtWidgets.QApplication([])
 
-    def test_pft_qt_gui(self):
-        pft_qt_gui = pft.PFT_GUI_QT(':memory:')
+    def test_bb_qt_gui(self):
+        bb_qt_gui = bb.GUI_QT(':memory:')
 
     def test_account(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         a = get_test_account()
         storage.save_account(a)
-        accounts_display = pft.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
         accounts_display.add_account_display._widgets['user_id'].setText('400')
@@ -1762,12 +1762,12 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(accounts[1].parent.name, 'Checking')
 
     def test_account_edit(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking')
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
-        savings = pft.Account(type_=pft.AccountType.ASSET, name='Savings')
+        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
-        accounts_display = pft.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.accounts_widgets[savings.id]['labels']['name'], QtCore.Qt.LeftButton)
         accounts_display.edit_account_display._widgets['name'].setText('New Savings')
@@ -1778,12 +1778,12 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(storage.get_accounts()[1].parent.name, 'Checking')
 
     def test_expense_account_edit(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking')
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
-        food = pft.Account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = bb.Account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        accounts_display = pft.AccountsDisplay(storage, reload_accounts=fake_method)
+        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.accounts_widgets[food.id]['labels']['name'], QtCore.Qt.LeftButton)
         accounts_display.edit_account_display._widgets['name'].setText('New Food')
@@ -1793,31 +1793,31 @@ class TestQtGUI(unittest.TestCase):
 
     @patch('bricbooks.set_widget_error_state')
     def test_account_exception(self, mock_method):
-        storage = pft.SQLiteStorage(':memory:')
-        accounts_display = pft.AccountsDisplay(storage, reload_accounts=fake_method)
+        storage = bb.SQLiteStorage(':memory:')
+        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
-        account_form = pft.AccountForm(storage.get_accounts())
+        account_form = bb.AccountForm(storage.get_accounts())
         account_form.show_form()
         QtTest.QTest.mouseClick(account_form._widgets['save_btn'], QtCore.Qt.LeftButton)
         mock_method.assert_called_once_with(account_form._widgets['name'])
 
     def test_empty_ledger(self):
-        storage = pft.SQLiteStorage(':memory:')
-        ledger_display = pft.LedgerDisplay(storage)
+        storage = bb.SQLiteStorage(':memory:')
+        ledger_display = bb.LedgerDisplay(storage)
 
     def test_ledger_add(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.count(), 4)
@@ -1838,14 +1838,14 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        ledger_display = pft.LedgerDisplay(storage, current_account=savings)
+        ledger_display = bb.LedgerDisplay(storage, current_account=savings)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
@@ -1864,20 +1864,20 @@ class TestQtGUI(unittest.TestCase):
             )
 
     def test_add_txn_multiple_splits(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        rent = get_test_account(type_=pft.AccountType.EXPENSE, name='Rent')
+        rent = get_test_account(type_=bb.AccountType.EXPENSE, name='Rent')
         storage.save_account(rent)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         txn_accounts_display_splits = {rent: 3, housing: 7}
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('10')
-        pft.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
+        bb.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
@@ -1887,46 +1887,46 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking], D('-10'))
 
     def test_ledger_choose_account(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking')
-        savings = pft.Account(type_=pft.AccountType.ASSET, name='Savings')
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = pft.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft.LedgerDisplay(storage, current_account=savings)
+        ledger_display = bb.LedgerDisplay(storage, current_account=savings)
         ledger_display.get_widget()
         self.assertEqual(ledger_display._current_account, savings)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 1)
         self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
 
     def test_ledger_switch_account(self):
-        storage = pft.SQLiteStorage(':memory:')
-        checking = pft.Account(type_=pft.AccountType.ASSET, name='Checking')
-        savings = pft.Account(type_=pft.AccountType.ASSET, name='Savings')
-        restaurant = pft.Account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
+        restaurant = bb.Account(type_=bb.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(checking)
         storage.save_account(savings)
         storage.save_account(restaurant)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
-        txn3 = pft.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2018, 1, 2))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        txn3 = bb.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2018, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
-        st = pft.ScheduledTransaction(
+        st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=pft.ScheduledTransactionFrequency.WEEKLY,
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits={restaurant: D(5), checking: D(-5)},
                 txn_type='a',
-                payee=pft.Payee('Wendys'),
+                payee=bb.Payee('Wendys'),
                 description='something',
             )
         storage.save_scheduled_transaction(st)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         self.assertEqual(ledger_display._current_account, checking)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 0)
@@ -1936,22 +1936,22 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
 
     def test_ledger_txn_edit(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        payee = pft.Payee('some payee')
+        payee = bb.Payee('some payee')
         storage.save_payee(payee)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 3))
-        txn2 = pft.Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2), payee=payee)
-        txn3 = pft.Transaction(splits={checking: D(25), savings: D(-25)}, txn_date=date(2017, 10, 18))
-        txn4 = pft.Transaction(splits={checking: D(10), savings: D(-10)}, txn_date=date(2018, 6, 6))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 3))
+        txn2 = bb.Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2), payee=payee)
+        txn3 = bb.Transaction(splits={checking: D(25), savings: D(-25)}, txn_date=date(2017, 10, 18))
+        txn4 = bb.Transaction(splits={checking: D(10), savings: D(-10)}, txn_date=date(2018, 6, 6))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         storage.save_txn(txn4)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '22')
@@ -1985,18 +1985,18 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
     def test_ledger_txn_edit_expense_account(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        restaurants = get_test_account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+        restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(restaurants)
-        txn = pft.Transaction(splits={checking: D(5), housing: D(-5)}, txn_date=date(2017, 1, 3))
-        txn2 = pft.Transaction(splits={checking: D(17), housing: D(-17)}, txn_date=date(2017, 5, 2))
+        txn = bb.Transaction(splits={checking: D(5), housing: D(-5)}, txn_date=date(2017, 1, 3))
+        txn2 = bb.Transaction(splits={checking: D(17), housing: D(-17)}, txn_date=date(2017, 5, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
@@ -2010,43 +2010,43 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].splits[restaurants], D(-17))
 
     def test_ledger_txn_edit_multiple_splits(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         storage.save_account(checking)
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        restaurants = get_test_account(type_=pft.AccountType.EXPENSE, name='Restaurants')
+        restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(restaurants)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         initial_splits = {checking: D(-25), housing: D(20), restaurants: D(5)}
         txn_account_display_splits = {housing: D(15), restaurants: D(10)}
         final_splits = {checking: D(-25), housing: D(15), restaurants: D(10)}
-        txn = pft.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
+        txn = bb.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
         storage.save_txn(txn)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         #activate editing
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentText(), 'multiple')
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
-        pft.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
+        bb.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         updated_txn = storage.get_txn(txn.id)
         self.assertEqual(updated_txn.splits, final_splits)
 
     def test_ledger_txn_delete(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        txn = pft.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = pft.Transaction(splits={checking: D(23), savings: D(-23)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: D(23), savings: D(-23)}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = pft.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['delete_btn'], QtCore.Qt.LeftButton)
@@ -2057,30 +2057,30 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking], D(23))
 
     def test_budget_display(self):
-        storage = pft.SQLiteStorage(':memory:')
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        wages = get_test_account(type_=pft.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         storage.save_account(wages)
-        b = pft.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': D(15), 'carryover': D(0)},
             food: {'amount': D(25), 'carryover': D(0)},
             wages: {'amount': D(100)},
         })
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
-        budget_display = pft.BudgetDisplay(storage=storage, current_budget=budget)
+        budget_display = bb.BudgetDisplay(storage=storage, current_budget=budget)
         widget = budget_display.get_widget()
 
     def test_budget_create(self):
-        storage = pft.SQLiteStorage(':memory:')
-        housing = get_test_account(type_=pft.AccountType.EXPENSE, name='Housing')
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        food = get_test_account(type_=pft.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        budget_display = pft.BudgetDisplay(storage=storage)
+        budget_display = bb.BudgetDisplay(storage=storage)
         budget_display.get_widget()
         self.assertEqual(budget_display._current_budget, None)
         self.assertEqual(budget_display._budget_select_combo.currentText(), '')
@@ -2103,7 +2103,7 @@ class TestQtGUI(unittest.TestCase):
 class TestLoadTestData(unittest.TestCase):
 
     def test_load(self):
-        storage = pft.SQLiteStorage(':memory:')
+        storage = bb.SQLiteStorage(':memory:')
         load_test_data._load_data(storage, many_txns=False)
         accounts = storage.get_accounts()
 

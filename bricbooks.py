@@ -1915,7 +1915,7 @@ def show_error(msg):
     msgbox.exec_()
 
 
-class PFT_GUI_QT:
+class GUI_QT:
 
     def __init__(self, file_name=None):
         self.parent_window = QtWidgets.QWidget()
@@ -2431,8 +2431,8 @@ if __name__ == '__main__':
 
     app = QtWidgets.QApplication([])
     if args.file_name:
-        gui = PFT_GUI_QT(args.file_name)
+        gui = GUI_QT(args.file_name)
     else:
-        gui = PFT_GUI_QT()
+        gui = GUI_QT()
     app.exec_()
 
