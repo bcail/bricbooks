@@ -382,6 +382,19 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
         self.assertEqual(ledger_records[3].balance, D('31.45'))
 
+    def test_balances(self):
+        ledger = bb.Ledger(account=self.checking)
+        splits1 = {self.checking: '32.45', self.savings: '-32.45'}
+        splits2 = {self.checking: -12, self.savings: 12}
+        splits3 = {self.checking: 1, self.savings: -1}
+        splits4 = {self.checking: 10, self.savings: -10}
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5), status=bb.Transaction.CLEARED))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date.today()+timedelta(days=3)))
+        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=5)))
+        expected_balances = bb.LedgerBalances(current=D('20.45'), current_cleared=D('32.45'))
+        self.assertEqual(ledger.get_current_balances(), expected_balances)
+
     def test_get_scheduled_txns_due(self):
         ledger = bb.Ledger(account=self.checking)
         splits = {self.checking: 100, self.savings: -100}

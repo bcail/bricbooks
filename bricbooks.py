@@ -5,6 +5,7 @@ Architecture:
     Outer Layer - UI (Qt, console). Knows about storage layer and inner objects.
     No objects should use private/hidden members of other objects.
 '''
+from collections import namedtuple
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
@@ -382,6 +383,9 @@ def get_display_strings_for_ledger(account, txn):
     return display_strings
 
 
+LedgerBalances = namedtuple('LedgerBalances', ['current', 'current_cleared'])
+
+
 class Ledger:
 
     def __init__(self, account=None):
@@ -437,6 +441,18 @@ class Ledger:
 
     def clear_txns(self):
         self._txns = {}
+
+    def get_current_balances(self):
+        sorted_txns = self.get_sorted_txns_with_balance()
+        current = Decimal(0)
+        current_cleared = Decimal(0)
+        today = date.today()
+        for t in sorted_txns:
+            if t.txn_date <= today:
+                current = t.balance
+                if t.status == Transaction.CLEARED:
+                    current_cleared = current_cleared + t.splits[self.account]
+        return LedgerBalances(current=current, current_cleared=current_cleared)
 
     def get_payees(self):
         payees = set()
