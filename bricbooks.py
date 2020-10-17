@@ -2122,7 +2122,9 @@ class CLI:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
         acc_id = self.input('Account ID: ')
         ledger = self.storage.get_ledger(acc_id)
-        self.print(ledger.account.name)
+        ledger_balances = ledger.get_current_balances()
+        summary_line = f'{ledger.account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
+        self.print(summary_line)
         self.print(self.TXN_LIST_HEADER)
         txns = ledger.get_sorted_txns_with_balance()
         page_index = 1
