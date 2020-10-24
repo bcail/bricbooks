@@ -2394,7 +2394,7 @@ class CLI:
         help_msg = 'h - help'
         for cmd, info in info.items():
             help_msg += f'\n{cmd} - {info["description"]}'
-        help_msg += '\nq - quit'
+        help_msg += '\nq (or Ctrl-d) - quit'
         self.print(help_msg.strip())
 
     def _command_loop(self, info):
