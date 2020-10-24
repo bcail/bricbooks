@@ -1219,11 +1219,12 @@ class SplitTransactionEditor:
 
 class LedgerTxnsDisplay:
 
-    def __init__(self, ledger, storage, filter_text):
+    def __init__(self, ledger, storage, filter_text, post_update_function):
         self.ledger = ledger
         self.storage = storage
         self._filter_text = filter_text
         self._scheduled_txn_widgets = []
+        self._post_update_function = post_update_function
 
     def get_widget(self):
         self.main_widget = QtWidgets.QScrollArea()
@@ -1275,6 +1276,7 @@ class LedgerTxnsDisplay:
         self._scheduled_txn_widgets.append(empty)
         self.txns_layout.addWidget(empty, row, 0)
         self.txns_layout.setRowStretch(row, 1)
+        self._post_update_function()
 
     def _delete(self, txn, layout):
         #delete from storage, remove it from ledger, delete the display info
@@ -1611,6 +1613,7 @@ class LedgerDisplay:
                 current_account = accounts[0]
         self._current_account = current_account
         self.txns_display_widget = None
+        self.balances_widget = None
 
     def get_widget(self):
         self.widget, self.layout = self._setup_main()
@@ -1633,12 +1636,33 @@ class LedgerDisplay:
 
     def _display_ledger(self, layout, account, filter_text=''):
         self.ledger = self.storage.get_ledger(account=account)
-        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, filter_text)
+        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, filter_text,
+                post_update_function=partial(self._display_balances_widget, layout=layout, ledger=self.ledger))
         if self.txns_display_widget:
             layout.removeWidget(self.txns_display_widget)
             self.txns_display_widget.deleteLater()
         self.txns_display_widget = self.txns_display.get_widget()
         layout.addWidget(self.txns_display_widget, self._ledger_txns_row_index, 0, 1, 9)
+
+    def _display_balances_widget(self, layout, ledger):
+        if self.balances_widget:
+            layout.removeWidget(self.balances_widget)
+            self.balances_widget.deleteLater()
+        self.balances_widget = self._get_balances_widget(ledger=self.ledger)
+        layout.addWidget(self.balances_widget, self._ledger_txns_row_index+1, 0, 1, 9)
+
+    def _get_balances_widget(self, ledger):
+        #this is a row below the list of txns
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        balances = ledger.get_current_balances()
+        balance_text = f'Current Balance: {balances.current}'
+        cleared_text = f'Cleared: {balances.current_cleared}'
+        layout.addWidget(QtWidgets.QLabel(cleared_text), 0, 0)
+        layout.addWidget(QtWidgets.QLabel(balance_text), 0, 1)
+        widget.setLayout(layout)
+        return widget
 
     def _update_account(self, index):
         self._current_account = self.storage.get_accounts()[index]
