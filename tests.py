@@ -545,7 +545,7 @@ class TestScheduledTransaction(unittest.TestCase):
             )
         tds = bb.get_display_strings_for_ledger(account=self.checking, txn=st)
 
-    def test_next_txn_entered(self):
+    def test_advance_to_next_due_date(self):
         #WEEKLY
         st = bb.ScheduledTransaction(
                 name='weekly 1',
@@ -553,7 +553,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
-        st.next_txn_entered()
+        st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 1, 9))
         #MONTHLY
         st = bb.ScheduledTransaction(
@@ -562,7 +562,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
-        st.next_txn_entered()
+        st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 2, 2))
         #QUARTERLY
         st = bb.ScheduledTransaction(
@@ -571,7 +571,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
-        st.next_txn_entered()
+        st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 4, 2))
         #ANNUALLY
         st = bb.ScheduledTransaction(
@@ -580,7 +580,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 next_due_date='2018-01-02',
                 splits=self.valid_splits,
             )
-        st.next_txn_entered()
+        st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 1, 2))
 
 
@@ -1523,7 +1523,7 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_list_scheduled_txns(self, input_mock):
-        input_mock.side_effect = ['']
+        input_mock.side_effect = ['', '']
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
@@ -1583,7 +1583,7 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli.storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '101', '', '', '', '', '', '']
+        input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '101', '', '', '', '', '', '', '']
         self.cli._list_scheduled_txns()
         ledger = self.cli.storage.get_ledger(checking.id)
         txn = ledger.get_sorted_txns_with_balance()[0]
@@ -1591,6 +1591,31 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(txn.txn_date, date(2019, 1, 2))
         scheduled_txn = self.cli.storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
+
+    @patch('builtins.input')
+    def test_skip_scheduled_txn(self, input_mock):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.cli.storage.save_account(checking)
+        self.cli.storage.save_account(savings)
+        valid_splits={
+             checking: -101,
+             savings: 101,
+        }
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.cli.storage.save_scheduled_transaction(st)
+        input_mock.side_effect = ['', str(st.id), '']
+        self.cli._list_scheduled_txns()
+        scheduled_txn = self.cli.storage.get_scheduled_transaction(st.id)
+        self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
+        ledger = self.cli.storage.get_ledger(checking.id)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(txns, [])
 
     @patch('builtins.input')
     def test_create_scheduled_txn(self, input_mock):

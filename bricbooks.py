@@ -520,7 +520,7 @@ class ScheduledTransaction:
             return True
         return False
 
-    def next_txn_entered(self):
+    def advance_to_next_due_date(self):
         #update next_due_date since the txn has been entered
         if self.frequency == ScheduledTransactionFrequency.WEEKLY:
             self.next_due_date = self.next_due_date + timedelta(days=7)
@@ -1311,7 +1311,7 @@ class LedgerTxnsDisplay:
         self.edit_txn_display.show_form()
 
     def _enter_scheduled_txn(self, new_txn, scheduled_txn, layout):
-        scheduled_txn.next_txn_entered()
+        scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
         self.storage.save_txn(new_txn)
         self.ledger.add_transaction(new_txn)
@@ -2250,6 +2250,7 @@ class CLI:
         for st in self.storage.get_scheduled_transactions():
             self.print(st)
         self._enter_scheduled_txn()
+        self._skip_scheduled_txn()
 
     def _enter_scheduled_txn(self):
         self.print('Enter next transaction for a scheduled transaction:')
@@ -2258,7 +2259,18 @@ class CLI:
             if scheduled_txn_id:
                 scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
                 self._get_and_save_txn(txn=scheduled_txn)
-                scheduled_txn.next_txn_entered()
+                scheduled_txn.advance_to_next_due_date()
+                self.storage.save_scheduled_transaction(scheduled_txn)
+            else:
+                break
+
+    def _skip_scheduled_txn(self):
+        self.print('Skip next transaction for a scheduled transaction:')
+        while True:
+            scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
+            if scheduled_txn_id:
+                scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+                scheduled_txn.advance_to_next_due_date()
                 self.storage.save_scheduled_transaction(scheduled_txn)
             else:
                 break
