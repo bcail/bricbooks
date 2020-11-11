@@ -9,6 +9,7 @@ from collections import namedtuple
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
+from fractions import Fraction
 from functools import partial
 import os
 from pathlib import Path
@@ -75,7 +76,7 @@ class InvalidAccountNameError(InvalidAccountError):
 class InvalidPayeeError(RuntimeError):
     pass
 
-class InvalidDecimalAmount(RuntimeError):
+class InvalidAmount(RuntimeError):
     pass
 
 class InvalidTransactionError(RuntimeError):
@@ -212,42 +213,41 @@ class Payee:
         return self.id
 
 
-def get_decimal_amount(value):
-    decimal_value = None
-    if isinstance(value, Decimal):
-        decimal_value = value
-    elif isinstance(value, (int, str)):
+def get_validated_amount(value):
+    amount = None
+    #try to only allow exact values (eg. no floats)
+    if isinstance(value, (int, str, Fraction)):
         try:
-            decimal_value = Decimal(value)
+            amount = Fraction(value)
         except InvalidOperation:
-            raise InvalidDecimalAmount('bad decimal value: %s' % value)
+            raise InvalidAmount('error generating Fraction from "{value}"')
     else:
-        raise InvalidDecimalAmount('bad decimal value: %s' % value)
-    decimal_value_str = str(decimal_value)
-    if '.' in decimal_value_str:
-        _, decimals = decimal_value_str.split('.')
-        if len(decimals) > 2:
-            raise InvalidDecimalAmount('no fractions of cents allowed: %s' % value)
-    return decimal_value
+        raise InvalidAmount(f'invalid value type: {type(value)} {value}')
+    if (100 % amount.denominator) != 0:
+        raise InvalidAmount('no fractions of cents allowed: %s' % value)
+    return amount
+
+
+def fraction_to_decimal(f):
+    return Decimal(f.numerator) / Decimal(f.denominator)
 
 
 def check_txn_splits(input_splits):
     if not input_splits or len(input_splits.items()) < 2:
         raise InvalidTransactionError('transaction must have at least 2 splits')
     splits = {}
-    total = Decimal(0)
-    for account, amount in input_splits.items():
+    total = Fraction(0)
+    for account, amt in input_splits.items():
         if not account:
             raise InvalidTransactionError('must have a valid account in splits')
         try:
-            decimal_amount = get_decimal_amount(amount)
-        except InvalidDecimalAmount as e:
+            amount = get_validated_amount(amt)
+        except InvalidAmount as e:
             raise InvalidTransactionError('invalid split: %s' % e)
-        #check for fractions of cents
-        amt_str = str(decimal_amount)
-        total += decimal_amount
-        splits[account] = decimal_amount
-    if total != Decimal(0):
+        amt_str = str(amount)
+        total += amount
+        splits[account] = amount
+    if total != Fraction(0):
         raise InvalidTransactionError("splits don't balance")
     return splits
 
@@ -274,8 +274,8 @@ class Transaction:
         splits = {}
         categories = {}
         try:
-            amount = get_decimal_amount(deposit or withdrawal)
-        except InvalidDecimalAmount as e:
+            amount = get_validated_amount(deposit or withdrawal)
+        except InvalidAmount as e:
             raise InvalidTransactionError('invalid deposit/withdrawal: %s' % e)
         if isinstance(input_categories, Account):
             categories[input_categories] = amount
@@ -353,13 +353,13 @@ def _categories_display(splits, main_account):
 def get_display_strings_for_ledger(account, txn):
     '''txn can be either Transaction or ScheduledTransaction'''
     amount = txn.splits[account]
-    if amount < Decimal(0):
+    if amount < Fraction(0):
         #make negative amount display as positive
-        withdrawal = str(amount * Decimal('-1'))
+        withdrawal = str(fraction_to_decimal(amount * Fraction('-1')))
         deposit = ''
     else:
         withdrawal = ''
-        deposit = str(amount)
+        deposit = str(fraction_to_decimal(amount))
     if txn.payee:
         payee = txn.payee.name
     else:
@@ -412,7 +412,7 @@ class Ledger:
     def _add_balance_to_txns(self, txns):
         #txns must be sorted already
         txns_with_balance = []
-        balance = Decimal(0)
+        balance = Fraction(0)
         for t in txns:
             balance = balance + t.splits[self.account]
             t.balance = balance
@@ -444,8 +444,8 @@ class Ledger:
 
     def get_current_balances(self):
         sorted_txns = self.get_sorted_txns_with_balance()
-        current = Decimal(0)
-        current_cleared = Decimal(0)
+        current = Fraction(0)
+        current_cleared = Fraction(0)
         today = date.today()
         for t in sorted_txns:
             if t.txn_date <= today:
@@ -536,8 +536,8 @@ class ScheduledTransaction:
 
 class Budget:
     '''Budget information that's entered by the user - no defaults or calculated values, but
-    empty strings are dropped (so we can pass empty string from user form), and strings are converted
-    Decimal values. Note: all accounts are passed in - if there's no budget info, it just has an empty {}.
+    empty strings are dropped (so we can pass empty string from user form), and strings are converted to
+    Fraction values. Note: all accounts are passed in - if there's no budget info, it just has an empty {}.
     '''
 
     @staticmethod
@@ -560,14 +560,16 @@ class Budget:
                 keep_info = {}
                 for key, value in info.items():
                     if key in ['amount', 'carryover']:
-                        if isinstance(value, Decimal):
+                        if isinstance(value, Fraction) and value:
                             keep_info[key] = value
                         elif not value:
                             continue
                         else:
                             try:
-                                keep_info[key] = get_decimal_amount(value)
-                            except InvalidDecimalAmount as e:
+                                amt = get_validated_amount(value)
+                                if amt:
+                                    keep_info[key] = amt
+                            except InvalidAmount as e:
                                 raise BudgetError('invalid budget amount: %s' % e)
                     elif key == 'notes':
                         if value:
@@ -619,30 +621,34 @@ class Budget:
                 if value:
                     report_info[key] = value
             if 'amount' in report_info:
-                carryover = report_info.get('carryover', Decimal(0))
-                income = report_info.get('income', Decimal(0))
+                carryover = report_info.get('carryover', Fraction(0))
+                income = report_info.get('income', Fraction(0))
                 if account.type == AccountType.EXPENSE:
                     report_info['total_budget'] = report_info['amount'] + carryover + income
-                    spent = report_info.get('spent', Decimal(0))
+                    spent = report_info.get('spent', Fraction(0))
                     report_info['remaining'] = report_info['total_budget'] - spent
                     try:
-                        percent_available = (report_info['remaining'] / report_info['total_budget']) * Decimal(100)
-                        report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(percent_available))
+                        percent_available = (report_info['remaining'] / report_info['total_budget']) * Fraction(100)
+                        report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent_available)))
                     except InvalidOperation:
                         report_info['percent_available'] = 'error'
                 else:
                     report_info['remaining'] = report_info['amount'] - income
-                    percent = (income / report_info['amount']) * Decimal(100)
-                    report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(percent))
+                    percent = (income / report_info['amount']) * Fraction(100)
+                    report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent)))
+            for key in report_info.keys():
+                if report_info[key] == Fraction(0):
+                    report_info[key] = ''
+                else:
+                    if isinstance(report_info[key], Fraction):
+                        decimal_value = Decimal(report_info[key].numerator) / Decimal(report_info[key].denominator)
+                        report_info[key] = str(decimal_value)
+                    else:
+                        report_info[key] = str(report_info[key])
             if account.type == AccountType.EXPENSE:
                 report['expense'][account] = report_info
             else:
                 report['income'][account] = report_info
-            for key in report_info.keys():
-                if report_info[key] == Decimal(0):
-                    report_info[key] = ''
-                else:
-                    report_info[key] = str(report_info[key])
         return report
 
 
@@ -820,7 +826,7 @@ class SQLiteStorage:
         for account, amount in txn.splits.items():
             if not account.id:
                 self.save_account(account)
-            c.execute('INSERT INTO txn_splits(txn_id, account_id, amount) VALUES(?, ?, ?)', (txn.id, account.id, str(amount)))
+            c.execute('INSERT INTO txn_splits(txn_id, account_id, amount) VALUES(?, ?, ?)', (txn.id, account.id, f'{amount.numerator}/{amount.denominator}'))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
@@ -877,14 +883,14 @@ class SQLiteStorage:
             account_budget_info[account] = {}
             all_income_spending_info[account] = {}
             #get spent & income values for each expense account
-            spent = Decimal(0)
-            income = Decimal(0)
+            spent = Fraction(0)
+            income = Fraction(0)
             txn_splits_records = self._db_connection.execute('SELECT txn_splits.amount FROM txn_splits INNER JOIN transactions ON txn_splits.txn_id = transactions.id WHERE txn_splits.account_id = ? AND transactions.txn_date > ? AND transactions.txn_date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
-                amt = Decimal(record[0])
+                amt = Fraction(record[0])
                 if account.type == AccountType.EXPENSE:
-                    if amt < Decimal(0):
-                        income += amt * Decimal(-1)
+                    if amt < Fraction(0):
+                        income += amt * Fraction(-1)
                     else:
                         spent += amt
             all_income_spending_info[account]['spent'] = spent
@@ -1254,7 +1260,7 @@ class LedgerTxnsDisplay:
                 self._display_txn(txn, row=index, layout=self.txns_layout)
             else:
                 try:
-                    if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != txn.balance:
+                    if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != str(fraction_to_decimal(txn.balance)):
                         self._display_txn(txn, row=index, layout=self.txns_layout)
                 except KeyError:
                     pass
@@ -1357,7 +1363,7 @@ class LedgerTxnsDisplay:
         withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
         withdrawal_label.mousePressEvent = edit_function
         try:
-            balance = str(txn.balance)
+            balance = str(fraction_to_decimal(txn.balance))
         except AttributeError:
             balance = ''
         balance_label = QtWidgets.QLabel(balance)
@@ -2157,7 +2163,7 @@ class CLI:
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], t.balance, t.id)
+                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], fraction_to_decimal(t.balance), t.id)
                 )
             if more_txns:
                 prompt = '(n)ext page '

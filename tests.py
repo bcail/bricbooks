@@ -1,5 +1,6 @@
 from datetime import date, timedelta
-from decimal import Decimal as D
+from decimal import Decimal
+from fractions import Fraction
 import io
 import os
 import sqlite3
@@ -101,7 +102,7 @@ class TestTransaction(unittest.TestCase):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
         self.valid_splits = {self.checking: 100, self.savings: -100}
-        self.txn_splits = {self.checking: D(100), self.savings: D('-100')}
+        self.txn_splits = {self.checking: 100, self.savings: -100}
 
     def test_splits_required(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
@@ -116,12 +117,12 @@ class TestTransaction(unittest.TestCase):
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(splits={self.checking: 101.1, self.savings: '-101.1'})
-        self.assertEqual(str(cm.exception), 'invalid split: bad decimal value: 101.1')
+        self.assertEqual(str(cm.exception), 'invalid split: invalid value type: <class \'float\'> 101.1')
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(splits={self.checking: '123.456', self.savings: '-123.45'})
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
         with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(splits={self.checking: D('123.456'), self.savings: D(123)})
+            bb.Transaction(splits={self.checking: '123.456', self.savings: 123})
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
 
     def test_invalid_txn_date(self):
@@ -149,7 +150,7 @@ class TestTransaction(unittest.TestCase):
                 description='2 big macs',
             )
         self.assertEqual(t.splits, self.txn_splits)
-        self.assertTrue(isinstance(t.splits[self.checking], D))
+        self.assertTrue(isinstance(t.splits[self.checking], Fraction))
         self.assertEqual(t.txn_date, date.today())
         self.assertEqual(t.txn_type, '1234')
         self.assertEqual(t.payee.name, 'McDonalds')
@@ -174,6 +175,13 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.payee, None)
         self.assertEqual(t.description, None)
         self.assertEqual(t.status, None)
+
+    def test_splits(self):
+        t = bb.Transaction(
+                splits={self.checking: '-1', self.savings: '1'},
+                txn_date=date.today(),
+            )
+        self.assertEqual(t.splits, {self.checking: Fraction(-1), self.savings: Fraction(1)})
 
     def test_txn_payee(self):
         t = bb.Transaction(
@@ -203,8 +211,8 @@ class TestTransaction(unittest.TestCase):
                 categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
         self.assertEqual(t.splits, {
-            self.checking: D(101),
-            self.savings: D('-101'),
+            self.checking: 101,
+            self.savings: -101,
         })
 
     def test_txn_status(self):
@@ -251,7 +259,7 @@ class TestTransaction(unittest.TestCase):
 
     def test_get_display_strings(self):
         t = bb.Transaction(
-                splits=self.valid_splits,
+                splits={self.checking: '-1.23', self.savings: '1.23'},
                 txn_type='1234',
                 txn_date=date.today(),
                 description='something',
@@ -262,8 +270,8 @@ class TestTransaction(unittest.TestCase):
                 bb.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '1234',
-                    'withdrawal': '',
-                    'deposit': '100',
+                    'withdrawal': '1.23',
+                    'deposit': '',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'McDonalds',
@@ -275,8 +283,8 @@ class TestTransaction(unittest.TestCase):
                 bb.get_display_strings_for_ledger(account=self.savings, txn=t),
                 {
                     'txn_type': '1234',
-                    'withdrawal': '100',
-                    'deposit': '',
+                    'withdrawal': '',
+                    'deposit': '1.23',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'McDonalds',
@@ -374,13 +382,13 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
         ledger_records = ledger.get_sorted_txns_with_balance()
         self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
-        self.assertEqual(ledger_records[0].balance, D(10))
+        self.assertEqual(ledger_records[0].balance, 10)
         self.assertEqual(ledger_records[1].txn_date, date(2017, 6, 5))
-        self.assertEqual(ledger_records[1].balance, D(-2))
+        self.assertEqual(ledger_records[1].balance, -2)
         self.assertEqual(ledger_records[2].txn_date, date(2017, 7, 30))
-        self.assertEqual(ledger_records[2].balance, D(-1))
+        self.assertEqual(ledger_records[2].balance, -1)
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
-        self.assertEqual(ledger_records[3].balance, D('31.45'))
+        self.assertEqual(ledger_records[3].balance, Fraction('31.45'))
 
     def test_balances(self):
         ledger = bb.Ledger(account=self.checking)
@@ -392,7 +400,7 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
         ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date.today()+timedelta(days=3)))
         ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=5)))
-        expected_balances = bb.LedgerBalances(current=D('20.45'), current_cleared=D('32.45'))
+        expected_balances = bb.LedgerBalances(current=Fraction('20.45'), current_cleared=Fraction('32.45'))
         self.assertEqual(ledger.get_current_balances(), expected_balances)
 
     def test_get_scheduled_txns_due(self):
@@ -438,7 +446,7 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
         ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
         txn = ledger.get_txn(id_=2)
-        self.assertEqual(txn.splits[self.checking], D('-12'))
+        self.assertEqual(txn.splits[self.checking], -12)
 
     def test_clear_txns(self):
         ledger = bb.Ledger(account=self.checking)
@@ -605,17 +613,18 @@ class TestBudget(unittest.TestCase):
         transportation = get_test_account(id_=3, type_=bb.AccountType.EXPENSE, name='Transportation')
         rent = get_test_account(id_=4, type_=bb.AccountType.EXPENSE, name='Rent')
         account_budget_info = {
-                housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
+                housing: {'amount': 15, 'carryover': 5, 'notes': 'some important info'},
                 food: {'amount': '35', 'carryover': '0'},
                 transportation: {},
-                rent: {'amount': D(0), 'notes': ''},
+                rent: {'amount': 0, 'notes': ''},
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
+        self.maxDiff = None
         self.assertEqual(b.get_budget_data(), {
-                    housing: {'amount': D(15), 'carryover': D(5), 'notes': 'some important info'},
-                    food: {'amount': D(35), 'carryover': D(0)},
+                    housing: {'amount': Fraction(15), 'carryover': Fraction(5), 'notes': 'some important info'},
+                    food: {'amount': Fraction(35)},
                     transportation: {},
-                    rent: {'amount': D(0)},
+                    rent: {},
                 })
 
     def test_sparse_init(self):
@@ -623,10 +632,10 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(b.start_date, date(2018, 1, 1))
 
     def test_percent_rounding(self):
-        self.assertEqual(bb.Budget.round_percent_available(D('1.1')), D(1))
-        self.assertEqual(bb.Budget.round_percent_available(D('1.8')), D(2))
-        self.assertEqual(bb.Budget.round_percent_available(D('1.5')), D(2))
-        self.assertEqual(bb.Budget.round_percent_available(D('2.5')), D(3))
+        self.assertEqual(bb.Budget.round_percent_available(Decimal('1.1')), 1)
+        self.assertEqual(bb.Budget.round_percent_available(Decimal('1.8')), 2)
+        self.assertEqual(bb.Budget.round_percent_available(Decimal('1.5')), 2)
+        self.assertEqual(bb.Budget.round_percent_available(Decimal('2.5')), 3)
 
     def test_get_report_display(self):
         housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
@@ -636,18 +645,18 @@ class TestBudget(unittest.TestCase):
         wages = get_test_account(id_=5, type_=bb.AccountType.INCOME, name='Wages')
         interest = get_test_account(id_=6, type_=bb.AccountType.INCOME, name='Interest')
         account_budget_info = {
-                housing: {'amount': D(15), 'carryover': D(5)},
+                housing: {'amount': 15, 'carryover': 5},
                 food: {},
-                transportation: {'amount': D(10)},
-                something: {'amount': D(0)},
-                wages: {'amount': D(100), 'notes': 'note 1'},
+                transportation: {'amount': 10},
+                something: {'amount': 0},
+                wages: {'amount': 100, 'notes': 'note 1'},
                 interest: {},
             }
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info)
         with self.assertRaises(bb.BudgetError) as cm:
             budget.get_report_display()
         self.assertEqual(str(cm.exception), 'must pass in income_spending_info to get the report display')
-        income_spending_info = {housing: {'income': D(5), 'spent': D(10)}, food: {'income': ''}, wages: {'income': D(80)}}
+        income_spending_info = {housing: {'income': 5, 'spent': 10}, food: {'income': ''}, wages: {'income': 80}}
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display()
         housing_info = budget_report['expense'][housing]
@@ -822,7 +831,7 @@ class TestSQLiteStorage(unittest.TestCase):
         chickfila = bb.Payee('Chick-fil-A')
         storage.save_payee(chickfila)
         t = bb.Transaction(
-                splits={checking: D('-101'), savings: D(101)},
+                splits={checking: '-101', savings: 101},
                 txn_date=date.today(),
                 txn_type='',
                 payee=chickfila,
@@ -839,8 +848,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', bb.Transaction.CLEARED))
         c.execute('SELECT * FROM txn_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '-101', None),
-                                             (2, 1, 2, '101', None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', None),
+                                             (2, 1, 2, '101/1', None)])
 
     def test_save_txn_payee_string(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -849,7 +858,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(checking)
         storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: D('-101'), savings: D(101)},
+                splits={checking: '-101', savings: 101},
                 txn_date=date.today(),
                 payee='someone',
             )
@@ -864,7 +873,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(checking)
         storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: D('-101'), savings: D(101)},
+                splits={checking: '-101', savings: 101},
                 txn_date=date.today(),
                 id_=1
             )
@@ -888,7 +897,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(savings)
         payee = bb.Payee('payee', id_=1)
         t = bb.Transaction(
-                splits={checking: D('-101'), savings: D(101)},
+                splits={checking: '-101', savings: 101},
                 txn_date=date.today(),
                 payee=payee,
             )
@@ -913,8 +922,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, None, date.today().strftime('%Y-%m-%d'), None, None, None))
         c.execute('SELECT * FROM txn_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '101', None),
-                                             (2, 1, 2, '-101', None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', None),
+                                             (2, 1, 2, '-101/1', None)])
 
     def test_round_trip(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -926,7 +935,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_payee(payee)
         #create txn & save it
         t = bb.Transaction(
-                splits={checking: D('-101'), savings: D(101)},
+                splits={checking: '-101', savings: 101},
                 txn_date=date.today(),
                 txn_type='123',
                 payee=payee,
@@ -983,8 +992,8 @@ class TestSQLiteStorage(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 2)
-        self.assertEqual(txns[0].splits[checking], D('101'))
-        self.assertEqual(txns[1].splits[checking], D('46.23'))
+        self.assertEqual(txns[0].splits[checking], 101)
+        self.assertEqual(txns[1].splits[checking], Fraction('46.23'))
         scheduled_txns_due = ledger.get_scheduled_transactions_due()
         self.assertEqual(len(scheduled_txns_due), 1)
         self.assertEqual(scheduled_txns_due[0].id, st.id)
@@ -1024,8 +1033,8 @@ class TestSQLiteStorage(unittest.TestCase):
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         account_budget_info = {
-                housing: {'amount': D(15), 'carryover': D(0), 'notes': 'hello'},
-                food: {'amount': D(25), 'carryover': D(10)}
+                housing: {'amount': '15.34', 'carryover': '0.34', 'notes': 'hello'},
+                food: {'amount': 25, 'carryover': 0}
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         storage.save_budget(b)
@@ -1037,17 +1046,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][1], 1)
         self.assertEqual(records[0][2], 1)
-        self.assertEqual(records[0][3], '15')
-        self.assertEqual(records[0][4], '0')
+        self.assertEqual(records[0][3], '767/50')
+        self.assertEqual(records[0][4], '17/50')
         self.assertEqual(records[0][5], 'hello')
         self.assertEqual(records[1][1], 1)
         self.assertEqual(records[1][2], 2)
         self.assertEqual(records[1][3], '25')
-        self.assertEqual(records[1][4], '10')
+        self.assertEqual(records[1][4], '')
         #test that old budget values are deleted
         b = bb.Budget(start_date='2018-01-01', end_date='2018-12-24', account_budget_info={
-                housing: {'amount': D(35), 'carryover': D(0)},
-                food: {'amount': D(45), 'carryover': D(0)},
+                housing: {'amount': 35, 'carryover': 0},
+                food: {'amount': 45, 'carryover': 0},
             }, id_=b.id)
         storage.save_budget(b)
         records = cursor.execute('SELECT * FROM budgets').fetchall()
@@ -1064,7 +1073,7 @@ class TestSQLiteStorage(unittest.TestCase):
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         account_budget_info = {
-                housing: {'amount': D(15), 'carryover': D(0)},
+                housing: {'amount': 15, 'carryover': 0},
                 food: {},
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
@@ -1095,8 +1104,8 @@ class TestSQLiteStorage(unittest.TestCase):
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
         })
         storage.save_budget(b)
         storage = bb.SQLiteStorage(self.file_name)
@@ -1137,16 +1146,17 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor = storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135', 'hello'))
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70', '15'))
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, wages.id, '70', None))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135/1', 'hello'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70/1', '15'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, wages.id, '70/1', None))
         budget = storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.start_date, date(2018, 1, 1))
         self.assertEqual(budget.end_date, date(2018, 12, 31))
 
         budget_data = budget.get_budget_data()
-        self.assertEqual(budget_data[wages], {'amount': D(70)})
+        self.assertEqual(budget_data[housing], {'amount': Fraction(135), 'notes': 'hello'})
+        self.assertEqual(budget_data[wages], {'amount': Fraction(70)})
 
         report_display = budget.get_report_display()['expense']
         self.assertEqual(report_display[housing]['amount'], '135')
@@ -1395,8 +1405,8 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns()
@@ -1412,8 +1422,8 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
@@ -1441,8 +1451,8 @@ class TestCLI(unittest.TestCase):
         ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
-        self.assertEqual(txn.splits[checking], D(-15))
-        self.assertEqual(txn.splits[savings], D(15))
+        self.assertEqual(txn.splits[checking], -15)
+        self.assertEqual(txn.splits[savings], 15)
         self.assertEqual(txn.txn_type, 'type 1')
         self.assertEqual(txn.payee, payee)
         self.assertEqual(txn.description, 'description')
@@ -1506,7 +1516,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_account(savings)
         another_account = get_test_account(name='Another')
         self.cli.storage.save_account(another_account)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 1))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 1))
         self.cli.storage.save_txn(txn)
         self.cli._edit_txn()
         ledger = self.cli.storage.get_ledger(1)
@@ -1672,9 +1682,9 @@ class TestCLI(unittest.TestCase):
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
-            wages: {'amount': D(100)},
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
+            wages: {'amount': 100},
         })
         self.cli.storage.save_budget(b)
         self.cli._list_budgets()
@@ -1691,9 +1701,9 @@ class TestCLI(unittest.TestCase):
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
-            wages: {'amount': D(100)},
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
+            wages: {'amount': 100},
         })
         self.cli.storage.save_budget(b)
         input_mock.side_effect = [str(b.id)]
@@ -1710,9 +1720,9 @@ class TestCLI(unittest.TestCase):
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
-            wages: {'amount': D(100)},
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
+            wages: {'amount': 100},
         })
         self.cli.storage.save_budget(b)
         self.cli.storage.save_txn(
@@ -1753,9 +1763,9 @@ class TestCLI(unittest.TestCase):
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         self.cli.storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
+            housing: {'amount': 15, 'carryover': 0},
             food: {},
-            wages: {'amount': D(100)},
+            wages: {'amount': 100},
         })
         self.cli.storage.save_budget(b)
         input_mock.side_effect = [str(b.id), '2019-01-10', '2019-11-30', '40', '', '', '', '', '', '100', '', '']
@@ -1851,8 +1861,8 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(savings)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = bb.LedgerDisplay(storage)
@@ -1868,7 +1878,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
-        self.assertEqual(txns[1].splits[checking], D('-18'))
+        self.assertEqual(txns[1].splits[checking], -18)
         self.assertEqual(txns[1].payee.name, 'Burgers')
         #check new txn display
         self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
@@ -1896,8 +1906,8 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits,
                 {
-                    savings: D('-18'),
-                    housing: D(18)
+                    savings: -18,
+                    housing: 18
                 }
             )
 
@@ -1922,7 +1932,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].splits[checking], D('-10'))
+        self.assertEqual(txns[0].splits[checking], -10)
 
     def test_ledger_choose_account(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1930,8 +1940,8 @@ class TestQtGUI(unittest.TestCase):
         savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = bb.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={savings: 5, checking: -5}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = bb.LedgerDisplay(storage, current_account=savings)
@@ -1948,9 +1958,9 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(checking)
         storage.save_account(savings)
         storage.save_account(restaurant)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 2))
-        txn3 = bb.Transaction(splits={savings: D(5), checking: D(-5)}, txn_date=date(2018, 1, 2))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 2))
+        txn3 = bb.Transaction(splits={savings: 5, checking: -5}, txn_date=date(2018, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
@@ -1958,7 +1968,7 @@ class TestQtGUI(unittest.TestCase):
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
-                splits={restaurant: D(5), checking: D(-5)},
+                splits={restaurant: 5, checking: -5},
                 txn_type='a',
                 payee=bb.Payee('Wendys'),
                 description='something',
@@ -1981,10 +1991,10 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(savings)
         payee = bb.Payee('some payee')
         storage.save_payee(payee)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date(2017, 1, 3))
-        txn2 = bb.Transaction(splits={checking: D(17), savings: D(-17)}, txn_date=date(2017, 5, 2), payee=payee)
-        txn3 = bb.Transaction(splits={checking: D(25), savings: D(-25)}, txn_date=date(2017, 10, 18))
-        txn4 = bb.Transaction(splits={checking: D(10), savings: D(-10)}, txn_date=date(2018, 6, 6))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 3))
+        txn2 = bb.Transaction(splits={checking: 17, savings: -17}, txn_date=date(2017, 5, 2), payee=payee)
+        txn3 = bb.Transaction(splits={checking: 25, savings: -25}, txn_date=date(2017, 10, 18))
+        txn4 = bb.Transaction(splits={checking: 10, savings: -10}, txn_date=date(2018, 6, 6))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         storage.save_txn(txn3)
@@ -2010,8 +2020,8 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
-        self.assertEqual(txns[2].splits[checking], D(20))
-        self.assertEqual(txns[2].splits[savings], D(-20))
+        self.assertEqual(txns[2].splits[checking], 20)
+        self.assertEqual(txns[2].splits[savings], -20)
         #check display with edits
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
         self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
@@ -2030,8 +2040,8 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(housing)
         restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(restaurants)
-        txn = bb.Transaction(splits={checking: D(5), housing: D(-5)}, txn_date=date(2017, 1, 3))
-        txn2 = bb.Transaction(splits={checking: D(17), housing: D(-17)}, txn_date=date(2017, 5, 2))
+        txn = bb.Transaction(splits={checking: 5, housing: -5}, txn_date=date(2017, 1, 3))
+        txn2 = bb.Transaction(splits={checking: 17, housing: -17}, txn_date=date(2017, 5, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = bb.LedgerDisplay(storage)
@@ -2045,7 +2055,7 @@ class TestQtGUI(unittest.TestCase):
         #make sure new category was saved
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(txns[1].splits[restaurants], D(-17))
+        self.assertEqual(txns[1].splits[restaurants], -17)
 
     def test_ledger_txn_edit_multiple_splits(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -2057,9 +2067,9 @@ class TestQtGUI(unittest.TestCase):
         storage.save_account(restaurants)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        initial_splits = {checking: D(-25), housing: D(20), restaurants: D(5)}
-        txn_account_display_splits = {housing: D(15), restaurants: D(10)}
-        final_splits = {checking: D(-25), housing: D(15), restaurants: D(10)}
+        initial_splits = {checking: -25, housing: 20, restaurants: 5}
+        txn_account_display_splits = {housing: 15, restaurants: 10}
+        final_splits = {checking: -25, housing: 15, restaurants: 10}
         txn = bb.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
         storage.save_txn(txn)
         ledger_display = bb.LedgerDisplay(storage)
@@ -2080,8 +2090,8 @@ class TestQtGUI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: D(5), savings: D(-5)}, txn_date=date.today())
-        txn2 = bb.Transaction(splits={checking: D(23), savings: D(-23)}, txn_date=date(2017, 1, 2))
+        txn = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: 23, savings: -23}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
         ledger_display = bb.LedgerDisplay(storage)
@@ -2092,7 +2102,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].splits[checking], D(23))
+        self.assertEqual(txns[0].splits[checking], 23)
 
     def test_budget_display(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -2103,9 +2113,9 @@ class TestQtGUI(unittest.TestCase):
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': D(15), 'carryover': D(0)},
-            food: {'amount': D(25), 'carryover': D(0)},
-            wages: {'amount': D(100)},
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
+            wages: {'amount': 100},
         })
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
@@ -2131,7 +2141,7 @@ class TestQtGUI(unittest.TestCase):
         #verify budget saved in storage
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2020, 1, 1))
-        self.assertEqual(budget.get_budget_data()[housing]['amount'], D(500))
+        self.assertEqual(budget.get_budget_data()[housing]['amount'], 500)
         #verify BudgetDisplay updated
         self.assertEqual(budget_display._current_budget, budget)
         self.assertEqual(budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
