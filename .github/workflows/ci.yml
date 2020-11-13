@@ -20,7 +20,7 @@ jobs:
           architecture: x64
       - run: sudo apt-get install -y libxcb1 xvfb libxkbcommon-x11-0
       - run: python bricbooks.py --install_qt
-      - run: python tests.py
+      - run: xvfb-run python tests.py
 
   windows:
     runs-on: windows-latest
