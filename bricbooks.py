@@ -23,7 +23,7 @@ except ImportError:
 
 
 TITLE = 'bricbooks'
-PYSIDE2_VERSION = '5.14.0'
+PYSIDE2_VERSION = '5.15.1'
 CUR_DIR = Path(__file__).parent.resolve()
 
 
