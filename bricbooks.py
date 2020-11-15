@@ -376,7 +376,7 @@ def get_display_strings_for_ledger(account, txn):
         display_strings['name'] = txn.name
         display_strings['next_due_date'] = str(txn.next_due_date)
         display_strings['frequency'] = str(txn.frequency)
-        display_strings['txn_date'] = str(date.today())
+        display_strings['txn_date'] = str(txn.next_due_date)
     else:
         display_strings['status'] = txn.status or ''
         display_strings['txn_date'] = str(txn.txn_date)
