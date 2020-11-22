@@ -1409,11 +1409,23 @@ class TestCLI(unittest.TestCase):
         txn2 = bb.Transaction(splits={checking: 5, savings: -5}, txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli.storage.save_txn(txn)
         self.cli.storage.save_txn(txn2)
+        self.cli.storage.save_scheduled_transaction(
+                bb.ScheduledTransaction(
+                    name='scheduled txn',
+                    frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                    next_due_date=date(2019, 1, 13),
+                    splits={checking: 14, savings: -14},
+                )
+            )
         self.cli._list_account_txns()
-        output = 'Account ID: Checking (Current balance: 10; Cleared: 0)\n%s\n' % bb.CLI.TXN_LIST_HEADER
-        output += ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
-        output += ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
-        self.assertEqual(self.memory_buffer.getvalue(), output)
+        txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
+        txn2_output = ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
+        printed_output = self.memory_buffer.getvalue()
+        self.assertTrue('Account ID: Checking (Current balance: 10; Cleared: 0)' in printed_output)
+        self.assertTrue('scheduled txn' in printed_output)
+        self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
+        self.assertTrue(txn1_output in printed_output)
+        self.assertTrue(txn2_output in printed_output)
 
     @patch('builtins.input')
     def test_list_account_txns_paged(self, input_mock):

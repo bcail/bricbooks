@@ -2155,6 +2155,11 @@ class CLI:
         ledger_balances = ledger.get_current_balances()
         summary_line = f'{ledger.account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
         self.print(summary_line)
+        scheduled_txns_due = ledger.get_scheduled_transactions_due()
+        if scheduled_txns_due:
+            self.print('Scheduled Transactions due:')
+            for st in scheduled_txns_due:
+                self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
         txns = ledger.get_sorted_txns_with_balance()
         page_index = 1
