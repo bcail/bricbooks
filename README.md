@@ -1,7 +1,7 @@
 bricbooks
 =========
 
-![.github/workflows/ci.yml](https://github.com/bcail/bricbooks/workflows/.github/workflows/ci.yml/badge.svg)
+![Build Status](https://github.com/bcail/bricbooks/workflows/.github/workflows/ci.yml/badge.svg)
 
 
 TODO
