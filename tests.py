@@ -400,8 +400,8 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
         ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date.today()+timedelta(days=3)))
         ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=5)))
-        expected_balances = bb.LedgerBalances(current=Fraction('20.45'), current_cleared=Fraction('32.45'))
-        self.assertEqual(ledger.get_current_balances(), expected_balances)
+        expected_balances = bb.LedgerBalances(current='20.45', current_cleared='32.45')
+        self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
 
     def test_get_scheduled_txns_due(self):
         ledger = bb.Ledger(account=self.checking)

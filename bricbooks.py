@@ -442,7 +442,7 @@ class Ledger:
     def clear_txns(self):
         self._txns = {}
 
-    def get_current_balances(self):
+    def get_current_balances_for_display(self):
         sorted_txns = self.get_sorted_txns_with_balance()
         current = Fraction(0)
         current_cleared = Fraction(0)
@@ -452,7 +452,10 @@ class Ledger:
                 current = t.balance
                 if t.status == Transaction.CLEARED:
                     current_cleared = current_cleared + t.splits[self.account]
-        return LedgerBalances(current=current, current_cleared=current_cleared)
+        return LedgerBalances(
+                current=str(fraction_to_decimal(current)),
+                current_cleared=str(fraction_to_decimal(current_cleared)),
+            )
 
     def get_payees(self):
         payees = set()
@@ -1662,7 +1665,7 @@ class LedgerDisplay:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        balances = ledger.get_current_balances()
+        balances = ledger.get_current_balances_for_display()
         balance_text = f'Current Balance: {balances.current}'
         cleared_text = f'Cleared: {balances.current_cleared}'
         layout.addWidget(QtWidgets.QLabel(cleared_text), 0, 0)
@@ -2152,7 +2155,7 @@ class CLI:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
         acc_id = self.input('Account ID: ')
         ledger = self.storage.get_ledger(acc_id)
-        ledger_balances = ledger.get_current_balances()
+        ledger_balances = ledger.get_current_balances_for_display()
         summary_line = f'{ledger.account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
         self.print(summary_line)
         scheduled_txns_due = ledger.get_scheduled_transactions_due()
