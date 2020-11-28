@@ -768,8 +768,9 @@ class TestSQLiteStorage(unittest.TestCase):
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
         #checking has an id, so it should already be in the DB...
         # it's not, so raise an exception
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception) as cm:
             storage.save_account(checking)
+        self.assertEqual(str(cm.exception), 'no account with id 1 to update')
         c = storage._db_connection.cursor()
         c.execute('SELECT * FROM accounts')
         account_records = c.fetchall()
@@ -779,8 +780,29 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
         checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
-        with self.assertRaises(Exception):
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(checking_child)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_cant_delete_parent_account(self):
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage.save_account(checking_child)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_cant_delete_account_with_txns(self):
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
+        storage.save_account(checking)
+        storage.save_account(savings)
+        txn = bb.Transaction(txn_date=date(2020,10,15), splits={checking: 10, savings: -10})
+        storage.save_txn(txn)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -819,8 +841,9 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         payee = bb.Payee('payee')
         storage.save_payee(payee)
-        with self.assertRaises(Exception):
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_payee(bb.Payee('payee'))
+        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: payees.name')
 
     def test_save_txn(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -889,7 +912,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [])
 
-    def test_save_transaction_foreignkey_error(self):
+    def test_save_transaction_payee_foreignkey_error(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -901,8 +924,9 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_date=date.today(),
                 payee=payee,
             )
-        with self.assertRaises(Exception):
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_txn(t)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_save_sparse_txn(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1113,6 +1137,20 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
 
+    def test_save_budget_account_foreignkey_error(self):
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food', id_=5)
+        account_budget_info = {
+                housing: {'amount': '15.34', 'carryover': '0.34', 'notes': 'hello'},
+                food: {'amount': 25, 'carryover': 0}
+            }
+        b = bb.Budget(year=2018, account_budget_info=account_budget_info)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage.save_budget(b)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
     def test_get_budget(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
@@ -1259,6 +1297,24 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM scheduled_txn_splits')
         scheduled_txn_split_records = c.fetchall()
         self.assertEqual(scheduled_txn_split_records, [])
+
+    def test_save_scheduled_txn_account_foreignkey_error(self):
+        storage = bb.SQLiteStorage(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings', id_=2)
+        storage.save_account(checking)
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits={
+                    checking: -101,
+                    savings: 101,
+                }
+            )
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage.save_scheduled_transaction(st)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_update_scheduled_txn(self):
         storage = bb.SQLiteStorage(':memory:')
