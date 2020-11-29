@@ -763,7 +763,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(db_info,
                 [(savings.id, bb.AccountType.ASSET.value, None, 'Savings', None, None)])
 
-    def test_save_account_error(self):
+    def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
         #checking has an id, so it should already be in the DB...
@@ -771,12 +771,10 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             storage.save_account(checking)
         self.assertEqual(str(cm.exception), 'no account with id 1 to update')
-        c = storage._db_connection.cursor()
-        c.execute('SELECT * FROM accounts')
-        account_records = c.fetchall()
+        account_records = storage._db_connection.execute('SELECT * FROM accounts').fetchall()
         self.assertEqual(account_records, [])
 
-    def test_save_account_foreignkey_error(self):
+    def test_save_account_parent_not_in_db(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
         checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
@@ -803,6 +801,15 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_name_must_be_unique(self):
+        storage = bb.SQLiteStorage(':memory:')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        checking2 = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        storage.save_account(checking)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage.save_account(checking2)
+        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name')
 
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
