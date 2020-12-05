@@ -2222,6 +2222,14 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
         self.assertEqual(budget_display._budget_select_combo.currentData(), budget)
 
+    def test_scheduled_txns(self):
+        gui = bb.GUI_QT(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        gui.storage.save_account(checking)
+        gui.storage.save_account(savings)
+        QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
+
 
 class TestLoadTestData(unittest.TestCase):
 

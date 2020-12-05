@@ -1958,6 +1958,41 @@ class BudgetDisplay:
         self.budget_form.show_form()
 
 
+class ScheduledTxnsDisplay:
+
+    def __init__(self, storage):
+        self.storage = storage
+
+    def get_widget(self):
+        self.widget, self.layout, self._row_index = self._setup_main()
+        scheduled_txns = self.storage.get_scheduled_transactions()
+        if scheduled_txns:
+            self._display_scheduled_txns(scheduled_txns)
+        self.layout.addWidget(QtWidgets.QLabel(''), self._row_index, 0, 1, 6)
+        self.layout.setRowStretch(self._row_index, 1)
+        return self.widget
+
+    def _setup_main(self):
+        widget = QtWidgets.QWidget()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        row_index = self._show_headings(layout, row=0)
+        widget.setLayout(layout)
+        return widget, layout, row_index
+
+    def _show_headings(self, layout, row):
+        current_index = 0
+        self.add_button = QtWidgets.QPushButton('New Scheduled Transaction')
+        #self.add_button.clicked.connect(partial(self._open_form, budget=None))
+        layout.addWidget(self.add_button, row, 1)
+        row += 1
+        layout.addWidget(QtWidgets.QLabel('Frequency'), row, 0)
+        return row + 1
+
+    def _display_scheduled_txns(self, scheduled_txns):
+        pass
+
+
 def show_error(msg):
     msgbox = QtWidgets.QMessageBox()
     msgbox.setText(msg)
@@ -2042,6 +2077,9 @@ class GUI_QT:
         self.budget_button = QtWidgets.QPushButton('Budget')
         self.budget_button.clicked.connect(self._show_budget)
         layout.addWidget(self.budget_button, 0, 2)
+        self.scheduled_txns_button = QtWidgets.QPushButton('Scheduled Transactions')
+        self.scheduled_txns_button.clicked.connect(self._show_scheduled_txns)
+        layout.addWidget(self.scheduled_txns_button, 0, 3)
 
     def _show_accounts(self):
         if self.main_widget:
@@ -2069,6 +2107,14 @@ class GUI_QT:
             self.main_widget.deleteLater()
         self.budget_display = BudgetDisplay(self.storage, current_budget=current_budget)
         self.main_widget = self.budget_display.get_widget()
+        self.content_layout.addWidget(self.main_widget, 0, 0)
+
+    def _show_scheduled_txns(self):
+        if self.main_widget:
+            self.content_layout.removeWidget(self.main_widget)
+            self.main_widget.deleteLater()
+        self.scheduled_txns_display = ScheduledTxnsDisplay(self.storage)
+        self.main_widget = self.scheduled_txns_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
