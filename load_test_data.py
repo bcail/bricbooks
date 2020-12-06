@@ -87,7 +87,7 @@ def _load_data(storage, many_txns):
     storage.save_scheduled_transaction(rent_scheduled_txn)
     taxes_scheduled_txn = bb.ScheduledTransaction(
             name='taxes',
-            frequency=bb.ScheduledTransactionFrequency.ANNUALLY,
+            frequency=bb.ScheduledTransactionFrequency.ANNUAL,
             splits={checking: -25, taxes: 25},
             next_due_date=date.today()+timedelta(days=1)
         )

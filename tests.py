@@ -581,10 +581,10 @@ class TestScheduledTransaction(unittest.TestCase):
             )
         st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 4, 2))
-        #ANNUALLY
+        #ANNUAL
         st = bb.ScheduledTransaction(
                 name='annually 1',
-                frequency=bb.ScheduledTransactionFrequency.ANNUALLY,
+                frequency=bb.ScheduledTransactionFrequency.ANNUAL,
                 next_due_date='2018-01-02',
                 splits=self.valid_splits,
             )

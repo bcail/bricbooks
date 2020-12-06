@@ -169,7 +169,7 @@ class Account:
             return self.name
 
     def __repr__(self):
-        return '%s - %s' % (self.type, self.name)
+        return self.__str__()
 
     def __eq__(self, other_account):
         if not other_account:
@@ -469,11 +469,18 @@ class Ledger:
         return [t for t in all_scheduled_txns if t.is_due()]
 
 
+def splits_display(splits):
+    account_amt_list = []
+    for account, amount in splits.items():
+        account_amt_list.append(f'{account.name}: {fraction_to_decimal(amount)}')
+    return '; '.join(account_amt_list)
+
+
 class ScheduledTransactionFrequency(Enum):
     WEEKLY = 1
     MONTHLY = 2
     QUARTERLY = 3
-    ANNUALLY = 4
+    ANNUAL = 4
 
 
 class ScheduledTransaction:
@@ -510,7 +517,7 @@ class ScheduledTransaction:
         self.id = id_
 
     def __str__(self):
-        return '%s: %s (%s %s) (%s)' % (self.id, self.name, self.frequency, self.next_due_date, self.splits)
+        return '%s: %s (%s %s) (%s)' % (self.id, self.name, self.frequency.name, self.next_due_date, splits_display(self.splits))
 
     def _check_date(self, dt):
         try:
@@ -531,7 +538,7 @@ class ScheduledTransaction:
             self.next_due_date = increment_month(self.next_due_date)
         elif self.frequency == ScheduledTransactionFrequency.QUARTERLY:
             self.next_due_date = increment_quarter(self.next_due_date)
-        elif self.frequency == ScheduledTransactionFrequency.ANNUALLY:
+        elif self.frequency == ScheduledTransactionFrequency.ANNUAL:
             self.next_due_date = increment_year(self.next_due_date)
         else:
             raise Exception('invalid frequency %s' % self.frequency)
@@ -1967,7 +1974,7 @@ class ScheduledTxnsDisplay:
         self.widget, self.layout, self._row_index = self._setup_main()
         scheduled_txns = self.storage.get_scheduled_transactions()
         if scheduled_txns:
-            self._display_scheduled_txns(scheduled_txns)
+            self._row_index = self._display_scheduled_txns(scheduled_txns, self.layout, self._row_index)
         self.layout.addWidget(QtWidgets.QLabel(''), self._row_index, 0, 1, 6)
         self.layout.setRowStretch(self._row_index, 1)
         return self.widget
@@ -1984,13 +1991,22 @@ class ScheduledTxnsDisplay:
         current_index = 0
         self.add_button = QtWidgets.QPushButton('New Scheduled Transaction')
         #self.add_button.clicked.connect(partial(self._open_form, budget=None))
-        layout.addWidget(self.add_button, row, 1)
+        layout.addWidget(self.add_button, row, 0)
         row += 1
-        layout.addWidget(QtWidgets.QLabel('Frequency'), row, 0)
+        layout.addWidget(QtWidgets.QLabel('Name'), row, 0)
+        layout.addWidget(QtWidgets.QLabel('Frequency'), row, 1)
+        layout.addWidget(QtWidgets.QLabel('Next Due Date'), row, 2)
+        layout.addWidget(QtWidgets.QLabel('Splits'), row, 3)
         return row + 1
 
-    def _display_scheduled_txns(self, scheduled_txns):
-        pass
+    def _display_scheduled_txns(self, scheduled_txns, layout, row_index):
+        for st in scheduled_txns:
+            layout.addWidget(QtWidgets.QLabel(st.name), row_index, 0)
+            layout.addWidget(QtWidgets.QLabel(st.frequency.name), row_index, 1)
+            layout.addWidget(QtWidgets.QLabel(str(st.next_due_date)), row_index, 2)
+            layout.addWidget(QtWidgets.QLabel(splits_display(st.splits)), row_index, 3)
+            row_index += 1
+        return row_index
 
 
 def show_error(msg):
