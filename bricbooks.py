@@ -1618,6 +1618,74 @@ class TxnForm:
         self._delete_txn(self._txn)
 
 
+class ScheduledTxnForm:
+
+    def __init__(self, save_scheduled_txn, accounts, scheduled_txn=None):
+        self._scheduled_txn = scheduled_txn
+        self._save_scheduled_txn = save_scheduled_txn
+        self._accounts = accounts
+        self._widgets = {}
+
+    def show_form(self):
+        self._display = QtWidgets.QDialog()
+        layout = QtWidgets.QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        set_ledger_column_widths(layout)
+        self._show_widgets(layout)
+        self._display.setLayout(layout)
+        self._display.open()
+
+    def _show_widgets(self, layout):
+        layout.addWidget(QtWidgets.QLabel('Name'), 0, 0)
+        name_entry = QtWidgets.QLineEdit()
+        self._widgets['name'] = name_entry
+        layout.addWidget(name_entry, 0, 1)
+        layout.addWidget(QtWidgets.QLabel('Frequency'), 1, 0)
+        frequency_entry = QtWidgets.QComboBox()
+        frequency_index = 0
+        for index, frequency in enumerate(ScheduledTransactionFrequency):
+            frequency_entry.addItem(frequency.name, frequency)
+            if self._scheduled_txn and frequency == self._scheduled_txn.frequency:
+                frequency_index = index
+        if self._scheduled_txn:
+            frequency_entry.setCurrentIndex(frequency_index)
+        self._widgets['frequency'] = frequency_entry
+        layout.addWidget(frequency_entry, 1, 1)
+        layout.addWidget(QtWidgets.QLabel('Next Due Date'), 2, 0)
+        next_due_date_entry = QtWidgets.QLineEdit()
+        self._widgets['next_due_date'] = next_due_date_entry
+        layout.addWidget(next_due_date_entry, 2, 1)
+        layout.addWidget(QtWidgets.QLabel('Account'), 3, 0)
+        account_entry = QtWidgets.QComboBox()
+        for index, acct in enumerate(self._accounts):
+            account_entry.addItem(acct.name, acct)
+        layout.addWidget(account_entry, 3, 1)
+        layout.addWidget(QtWidgets.QLabel('Amount'), 4, 0)
+        amount_entry = QtWidgets.QLineEdit()
+        self._widgets['amount'] = amount_entry
+        layout.addWidget(amount_entry, 4, 1)
+        layout.addWidget(QtWidgets.QLabel('Transfer Account'), 5, 0)
+        transfer_account_entry = QtWidgets.QComboBox()
+        for index, acct in enumerate(self._accounts):
+            transfer_account_entry.addItem(acct.name, acct)
+        layout.addWidget(transfer_account_entry, 5, 1)
+        save_button = QtWidgets.QPushButton('Save')
+        save_button.clicked.connect(self._save)
+        layout.addWidget(save_button, 6, 0)
+
+    def _save(self):
+        st = ScheduledTransaction(
+                name=self._widgets['name'].text(),
+                frequency=self._widgets['frequency'].currentData(),
+                next_due_date=self._widgets['next_due_date'].text(),
+                splits={
+                    self._accounts[0]: -10,
+                    self._accounts[1]: 10,
+                },
+            )
+        self._save_scheduled_txn(scheduled_txn=st)
+
+
 class LedgerDisplay:
 
     def __init__(self, storage, current_account=None):
@@ -1990,7 +2058,7 @@ class ScheduledTxnsDisplay:
     def _show_headings(self, layout, row):
         current_index = 0
         self.add_button = QtWidgets.QPushButton('New Scheduled Transaction')
-        #self.add_button.clicked.connect(partial(self._open_form, budget=None))
+        self.add_button.clicked.connect(partial(self._open_form, scheduled_txn=None))
         layout.addWidget(self.add_button, row, 0)
         row += 1
         layout.addWidget(QtWidgets.QLabel('Name'), row, 0)
@@ -2007,6 +2075,17 @@ class ScheduledTxnsDisplay:
             layout.addWidget(QtWidgets.QLabel(splits_display(st.splits)), row_index, 3)
             row_index += 1
         return row_index
+
+    def _open_form(self, scheduled_txn):
+        accounts = self.storage.get_accounts()
+        if scheduled_txn:
+            self.scheduled_txn_form = ScheduledTxnForm(accounts=accounts, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+        else:
+            self.scheduled_txn_form = ScheduledTxnForm(accounts=accounts, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+        self.scheduled_txn_form.show_form()
+
+    def _save_scheduled_txn_and_reload(self, scheduled_txn):
+        self.storage.save_scheduled_transaction(scheduled_txn)
 
 
 def show_error(msg):
