@@ -2229,6 +2229,17 @@ class TestQtGUI(unittest.TestCase):
         gui.storage.save_account(checking)
         gui.storage.save_account(savings)
         QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.scheduled_txns_display.add_button, QtCore.Qt.LeftButton)
+        gui.scheduled_txns_display.form._widgets['name'].setText('test st')
+        gui.scheduled_txns_display.form._widgets['next_due_date'].setText('2020-01-15')
+        gui.scheduled_txns_display.form._widgets['account'].setCurrentIndex(0)
+        gui.scheduled_txns_display.form._widgets['withdrawal'].setText('37')
+        gui.scheduled_txns_display.form._widgets['accounts_display']._categories_combo.setCurrentIndex(2)
+        QtTest.QTest.mouseClick(gui.scheduled_txns_display.form._widgets['save_btn'], QtCore.Qt.LeftButton)
+        scheduled_txns = gui.storage.get_scheduled_transactions()
+        self.assertEqual(scheduled_txns[0].name, 'test st')
+        self.assertEqual(scheduled_txns[0].splits[checking], -37)
+        self.assertEqual(scheduled_txns[0].splits[savings], 37)
 
 
 class TestLoadTestData(unittest.TestCase):

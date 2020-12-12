@@ -1620,10 +1620,11 @@ class TxnForm:
 
 class ScheduledTxnForm:
 
-    def __init__(self, save_scheduled_txn, accounts, scheduled_txn=None):
+    def __init__(self, save_scheduled_txn, storage, scheduled_txn=None):
         self._scheduled_txn = scheduled_txn
         self._save_scheduled_txn = save_scheduled_txn
-        self._accounts = accounts
+        self._storage = storage
+        self._accounts = storage.get_accounts()
         self._widgets = {}
 
     def show_form(self):
@@ -1659,30 +1660,43 @@ class ScheduledTxnForm:
         account_entry = QtWidgets.QComboBox()
         for index, acct in enumerate(self._accounts):
             account_entry.addItem(acct.name, acct)
+        self._widgets['account'] = account_entry
         layout.addWidget(account_entry, 3, 1)
-        layout.addWidget(QtWidgets.QLabel('Amount'), 4, 0)
-        amount_entry = QtWidgets.QLineEdit()
-        self._widgets['amount'] = amount_entry
-        layout.addWidget(amount_entry, 4, 1)
-        layout.addWidget(QtWidgets.QLabel('Transfer Account'), 5, 0)
-        transfer_account_entry = QtWidgets.QComboBox()
-        for index, acct in enumerate(self._accounts):
-            transfer_account_entry.addItem(acct.name, acct)
-        layout.addWidget(transfer_account_entry, 5, 1)
+        layout.addWidget(QtWidgets.QLabel('Withdrawal'), 4, 0)
+        withdrawal_entry = QtWidgets.QLineEdit()
+        self._widgets['withdrawal'] = withdrawal_entry
+        layout.addWidget(withdrawal_entry, 4, 1)
+        layout.addWidget(QtWidgets.QLabel('Deposit'), 5, 0)
+        deposit_entry = QtWidgets.QLineEdit()
+        self._widgets['deposit'] = deposit_entry
+        layout.addWidget(deposit_entry, 5, 1)
+        layout.addWidget(QtWidgets.QLabel('Categories'), 6, 0)
+        txn_accounts_display = TxnAccountsDisplay(self._storage, txn=self._scheduled_txn)
+        self._widgets['accounts_display'] = txn_accounts_display
+        layout.addWidget(txn_accounts_display.get_widget(), 6, 1)
         save_button = QtWidgets.QPushButton('Save')
         save_button.clicked.connect(self._save)
-        layout.addWidget(save_button, 6, 0)
+        self._widgets['save_btn'] = save_button
+        layout.addWidget(save_button, 7, 0)
 
     def _save(self):
+        account = self._widgets['account'].currentData()
+        deposit = self._widgets['deposit'].text()
+        withdrawal = self._widgets['withdrawal'].text()
+        categories = self._widgets['accounts_display'].get_categories()
+        splits = Transaction.splits_from_user_info(
+                account=account,
+                deposit=deposit,
+                withdrawal=withdrawal,
+                input_categories=categories
+            )
         st = ScheduledTransaction(
                 name=self._widgets['name'].text(),
                 frequency=self._widgets['frequency'].currentData(),
                 next_due_date=self._widgets['next_due_date'].text(),
-                splits={
-                    self._accounts[0]: -10,
-                    self._accounts[1]: 10,
-                },
+                splits=splits,
             )
+        self._display.accept()
         self._save_scheduled_txn(scheduled_txn=st)
 
 
@@ -2077,12 +2091,11 @@ class ScheduledTxnsDisplay:
         return row_index
 
     def _open_form(self, scheduled_txn):
-        accounts = self.storage.get_accounts()
         if scheduled_txn:
-            self.scheduled_txn_form = ScheduledTxnForm(accounts=accounts, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+            self.form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
         else:
-            self.scheduled_txn_form = ScheduledTxnForm(accounts=accounts, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
-        self.scheduled_txn_form.show_form()
+            self.form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+        self.form.show_form()
 
     def _save_scheduled_txn_and_reload(self, scheduled_txn):
         self.storage.save_scheduled_transaction(scheduled_txn)
