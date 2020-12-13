@@ -2222,7 +2222,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
         self.assertEqual(budget_display._budget_select_combo.currentData(), budget)
 
-    def test_scheduled_txns(self):
+    def test_add_scheduled_txn(self):
         gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -2240,6 +2240,24 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].name, 'test st')
         self.assertEqual(scheduled_txns[0].splits[checking], -37)
         self.assertEqual(scheduled_txns[0].splits[savings], 37)
+
+    def test_edit_scheduled_txn(self):
+        gui = bb.GUI_QT(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        gui.storage.save_account(checking)
+        gui.storage.save_account(savings)
+        splits = {checking: -100, savings: 100}
+        scheduled_txn = bb.ScheduledTransaction(
+            name='weekly',
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+            splits=splits,
+            next_due_date=date.today()
+        )
+        gui.storage.save_scheduled_transaction(scheduled_txn)
+        #go to scheduled txns, click on one to activate edit form, update values, & save it
+        QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.widgets[scheduled_txn.id]['name'], QtCore.Qt.LeftButton)
 
 
 class TestLoadTestData(unittest.TestCase):
