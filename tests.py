@@ -2245,9 +2245,11 @@ class TestQtGUI(unittest.TestCase):
         gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui.storage.save_account(checking)
         gui.storage.save_account(savings)
-        splits = {checking: -100, savings: 100}
+        gui.storage.save_account(housing)
+        splits = {checking: -100, housing: 100}
         scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
             frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2258,6 +2260,15 @@ class TestQtGUI(unittest.TestCase):
         #go to scheduled txns, click on one to activate edit form, update values, & save it
         QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.widgets[scheduled_txn.id]['name'], QtCore.Qt.LeftButton)
+        gui.scheduled_txns_display.data_display.edit_form._widgets['name'].setText('updated')
+        gui.scheduled_txns_display.data_display.edit_form._widgets['withdrawal'].setText('15')
+        self.assertEqual(gui.scheduled_txns_display.data_display.edit_form._widgets['accounts_display']._categories_combo.currentData(), housing)
+        QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.edit_form._widgets['save_btn'], QtCore.Qt.LeftButton)
+        scheduled_txns = gui.storage.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].name, 'updated')
+        self.assertEqual(scheduled_txns[0].splits[checking], -15)
+        self.assertEqual(scheduled_txns[0].splits[housing], 15)
 
 
 class TestLoadTestData(unittest.TestCase):
