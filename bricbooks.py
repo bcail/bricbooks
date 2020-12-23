@@ -554,6 +554,20 @@ class Budget:
     def round_percent_available(percent):
         return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
 
+    @staticmethod
+    def get_current_status(current_date, start_date, end_date, remaining_percent):
+        if current_date and current_date < end_date and current_date > start_date:
+            days_in_budget = (end_date - start_date).days
+            days_passed = (current_date - start_date).days
+            days_percent_remaining = Fraction(100) - (Fraction(days_passed, days_in_budget) * Fraction(100))
+            difference = days_percent_remaining - remaining_percent
+            difference = Budget.round_percent_available(fraction_to_decimal(difference))
+            if difference > 0:
+                return f'+{difference}%'
+            else:
+                return f'{difference}%'
+        return ''
+
     def __init__(self, year=None, start_date=None, end_date=None, name=None, account_budget_info=None, id_=None, income_spending_info=None):
         if start_date and end_date:
             self.start_date = get_date(start_date)
@@ -608,7 +622,7 @@ class Budget:
         '''returns {account1: {'amount': xxx}, account2: {}, ...}'''
         return self._budget_data
 
-    def get_report_display(self):
+    def get_report_display(self, current_date=None):
         '''adds income & spending data to budget data, & converts to strings, for a budget report to display
         { 'expense': {
                 expense_account1: {'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'percent_available': '50%', 'notes': 'note1'},
@@ -616,8 +630,7 @@ class Budget:
                 expense_account3: {},
             },
           'income': {
-                income_account1: {'amount': '10', 'income': '7', 'remaining': '3', 'remaining_percent': '70%', 'notes': 'note2'},
-                                    #may also want to have current status based on how much time remaining (70% through the year, only 60% income so far, ...)
+                income_account1: {'amount': '10', 'income': '7', 'remaining': '3', 'remaining_percent': '30%', 'notes': 'note2', 'current_status': '-1.2%'}, #based on date passed in, should be at 71.2% (only relevant if date is within the budget period (get percentage through budget period, compare to remaining_percent)
                 income_account2: {},
           } }
         '''
@@ -644,8 +657,9 @@ class Budget:
                         report_info['percent_available'] = 'error'
                 else:
                     report_info['remaining'] = report_info['amount'] - income
-                    percent = (income / report_info['amount']) * Fraction(100)
-                    report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent)))
+                    remaining_percent = Fraction(100) - ((income / report_info['amount']) * Fraction(100))
+                    report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(remaining_percent)))
+                    report_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, remaining_percent)
             for key in report_info.keys():
                 if report_info[key] == Fraction(0):
                     report_info[key] = ''

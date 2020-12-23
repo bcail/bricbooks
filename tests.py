@@ -658,7 +658,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'must pass in income_spending_info to get the report display')
         income_spending_info = {housing: {'income': 5, 'spent': 10}, food: {'income': ''}, wages: {'income': 80}}
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
-        budget_report = budget.get_report_display()
+        budget_report = budget.get_report_display(current_date=date(2018, 7, 1))
         housing_info = budget_report['expense'][housing]
         self.assertEqual(housing_info['amount'], '15')
         self.assertEqual(housing_info['carryover'], '5')
@@ -684,8 +684,9 @@ class TestBudget(unittest.TestCase):
                     'amount': '100',
                     'income': '80',
                     'remaining': '20',
-                    'remaining_percent': '80%',
+                    'remaining_percent': '20%',
                     'notes': 'note 1',
+                    'current_status': '+30%',
                 }
             )
         self.assertEqual(budget_report['income'][interest], {})
