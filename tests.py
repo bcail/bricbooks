@@ -805,14 +805,29 @@ class TestSQLiteStorage(unittest.TestCase):
             storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
-    def test_account_name_must_be_unique(self):
+    def test_account_number_must_be_unique(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
-        checking2 = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = bb.Account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
+        checking2 = bb.Account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
         storage.save_account(checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(checking2)
-        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name')
+        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.number')
+        #make sure saving works once number is updated
+        checking2 = bb.Account(type_=bb.AccountType.INCOME, number='5-1', name='Checking')
+        storage.save_account(checking2)
+
+    def test_account_name_and_parent_must_be_unique(self):
+        storage = bb.SQLiteStorage(':memory:')
+        bank_accounts = bb.Account(type_=bb.AccountType.ASSET, name='Bank Accounts')
+        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+        storage.save_account(bank_accounts)
+        storage.save_account(checking)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            storage.save_account(
+                    bb.Account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+                )
+        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
 
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
