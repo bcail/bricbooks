@@ -151,20 +151,20 @@ def increment_year(date_obj):
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, user_id=None, name=None, parent=None):
+    def __init__(self, id_=None, type_=None, number=None, name=None, parent=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
         if not name:
             raise InvalidAccountNameError('Account must have a name')
         self.type = self._check_type(type_)
-        self.user_id = user_id or None
+        self.number = number or None
         self.name = name
         self.parent = parent
 
     def __str__(self):
-        if self.user_id:
-            return '%s - %s' % (self.user_id, self.name)
+        if self.number:
+            return '%s - %s' % (self.number, self.name)
         else:
             return self.name
 
@@ -704,7 +704,7 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, user_id TEXT, name TEXT UNIQUE NOT NULL, parent_id INTEGER, closed INTEGER,'\
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, number TEXT, name TEXT UNIQUE NOT NULL, parent_id INTEGER, closed INTEGER,'\
                 'FOREIGN KEY(parent_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
@@ -722,7 +722,7 @@ class SQLiteStorage:
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
 
     def get_account(self, account_id):
-        account_info = self._db_connection.execute('SELECT id, type, user_id, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
+        account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
         if not account_info:
             raise Exception('no account with id "%s"' % account_id)
         parent = None
@@ -731,7 +731,7 @@ class SQLiteStorage:
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
-                user_id=account_info[2],
+                number=account_info[2],
                 name=account_info[3],
                 parent=parent,
             )
@@ -742,12 +742,12 @@ class SQLiteStorage:
         if account.parent:
             parent_id = account.parent.id
         if account.id:
-            c.execute('UPDATE accounts SET type = ?, user_id = ?, name = ?, parent_id = ? WHERE id = ?',
-                    (account.type.value, account.user_id, account.name, parent_id, account.id))
+            c.execute('UPDATE accounts SET type = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
+                    (account.type.value, account.number, account.name, parent_id, account.id))
             if c.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
-            c.execute('INSERT INTO accounts(type, user_id, name, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.user_id, account.name, parent_id))
+            c.execute('INSERT INTO accounts(type, number, name, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.number, account.name, parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
@@ -1005,7 +1005,7 @@ class SQLiteStorage:
 
 ACCOUNTS_GUI_FIELDS = {
         'type': {'column_number': 0, 'column_stretch': 2, 'label': 'Type'},
-        'user_id': {'column_number': 1, 'column_stretch': 1, 'label': 'User ID'},
+        'number': {'column_number': 1, 'column_stretch': 1, 'label': 'Number'},
         'name': {'column_number': 2, 'column_stretch': 3, 'label': 'Name'},
         'parent': {'column_number': 3, 'column_stretch': 3, 'label': 'Parent'},
         'buttons': {'column_number': 4, 'column_stretch': 3},
@@ -1055,7 +1055,7 @@ class AccountForm:
 
     def _show_widgets(self, layout, widgets):
         row = 0
-        for index, f in enumerate(['type', 'user_id', 'name', 'parent']):
+        for index, f in enumerate(['type', 'number', 'name', 'parent']):
             layout.addWidget(QtWidgets.QLabel(ACCOUNTS_GUI_FIELDS[f]['label']), row, index)
         row += 1
         account_type = QtWidgets.QComboBox()
@@ -1064,10 +1064,10 @@ class AccountForm:
             if self._account and self._account.type == type_:
                 account_type.setCurrentIndex(index)
         layout.addWidget(account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        user_id = QtWidgets.QLineEdit()
+        number = QtWidgets.QLineEdit()
         if self._account:
-            user_id.setText(self._account.user_id)
-        layout.addWidget(user_id, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+            number.setText(self._account.number)
+        layout.addWidget(number, row, ACCOUNTS_GUI_FIELDS['number']['column_number'])
         name = QtWidgets.QLineEdit()
         if self._account:
             name.setText(self._account.name)
@@ -1083,14 +1083,14 @@ class AccountForm:
         button.clicked.connect(self._save_new_account)
         layout.addWidget(button, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
         widgets['type'] = account_type
-        widgets['user_id'] = user_id
+        widgets['number'] = number
         widgets['name'] = name
         widgets['parent'] = parent_combo
         widgets['save_btn'] = button
 
     def _save_new_account(self):
         type_ = self._widgets['type'].currentData()
-        user_id = self._widgets['user_id'].text()
+        number = self._widgets['number'].text()
         name = self._widgets['name'].text()
         parent = self._widgets['parent'].currentData()
         if self._account:
@@ -1098,7 +1098,7 @@ class AccountForm:
         else:
             id_ = None
         try:
-            account = Account(id_=id_, type_=type_, user_id=user_id, name=name, parent=parent)
+            account = Account(id_=id_, type_=type_, number=number, name=name, parent=parent)
             self._display.accept()
             self._save_account(account)
         except InvalidAccountNameError:
@@ -1123,7 +1123,7 @@ class AccountsDisplay:
         layout.addWidget(self.add_button, row, 0)
         row += 1
         layout.addWidget(QtWidgets.QLabel('Type'), row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('User ID'), row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+        layout.addWidget(QtWidgets.QLabel('Number'), row, ACCOUNTS_GUI_FIELDS['number']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Name'), row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
         layout.addWidget(QtWidgets.QLabel('Parent Account'), row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
         row += 1
@@ -1148,8 +1148,8 @@ class AccountsDisplay:
             edit_function = partial(self._edit, layout=layout, acc_id=acc.id)
             type_label = QtWidgets.QLabel(acc.type.name)
             type_label.mousePressEvent = edit_function
-            user_id_label = QtWidgets.QLabel(acc.user_id or '')
-            user_id_label.mousePressEvent = edit_function
+            number_label = QtWidgets.QLabel(acc.number or '')
+            number_label.mousePressEvent = edit_function
             name_label = QtWidgets.QLabel(acc.name)
             name_label.mousePressEvent = edit_function
             parent = acc.parent or ''
@@ -1158,7 +1158,7 @@ class AccountsDisplay:
             empty_label = QtWidgets.QLabel('')
             empty_label.mousePressEvent = edit_function
             layout.addWidget(type_label, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-            layout.addWidget(user_id_label, row, ACCOUNTS_GUI_FIELDS['user_id']['column_number'])
+            layout.addWidget(number_label, row, ACCOUNTS_GUI_FIELDS['number']['column_number'])
             layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
             layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
             layout.addWidget(empty_label, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
@@ -1166,7 +1166,7 @@ class AccountsDisplay:
                     'row': row,
                     'labels': {
                         'type_label': type_label,
-                        'user_id': user_id_label,
+                        'number': number_label,
                         'name': name_label,
                         'parent': parent_label,
                         'empty': empty_label,
@@ -2323,7 +2323,7 @@ class GUI_QT:
 
 class CLI:
 
-    ACCOUNT_LIST_HEADER = ' ID   | Type        | User ID | Name                           | Parent\n'\
+    ACCOUNT_LIST_HEADER = ' ID   | Type        | Number | Name                           | Parent\n'\
         '==============================================================================================='
 
     TXN_LIST_HEADER = ' ID   | Date       | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal | Deposit    | Balance\n'\
@@ -2360,34 +2360,34 @@ class CLI:
     def _list_accounts(self):
         self.print(self.ACCOUNT_LIST_HEADER)
         for a in self.storage.get_accounts():
-            if a.user_id:
-                user_id = a.user_id
+            if a.number:
+                number = a.number
             else:
-                user_id = ''
+                number = ''
             if a.parent:
                 parent = a.parent.name
             else:
                 parent = ''
-            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, user_id[:7], a.name[:30], parent[:30]))
+            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, number[:7], a.name[:30], parent[:30]))
 
     def _get_and_save_account(self, account=None):
         acc_id = None
-        name_prefill = acct_type_prefill = user_id_prefill = ''
+        name_prefill = acct_type_prefill = number_prefill = ''
         if account:
             acc_id = account.id
             name_prefill = account.name
             acct_type_prefill = account.type.value
-            user_id_prefill = account.user_id
+            number_prefill = account.number
         name = self.input(prompt='  name: ', prefill=name_prefill)
         acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
         acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=acct_type_prefill)
-        user_id = self.input(prompt='  user id: ', prefill=user_id_prefill)
+        number = self.input(prompt='  number: ', prefill=number_prefill)
         parent_id = self.input(prompt='  parent account id: ')
         parent = None
         if parent_id:
             parent = self.storage.get_account(parent_id)
         self.storage.save_account(
-                Account(id_=acc_id, name=name, type_=acct_type, user_id=user_id, parent=parent)
+                Account(id_=acc_id, name=name, type_=acct_type, number=number, parent=parent)
             )
 
     def _create_account(self):

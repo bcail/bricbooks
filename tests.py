@@ -56,14 +56,14 @@ class TestUtils(unittest.TestCase):
 class TestAccount(unittest.TestCase):
 
     def test_init(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, user_id='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.parent, None)
-        self.assertEqual(a.user_id, '400')
+        self.assertEqual(a.number, '400')
 
     def test_str(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, user_id='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
         self.assertEqual(str(a), '400 - Checking')
 
     def test_account_type(self):
@@ -92,8 +92,8 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(rent.parent, housing)
 
     def test_empty_strings_for_non_required_elements(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', user_id='')
-        self.assertEqual(a.user_id, None)
+        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', number='')
+        self.assertEqual(a.number, None)
 
 
 class TestTransaction(unittest.TestCase):
@@ -749,7 +749,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         assets = bb.Account(type_=bb.AccountType.ASSET, name='All Assets')
         storage.save_account(assets)
-        checking = bb.Account(type_=bb.AccountType.ASSET, user_id='4010', name='Checking', parent=assets)
+        checking = bb.Account(type_=bb.AccountType.ASSET, number='4010', name='Checking', parent=assets)
         storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -817,14 +817,14 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, user_id, name) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, '4010', 'Checking'))
+        c.execute('INSERT INTO accounts(type, number, name) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, '4010', 'Checking'))
         account_id = c.lastrowid
         c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
         self.assertEqual(account.type, bb.AccountType.EXPENSE)
-        self.assertEqual(account.user_id, '4010')
+        self.assertEqual(account.number, '4010')
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.parent, None)
         sub_checking = storage.get_account(sub_checking_id)
@@ -1413,7 +1413,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
 class TestCLI(unittest.TestCase):
 
-    ACCOUNT_FORM_OUTPUT = '  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   user id:   parent account id: '
+    ACCOUNT_FORM_OUTPUT = '  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   number:   parent account id: '
 
     def setUp(self):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
@@ -1458,7 +1458,7 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
-        self.assertEqual(accounts[0].user_id, '400')
+        self.assertEqual(accounts[0].number, '400')
         self.assertEqual(accounts[0].parent, savings)
         output = 'Account ID: %s' % self.ACCOUNT_FORM_OUTPUT
         self.assertEqual(self.memory_buffer.getvalue(), output)
@@ -1876,14 +1876,14 @@ class TestQtGUI(unittest.TestCase):
         accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method)
         widget = accounts_display.get_widget()
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
-        accounts_display.add_account_display._widgets['user_id'].setText('400')
+        accounts_display.add_account_display._widgets['number'].setText('400')
         accounts_display.add_account_display._widgets['name'].setText('Savings')
         accounts_display.add_account_display._widgets['parent'].setCurrentIndex(1)
         QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[1].type.name, 'ASSET')
-        self.assertEqual(accounts[1].user_id, '400')
+        self.assertEqual(accounts[1].number, '400')
         self.assertEqual(accounts[1].name, 'Savings')
         self.assertEqual(accounts[1].parent.name, 'Checking')
 
