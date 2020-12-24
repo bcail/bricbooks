@@ -653,6 +653,7 @@ class Budget:
                     try:
                         percent_available = (report_info['remaining'] / report_info['total_budget']) * Fraction(100)
                         report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent_available)))
+                        report_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, percent_available)
                     except InvalidOperation:
                         report_info['percent_available'] = 'error'
                 else:

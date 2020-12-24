@@ -667,6 +667,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['spent'], '10')
         self.assertEqual(housing_info['remaining'], '15')
         self.assertEqual(housing_info['percent_available'], '60%')
+        self.assertEqual(housing_info['current_status'], '-10%')
         food_info = budget_report['expense'][food]
         self.assertEqual(food_info, {})
         transportation_info = budget_report['expense'][transportation]
@@ -676,6 +677,7 @@ class TestBudget(unittest.TestCase):
                     'total_budget': '10',
                     'remaining': '10',
                     'percent_available': '100%',
+                    'current_status': '-50%',
                 }
             )
         wages_info = budget_report['income'][wages]
