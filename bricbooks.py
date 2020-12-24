@@ -1951,7 +1951,7 @@ class BudgetDataDisplay:
         row = 0
         self.data = {}
         budget = self._budget
-        budget_report = budget.get_report_display()
+        budget_report = budget.get_report_display(current_date=date.today())
         for account, info in budget_report['income'].items():
             layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
             budget_label = QtWidgets.QLabel(info.get('amount', ''))
@@ -1962,6 +1962,7 @@ class BudgetDataDisplay:
             layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
             layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
             layout.addWidget(QtWidgets.QLabel(info.get('percent', '')), row, 7)
+            layout.addWidget(QtWidgets.QLabel(info.get('current_status', '')), row, 8)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row'] = row
@@ -1979,6 +1980,7 @@ class BudgetDataDisplay:
             layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
             layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
             layout.addWidget(QtWidgets.QLabel(info.get('percent_available', '')), row, 7)
+            layout.addWidget(QtWidgets.QLabel(info.get('current_status', '')), row, 8)
             row_data = {'budget_label': budget_label}
             row_data['carryover_label'] = carryover_label
             row_data['row'] = row
@@ -2033,7 +2035,7 @@ class BudgetDisplay:
             layout.removeWidget(self._budget_data_display_widget)
             self._budget_data_display_widget.deleteLater()
         self._budget_data_display_widget = self.budget_data_display.get_widget()
-        layout.addWidget(self._budget_data_display_widget, row, 0, 1, 8)
+        layout.addWidget(self._budget_data_display_widget, row, 0, 1, 9)
         row += 1
         self._edit_button = QtWidgets.QPushButton('Edit')
         self._edit_button.clicked.connect(partial(self._open_form, budget=budget))
@@ -2067,6 +2069,7 @@ class BudgetDisplay:
         layout.addWidget(QtWidgets.QLabel('Spent'), row, 5)
         layout.addWidget(QtWidgets.QLabel('Remaining'), row, 6)
         layout.addWidget(QtWidgets.QLabel('Percent Available'), row, 7)
+        layout.addWidget(QtWidgets.QLabel('Current Status'), row, 8)
         return row + 1
 
     def _save_budget_and_reload(self, budget, new_budget=False):
@@ -2599,7 +2602,17 @@ class CLI:
         self.print(budget)
         account_budget_info = budget.get_budget_data()
         for account, info in account_budget_info.items():
-            self.print(f' {account}: {info}')
+            amount = info.get('amount', '')
+            if amount:
+                amount = str(fraction_to_decimal(amount))
+            display = f' {account}: {amount}'
+            carryover = info.get('carryover', '')
+            if carryover:
+                carryover = str(fraction_to_decimal(carryover))
+                display += f' (carryover: {carryover})'
+            if info.get('notes', None):
+                display += f' {info["notes"]}'
+            self.print(display)
 
     def _display_budget_report(self):
         budget_id = self.input('Enter budget ID: ')

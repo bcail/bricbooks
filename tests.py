@@ -1219,6 +1219,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
         budget_data = budget.get_budget_data()
         self.assertEqual(budget_data[housing], {'amount': Fraction(135), 'notes': 'hello'})
+        self.assertEqual(type(budget_data[housing]['amount']), Fraction)
         self.assertEqual(budget_data[wages], {'amount': Fraction(70)})
 
         report_display = budget.get_report_display()['expense']
