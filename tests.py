@@ -2198,6 +2198,29 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], 23)
 
+    def test_ledger_skip_scheduled_txn(self):
+        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
+        gui.storage.save_account(checking)
+        gui.storage.save_account(savings)
+        gui.storage.save_account(housing)
+        splits = {checking: -100, housing: 100}
+        scheduled_txn = bb.ScheduledTransaction(
+            name='weekly',
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+            splits=splits,
+            next_due_date=date(2018, 1, 13),
+        )
+        gui.storage.save_scheduled_transaction(scheduled_txn)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display._scheduled_txn_widgets[2], QtCore.Qt.LeftButton) #click to show form
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.scheduled_txn_display._widgets['skip_btn'], QtCore.Qt.LeftButton) #click to skip next txn
+        scheduled_txns = gui.storage.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
+
     def test_budget_display(self):
         storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')

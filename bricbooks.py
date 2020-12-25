@@ -1349,7 +1349,9 @@ class LedgerTxnsDisplay:
         self._redisplay_txns()
 
     def _skip_scheduled_txn(self, scheduled_txn):
-        pass
+        scheduled_txn.advance_to_next_due_date()
+        self.storage.save_scheduled_transaction(scheduled_txn)
+        self._redisplay_txns()
 
     def _show_scheduled_txn_form(self, event, scheduled_txn, layout):
         save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn, layout=layout)
@@ -1599,6 +1601,11 @@ class TxnForm:
             delete_button.clicked.connect(self.delete)
             self._widgets['delete_btn'] = delete_button
             layout.addWidget(delete_button, 2, 0)
+            if isinstance(self._txn, ScheduledTransaction):
+                button = QtWidgets.QPushButton('Skip Next Txn')
+                button.clicked.connect(self._skip)
+                self._widgets['skip_btn'] = button
+                layout.addWidget(button, 2, GUI_FIELDS['buttons']['add_edit_column_number'])
 
     def _save(self):
         txn_type = self._widgets['txn_type'].text()
@@ -1631,6 +1638,10 @@ class TxnForm:
     def delete(self):
         self._txn_display.accept()
         self._delete_txn(self._txn)
+
+    def _skip(self):
+        self._txn_display.accept()
+        self._skip_txn()
 
 
 class ScheduledTxnForm:
