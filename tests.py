@@ -694,7 +694,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['income'][interest], {})
 
 
-TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_txn_splits',), ('transactions',), ('txn_splits',), ('misc',)]
+TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -894,7 +894,7 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', bb.Transaction.CLEARED))
-        c.execute('SELECT * FROM txn_splits')
+        c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', None),
                                              (2, 1, 2, '101/1', None)])
@@ -933,7 +933,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         transaction_records = c.fetchall()
         self.assertEqual(transaction_records, [])
-        c.execute('SELECT * FROM txn_splits')
+        c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [])
 
@@ -969,7 +969,7 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (1, None, date.today().strftime('%Y-%m-%d'), None, None, None))
-        c.execute('SELECT * FROM txn_splits')
+        c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', None),
                                              (2, 1, 2, '-101/1', None)])
@@ -1071,7 +1071,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_records = c.fetchall()
         self.assertEqual(len(txn_records), 1)
         self.assertEqual(txn_records[0][0], '2017-01-28')
-        txn_splits_records = c.execute('SELECT txn_id FROM txn_splits').fetchall()
+        txn_splits_records = c.execute('SELECT txn_id FROM transaction_splits').fetchall()
         self.assertEqual(len(txn_splits_records), 2)
         self.assertEqual([r[0] for r in txn_splits_records], [txn2.id, txn2.id])
 
@@ -1290,7 +1290,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
                 (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something', 'R'))
-        st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,amount FROM scheduled_txn_splits').fetchall()
+        st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,amount FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, '101'))
@@ -1320,7 +1320,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM scheduled_transactions')
         scheduled_transaction_records = c.fetchall()
         self.assertEqual(scheduled_transaction_records, [])
-        c.execute('SELECT * FROM scheduled_txn_splits')
+        c.execute('SELECT * FROM scheduled_transaction_splits')
         scheduled_txn_split_records = c.fetchall()
         self.assertEqual(scheduled_txn_split_records, [])
 
@@ -1370,7 +1370,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(st_records), 1)
         retrieved_scheduled_txn = storage.get_scheduled_transaction(st.id)
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 9))
-        split_records = storage._db_connection.execute('SELECT * FROM scheduled_txn_splits').fetchall()
+        split_records = storage._db_connection.execute('SELECT * FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(len(split_records), 2)
 
     def test_get_scheduled_transaction(self):
