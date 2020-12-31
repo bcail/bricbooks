@@ -232,21 +232,26 @@ def fraction_to_decimal(f):
     return Decimal(f.numerator) / Decimal(f.denominator)
 
 
-def check_txn_splits(input_splits):
-    if not input_splits or len(input_splits.items()) < 2:
+def check_txn_splits(splits):
+    if not splits or len(splits.items()) < 2:
         raise InvalidTransactionError('transaction must have at least 2 splits')
-    splits = {}
     total = Fraction(0)
-    for account, amt in input_splits.items():
+    for account, info in splits.items():
         if not account:
             raise InvalidTransactionError('must have a valid account in splits')
         try:
-            amount = get_validated_amount(amt)
+            amount = get_validated_amount(info['amount'])
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid split: %s' % e)
         amt_str = str(amount)
         total += amount
-        splits[account] = amount
+        info['amount'] = amount
+        if 'status' in info:
+            status = Transaction.handle_status(info['status'])
+            if status:
+                info['status'] = status
+            else:
+                info.pop('status')
     if total != Fraction(0):
         raise InvalidTransactionError("splits don't balance")
     return splits
@@ -270,7 +275,7 @@ class Transaction:
             return None
 
     @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status):
         splits = {}
         categories = {}
         try:
@@ -284,28 +289,31 @@ class Transaction:
         else:
             raise InvalidTransactionError('invalid input categories: %s' % input_categories)
         if deposit:
-            splits[account] = deposit
+            splits[account] = {'amount': deposit}
             for key, value in categories.items():
-                splits[key] = '-%s' % value
+                splits[key] = {'amount': f'-{value}'}
         elif withdrawal:
-            splits[account] = '-%s' % withdrawal
-            splits.update(categories)
+            splits[account] = {'amount': f'-{withdrawal}'}
+            for key, value in categories.items():
+                splits[key] = {'amount': value}
+        status = Transaction.handle_status(status)
+        if status:
+            splits[account]['status'] = status
         return splits
 
     @staticmethod
     def from_user_info(account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, status, id_=None):
-        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status)
         return Transaction(
                 splits=splits,
                 txn_date=txn_date,
                 txn_type=txn_type,
                 payee=payee,
                 description=description,
-                status=status,
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, status=None, id_=None):
+    def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, id_=None):
         self.splits = check_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
@@ -319,7 +327,6 @@ class Transaction:
         else:
             self.payee = None
         self.description = description
-        self.status = Transaction.handle_status(status)
         self.id = id_
 
     def __str__(self):
@@ -352,7 +359,7 @@ def _categories_display(splits, main_account):
 
 def get_display_strings_for_ledger(account, txn):
     '''txn can be either Transaction or ScheduledTransaction'''
-    amount = txn.splits[account]
+    amount = txn.splits[account]['amount']
     if amount < Fraction(0):
         #make negative amount display as positive
         withdrawal = str(fraction_to_decimal(amount * Fraction('-1')))
@@ -378,7 +385,7 @@ def get_display_strings_for_ledger(account, txn):
         display_strings['frequency'] = str(txn.frequency)
         display_strings['txn_date'] = str(txn.next_due_date)
     else:
-        display_strings['status'] = txn.status or ''
+        display_strings['status'] = txn.splits[account].get('status', '')
         display_strings['txn_date'] = str(txn.txn_date)
     return display_strings
 
@@ -414,7 +421,7 @@ class Ledger:
         txns_with_balance = []
         balance = Fraction(0)
         for t in txns:
-            balance = balance + t.splits[self.account]
+            balance = balance + t.splits[self.account]['amount']
             t.balance = balance
             txns_with_balance.append(t)
         return txns_with_balance
@@ -450,8 +457,8 @@ class Ledger:
         for t in sorted_txns:
             if t.txn_date <= today:
                 current = t.balance
-                if t.status == Transaction.CLEARED:
-                    current_cleared = current_cleared + t.splits[self.account]
+                if t.splits[self.account].get('status', None) == Transaction.CLEARED:
+                    current_cleared = current_cleared + t.splits[self.account]['amount']
         return LedgerBalances(
                 current=str(fraction_to_decimal(current)),
                 current_cleared=str(fraction_to_decimal(current_cleared)),
@@ -471,7 +478,8 @@ class Ledger:
 
 def splits_display(splits):
     account_amt_list = []
-    for account, amount in splits.items():
+    for account, info in splits.items():
+        amount = info['amount']
         account_amt_list.append(f'{account.name}: {fraction_to_decimal(amount)}')
     return '; '.join(account_amt_list)
 
@@ -710,13 +718,13 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT, status TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, reconciled_state TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT, status TEXT,'\
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, description TEXT,'\
+        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
@@ -806,18 +814,20 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, txn_type, txn_date, payee_id, description, status = db_info
+        id_, txn_type, txn_date, payee_id, description = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
         splits = {}
-        split_records = cursor.execute('SELECT account_id, amount FROM transaction_splits WHERE txn_id = ?', (id_,))
+        split_records = cursor.execute('SELECT account_id, amount, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = split_record[1]
-        return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, status=status, id_=id_)
+                splits[account] = {'amount': split_record[1]}
+                if split_record[2]:
+                    splits[account]['status'] = split_record[2]
+        return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, id_=id_)
 
     def get_txn(self, txn_id):
         cursor = self._db_connection.cursor()
@@ -838,20 +848,22 @@ class SQLiteStorage:
         else:
             payee = None
         if txn.id:
-            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee_id = ?, description = ?, status = ? WHERE id = ?',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.status, txn.id))
+            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee_id = ?, description = ? WHERE id = ?',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
             if c.rowcount < 1:
                 raise Exception('no txn with id %s to update' % txn.id)
         else:
-            c.execute('INSERT INTO transactions(txn_type, txn_date, payee_id, description, status) VALUES(?, ?, ?, ?, ?)',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.status))
+            c.execute('INSERT INTO transactions(txn_type, txn_date, payee_id, description) VALUES(?, ?, ?, ?)',
+                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
             txn.id = c.lastrowid
         #always delete any previous splits
         c.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn.id,))
-        for account, amount in txn.splits.items():
+        for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
-            c.execute('INSERT INTO transaction_splits(txn_id, account_id, amount) VALUES(?, ?, ?)', (txn.id, account.id, f'{amount.numerator}/{amount.denominator}'))
+            amount = info['amount']
+            status = info.get('status', None)
+            c.execute('INSERT INTO transaction_splits(txn_id, account_id, amount, reconciled_state) VALUES(?, ?, ?, ?)', (txn.id, account.id, f'{amount.numerator}/{amount.denominator}', status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
@@ -953,31 +965,35 @@ class SQLiteStorage:
         else:
             payee = None
         if scheduled_txn.id:
-            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ?, status = ? WHERE id = ?',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.status, scheduled_txn.id))
+            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
             if c.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             c.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
-            for account, amount in scheduled_txn.splits.items():
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
+            for account, info in scheduled_txn.splits.items():
+                status = info.get('status', None)
+                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount, reconciled_state) VALUES (?, ?, ?, ?)', (scheduled_txn.id, account.id, str(info['amount']), status))
         else:
-            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.status))
+            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
+                (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
             scheduled_txn.id = c.lastrowid
-            for account, amount in scheduled_txn.splits.items():
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount) VALUES (?, ?, ?)', (scheduled_txn.id, account.id, str(amount)))
+            for account, info in scheduled_txn.splits.items():
+                status = info.get('status', None)
+                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount, reconciled_state) VALUES (?, ?, ?, ?)', (scheduled_txn.id, account.id, str(info['amount']), status))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
         c = self._db_connection.cursor()
         splits = {}
-        split_records = c.execute('SELECT account_id, amount FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
+        split_records = c.execute('SELECT account_id, amount, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = split_record[1]
-        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description,status FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+                splits[account] = {'amount': split_record[1]}
+                if split_record[2]:
+                    splits[account]['status'] = split_record[2]
+        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
@@ -987,7 +1003,6 @@ class SQLiteStorage:
                 txn_type=rows[0][3],
                 payee=payee,
                 description=rows[0][5],
-                status=rows[0][6],
                 id_=id_,
             )
         return st
@@ -2452,29 +2467,38 @@ class CLI:
 
     def _get_common_txn_info(self, txn=None):
         '''get pieces of data common to txns and scheduled txns'''
-        info = {}
+        txn_info = {}
         self.print('Splits:')
         splits = {}
         if txn:
-            for account, orig_amount in txn.splits.items():
-                amount = self.input(prompt='%s amount: ' % account.name, prefill=orig_amount)
+            for account, split_info in txn.splits.items():
+                amount = self.input(prompt='%s amount: ' % account.name, prefill=fraction_to_decimal(split_info['amount']))
                 if amount:
-                    splits[account] = amount
+                    splits[account] = {'amount': amount}
+                    orig_status = split_info.get('status', '')
+                    if orig_status:
+                        orig_status = orig_status.value
+                    reconciled_state = self.input(prompt=f'{account.name} reconciled state: ', prefill=orig_status)
+                    if reconciled_state:
+                        splits[account]['status'] = reconciled_state
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
+                account = self.storage.get_account(acct_id)
                 amt = self.input(prompt=' amount: ')
                 if amt:
-                    splits[self.storage.get_account(acct_id)] = amt
+                    splits[account] = {'amount': amt}
+                    reconciled_state = self.input(prompt=f'{account.name} reconciled state: ')
+                    if reconciled_state:
+                        splits[account]['status'] = reconciled_state
                 else:
                     break
             else:
                 break
-        info['splits'] = splits
+        txn_info['splits'] = splits
         txn_type_prefill = ''
         payee_prefill = ''
         description_prefill = ''
-        status_prefill = ''
         if txn:
             txn_type_prefill = txn.txn_type or ''
             if txn.payee:
@@ -2482,19 +2506,17 @@ class CLI:
             else:
                 payee_prefill = ''
             description_prefill = txn.description or ''
-            status_prefill = txn.status or ''
-        info['txn_type'] = self.input(prompt='  type: ', prefill=txn_type_prefill)
+        txn_info['txn_type'] = self.input(prompt='  type: ', prefill=txn_type_prefill)
         payee = self.input(prompt='  payee (id or \'name): ', prefill=payee_prefill)
         if payee == 'p':
             self._list_payees()
             payee = self.input(prompt='  payee (id or \'name): ')
         if payee.startswith("'"):
-            info['payee'] = Payee(payee[1:])
+            txn_info['payee'] = Payee(payee[1:])
         else:
-            info['payee'] = self.storage.get_payee(payee)
-        info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
-        info['status'] = self.input(prompt='  status: ', prefill=status_prefill)
-        return info
+            txn_info['payee'] = self.storage.get_payee(payee)
+        txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
+        return txn_info
 
     def _get_and_save_txn(self, txn=None):
         info = {}
