@@ -728,7 +728,7 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
         conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
