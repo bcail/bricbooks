@@ -253,7 +253,10 @@ def check_txn_splits(splits):
             else:
                 info.pop('status')
     if total != Fraction(0):
-        raise InvalidTransactionError("splits don't balance")
+        amounts = []
+        for account, info in splits.items():
+            amounts.append(str(fraction_to_decimal(info['amount'])))
+        raise InvalidTransactionError("splits don't balance: %s" % ', '.join(amounts))
     return splits
 
 
@@ -275,7 +278,8 @@ class Transaction:
             return None
 
     @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories, status):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status=None):
+        #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
         categories = {}
         try:
@@ -283,19 +287,23 @@ class Transaction:
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid deposit/withdrawal: %s' % e)
         if isinstance(input_categories, Account):
-            categories[input_categories] = amount
+            categories[input_categories] = {'amount': amount}
         elif isinstance(input_categories, dict):
-            categories = input_categories
+            for acc, split_info in input_categories.items():
+                if isinstance(split_info, dict) and 'amount' in split_info:
+                    categories[acc] = split_info
+                else:
+                    raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         else:
-            raise InvalidTransactionError('invalid input categories: %s' % input_categories)
+            raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         if deposit:
             splits[account] = {'amount': deposit}
-            for key, value in categories.items():
-                splits[key] = {'amount': f'-{value}'}
+            for acc, split_info in categories.items():
+                splits[acc] = {'amount': f'-{split_info["amount"]}'}
         elif withdrawal:
             splits[account] = {'amount': f'-{withdrawal}'}
-            for key, value in categories.items():
-                splits[key] = {'amount': value}
+            for acc, split_info in categories.items():
+                splits[acc] = split_info
         status = Transaction.handle_status(status)
         if status:
             splits[account]['status'] = status
@@ -1226,7 +1234,7 @@ class SplitTransactionEditor:
             #value is amount_entry, account
             text = value[0].text()
             if text:
-                self._final_txn_splits[value[1]] = text
+                self._final_txn_splits[value[1]] = {'amount': text}
         split_editor.accept()
 
     def _show_split_editor(self):
@@ -1238,9 +1246,10 @@ class SplitTransactionEditor:
         for account in self._all_accounts:
             layout.addWidget(QtWidgets.QLabel(str(account)), row, 0)
             amount_entry = QtWidgets.QLineEdit()
-            for acc, amt in self._initial_txn_splits.items():
+            for acc, split_info in self._initial_txn_splits.items():
+                amt = split_info['amount']
                 if acc == account:
-                    amount_entry.setText(str(amt))
+                    amount_entry.setText(str(fraction_to_decimal(amt)))
             self._entries[account.id] = (amount_entry, account)
             layout.addWidget(amount_entry, row, 1)
             row += 1
@@ -1705,7 +1714,7 @@ class ScheduledTxnForm:
         account = deposit = withdrawal = None
         if self._scheduled_txn:
             account = list(self._scheduled_txn.splits.keys())[0]
-            amount = self._scheduled_txn.splits[account]
+            amount = self._scheduled_txn.splits[account]['amount']
             if amount > 0:
                 deposit = str(fraction_to_decimal(amount))
             else:
