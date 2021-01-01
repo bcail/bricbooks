@@ -880,17 +880,16 @@ class TestSQLiteStorage(unittest.TestCase):
                 description='chicken sandwich',
             )
         storage.save_txn(t)
-        #make sure we save the id to the txn object
-        self.assertEqual(t.id, 1)
+        self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = storage._db_connection.cursor()
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
-        c.execute('SELECT id,txn_id,account_id,amount,reconciled_state,description FROM transaction_splits')
+        c.execute('SELECT id,txn_id,account_id,value,quantity,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', 'C', None),
-                                             (2, 1, 2, '101/1', None, None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', '-101/1', 'C', None),
+                                             (2, 1, 2, '101/1', '101/1', None, None)])
 
     def test_save_txn_payee_string(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -964,8 +963,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, None, date.today().strftime('%Y-%m-%d'), None, None))
         c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', None, None),
-                                             (2, 1, 2, '-101/1', None, None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1', None, None),
+                                             (2, 1, 2, '-101/1', '-101/1', None, None)])
 
     def test_round_trip(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1280,10 +1279,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
                 (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something'))
-        st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,amount,reconciled_state FROM scheduled_transaction_splits').fetchall()
+        st_split_records = storage._db_connection.execute('SELECT scheduled_txn_id,account_id,value,quantity,reconciled_state FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
-        self.assertEqual(st_split_records[0], (st.id, checking.id, '-101', 'R'))
-        self.assertEqual(st_split_records[1], (st.id, savings.id, '101', None))
+        self.assertEqual(st_split_records[0], (st.id, checking.id, '-101/1', '-101/1', 'R'))
+        self.assertEqual(st_split_records[1], (st.id, savings.id, '101/1', '101/1', None))
 
     def test_save_scheduled_transaction_error(self):
         storage = bb.SQLiteStorage(':memory:')

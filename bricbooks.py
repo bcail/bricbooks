@@ -728,11 +728,11 @@ class SQLiteStorage:
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
         conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, reconciled_state TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, reconciled_state TEXT, description TEXT,'\
+        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
@@ -827,7 +827,7 @@ class SQLiteStorage:
         payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
         splits = {}
-        split_records = cursor.execute('SELECT account_id, amount, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
+        split_records = cursor.execute('SELECT account_id, value, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -870,8 +870,9 @@ class SQLiteStorage:
             if not account.id:
                 self.save_account(account)
             amount = info['amount']
+            amount = f'{amount.numerator}/{amount.denominator}'
             status = info.get('status', None)
-            c.execute('INSERT INTO transaction_splits(txn_id, account_id, amount, reconciled_state) VALUES(?, ?, ?, ?)', (txn.id, account.id, f'{amount.numerator}/{amount.denominator}', status))
+            c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, amount, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
@@ -930,7 +931,7 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.amount FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.txn_date > ? AND transactions.txn_date < ?', (account.id, start_date, end_date)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.txn_date > ? AND transactions.txn_date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0])
                 if account.type == AccountType.EXPENSE:
@@ -979,21 +980,25 @@ class SQLiteStorage:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             c.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
             for account, info in scheduled_txn.splits.items():
+                amount = info['amount']
+                amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount, reconciled_state) VALUES (?, ?, ?, ?)', (scheduled_txn.id, account.id, str(info['amount']), status))
+                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         else:
             c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
             scheduled_txn.id = c.lastrowid
             for account, info in scheduled_txn.splits.items():
+                amount = info['amount']
+                amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, amount, reconciled_state) VALUES (?, ?, ?, ?)', (scheduled_txn.id, account.id, str(info['amount']), status))
+                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
         c = self._db_connection.cursor()
         splits = {}
-        split_records = c.execute('SELECT account_id, amount, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
+        split_records = c.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
