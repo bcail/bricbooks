@@ -2204,6 +2204,19 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
 
+    def test_ledger_update_reconciled_state(self):
+        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        gui.storage.save_account(checking)
+        gui.storage.save_account(savings)
+        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
+        gui.storage.save_txn(txn)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['status'], QtCore.Qt.LeftButton) #click to change status
+        txns = gui.storage.get_ledger(checking).get_sorted_txns_with_balance()
+        self.assertEqual(txns[0].splits[checking]['status'], bb.Transaction.CLEARED)
+
     def test_budget_display(self):
         storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')

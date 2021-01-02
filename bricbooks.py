@@ -356,6 +356,16 @@ class Transaction:
         except Exception:
             raise InvalidTransactionError('invalid txn_date "%s"' % txn_date)
 
+    def update_reconciled_state(self, account):
+        #this updates the txn, instead of creating a new one - might want to change it
+        cur_status = self.splits[account].get('status', None)
+        if cur_status == Transaction.CLEARED:
+            self.splits[account]['status'] = Transaction.RECONCILED
+        elif cur_status == Transaction.RECONCILED:
+            self.splits[account].pop('status')
+        else:
+            self.splits[account]['status'] = Transaction.CLEARED
+
 
 def _categories_display(splits, main_account):
     if len(splits.keys()) == 2:
@@ -1370,6 +1380,17 @@ class LedgerTxnsDisplay:
             )
         self.edit_txn_display.show_form()
 
+    def _update_reconciled_state(self, event, txn_id, layout):
+        txn = self.storage.get_txn(txn_id)
+        txn.update_reconciled_state(account=self.ledger.account)
+        self.storage.save_txn(txn)
+        self.ledger.add_transaction(txn)
+        for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
+            layout.removeWidget(widget)
+            widget.deleteLater()
+        del self.txn_display_data[txn.id]
+        self._redisplay_txns()
+
     def _enter_scheduled_txn(self, new_txn, scheduled_txn, layout):
         scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
@@ -1402,6 +1423,7 @@ class LedgerTxnsDisplay:
                 widget.deleteLater()
         tds = get_display_strings_for_ledger(self.ledger.account, txn)
         edit_function = partial(self._edit, txn_id=txn.id, layout=layout)
+        update_reconciled_function = partial(self._update_reconciled_state, txn_id=txn.id, layout=layout)
         type_label = QtWidgets.QLabel(tds['txn_type'])
         type_label.mousePressEvent = edit_function
         date_label = QtWidgets.QLabel(tds['txn_date'])
@@ -1413,7 +1435,7 @@ class LedgerTxnsDisplay:
         categories_label = QtWidgets.QLabel(tds['categories'])
         categories_label.mousePressEvent = edit_function
         status_label = QtWidgets.QLabel(tds['status'])
-        status_label.mousePressEvent = edit_function
+        status_label.mousePressEvent = update_reconciled_function
         deposit_label = QtWidgets.QLabel(tds['deposit'])
         deposit_label.mousePressEvent = edit_function
         withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
