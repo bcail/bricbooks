@@ -62,7 +62,7 @@ def install_qt_for_python():
 
 
 try:
-    from PySide2 import QtWidgets
+    from PySide2 import QtWidgets, QtGui, QtCore
 except ImportError:
     pass
 
@@ -1436,6 +1436,7 @@ class LedgerTxnsDisplay:
         categories_label.mousePressEvent = edit_function
         status_label = QtWidgets.QLabel(tds['status'])
         status_label.mousePressEvent = update_reconciled_function
+        status_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
         deposit_label = QtWidgets.QLabel(tds['deposit'])
         deposit_label.mousePressEvent = edit_function
         withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
@@ -2824,7 +2825,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     try:
-        from PySide2 import QtWidgets
+        from PySide2 import QtWidgets, QtGui, QtCore
     except ImportError:
         install_qt_for_python()
 
