@@ -885,7 +885,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
+                (1, 1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', None))
         c.execute('SELECT id,txn_id,account_id,value,quantity,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', '-101/1', 'C', None),
@@ -960,11 +960,11 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
+                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None, None))
         c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1', None, None),
-                                             (2, 1, 2, '-101/1', '-101/1', None, None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1', None, None, None),
+                                             (2, 1, 2, '-101/1', '-101/1', None, None, None)])
 
     def test_round_trip(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1057,7 +1057,7 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_txn(txn2)
         storage.delete_txn(txn.id)
         c = storage._db_connection.cursor()
-        c.execute('SELECT txn_date FROM transactions')
+        c.execute('SELECT date FROM transactions')
         txn_records = c.fetchall()
         self.assertEqual(len(txn_records), 1)
         self.assertEqual(txn_records[0][0], '2017-01-28')

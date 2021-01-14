@@ -745,9 +745,9 @@ class SQLiteStorage:
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, type TEXT, date TEXT, payee_id INTEGER, description TEXT, date_entered TEXT,'\
                 'FOREIGN KEY(currency_id) REFERENCES commodities(id), FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
+        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT, action TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
@@ -838,7 +838,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, currency_id, txn_type, txn_date, payee_id, description = db_info
+        id_, currency_id, txn_type, txn_date, payee_id, description, date_entered = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
@@ -872,12 +872,12 @@ class SQLiteStorage:
         else:
             payee = None
         if txn.id:
-            c.execute('UPDATE transactions SET txn_type = ?, txn_date = ?, payee_id = ?, description = ? WHERE id = ?',
+            c.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
                 (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
             if c.rowcount < 1:
                 raise Exception('no txn with id %s to update' % txn.id)
         else:
-            c.execute('INSERT INTO transactions(currency_id, txn_type, txn_date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
+            c.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
                 (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
             txn.id = c.lastrowid
         #always delete any previous splits
@@ -947,7 +947,7 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.txn_date > ? AND transactions.txn_date < ?', (account.id, start_date, end_date)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0])
                 if account.type == AccountType.EXPENSE:
