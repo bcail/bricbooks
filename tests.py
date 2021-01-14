@@ -688,7 +688,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['income'][interest], {})
 
 
-TABLES = [('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
+TABLES = [('commodities',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -752,13 +752,13 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, bb.AccountType.ASSET.value, '4010', 'Checking', assets.id, None))
+                (checking.id, bb.AccountType.ASSET.value, 1, '4010', 'Checking', assets.id, None))
         savings = bb.Account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, bb.AccountType.ASSET.value, None, 'Savings', None, None)])
+                [(savings.id, bb.AccountType.ASSET.value, 1, None, 'Savings', None, None)])
 
     def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -826,9 +826,9 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
         c = storage._db_connection.cursor()
-        c.execute('INSERT INTO accounts(type, number, name) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, '4010', 'Checking'))
+        c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', 'Checking'))
         account_id = c.lastrowid
-        c.execute('INSERT INTO accounts(type, name, parent_id) VALUES (?, ?, ?)', (bb.AccountType.EXPENSE.value, 'Sub-Checking', account_id))
+        c.execute('INSERT INTO accounts(type, commodity_id, name, parent_id) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
         account = storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
@@ -885,7 +885,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
+                (1, 1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
         c.execute('SELECT id,txn_id,account_id,value,quantity,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', '-101/1', 'C', None),
@@ -960,7 +960,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, None, date.today().strftime('%Y-%m-%d'), None, None))
+                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
         c.execute('SELECT * FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1', None, None),

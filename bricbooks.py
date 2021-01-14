@@ -27,6 +27,10 @@ PYSIDE2_VERSION = '5.15.1'
 CUR_DIR = Path(__file__).parent.resolve()
 
 
+class CommodityType(Enum):
+    CURRENCY = 0
+
+
 class AccountType(Enum):
     ASSET = 0
     LIABILITY = 1
@@ -730,8 +734,9 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed INTEGER,'\
-                'FOREIGN KEY(parent_id) REFERENCES accounts(id), UNIQUE(name, parent_id))')
+        conn.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, commodity_id INTEGER NOT NULL, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed INTEGER,'\
+                'FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), UNIQUE(name, parent_id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
@@ -740,12 +745,13 @@ class SQLiteStorage:
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
-                'FOREIGN KEY(payee_id) REFERENCES payees(id))')
+        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, txn_type TEXT, txn_date TEXT, payee_id INTEGER, description TEXT,'\
+                'FOREIGN KEY(currency_id) REFERENCES commodities(id), FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
+        conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
 
     def get_account(self, account_id):
         account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
@@ -773,7 +779,7 @@ class SQLiteStorage:
             if c.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
-            c.execute('INSERT INTO accounts(type, number, name, parent_id) VALUES(?, ?, ?, ?)', (account.type.value, account.number, account.name, parent_id))
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, 1, account.number, account.name, parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
@@ -832,7 +838,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, txn_type, txn_date, payee_id, description = db_info
+        id_, currency_id, txn_type, txn_date, payee_id, description = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
@@ -871,8 +877,8 @@ class SQLiteStorage:
             if c.rowcount < 1:
                 raise Exception('no txn with id %s to update' % txn.id)
         else:
-            c.execute('INSERT INTO transactions(txn_type, txn_date, payee_id, description) VALUES(?, ?, ?, ?)',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
+            c.execute('INSERT INTO transactions(currency_id, txn_type, txn_date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
+                (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
             txn.id = c.lastrowid
         #always delete any previous splits
         c.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn.id,))
