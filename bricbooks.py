@@ -880,15 +880,23 @@ class SQLiteStorage:
             c.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
                 (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
             txn.id = c.lastrowid
-        #always delete any previous splits
-        c.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn.id,))
+        #update transaction splits
+        splits_db_info = c.execute('SELECT account_id FROM transaction_splits WHERE txn_id = ?', (txn.id,)).fetchall()
+        old_txn_split_account_ids = [r[0] for r in splits_db_info]
+        new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
+        split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
+        for account_id in split_account_ids_to_delete:
+            c.execute('DELETE FROM transaction_splits WHERE txn_id = ? AND account_id = ?', (txn.id, account_id))
         for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
             amount = info['amount']
             amount = f'{amount.numerator}/{amount.denominator}'
             status = info.get('status', None)
-            c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, amount, status))
+            if account.id in old_txn_split_account_ids:
+                c.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, amount, status, txn.id, account.id))
+            else:
+                c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, amount, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):

@@ -972,7 +972,9 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
-        payee = bb.Payee('Five Guys')
+        another_acct = get_test_account(name='Another')
+        storage.save_account(another_acct)
+        payee = bb.Payee('Some restaurant')
         storage.save_payee(payee)
         #create txn & save it
         t = bb.Transaction(
@@ -982,11 +984,48 @@ class TestSQLiteStorage(unittest.TestCase):
                 payee=payee,
             )
         storage.save_txn(t)
+        txn_id = t.id
+        #verify db
+        c = storage._db_connection.cursor()
+        txn_db_info = c.execute('SELECT * FROM transactions').fetchall()
+        self.assertEqual(txn_db_info,
+                [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, None, None)])
+        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+        self.assertEqual(splits_db_info,
+                [(1, txn_id, checking.id, '-101/1', '-101/1', 'C', None, None),
+                 (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
+        #update a db field that the Transaction object isn't aware of
+        c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
+        storage._db_connection.commit()
+        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+        self.assertEqual(splits_db_info,
+                [(1, txn_id, checking.id, '-101/1', '-101/1', 'C', None, 'buy'),
+                 (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
         #read it back from the db
-        txn_from_db = storage.get_txn(t.id)
+        txn_from_db = storage.get_txn(txn_id)
         self.assertEqual(txn_from_db.txn_type, '123')
         self.assertEqual(txn_from_db.payee, payee)
         self.assertEqual(txn_from_db.splits[checking], {'amount': -101, 'status': 'C'})
+        #update it & save again
+        splits = {
+                checking: {'amount': '-101'},
+                another_acct: {'amount': '101'},
+            }
+        updated_txn = bb.Transaction(
+                splits=splits,
+                txn_date=date.today(),
+                id_=txn_id,
+            )
+        storage.save_txn(updated_txn)
+        c = storage._db_connection.cursor()
+        c.execute('SELECT * FROM transactions')
+        db_info = c.fetchall()
+        self.assertEqual(db_info,
+                [(txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None, None)])
+        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+        self.assertEqual(splits_db_info,
+                [(1, txn_id, checking.id, '-101/1', '-101/1', None, None, 'buy'),
+                 (2, txn_id, another_acct.id, '101/1', '101/1', None, None, None)])
 
     def test_get_ledger(self):
         storage = bb.SQLiteStorage(':memory:')
