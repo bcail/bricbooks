@@ -924,13 +924,27 @@ class SQLiteStorage:
         if budget.id:
             c.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
                 (budget.name, str(budget.start_date), str(budget.end_date), budget.id))
-            #delete existing values, and then we'll add the current ones
-            c.execute('DELETE FROM budget_values WHERE budget_id = ?', (budget.id,))
+            #handle budget_values
+            values_db_info = c.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (budget.id,)).fetchall()
+            old_account_ids = [r[0] for r in values_db_info]
+            budget_data = budget.get_budget_data()
+            new_account_ids = [a.id for a in budget_data.keys()]
+            account_ids_to_delete = set(old_account_ids) - set(new_account_ids)
+            for account_id in account_ids_to_delete:
+                c.execute('DELETE FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget.id, account_id))
+            for account, info in budget_data.items():
+                if info:
+                    carryover = str(info.get('carryover', ''))
+                    notes = info.get('notes', '')
+                    values = (str(info['amount']), carryover, notes, budget.id, account.id)
+                    if account.id in old_account_ids:
+                        c.execute('UPDATE budget_values SET amount = ?, carryover = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
+                    else:
+                        c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         else:
             c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
             budget.id = c.lastrowid
-        budget_data = budget.get_budget_data()
-        if budget_data:
+            budget_data = budget.get_budget_data()
             for account, info in budget_data.items():
                 if info:
                     carryover = str(info.get('carryover', ''))
