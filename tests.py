@@ -1374,8 +1374,10 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
+        another_acct = get_test_account(name='Another')
         storage.save_account(checking)
         storage.save_account(savings)
+        storage.save_account(another_acct)
         wendys = bb.Payee('Wendys')
         storage.save_payee(wendys)
         valid_splits={
@@ -1392,14 +1394,34 @@ class TestSQLiteStorage(unittest.TestCase):
                 description='something',
             )
         storage.save_scheduled_transaction(st)
+        st_id = st.id
+        #update due date & save
         st.next_due_date = date(2019, 1, 9)
         storage.save_scheduled_transaction(st)
         st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
-        retrieved_scheduled_txn = storage.get_scheduled_transaction(st.id)
+        retrieved_scheduled_txn = storage.get_scheduled_transaction(st_id)
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 9))
+        #now create a ScheduledTransaction object for the same record
+        new_st = bb.ScheduledTransaction(
+                name='monthly 1 updated',
+                frequency=bb.ScheduledTransactionFrequency.MONTHLY,
+                next_due_date=date(2019, 1, 16),
+                splits={
+                    checking: {'amount': -101},
+                    another_acct: {'amount': 101},
+                },
+                id_=st_id
+            )
+        storage.save_scheduled_transaction(new_st)
+        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        self.assertEqual(len(st_records), 1)
+        retrieved_scheduled_txn = storage.get_scheduled_transaction(st_id)
+        self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 16))
         split_records = storage._db_connection.execute('SELECT * FROM scheduled_transaction_splits').fetchall()
-        self.assertEqual(len(split_records), 2)
+        self.assertEqual(split_records,
+                [(1, st_id, checking.id, '-101/1', '-101/1', None, None),
+                 (2, st_id, another_acct.id, '101/1', '101/1', None, None)])
 
     def test_get_scheduled_transaction(self):
         storage = bb.SQLiteStorage(':memory:')

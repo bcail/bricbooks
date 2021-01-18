@@ -997,17 +997,29 @@ class SQLiteStorage:
             payee = scheduled_txn.payee.id
         else:
             payee = None
+
+        #update existing scheduled transaction
         if scheduled_txn.id:
             c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
             if c.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
-            c.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,))
+            #handle splits
+            splits_db_info = c.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,)).fetchall()
+            old_split_account_ids = [r[0] for r in splits_db_info]
+            new_split_account_ids = [a.id for a in scheduled_txn.splits.keys()]
+            split_account_ids_to_delete = set(old_split_account_ids) - set(new_split_account_ids)
+            for account_id in split_account_ids_to_delete:
+                c.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
                 amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                if account.id in old_split_account_ids:
+                    c.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_txn_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
+                else:
+                    c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+        #add new scheduled transaction
         else:
             c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
