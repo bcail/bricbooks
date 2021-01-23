@@ -735,8 +735,9 @@ class SQLiteStorage:
         '''
         conn = self._db_connection
         conn.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL)')
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, commodity_id INTEGER NOT NULL, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed INTEGER,'\
-                'FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), UNIQUE(name, parent_id))')
+        conn.execute('CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT NULL, routing_number TEXT NULL, bic TEXT NULL)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER NULL, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed INTEGER,'\
+                'FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), FOREIGN KEY(institution_id) REFERENCES institutions(id), UNIQUE(name, parent_id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')

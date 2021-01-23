@@ -688,7 +688,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['income'][interest], {})
 
 
-TABLES = [('commodities',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
+TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -752,13 +752,13 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, bb.AccountType.ASSET.value, 1, '4010', 'Checking', assets.id, None))
+                (checking.id, bb.AccountType.ASSET.value, 1, None, '4010', 'Checking', assets.id, None))
         savings = bb.Account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, bb.AccountType.ASSET.value, 1, None, 'Savings', None, None)])
+                [(savings.id, bb.AccountType.ASSET.value, 1, None, None, 'Savings', None, None)])
 
     def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
