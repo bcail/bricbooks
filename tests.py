@@ -73,7 +73,7 @@ class TestAccount(unittest.TestCase):
         with self.assertRaises(bb.InvalidAccountError) as cm:
             bb.Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
-        a = bb.Account(id_=1, type_='0', name='Checking')
+        a = bb.Account(id_=1, type_='asset', name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
 
     def test_eq(self):
@@ -710,6 +710,10 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+        misc_table_records = storage._db_connection.execute('SELECT * FROM misc').fetchall()
+        self.assertEqual(misc_table_records, [('schema_version', '0')])
+        commodities_table_records = storage._db_connection.execute('SELECT * FROM commodities').fetchall()
+        self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
 
     def test_init_no_filename(self):
         with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
@@ -752,13 +756,13 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (checking.id, bb.AccountType.ASSET.value, 1, None, '4010', 'Checking', assets.id, None))
+                (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
         savings = bb.Account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(savings.id, bb.AccountType.ASSET.value, 1, None, None, 'Savings', None, None)])
+                [(savings.id, 'asset', 1, None, None, 'Savings', None, None)])
 
     def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -822,6 +826,13 @@ class TestSQLiteStorage(unittest.TestCase):
                     bb.Account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
                 )
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
+
+    def test_account_institution_id_foreign_key(self):
+        storage = bb.SQLiteStorage(':memory:')
+        c = storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, institution_id, number, name) VALUES (?, ?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 1, '4010', 'Checking'))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_get_account(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1478,7 +1489,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
 class TestCLI(unittest.TestCase):
 
-    ACCOUNT_FORM_OUTPUT = '  name:   type (0-ASSET,1-LIABILITY,2-EQUITY,3-INCOME,4-EXPENSE):   number:   parent account id: '
+    ACCOUNT_FORM_OUTPUT = '  name:   type (asset,liability,equity,income,expense):   number:   parent account id: '
 
     def setUp(self):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
@@ -1505,17 +1516,18 @@ class TestCLI(unittest.TestCase):
     def test_create_account(self, input_mock):
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(savings)
-        input_mock.side_effect = ['Checking', '0', '400', str(savings.id)]
+        input_mock.side_effect = ['Checking', 'asset', '400', str(savings.id)]
         self.cli._create_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[1].name, 'Checking')
+        self.assertEqual(accounts[1].type, bb.AccountType.ASSET)
         self.assertEqual(accounts[1].parent, savings)
         output = 'Create Account:\n%s' % self.ACCOUNT_FORM_OUTPUT
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')
     def test_edit_account(self, input_mock):
-        input_mock.side_effect = ['1', 'Checking updated', '0', '400', '2']
+        input_mock.side_effect = ['1', 'Checking updated', 'asset', '400', '2']
         checking = get_test_account()
         self.cli.storage.save_account(checking)
         savings = get_test_account(name='Savings')
@@ -1523,6 +1535,7 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_account()
         accounts = self.cli.storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
+        self.assertEqual(accounts[0].type, bb.AccountType.ASSET)
         self.assertEqual(accounts[0].number, '400')
         self.assertEqual(accounts[0].parent, savings)
         output = 'Account ID: %s' % self.ACCOUNT_FORM_OUTPUT

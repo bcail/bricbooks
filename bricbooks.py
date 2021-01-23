@@ -28,15 +28,15 @@ CUR_DIR = Path(__file__).parent.resolve()
 
 
 class CommodityType(Enum):
-    CURRENCY = 0
+    CURRENCY = 'currency'
 
 
 class AccountType(Enum):
-    ASSET = 0
-    LIABILITY = 1
-    EQUITY = 2
-    INCOME = 3
-    EXPENSE = 4
+    ASSET = 'asset'
+    LIABILITY = 'liability'
+    EQUITY = 'equity'
+    INCOME = 'income'
+    EXPENSE = 'expense'
 
 
 def _do_qt_install():
@@ -191,7 +191,7 @@ class Account:
             return type_
         else:
             try:
-                return AccountType(int(type_))
+                return AccountType(type_)
             except ValueError:
                 raise InvalidAccountError('Invalid account type "%s"' % type_)
 
@@ -2486,7 +2486,7 @@ class CLI:
             acct_type_prefill = account.type.value
             number_prefill = account.number
         name = self.input(prompt='  name: ', prefill=name_prefill)
-        acct_type_options = ','.join(['%s-%s' % (t.value, t.name) for t in AccountType])
+        acct_type_options = ','.join([t.value for t in AccountType])
         acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=acct_type_prefill)
         number = self.input(prompt='  number: ', prefill=number_prefill)
         parent_id = self.input(prompt='  parent account id: ')
