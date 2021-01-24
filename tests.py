@@ -474,11 +474,11 @@ class TestScheduledTransaction(unittest.TestCase):
         with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
             bb.ScheduledTransaction(
                 name='w',
-                frequency='weekly',
+                frequency=1,
                 next_due_date='2019-01-01',
                 splits=self.valid_splits,
             )
-        self.assertEqual(str(cm.exception), 'invalid frequency "weekly"')
+        self.assertEqual(str(cm.exception), 'invalid frequency "1"')
 
     def test_invalid_splits(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
@@ -529,7 +529,7 @@ class TestScheduledTransaction(unittest.TestCase):
     def test_init_frequency(self):
         st = bb.ScheduledTransaction(
                 name='weekly 1',
-                frequency=3,
+                frequency='quarterly',
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
             )
@@ -575,10 +575,10 @@ class TestScheduledTransaction(unittest.TestCase):
             )
         st.advance_to_next_due_date()
         self.assertEqual(st.next_due_date, date(2019, 4, 2))
-        #ANNUAL
+        #YEARLY
         st = bb.ScheduledTransaction(
                 name='annually 1',
-                frequency=bb.ScheduledTransactionFrequency.ANNUAL,
+                frequency=bb.ScheduledTransactionFrequency.YEARLY,
                 next_due_date='2018-01-02',
                 splits=self.valid_splits,
             )
@@ -1787,7 +1787,7 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli.storage.save_account(checking)
         self.cli.storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', '1', '2020-01-16', '1', '-15', 'R', '2', '15', '', '', 't', '\'payee', 'desc']
+        input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16', '1', '-15', 'R', '2', '15', '', '', 't', '\'payee', 'desc']
         self.cli._create_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
@@ -1819,11 +1819,12 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli.storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), 'weekly 1', '1', '2020-01-16', '-15', '', '15', '', '', 't', '\'payee', 'desc']
+        input_mock.side_effect = [str(st.id), 'weekly 1', 'weekly', '2020-01-16', '-15', '', '15', '', '', 't', '\'payee', 'desc']
         self.cli._edit_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15})
+        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].txn_type, 't')
         self.assertEqual(scheduled_txns[0].payee.name, 'payee')
         self.assertEqual(scheduled_txns[0].description, 'desc')

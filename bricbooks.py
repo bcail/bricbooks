@@ -507,10 +507,10 @@ def splits_display(splits):
 
 
 class ScheduledTransactionFrequency(Enum):
-    WEEKLY = 1
-    MONTHLY = 2
-    QUARTERLY = 3
-    ANNUAL = 4
+    WEEKLY = 'weekly'
+    MONTHLY = 'monthly'
+    QUARTERLY = 'quarterly'
+    YEARLY = 'yearly'
 
 
 class ScheduledTransaction:
@@ -535,7 +535,7 @@ class ScheduledTransaction:
             self.frequency = frequency
         else:
             try:
-                self.frequency = ScheduledTransactionFrequency(int(frequency))
+                self.frequency = ScheduledTransactionFrequency(frequency)
             except ValueError:
                 raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
@@ -568,7 +568,7 @@ class ScheduledTransaction:
             self.next_due_date = increment_month(self.next_due_date)
         elif self.frequency == ScheduledTransactionFrequency.QUARTERLY:
             self.next_due_date = increment_quarter(self.next_due_date)
-        elif self.frequency == ScheduledTransactionFrequency.ANNUAL:
+        elif self.frequency == ScheduledTransactionFrequency.YEARLY:
             self.next_due_date = increment_year(self.next_due_date)
         else:
             raise Exception('invalid frequency %s' % self.frequency)
