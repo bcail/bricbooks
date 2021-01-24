@@ -734,15 +734,15 @@ class SQLiteStorage:
         Initialize empty DB.
         '''
         conn = self._db_connection
-        conn.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL)')
-        conn.execute('CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT NULL, routing_number TEXT NULL, bic TEXT NULL)')
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type INTEGER NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER NULL, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed INTEGER,'\
+        conn.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type TEXT NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL)')
+        conn.execute('CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT, routing_number TEXT, bic TEXT)')
+        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type TEXT NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed TEXT,'\
                 'FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), FOREIGN KEY(institution_id) REFERENCES institutions(id), UNIQUE(name, parent_id))')
         conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
         conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
         conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency INTEGER NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
+        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency TEXT NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
         conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
