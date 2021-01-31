@@ -2392,6 +2392,27 @@ class TestLoadTestData(unittest.TestCase):
         accounts = storage.get_accounts()
 
 
+class TestImport(unittest.TestCase):
+
+    def test_kmymoney(self):
+        filename = 'import_test.kmy'
+        storage = bb.SQLiteStorage(':memory:')
+        with open(filename, 'rb') as f:
+            bb.import_kmymoney(kmy_file=f, storage=storage)
+        accounts = storage.get_accounts()
+        self.assertEqual(len(accounts), 34)
+        asset = storage.get_account(name='Asset')
+        self.assertEqual(asset.type, bb.AccountType.ASSET)
+        liability = storage.get_account(name='Liability')
+        self.assertEqual(liability.type, bb.AccountType.LIABILITY)
+        expense = storage.get_account(name='Expense')
+        self.assertEqual(expense.type, bb.AccountType.EXPENSE)
+        income = storage.get_account(name='Income')
+        self.assertEqual(income.type, bb.AccountType.INCOME)
+        equity = storage.get_account(name='Equity')
+        self.assertEqual(equity.type, bb.AccountType.EQUITY)
+
+
 if __name__ == '__main__':
     import sys
     print(sys.version)
@@ -2409,6 +2430,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
         suite.addTest(unittest.makeSuite(TestCLI, 'test'))
         suite.addTest(unittest.makeSuite(TestLoadTestData, 'test'))
+        suite.addTest(unittest.makeSuite(TestImport, 'test'))
         runner = unittest.TextTestRunner()
         runner.run(suite)
     else:

@@ -754,10 +754,17 @@ class SQLiteStorage:
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
         conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
 
-    def get_account(self, account_id):
-        account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (account_id,)).fetchone()
-        if not account_info:
-            raise Exception('no account with id "%s"' % account_id)
+    def get_account(self, id_=None, name=None):
+        if id_:
+            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
+            if not account_info:
+                raise Exception(f'no account with id "{id_}"')
+        elif name:
+            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE name = ?', (name,)).fetchone()
+            if not account_info:
+                raise Exception(f'no account with name "{name}"')
+        else:
+            raise Exception('must pass in id_ or name')
         parent = None
         if account_info[4]:
             parent = self.get_account(account_info[4])
@@ -1078,6 +1085,38 @@ class SQLiteStorage:
         for st_record in scheduled_txns_records:
             scheduled_txns.append(self.get_scheduled_transaction(st_record[0]))
         return scheduled_txns
+
+
+### IMPORT ###
+
+def import_kmymoney(kmy_file, storage):
+    import gzip
+    from xml.etree import ElementTree as ET
+    uncompressed_file = gzip.GzipFile(fileobj=kmy_file)
+    root = ET.parse(uncompressed_file).getroot()
+    print(root.tag)
+    print(root.attrib)
+    for section in root:
+        print(section.tag)
+        if section.tag == 'ACCOUNTS':
+            for account in section:
+                print(account.attrib)
+                type_ = AccountType.ASSET
+                if account.attrib['type'] in ['10']:
+                    type_ = AccountType.LIABILITY
+                elif account.attrib['type'] in ['13']:
+                    type_ = AccountType.EXPENSE
+                elif account.attrib['type'] in ['12']:
+                    type_ = AccountType.INCOME
+                elif account.attrib['type'] in ['16']:
+                    type_ = AccountType.EQUITY
+                storage.save_account(
+                        Account(
+                            type_=type_,
+                            name=account.attrib['name'],
+                        )
+                    )
+
 
 
 ### GUI ###
