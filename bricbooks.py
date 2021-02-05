@@ -1094,28 +1094,42 @@ def import_kmymoney(kmy_file, storage):
     from xml.etree import ElementTree as ET
     uncompressed_file = gzip.GzipFile(fileobj=kmy_file)
     root = ET.parse(uncompressed_file).getroot()
-    print(root.tag)
-    print(root.attrib)
-    for section in root:
-        print(section.tag)
-        if section.tag == 'ACCOUNTS':
-            for account in section:
-                print(account.attrib)
-                type_ = AccountType.ASSET
-                if account.attrib['type'] in ['10']:
-                    type_ = AccountType.LIABILITY
-                elif account.attrib['type'] in ['13']:
-                    type_ = AccountType.EXPENSE
-                elif account.attrib['type'] in ['12']:
-                    type_ = AccountType.INCOME
-                elif account.attrib['type'] in ['16']:
-                    type_ = AccountType.EQUITY
-                storage.save_account(
-                        Account(
-                            type_=type_,
-                            name=account.attrib['name'],
-                        )
-                    )
+    #migrate accounts
+    #need to keep track of kmymoney account id mapping to our account id
+    account_mapping_info = {}
+    accounts = root.find('ACCOUNTS')
+    for account in accounts.iter('ACCOUNT'):
+        type_ = AccountType.ASSET
+        if account.attrib['type'] in ['10']:
+            type_ = AccountType.LIABILITY
+        elif account.attrib['type'] in ['13']:
+            type_ = AccountType.EXPENSE
+        elif account.attrib['type'] in ['12']:
+            type_ = AccountType.INCOME
+        elif account.attrib['type'] in ['16']:
+            type_ = AccountType.EQUITY
+        acc_obj = Account(
+                    type_=type_,
+                    name=account.attrib['name'],
+                )
+        storage.save_account(acc_obj)
+        account_mapping_info[account.attrib['id']] = acc_obj.id
+    transactions = root.find('TRANSACTIONS')
+    for transaction in transactions.iter('TRANSACTION'):
+        print(transaction.attrib)
+        splits_el = transaction.find('SPLITS')
+        splits = {}
+        for split in splits_el.iter('SPLIT'):
+            account_orig_id = split.attrib['account']
+            account = storage.get_account(account_mapping_info[account_orig_id])
+            splits[account] = {'amount': split.attrib['value']}
+            print(split.attrib)
+        storage.save_txn(
+                Transaction(
+                    splits=splits,
+                    txn_date=transaction.attrib['postdate'],
+                )
+            )
 
 
 
