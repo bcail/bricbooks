@@ -479,7 +479,7 @@ class Ledger:
         for t in sorted_txns:
             if t.txn_date <= today:
                 current = t.balance
-                if t.splits[self.account].get('status', None) == Transaction.CLEARED:
+                if t.splits[self.account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
                     current_cleared = current_cleared + t.splits[self.account]['amount']
         return LedgerBalances(
                 current=str(fraction_to_decimal(current)),
@@ -1122,8 +1122,13 @@ def import_kmymoney(kmy_file, storage):
         for split in splits_el.iter('SPLIT'):
             account_orig_id = split.attrib['account']
             account = storage.get_account(account_mapping_info[account_orig_id])
+            #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
             splits[account] = {'amount': split.attrib['value']}
             print(split.attrib)
+            if split.attrib['reconcileflag'] == '2':
+                splits[account]['status'] = Transaction.RECONCILED
+            elif split.attrib['reconcileflag'] == '1':
+                splits[account]['status'] = Transaction.CLEARED
         storage.save_txn(
                 Transaction(
                     splits=splits,

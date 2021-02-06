@@ -386,15 +386,17 @@ class TestLedger(unittest.TestCase):
 
     def test_balances(self):
         ledger = bb.Ledger(account=self.checking)
+        splits0 = {self.checking: {'amount': 50, 'status': bb.Transaction.RECONCILED}, self.savings: {'amount': '-50'}}
         splits1 = {self.checking: {'amount': '32.45', 'status': bb.Transaction.CLEARED}, self.savings: {'amount': '-32.45'}}
         splits2 = {self.checking: {'amount': -12}, self.savings: {'amount': 12}}
         splits3 = {self.checking: {'amount': 1}, self.savings: {'amount': -1}}
         splits4 = {self.checking: {'amount': 10}, self.savings: {'amount': -10}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date.today()+timedelta(days=3)))
-        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=5)))
-        expected_balances = bb.LedgerBalances(current='20.45', current_cleared='32.45')
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits0, txn_date=date(2017, 6, 24)))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits1, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits2, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=4, splits=splits3, txn_date=date.today()+timedelta(days=3)))
+        ledger.add_transaction(bb.Transaction(id_=5, splits=splits4, txn_date=date.today()+timedelta(days=5)))
+        expected_balances = bb.LedgerBalances(current='70.45', current_cleared='82.45')
         self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
 
     def test_get_scheduled_txns_due(self):
@@ -2411,6 +2413,13 @@ class TestImport(unittest.TestCase):
         self.assertEqual(len(incomes), 9)
         equities = storage.get_accounts(type_=bb.AccountType.EQUITY)
         self.assertEqual(len(equities), 2)
+        checking = storage.get_account(name='Checking')
+        ledger = storage.get_ledger(checking)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(len(txns), 4)
+        balances = ledger.get_current_balances_for_display()
+        expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
+        self.assertEqual(balances, expected_balances)
 
 
 if __name__ == '__main__':
