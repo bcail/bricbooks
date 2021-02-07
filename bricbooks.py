@@ -791,10 +791,10 @@ class SQLiteStorage:
             account.id = c.lastrowid
         self._db_connection.commit()
 
-    def get_payee(self, payee_id=None, name=None):
+    def get_payee(self, id_=None, name=None):
         '''return None if object can't be found for whatever reason'''
-        if payee_id:
-            info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE id = ?', (payee_id,)).fetchone()
+        if id_:
+            info = self._db_connection.execute('SELECT id, name, notes FROM payees WHERE id = ?', (id_,)).fetchone()
             if not info:
                 return None
         elif name:
@@ -1114,6 +1114,15 @@ def import_kmymoney(kmy_file, storage):
                 )
         storage.save_account(acc_obj)
         account_mapping_info[account.attrib['id']] = acc_obj.id
+    #migrate payees
+    payee_mapping_info = {}
+    payees = root.find('PAYEES')
+    for payee in payees.iter('PAYEE'):
+        print(payee.attrib)
+        payee_obj = Payee(name=payee.attrib['name'])
+        storage.save_payee(payee_obj)
+        payee_mapping_info[payee.attrib['id']] = payee_obj.id
+    #migrate transactions
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
         print(transaction.attrib)
@@ -1129,13 +1138,16 @@ def import_kmymoney(kmy_file, storage):
                 splits[account]['status'] = Transaction.RECONCILED
             elif split.attrib['reconcileflag'] == '1':
                 splits[account]['status'] = Transaction.CLEARED
+            payee = None
+            if split.attrib['payee']:
+                payee = storage.get_payee(id_=payee_mapping_info[split.attrib['payee']])
         storage.save_txn(
                 Transaction(
                     splits=splits,
                     txn_date=transaction.attrib['postdate'],
+                    payee=payee,
                 )
             )
-
 
 
 ### GUI ###
