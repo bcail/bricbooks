@@ -1118,14 +1118,12 @@ def import_kmymoney(kmy_file, storage):
     payee_mapping_info = {}
     payees = root.find('PAYEES')
     for payee in payees.iter('PAYEE'):
-        print(payee.attrib)
         payee_obj = Payee(name=payee.attrib['name'])
         storage.save_payee(payee_obj)
         payee_mapping_info[payee.attrib['id']] = payee_obj.id
     #migrate transactions
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
-        print(transaction.attrib)
         splits_el = transaction.find('SPLITS')
         splits = {}
         for split in splits_el.iter('SPLIT'):
@@ -1133,7 +1131,6 @@ def import_kmymoney(kmy_file, storage):
             account = storage.get_account(account_mapping_info[account_orig_id])
             #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
             splits[account] = {'amount': split.attrib['value']}
-            print(split.attrib)
             if split.attrib['reconcileflag'] == '2':
                 splits[account]['status'] = Transaction.RECONCILED
             elif split.attrib['reconcileflag'] == '1':
@@ -1148,6 +1145,9 @@ def import_kmymoney(kmy_file, storage):
                     payee=payee,
                 )
             )
+    for top_level_el in root:
+        if top_level_el.tag not in ['ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
+            print(f"didn't migrate {top_level_el.tag} data")
 
 
 ### GUI ###
@@ -2909,12 +2909,23 @@ class CLI:
             sys.exit(1)
 
 
+def import_file(file_to_import):
+    if file_to_import.endswith('.kmy'):
+        bb_filename = input('enter name of new bricbooks file to create for import: ')
+        if os.path.exists(bb_filename):
+            raise Exception(f'{bb_filename} already exists')
+        storage = SQLiteStorage(bb_filename)
+        with open(file_to_import, 'rb') as f:
+            import_kmymoney(f, storage)
+
+
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--install_qt', dest='install_qt', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     parser.add_argument('--cli', dest='cli', action='store_true')
+    parser.add_argument('-i', '--import', dest='file_to_import')
     args = parser.parse_args()
     return args
 
@@ -2923,6 +2934,10 @@ if __name__ == '__main__':
     args = parse_args()
     if args.install_qt:
         _do_qt_install()
+        sys.exit(0)
+
+    if args.file_to_import:
+        import_file(args.file_to_import)
         sys.exit(0)
 
     if args.file_name and not os.path.exists(args.file_name):
