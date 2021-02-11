@@ -6,7 +6,7 @@ Architecture:
     No objects should use private/hidden members of other objects.
 '''
 from collections import namedtuple
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from fractions import Fraction
@@ -1096,6 +1096,7 @@ def import_kmymoney(kmy_file, storage):
     root = ET.parse(uncompressed_file).getroot()
     #migrate accounts
     #need to keep track of kmymoney account id mapping to our account id
+    print(f'{datetime.now()} migrating accounts...')
     account_mapping_info = {}
     accounts = root.find('ACCOUNTS')
     for account in accounts.iter('ACCOUNT'):
@@ -1115,6 +1116,7 @@ def import_kmymoney(kmy_file, storage):
         storage.save_account(acc_obj)
         account_mapping_info[account.attrib['id']] = acc_obj.id
     #migrate payees
+    print(f'{datetime.now()} migrating payees...')
     payee_mapping_info = {}
     payees = root.find('PAYEES')
     for payee in payees.iter('PAYEE'):
@@ -1122,29 +1124,33 @@ def import_kmymoney(kmy_file, storage):
         storage.save_payee(payee_obj)
         payee_mapping_info[payee.attrib['id']] = payee_obj.id
     #migrate transactions
+    print(f'{datetime.now()} migrating transactions...')
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
-        splits_el = transaction.find('SPLITS')
-        splits = {}
-        for split in splits_el.iter('SPLIT'):
-            account_orig_id = split.attrib['account']
-            account = storage.get_account(account_mapping_info[account_orig_id])
-            #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
-            splits[account] = {'amount': split.attrib['value']}
-            if split.attrib['reconcileflag'] == '2':
-                splits[account]['status'] = Transaction.RECONCILED
-            elif split.attrib['reconcileflag'] == '1':
-                splits[account]['status'] = Transaction.CLEARED
-            payee = None
-            if split.attrib['payee']:
-                payee = storage.get_payee(id_=payee_mapping_info[split.attrib['payee']])
-        storage.save_txn(
-                Transaction(
-                    splits=splits,
-                    txn_date=transaction.attrib['postdate'],
-                    payee=payee,
+        try:
+            splits_el = transaction.find('SPLITS')
+            splits = {}
+            for split in splits_el.iter('SPLIT'):
+                account_orig_id = split.attrib['account']
+                account = storage.get_account(account_mapping_info[account_orig_id])
+                #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
+                splits[account] = {'amount': split.attrib['value']}
+                if split.attrib['reconcileflag'] == '2':
+                    splits[account]['status'] = Transaction.RECONCILED
+                elif split.attrib['reconcileflag'] == '1':
+                    splits[account]['status'] = Transaction.CLEARED
+                payee = None
+                if split.attrib['payee']:
+                    payee = storage.get_payee(id_=payee_mapping_info[split.attrib['payee']])
+            storage.save_txn(
+                    Transaction(
+                        splits=splits,
+                        txn_date=transaction.attrib['postdate'],
+                        payee=payee,
+                    )
                 )
-            )
+        except Exception as e:
+            print(f'error migrating transaction: {e}\n  {transaction.attrib}')
     for top_level_el in root:
         if top_level_el.tag not in ['ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
             print(f"didn't migrate {top_level_el.tag} data")
