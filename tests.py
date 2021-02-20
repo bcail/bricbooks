@@ -384,6 +384,12 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
         self.assertEqual(ledger_records[3].balance, Fraction('31.45'))
 
+        reversed_ledger_records = ledger.get_sorted_txns_with_balance(reverse=True)
+        self.assertEqual(reversed_ledger_records[0].txn_date, date(2017, 8, 5))
+        self.assertEqual(reversed_ledger_records[0].balance, Fraction('31.45'))
+        self.assertEqual(reversed_ledger_records[3].txn_date, date(2017, 4, 25))
+        self.assertEqual(reversed_ledger_records[3].balance, 10)
+
     def test_balances(self):
         ledger = bb.Ledger(account=self.checking)
         splits0 = {self.checking: {'amount': 50, 'status': bb.Transaction.RECONCILED}, self.savings: {'amount': '-50'}}

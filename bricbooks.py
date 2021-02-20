@@ -439,7 +439,7 @@ class Ledger:
         return sorted(txns, key=lambda t: t.txn_date)
 
     def _add_balance_to_txns(self, txns):
-        #txns must be sorted already
+        #txns must be sorted in chronological order (not reversed) already
         txns_with_balance = []
         balance = Fraction(0)
         for t in txns:
@@ -448,9 +448,14 @@ class Ledger:
             txns_with_balance.append(t)
         return txns_with_balance
 
-    def get_sorted_txns_with_balance(self):
-        sorted_txns = self._sort_txns(self._txns.values())
-        return self._add_balance_to_txns(sorted_txns)
+    def get_sorted_txns_with_balance(self, reverse=False):
+        if reverse:
+            sorted_txns = self._sort_txns(self._txns.values())
+            sorted_txns_with_balance = self._add_balance_to_txns(sorted_txns)
+            return list(reversed(sorted_txns_with_balance))
+        else:
+            sorted_txns = self._sort_txns(self._txns.values())
+            return self._add_balance_to_txns(sorted_txns)
 
     def search(self, search_term):
         results = []
