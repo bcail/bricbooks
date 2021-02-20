@@ -1592,7 +1592,7 @@ class TestCLI(unittest.TestCase):
         self.cli.storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
         printed_output = self.memory_buffer.getvalue()
-        self.assertTrue('(n)ext page' in printed_output)
+        self.assertTrue('(o) older' in printed_output)
 
     def test_pager(self):
         self.assertEqual(bb.pager([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))

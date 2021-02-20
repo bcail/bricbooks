@@ -2601,7 +2601,7 @@ class CLI:
             for st in scheduled_txns_due:
                 self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = ledger.get_sorted_txns_with_balance(reverse=True)
         page_index = 1
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
@@ -2611,13 +2611,13 @@ class CLI:
                     tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], fraction_to_decimal(t.balance), t.id)
                 )
             if more_txns:
-                prompt = '(n)ext page '
+                prompt = '(o) older txns'
                 if page_index > 1:
-                    prompt = '(p)revious page, ' + prompt
-                x = self.input(prompt=prompt)
-                if x == 'n':
+                    prompt = '(n) newer txns, ' + prompt
+                x = self.input(prompt=f'{prompt} ')
+                if x == 'o':
                     page_index += 1
-                elif x == 'p':
+                elif x == 'n':
                     page_index -= 1
                 else:
                     break
