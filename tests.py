@@ -1588,12 +1588,12 @@ class TestCLI(unittest.TestCase):
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue('(n)ext page' in printed_output)
 
-    def test_get_page(self):
-        self.assertEqual(bb.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))
-        self.assertEqual(bb.CLI.get_page([1, 2, 3], num_txns_in_page=1, page=3), ([3], False))
-        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=3), ([5], False))
-        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4, 5], num_txns_in_page=2, page=2), ([3, 4], True))
-        self.assertEqual(bb.CLI.get_page([1, 2, 3, 4], num_txns_in_page=2, page=2), ([3, 4], False))
+    def test_pager(self):
+        self.assertEqual(bb.pager([1, 2, 3], num_txns_in_page=1, page=1), ([1], True))
+        self.assertEqual(bb.pager([1, 2, 3], num_txns_in_page=1, page=3), ([3], False))
+        self.assertEqual(bb.pager([1, 2, 3, 4, 5], num_txns_in_page=2, page=3), ([5], False))
+        self.assertEqual(bb.pager([1, 2, 3, 4, 5], num_txns_in_page=2, page=2), ([3, 4], True))
+        self.assertEqual(bb.pager([1, 2, 3, 4], num_txns_in_page=2, page=2), ([3, 4], False))
 
     @patch('builtins.input')
     def test_create_txn(self, input_mock):

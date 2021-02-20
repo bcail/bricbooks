@@ -1156,7 +1156,18 @@ def import_kmymoney(kmy_file, storage):
             print(f"didn't migrate {top_level_el.tag} data")
 
 
-### GUI ###
+### CLI/GUI ###
+
+def pager(items, num_txns_in_page, page=1):
+    start = 0 + (page-1)*num_txns_in_page
+    end = start+num_txns_in_page
+    page_items = items[start:end]
+    if end < len(items):
+        more_items = True
+    else:
+        more_items = False
+    return page_items, more_items
+
 
 ACCOUNTS_GUI_FIELDS = {
         'type': {'column_number': 0, 'column_stretch': 2, 'label': 'Type'},
@@ -2514,17 +2525,6 @@ class CLI:
 
     NUM_TXNS_IN_PAGE = 50
 
-    @staticmethod
-    def get_page(items, num_txns_in_page, page=1):
-        start = 0 + (page-1)*num_txns_in_page
-        end = start+num_txns_in_page
-        page_items = items[start:end]
-        if end < len(items):
-            more_items = True
-        else:
-            more_items = False
-        return page_items, more_items
-
     def __init__(self, filename, print_file=None):
         self.storage = SQLiteStorage(filename)
         self.print = partial(print, file=print_file)
@@ -2599,7 +2599,7 @@ class CLI:
         txns = ledger.get_sorted_txns_with_balance()
         page_index = 1
         while True:
-            paged_txns, more_txns = CLI.get_page(txns, num_txns_in_page=num_txns_in_page, page=page_index)
+            paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
