@@ -857,6 +857,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(account.parent, None)
         sub_checking = storage.get_account(sub_checking_id)
         self.assertEqual(sub_checking.parent, account)
+        account = storage.get_account(number='4010')
+        self.assertEqual(account.name, 'Checking')
 
     def test_get_accounts(self):
         storage = bb.SQLiteStorage(':memory:')

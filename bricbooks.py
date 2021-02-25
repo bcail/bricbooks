@@ -759,11 +759,15 @@ class SQLiteStorage:
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
         conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
 
-    def get_account(self, id_=None, name=None):
+    def get_account(self, id_=None, number=None, name=None):
         if id_:
             account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with id "{id_}"')
+        elif number:
+            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE number = ?', (number,)).fetchone()
+            if not account_info:
+                raise Exception(f'no account with number "{number}"')
         elif name:
             account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE name = ?', (name,)).fetchone()
             if not account_info:
