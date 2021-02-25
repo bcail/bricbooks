@@ -953,10 +953,11 @@ class SQLiteStorage:
                 if info:
                     carryover = str(info.get('carryover', ''))
                     notes = info.get('notes', '')
-                    values = (str(info['amount']), carryover, notes, budget.id, account.id)
                     if account.id in old_account_ids:
+                        values = (str(info['amount']), carryover, notes, budget.id, account.id)
                         c.execute('UPDATE budget_values SET amount = ?, carryover = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
                     else:
+                        values = (budget.id, account.id, str(info['amount']), carryover, notes)
                         c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         else:
             c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))

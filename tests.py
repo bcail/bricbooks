@@ -1226,6 +1226,19 @@ class TestSQLiteStorage(unittest.TestCase):
             storage.save_budget(b)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
+    def test_save_budget_update_add_account_info(self):
+        storage = bb.SQLiteStorage(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
+        storage.save_account(housing)
+        b = bb.Budget(year=2018)
+        storage.save_budget(b)
+        account_budget_info = {housing: {'amount': '25'}}
+        updated_budget = bb.Budget(id_=b.id, year=2018, account_budget_info=account_budget_info)
+        storage.save_budget(updated_budget)
+        cursor = storage._db_connection.cursor()
+        records = cursor.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (b.id,)).fetchall()
+        self.assertEqual(records, [(1,)])
+
     def test_get_budget(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
