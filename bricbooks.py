@@ -2078,11 +2078,17 @@ class BudgetForm:
                 self._budget_data[account] = {}
 
     def show_form(self):
-        self._display = QtWidgets.QDialog()
         layout = QtWidgets.QGridLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
         self._show_widgets(layout, self._widgets)
-        self._display.setLayout(layout)
+        widget = QtWidgets.QWidget()
+        widget.setLayout(layout)
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(widget)
+        top_layout = QtWidgets.QGridLayout()
+        top_layout.addWidget(scroll, 0, 0)
+        self._display = QtWidgets.QDialog()
+        self._display.setLayout(top_layout)
         self._display.open()
 
     def _show_widgets(self, layout, widgets):
