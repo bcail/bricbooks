@@ -990,11 +990,10 @@ class SQLiteStorage:
             txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0])
-                if account.type == AccountType.EXPENSE:
-                    if amt < Fraction(0):
-                        income += amt * Fraction(-1)
-                    else:
-                        spent += amt
+                if amt < Fraction(0):
+                    income += amt * Fraction(-1)
+                else:
+                    spent += amt
             all_income_spending_info[account]['spent'] = spent
             all_income_spending_info[account]['income'] = income
             budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, account.id)).fetchall()
@@ -2821,7 +2820,7 @@ class CLI:
         budget_id = self.input('Enter budget ID: ')
         budget = self.storage.get_budget(budget_id)
         self.print(budget)
-        budget_report = budget.get_report_display()
+        budget_report = budget.get_report_display(current_date=date.today())
         for account, info in budget_report['income'].items():
             self.print(f'{account}: {info}')
         for account, info in budget_report['expense'].items():

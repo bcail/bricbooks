@@ -1285,17 +1285,25 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(type(budget_data[housing]['amount']), Fraction)
         self.assertEqual(budget_data[wages], {'amount': Fraction(70)})
 
-        report_display = budget.get_report_display()['expense']
-        self.assertEqual(report_display[housing]['amount'], '135')
-        self.assertEqual(report_display[housing]['spent'], '101')
-        self.assertEqual(report_display[housing]['notes'], 'hello')
+        report_display = budget.get_report_display(current_date=date(2018, 6, 30))
+        expenses = report_display['expense']
+        self.assertEqual(expenses[housing]['amount'], '135')
+        self.assertEqual(expenses[housing]['spent'], '101')
+        self.assertEqual(expenses[housing]['notes'], 'hello')
 
-        self.assertEqual(report_display[food]['amount'], '70')
-        self.assertEqual(report_display[food]['carryover'], '15')
-        self.assertEqual(report_display[food]['income'], '15')
-        self.assertEqual(report_display[food]['spent'], '102.46')
+        self.assertEqual(expenses[food]['amount'], '70')
+        self.assertEqual(expenses[food]['carryover'], '15')
+        self.assertEqual(expenses[food]['income'], '15')
+        self.assertEqual(expenses[food]['spent'], '102.46')
 
-        self.assertEqual(report_display[transportation], {})
+        self.assertEqual(expenses[transportation], {})
+
+        incomes = report_display['income']
+        self.assertEqual(incomes[wages]['amount'], '70')
+        self.assertEqual(incomes[wages]['income'], '100')
+        self.assertEqual(incomes[wages]['remaining'], '-30')
+        self.assertEqual(incomes[wages]['current_status'], '+93%')
+
 
     def test_get_budgets(self):
         storage = bb.SQLiteStorage(':memory:')
