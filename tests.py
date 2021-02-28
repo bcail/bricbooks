@@ -531,7 +531,7 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(st.next_due_date, date(2019, 1, 2))
         self.assertEqual(st.splits, self.valid_splits)
         self.assertEqual(st.txn_type, 'a')
-        self.assertEqual(st.payee, 'Wendys')
+        self.assertEqual(st.payee.name, 'Wendys')
         self.assertEqual(st.description, 'something')
 
     def test_init_frequency(self):
@@ -542,6 +542,24 @@ class TestScheduledTransaction(unittest.TestCase):
                 splits=self.valid_splits,
             )
         self.assertEqual(st.frequency, bb.ScheduledTransactionFrequency.QUARTERLY)
+
+    def test_payee(self):
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency='quarterly',
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+                payee='',
+            )
+        self.assertEqual(st.payee, None)
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency='quarterly',
+                next_due_date='2019-01-02',
+                splits=self.valid_splits,
+                payee='Burgers',
+            )
+        self.assertEqual(st.payee.name, 'Burgers')
 
     def test_display_strings(self):
         st = bb.ScheduledTransaction(
@@ -2377,6 +2395,7 @@ class TestQtGUI(unittest.TestCase):
         gui.scheduled_txns_display.form._widgets['name'].setText('test st')
         gui.scheduled_txns_display.form._widgets['next_due_date'].setText('2020-01-15')
         gui.scheduled_txns_display.form._widgets['account'].setCurrentIndex(0)
+        gui.scheduled_txns_display.form._widgets['payee'].setCurrentText('Someone')
         gui.scheduled_txns_display.form._widgets['withdrawal'].setText('37')
         gui.scheduled_txns_display.form._widgets['accounts_display']._categories_combo.setCurrentIndex(2)
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.form._widgets['save_btn'], QtCore.Qt.LeftButton)
@@ -2384,6 +2403,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].name, 'test st')
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -37})
         self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 37})
+        self.assertEqual(scheduled_txns[0].payee.name, 'Someone')
 
     def test_edit_scheduled_txn(self):
         gui = bb.GUI_QT(':memory:')

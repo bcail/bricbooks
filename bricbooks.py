@@ -546,7 +546,15 @@ class ScheduledTransaction:
         self.next_due_date = self._check_date(next_due_date)
         self.splits = check_txn_splits(splits)
         self.txn_type = txn_type
-        self.payee = payee
+        if payee:
+            if isinstance(payee, str):
+                self.payee = Payee(name=payee)
+            elif isinstance(payee, Payee):
+                self.payee = payee
+            else:
+                raise InvalidScheduledTransactionError('invalid payee: %s' % payee)
+        else:
+            self.payee = None
         self.description = description
         self.status = Transaction.handle_status(status)
         self.id = id_
@@ -1018,6 +1026,7 @@ class SQLiteStorage:
 
     def save_scheduled_transaction(self, scheduled_txn):
         c = self._db_connection.cursor()
+
         if scheduled_txn.payee:
             if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=scheduled_txn.payee.name)
@@ -1876,6 +1885,20 @@ class ScheduledTxnForm:
         self._widgets['next_due_date'] = next_due_date_entry
         layout.addWidget(next_due_date_entry, 2, 1)
 
+        layout.addWidget(QtWidgets.QLabel('Payee'), 3, 0)
+        payee_entry = QtWidgets.QComboBox()
+        payee_entry.setEditable(True)
+        payee_entry.addItem('')
+        payee_index = 0
+        for index, payee in enumerate(self._storage.get_payees()):
+            payee_entry.addItem(payee.name, payee)
+            if self._scheduled_txn and self._scheduled_name.payee and self._scheduled_txn.payee.name == payee.name:
+                payee_index = index + 1 #because of first empty item
+        if self._scheduled_txn:
+            payee_entry.setCurrentIndex(payee_index)
+        self._widgets['payee'] = payee_entry
+        layout.addWidget(payee_entry, 3, 1)
+
         account = deposit = withdrawal = None
         if self._scheduled_txn:
             account = list(self._scheduled_txn.splits.keys())[0]
@@ -1885,7 +1908,7 @@ class ScheduledTxnForm:
             else:
                 withdrawal = str(fraction_to_decimal(amount * Fraction(-1)))
 
-        layout.addWidget(QtWidgets.QLabel('Account'), 3, 0)
+        layout.addWidget(QtWidgets.QLabel('Account'), 4, 0)
         account_entry = QtWidgets.QComboBox()
         account_index = -1
         for index, acct in enumerate(self._accounts):
@@ -1895,29 +1918,32 @@ class ScheduledTxnForm:
         if account:
             account_entry.setCurrentIndex(account_index)
         self._widgets['account'] = account_entry
-        layout.addWidget(account_entry, 3, 1)
-        layout.addWidget(QtWidgets.QLabel('Withdrawal'), 4, 0)
+        layout.addWidget(account_entry, 4, 1)
+        layout.addWidget(QtWidgets.QLabel('Withdrawal'), 5, 0)
         withdrawal_entry = QtWidgets.QLineEdit()
         if withdrawal:
             withdrawal_entry.setText(withdrawal)
         self._widgets['withdrawal'] = withdrawal_entry
         layout.addWidget(withdrawal_entry, 4, 1)
-        layout.addWidget(QtWidgets.QLabel('Deposit'), 5, 0)
+        layout.addWidget(QtWidgets.QLabel('Deposit'), 6, 0)
         deposit_entry = QtWidgets.QLineEdit()
         if deposit:
             deposit_entry.setText(deposit)
         self._widgets['deposit'] = deposit_entry
         layout.addWidget(deposit_entry, 5, 1)
-        layout.addWidget(QtWidgets.QLabel('Categories'), 6, 0)
+        layout.addWidget(QtWidgets.QLabel('Categories'), 7, 0)
         txn_accounts_display = TxnAccountsDisplay(self._storage, txn=self._scheduled_txn, main_account=account)
         self._widgets['accounts_display'] = txn_accounts_display
-        layout.addWidget(txn_accounts_display.get_widget(), 6, 1)
+        layout.addWidget(txn_accounts_display.get_widget(), 7, 1)
         save_button = QtWidgets.QPushButton('Save')
         save_button.clicked.connect(self._save)
         self._widgets['save_btn'] = save_button
-        layout.addWidget(save_button, 7, 0)
+        layout.addWidget(save_button, 8, 0)
 
     def _save(self):
+        payee = self._widgets['payee'].currentData()
+        if not payee:
+            payee = self._widgets['payee'].currentText()
         account = self._widgets['account'].currentData()
         deposit = self._widgets['deposit'].text()
         withdrawal = self._widgets['withdrawal'].text()
@@ -1937,6 +1963,7 @@ class ScheduledTxnForm:
                 frequency=self._widgets['frequency'].currentData(),
                 next_due_date=self._widgets['next_due_date'].text(),
                 splits=splits,
+                payee=payee,
                 id_=id_,
             )
         self._display.accept()
