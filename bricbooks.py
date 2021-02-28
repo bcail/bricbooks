@@ -1892,7 +1892,7 @@ class ScheduledTxnForm:
         payee_index = 0
         for index, payee in enumerate(self._storage.get_payees()):
             payee_entry.addItem(payee.name, payee)
-            if self._scheduled_txn and self._scheduled_name.payee and self._scheduled_txn.payee.name == payee.name:
+            if self._scheduled_txn and self._scheduled_txn.payee and self._scheduled_txn.payee.name == payee.name:
                 payee_index = index + 1 #because of first empty item
         if self._scheduled_txn:
             payee_entry.setCurrentIndex(payee_index)
