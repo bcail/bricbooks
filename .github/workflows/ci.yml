@@ -37,6 +37,18 @@ jobs:
           architecture: x64
       - run: python bricbooks.py --install_qt
       - run: python tests.py
+      - run: pip install --upgrade pip
+      - run: pip install pyinstaller
+      - run: pyinstaller --onefile bricbooks.py
+      - name: Set FILE_NAME
+        run: echo "FILE_NAME=bricbooks-`date --utc +%Y%m%d%H%M`-${{ github.sha }}.exe" >> $GITHUB_ENV
+      - name: Copy and Rename
+        run: cp ${{ github.workspace }}/dist/bricbooks.exe $FILE_NAME
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v2
+        with:
+            name: ${{ env.FILE_NAME }}
+            path: ${{ env.FILE_NAME }}
 
   mac:
     runs-on: macos-latest
