@@ -668,8 +668,8 @@ class Budget:
     def get_report_display(self, current_date=None):
         '''adds income & spending data to budget data, & converts to strings, for a budget report to display
         { 'expense': {
-                expense_account1: {'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'percent_available': '50%', 'notes': 'note1'},
-                expense_account2: {'amount': '5', 'total_budget': '5', 'remaining': '5', 'percent_available': '100%'},
+                expense_account1: {'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'remaining_percent': '50%', 'notes': 'note1'},
+                expense_account2: {'amount': '5', 'total_budget': '5', 'remaining': '5', 'remaining_percent': '100%'},
                 expense_account3: {},
             },
           'income': {
@@ -695,10 +695,10 @@ class Budget:
                     report_info['remaining'] = report_info['total_budget'] - spent
                     try:
                         percent_available = (report_info['remaining'] / report_info['total_budget']) * Fraction(100)
-                        report_info['percent_available'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent_available)))
+                        report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(percent_available)))
                         report_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, percent_available)
                     except InvalidOperation:
-                        report_info['percent_available'] = 'error'
+                        report_info['remaining_percent'] = 'error'
                 else:
                     report_info['remaining'] = report_info['amount'] - income
                     remaining_percent = Fraction(100) - ((income / report_info['amount']) * Fraction(100))
@@ -2174,55 +2174,72 @@ class BudgetDataDisplay:
         self._budget = budget
         self._save_budget = save_budget
 
+    def _get_model(self):
+        class Model(QtCore.QAbstractTableModel):
+
+            def __init__(self, budget):
+                self._budget_report = budget.get_report_display(current_date=date.today())
+                self._report_data = []
+                for account, info in self._budget_report['income'].items():
+                    self._report_data.append({'account': account, 'info': info})
+                for account, info in self._budget_report['expense'].items():
+                    self._report_data.append({'account': account, 'info': info})
+                super().__init__()
+
+            def rowCount(self, parent):
+                return len(self._report_data)
+
+            def columnCount(self, parent):
+                return 9
+
+            def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+                if role == QtCore.Qt.DisplayRole:
+                    if orientation == QtCore.Qt.Horizontal:
+                        if section == 0:
+                            return 'Account'
+                        elif section == 1:
+                            return 'Amount'
+                        elif section == 2:
+                            return 'Income'
+                        elif section == 3:
+                            return 'Carryover'
+                        elif section == 4:
+                            return 'Total Budget'
+                        elif section == 5:
+                            return 'Spent'
+                        elif section == 6:
+                            return 'Remaining'
+                        elif section == 7:
+                            return 'Remaining Percent'
+                        elif section == 8:
+                            return 'Current Status'
+
+            def data(self, index, role=QtCore.Qt.DisplayRole):
+                if role == QtCore.Qt.DisplayRole:
+                    if index.column() == 0:
+                        return self._report_data[index.row()]['account'].name
+                    if index.column() == 1:
+                        return self._report_data[index.row()]['info'].get('amount', '')
+                    if index.column() == 2:
+                        return self._report_data[index.row()]['info'].get('income', '')
+                    if index.column() == 3:
+                        return self._report_data[index.row()]['info'].get('carryover', '')
+                    if index.column() == 4:
+                        return self._report_data[index.row()]['info'].get('total_budget', '')
+                    if index.column() == 5:
+                        return self._report_data[index.row()]['info'].get('total_budget', '')
+                    if index.column() == 6:
+                        return self._report_data[index.row()]['info'].get('remaining', '')
+                    if index.column() == 7:
+                        return self._report_data[index.row()]['info'].get('remaining_percent', '')
+                    if index.column() == 8:
+                        return self._report_data[index.row()]['info'].get('current_status', '')
+        return Model(self._budget)
+
     def get_widget(self):
-        self.main_widget = QtWidgets.QScrollArea()
-        self.main_widget.setWidgetResizable(True)
-        widget = QtWidgets.QWidget()
-        self.layout = QtWidgets.QGridLayout()
-        layout = self.layout
-        widget.setLayout(layout)
-        row = 0
-        self.data = {}
-        budget = self._budget
-        budget_report = budget.get_report_display(current_date=date.today())
-        for account, info in budget_report['income'].items():
-            layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
-            budget_label = QtWidgets.QLabel(info.get('amount', ''))
-            layout.addWidget(budget_label, row, 1)
-            layout.addWidget(QtWidgets.QLabel(info.get('income', '')), row, 2)
-            carryover_label = QtWidgets.QLabel(info.get('carryover', ''))
-            layout.addWidget(carryover_label, row, 3)
-            layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
-            layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
-            layout.addWidget(QtWidgets.QLabel(info.get('percent', '')), row, 7)
-            layout.addWidget(QtWidgets.QLabel(info.get('current_status', '')), row, 8)
-            row_data = {'budget_label': budget_label}
-            row_data['carryover_label'] = carryover_label
-            row_data['row'] = row
-            row_data['account'] = account
-            self.data[account.id] = row_data
-            row += 1
-        for account, info in budget_report['expense'].items():
-            layout.addWidget(QtWidgets.QLabel(account.name), row, 0)
-            budget_label = QtWidgets.QLabel(info.get('amount', ''))
-            layout.addWidget(budget_label, row, 1)
-            layout.addWidget(QtWidgets.QLabel(info.get('income', '')), row, 2)
-            carryover_label = QtWidgets.QLabel(info.get('carryover', ''))
-            layout.addWidget(carryover_label, row, 3)
-            layout.addWidget(QtWidgets.QLabel(info.get('total_budget', '')), row, 4)
-            layout.addWidget(QtWidgets.QLabel(info.get('spent', '')), row, 5)
-            layout.addWidget(QtWidgets.QLabel(info.get('remaining', '')), row, 6)
-            layout.addWidget(QtWidgets.QLabel(info.get('percent_available', '')), row, 7)
-            layout.addWidget(QtWidgets.QLabel(info.get('current_status', '')), row, 8)
-            row_data = {'budget_label': budget_label}
-            row_data['carryover_label'] = carryover_label
-            row_data['row'] = row
-            row_data['account'] = account
-            self.data[account.id] = row_data
-            row += 1
-        layout.addWidget(QtWidgets.QLabel(''), row+1, 0)
-        layout.setRowStretch(row+1, 1)
-        self.main_widget.setWidget(widget)
+        model = self._get_model()
+        self.main_widget = QtWidgets.QTableView()
+        self.main_widget.setModel(model)
         return self.main_widget
 
 
@@ -2293,16 +2310,6 @@ class BudgetDisplay:
         self.add_button = QtWidgets.QPushButton('New Budget')
         self.add_button.clicked.connect(partial(self._open_form, budget=None))
         layout.addWidget(self.add_button, row, 1)
-        row += 1
-        layout.addWidget(QtWidgets.QLabel('Category'), row, 0)
-        layout.addWidget(QtWidgets.QLabel('Amount'), row, 1)
-        layout.addWidget(QtWidgets.QLabel('Income'), row, 2)
-        layout.addWidget(QtWidgets.QLabel('Carryover'), row, 3)
-        layout.addWidget(QtWidgets.QLabel('Total Budget'), row, 4)
-        layout.addWidget(QtWidgets.QLabel('Spent'), row, 5)
-        layout.addWidget(QtWidgets.QLabel('Remaining'), row, 6)
-        layout.addWidget(QtWidgets.QLabel('Percent Available'), row, 7)
-        layout.addWidget(QtWidgets.QLabel('Current Status'), row, 8)
         return row + 1
 
     def _save_budget_and_reload(self, budget, new_budget=False):
