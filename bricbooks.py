@@ -2355,9 +2355,16 @@ class ScheduledTxnsDataDisplay:
             next_due_date_label.mousePressEvent = edit_function
             self.layout.addWidget(next_due_date_label, row_index, 2)
             st_widgets['next_due_date'] = next_due_date_label
+            payee_name = ''
+            if st.payee:
+                payee_name = st.payee.name
+            payee_label = QtWidgets.QLabel(payee_name)
+            payee_label.mousePressEvent = edit_function
+            self.layout.addWidget(payee_label, row_index, 3)
+            st_widgets['payee'] = payee_label
             splits_label = QtWidgets.QLabel(splits_display(st.splits))
             splits_label.mousePressEvent = edit_function
-            self.layout.addWidget(splits_label, row_index, 3)
+            self.layout.addWidget(splits_label, row_index, 4)
             st_widgets['splits'] = splits_label
             self.widgets[st.id] = st_widgets
             row_index += 1
@@ -2406,7 +2413,8 @@ class ScheduledTxnsDisplay:
         layout.addWidget(QtWidgets.QLabel('Name'), row, 0)
         layout.addWidget(QtWidgets.QLabel('Frequency'), row, 1)
         layout.addWidget(QtWidgets.QLabel('Next Due Date'), row, 2)
-        layout.addWidget(QtWidgets.QLabel('Splits'), row, 3)
+        layout.addWidget(QtWidgets.QLabel('Payee'), row, 3)
+        layout.addWidget(QtWidgets.QLabel('Splits'), row, 4)
         return row + 1
 
     def _display_scheduled_txns(self, layout):
@@ -2417,7 +2425,7 @@ class ScheduledTxnsDisplay:
         if scheduled_txns:
             self.data_display = ScheduledTxnsDataDisplay(scheduled_txns, storage=self.storage, reload_function=partial(self._display_scheduled_txns, layout=layout))
             self._data_display_widget = self.data_display.get_widget()
-            layout.addWidget(self._data_display_widget, self._row_index, 0, 1, 4)
+            layout.addWidget(self._data_display_widget, self._row_index, 0, 1, 5)
             self._row_index += 1
 
     def _open_form(self, scheduled_txn):
