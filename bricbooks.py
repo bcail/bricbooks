@@ -2240,6 +2240,7 @@ class BudgetDataDisplay:
         model = self._get_model()
         self.main_widget = QtWidgets.QTableView()
         self.main_widget.setModel(model)
+        self.main_widget.resizeColumnsToContents()
         return self.main_widget
 
 
