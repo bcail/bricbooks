@@ -1294,74 +1294,68 @@ class AccountsDisplay:
     def __init__(self, storage, reload_accounts):
         self.storage = storage
         self._reload = reload_accounts
+        self._accounts = self.storage.get_accounts()
+        self._accounts_model = self._get_accounts_model(self._accounts)
 
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        for field_info in ACCOUNTS_GUI_FIELDS.values():
-            layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
         row = 0
         self.add_button = QtWidgets.QPushButton('New Account')
         self.add_button.clicked.connect(self._open_new_account_form)
         layout.addWidget(self.add_button, row, 0)
         row += 1
-        layout.addWidget(QtWidgets.QLabel('Type'), row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('Number'), row, ACCOUNTS_GUI_FIELDS['number']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('Name'), row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-        layout.addWidget(QtWidgets.QLabel('Parent Account'), row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-        row += 1
-        self.accounts_widgets = {}
-        accounts = self.storage.get_accounts()
-        accounts_widget = self._get_accounts_widget(self.accounts_widgets, accounts)
+        accounts_widget = self._get_accounts_widget(self._accounts_model)
         layout.addWidget(accounts_widget, row, 0, 1, 5)
-        row += 1
-        layout.addWidget(QtWidgets.QLabel(''), row, 0)
-        layout.setRowStretch(row, 1)
         main_widget.setLayout(layout)
         return main_widget
 
-    def _get_accounts_widget(self, accounts_widgets, accounts):
-        widget = QtWidgets.QWidget()
-        layout = QtWidgets.QGridLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        for field_info in ACCOUNTS_GUI_FIELDS.values():
-            layout.setColumnStretch(field_info['column_number'], field_info['column_stretch'])
-        row = 0
-        for acc in accounts:
-            edit_function = partial(self._edit, layout=layout, acc_id=acc.id)
-            type_label = QtWidgets.QLabel(acc.type.name)
-            type_label.mousePressEvent = edit_function
-            number_label = QtWidgets.QLabel(acc.number or '')
-            number_label.mousePressEvent = edit_function
-            name_label = QtWidgets.QLabel(acc.name)
-            name_label.mousePressEvent = edit_function
-            parent = acc.parent or ''
-            parent_label = QtWidgets.QLabel(str(parent))
-            parent_label.mousePressEvent = edit_function
-            empty_label = QtWidgets.QLabel('')
-            empty_label.mousePressEvent = edit_function
-            layout.addWidget(type_label, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-            layout.addWidget(number_label, row, ACCOUNTS_GUI_FIELDS['number']['column_number'])
-            layout.addWidget(name_label, row, ACCOUNTS_GUI_FIELDS['name']['column_number'])
-            layout.addWidget(parent_label, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
-            layout.addWidget(empty_label, row, ACCOUNTS_GUI_FIELDS['buttons']['column_number'])
-            accounts_widgets[acc.id] = {
-                    'row': row,
-                    'labels': {
-                        'type_label': type_label,
-                        'number': number_label,
-                        'name': name_label,
-                        'parent': parent_label,
-                        'empty': empty_label,
-                    },
-                }
-            row += 1
-        widget.setLayout(layout)
-        scroll = QtWidgets.QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(widget)
-        return scroll
+    def _get_accounts_model(self, accounts):
+
+        class Model(QtCore.QAbstractTableModel):
+
+            def __init__(self, accounts):
+                self._accounts = accounts
+                super().__init__()
+
+            def rowCount(self, parent):
+                return len(self._accounts)
+
+            def columnCount(self, parent):
+                return 4
+
+            def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+                if role == QtCore.Qt.DisplayRole:
+                    if orientation == QtCore.Qt.Horizontal:
+                        if section == 0:
+                            return 'Type'
+                        elif section == 1:
+                            return 'Number'
+                        elif section == 2:
+                            return 'Name'
+                        elif section == 3:
+                            return 'Parent'
+
+            def data(self, index, role=QtCore.Qt.DisplayRole):
+                if role == QtCore.Qt.DisplayRole:
+                    if index.column() == 0:
+                        return self._accounts[index.row()].type.name
+                    if index.column() == 1:
+                        return self._accounts[index.row()].number
+                    if index.column() == 2:
+                        return self._accounts[index.row()].name
+                    if index.column() == 3:
+                        if self._accounts[index.row()].parent:
+                            return str(self._accounts[index.row()].parent)
+        return Model(accounts)
+
+    def _get_accounts_widget(self, model):
+        widget = QtWidgets.QTableView()
+        widget.setModel(model)
+        widget.resizeColumnsToContents()
+        widget.resizeRowsToContents()
+        return widget
 
     def _open_new_account_form(self):
         self.add_account_display = AccountForm(self.storage.get_accounts(), save_account=self._save_account)
