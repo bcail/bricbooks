@@ -1348,13 +1348,19 @@ class AccountsDisplay:
                     if index.column() == 3:
                         if self._accounts[index.row()].parent:
                             return str(self._accounts[index.row()].parent)
+
+            def get_account_id(self, index):
+                return self._accounts[index.row()].id
+
         return Model(accounts)
 
     def _get_accounts_widget(self, model):
         widget = QtWidgets.QTableView()
         widget.setModel(model)
+        widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         widget.resizeColumnsToContents()
         widget.resizeRowsToContents()
+        widget.clicked.connect(self._edit)
         return widget
 
     def _open_new_account_form(self):
@@ -1365,7 +1371,8 @@ class AccountsDisplay:
         self.storage.save_account(account)
         self._reload()
 
-    def _edit(self, event, layout, acc_id):
+    def _edit(self, index):
+        acc_id = self._accounts_model.get_account_id(index)
         self.edit_account_display = AccountForm(self.storage.get_accounts(), account=self.storage.get_account(acc_id), save_account=self._save_account)
         self.edit_account_display.show_form()
 
