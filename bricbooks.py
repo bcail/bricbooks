@@ -1289,11 +1289,56 @@ class AccountForm:
             set_widget_error_state(self._widgets['name'])
 
 
+def get_accounts_model_class():
+
+    class Model(QtCore.QAbstractTableModel):
+
+        def __init__(self, accounts):
+            self._accounts = accounts
+            super().__init__()
+
+        def rowCount(self, parent):
+            return len(self._accounts)
+
+        def columnCount(self, parent):
+            return 4
+
+        def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if orientation == QtCore.Qt.Horizontal:
+                    if section == 0:
+                        return 'Type'
+                    elif section == 1:
+                        return 'Number'
+                    elif section == 2:
+                        return 'Name'
+                    elif section == 3:
+                        return 'Parent'
+
+        def data(self, index, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if index.column() == 0:
+                    return self._accounts[index.row()].type.name
+                if index.column() == 1:
+                    return self._accounts[index.row()].number
+                if index.column() == 2:
+                    return self._accounts[index.row()].name
+                if index.column() == 3:
+                    if self._accounts[index.row()].parent:
+                        return str(self._accounts[index.row()].parent)
+
+        def get_account_id(self, index):
+            return self._accounts[index.row()].id
+
+    return Model
+
+
 class AccountsDisplay:
 
-    def __init__(self, storage, reload_accounts):
+    def __init__(self, storage, reload_accounts, model_class):
         self.storage = storage
         self._reload = reload_accounts
+        self._model_class = model_class
         self._accounts = self.storage.get_accounts()
         self._accounts_model = self._get_accounts_model(self._accounts)
 
@@ -1312,47 +1357,7 @@ class AccountsDisplay:
         return main_widget
 
     def _get_accounts_model(self, accounts):
-
-        class Model(QtCore.QAbstractTableModel):
-
-            def __init__(self, accounts):
-                self._accounts = accounts
-                super().__init__()
-
-            def rowCount(self, parent):
-                return len(self._accounts)
-
-            def columnCount(self, parent):
-                return 4
-
-            def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
-                if role == QtCore.Qt.DisplayRole:
-                    if orientation == QtCore.Qt.Horizontal:
-                        if section == 0:
-                            return 'Type'
-                        elif section == 1:
-                            return 'Number'
-                        elif section == 2:
-                            return 'Name'
-                        elif section == 3:
-                            return 'Parent'
-
-            def data(self, index, role=QtCore.Qt.DisplayRole):
-                if role == QtCore.Qt.DisplayRole:
-                    if index.column() == 0:
-                        return self._accounts[index.row()].type.name
-                    if index.column() == 1:
-                        return self._accounts[index.row()].number
-                    if index.column() == 2:
-                        return self._accounts[index.row()].name
-                    if index.column() == 3:
-                        if self._accounts[index.row()].parent:
-                            return str(self._accounts[index.row()].parent)
-
-            def get_account_id(self, index):
-                return self._accounts[index.row()].id
-
-        return Model(accounts)
+        return self._model_class(accounts)
 
     def _get_accounts_widget(self, model):
         widget = QtWidgets.QTableView()
@@ -2465,6 +2470,7 @@ class GUI_QT:
         self.parent_window.setLayout(self.parent_layout)
         self.parent_window.showMaximized()
         self.content_area = None
+        self._accounts_model_class = get_accounts_model_class()
 
         if file_name:
             self._load_db(file_name)
@@ -2541,7 +2547,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.accounts_display = AccountsDisplay(self.storage, reload_accounts=self._show_accounts)
+        self.accounts_display = AccountsDisplay(self.storage, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
