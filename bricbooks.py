@@ -1340,10 +1340,11 @@ def get_txns_model_class():
         def __init__(self, ledger):
             self._ledger = ledger
             self._txns = self._ledger.get_sorted_txns_with_balance()
+            self._scheduled_txns_due = self._ledger.get_scheduled_transactions_due()
             super().__init__()
 
         def rowCount(self, parent):
-            return len(self._txns)
+            return len(self._txns) + len(self._scheduled_txns_due)
 
         def columnCount(self, parent):
             return 9
@@ -1372,7 +1373,13 @@ def get_txns_model_class():
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
-                txn = self._txns[index.row()]
+                row = index.row()
+                is_scheduled_txn = False
+                if row >= len(self._txns):
+                    txn = self._scheduled_txns_due[row-len(self._txns)]
+                    is_scheduled_txn = True
+                else:
+                    txn = self._txns[index.row()]
                 tds = get_display_strings_for_ledger(self._ledger.account, txn)
                 if index.column() == 0:
                     return tds['txn_type']
@@ -1383,18 +1390,24 @@ def get_txns_model_class():
                 if index.column() == 3:
                     return tds['description']
                 if index.column() == 4:
-                    return tds['status']
+                    if not is_scheduled_txn:
+                        return tds['status']
                 if index.column() == 5:
                     return tds['withdrawal']
                 if index.column() == 6:
                     return tds['deposit']
                 if index.column() == 7:
-                    return str(fraction_to_decimal(txn.balance))
+                    if not is_scheduled_txn:
+                        return str(fraction_to_decimal(txn.balance))
                 if index.column() == 8:
                     return tds['categories']
 
         def get_txn(self, index):
-            return self._txns[index.row()]
+            row = index.row()
+            if row >= len(self._txns):
+                return self._scheduled_txns_due[row-len(self._txns)]
+            else:
+                return self._txns[row]
 
     return Model
 
@@ -1523,7 +1536,7 @@ class LedgerTxnsDisplay:
         self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
         set_ledger_column_widths(self.txns_layout)
         self.txn_display_data = {}
-        self._redisplay_txns()
+        #self._redisplay_txns()
 
         widget = QtWidgets.QTableView()
         widget.setModel(self._txns_model)
@@ -1539,45 +1552,45 @@ class LedgerTxnsDisplay:
         self.main_widget.setWidget(widget)
         return self.main_widget
 
-    def display_new_txn(self, txn):
-        self.ledger.add_transaction(txn)
-        self._redisplay_txns()
+    #def display_new_txn(self, txn):
+    #    self.ledger.add_transaction(txn)
+    #    self._redisplay_txns()
 
-    def _redisplay_txns(self):
-        '''draw/redraw txns on the screen as needed'''
-        index = 0 #initialize in case there are no txns in the ledger
-        if self._filter_text:
-            txns = self.ledger.search(self._filter_text)
-        else:
-            txns = self.ledger.get_sorted_txns_with_balance()
-        for index, txn in enumerate(txns):
-            if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
-                self._display_txn(txn, row=index, layout=self.txns_layout)
-            else:
-                try:
-                    if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != str(fraction_to_decimal(txn.balance)):
-                        self._display_txn(txn, row=index, layout=self.txns_layout)
-                except KeyError:
-                    pass
-        row = index + 1
-        for w in self._scheduled_txn_widgets:
-            self.txns_layout.removeWidget(w)
-            w.deleteLater()
-        self._scheduled_txn_widgets = []
-        scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
-        if scheduled_txns_due:
-            heading = QtWidgets.QLabel('Scheduled Transactions Due')
-            self.txns_layout.addWidget(heading, row, 0, 1, 9)
-            self._scheduled_txn_widgets.append(heading)
-            row += 1
-        for scheduled_txn in scheduled_txns_due:
-            self._display_scheduled_txn(self.txns_layout, row, scheduled_txn)
-            row += 1
-        empty = QtWidgets.QLabel('')
-        self._scheduled_txn_widgets.append(empty)
-        self.txns_layout.addWidget(empty, row, 0)
-        self.txns_layout.setRowStretch(row, 1)
-        self._post_update_function()
+    #def _redisplay_txns(self):
+    #    '''draw/redraw txns on the screen as needed'''
+    #    index = 0 #initialize in case there are no txns in the ledger
+    #    if self._filter_text:
+    #        txns = self.ledger.search(self._filter_text)
+    #    else:
+    #        txns = self.ledger.get_sorted_txns_with_balance()
+    #    for index, txn in enumerate(txns):
+    #        if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
+    #            self._display_txn(txn, row=index, layout=self.txns_layout)
+    #        else:
+    #            try:
+    #                if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != str(fraction_to_decimal(txn.balance)):
+    #                    self._display_txn(txn, row=index, layout=self.txns_layout)
+    #            except KeyError:
+    #                pass
+    #    row = index + 1
+    #    for w in self._scheduled_txn_widgets:
+    #        self.txns_layout.removeWidget(w)
+    #        w.deleteLater()
+    #    self._scheduled_txn_widgets = []
+    #    scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
+    #    if scheduled_txns_due:
+    #        heading = QtWidgets.QLabel('Scheduled Transactions Due')
+    #        self.txns_layout.addWidget(heading, row, 0, 1, 9)
+    #        self._scheduled_txn_widgets.append(heading)
+    #        row += 1
+    #    for scheduled_txn in scheduled_txns_due:
+    #        self._display_scheduled_txn(self.txns_layout, row, scheduled_txn)
+    #        row += 1
+    #    empty = QtWidgets.QLabel('')
+    #    self._scheduled_txn_widgets.append(empty)
+    #    self.txns_layout.addWidget(empty, row, 0)
+    #    self.txns_layout.setRowStretch(row, 1)
+    #    self._post_update_function()
 
     def _delete(self, txn):
         #delete from storage, remove it from ledger, delete the display info
@@ -1603,8 +1616,10 @@ class LedgerTxnsDisplay:
 
     def _edit(self, index):
         txn = self._txns_model.get_txn(index)
+        if isinstance(txn, ScheduledTransaction):
+            self._show_scheduled_txn_form(txn)
         #if status column was clicked, just update status instead of opening edit form
-        if index.column() == 4:
+        elif index.column() == 4:
             txn.update_reconciled_state(account=self.ledger.account)
             self.storage.save_txn(txn)
             self._display_ledger()
@@ -1619,31 +1634,33 @@ class LedgerTxnsDisplay:
                 )
             self.edit_txn_display.show_form()
 
-    def _update_reconciled_state(self, event, txn_id, layout):
-        txn = self.storage.get_txn(txn_id)
-        txn.update_reconciled_state(account=self.ledger.account)
-        self.storage.save_txn(txn)
-        self.ledger.add_transaction(txn)
-        for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-            layout.removeWidget(widget)
-            widget.deleteLater()
-        del self.txn_display_data[txn.id]
-        self._redisplay_txns()
+    #def _update_reconciled_state(self, event, txn_id, layout):
+    #    txn = self.storage.get_txn(txn_id)
+    #    txn.update_reconciled_state(account=self.ledger.account)
+    #    self.storage.save_txn(txn)
+    #    self.ledger.add_transaction(txn)
+    #    for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
+    #        layout.removeWidget(widget)
+    #        widget.deleteLater()
+    #    del self.txn_display_data[txn.id]
+    #    self._redisplay_txns()
 
-    def _enter_scheduled_txn(self, new_txn, scheduled_txn, layout):
+    def _enter_scheduled_txn(self, new_txn, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
         self.storage.save_txn(new_txn)
-        self.ledger.add_transaction(new_txn)
-        self._redisplay_txns()
+        self._display_ledger()
+        #self.ledger.add_transaction(new_txn)
+        #self._redisplay_txns()
 
     def _skip_scheduled_txn(self, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
-        self._redisplay_txns()
+        self._display_ledger()
+        #self._redisplay_txns()
 
-    def _show_scheduled_txn_form(self, event, scheduled_txn, layout):
-        save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn, layout=layout)
+    def _show_scheduled_txn_form(self, scheduled_txn):
+        save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn)
         self.scheduled_txn_display = TxnForm(
                 payees=self.ledger.get_payees(),
                 save_txn=save_txn,
