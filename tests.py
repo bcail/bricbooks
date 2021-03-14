@@ -2090,9 +2090,6 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].splits[checking], {'amount': -18})
         self.assertEqual(txns[1].payee.name, 'Burgers')
-        #check new txn display
-        self.assertEqual(len(ledger_display.ledger.get_sorted_txns_with_balance()), 3)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txns[1].id]['row'], 1)
 
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
