@@ -1434,7 +1434,41 @@ def get_txns_model_class():
             self.layoutChanged.emit()
 
         def update_txn(self, txn):
-            pass
+            #txn edited:
+            #   date could have changed, and moved this row up or down in the table
+            #   amount could have changed, and affected all the subsequence balances
+            #   any of the fields of this txn could have changed
+            #initial_row_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t == txn:
+            #        initial_row_index = index
+            #        break
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            #final_row_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t == txn:
+            #        final_row_index = index
+            #        break
+            #if initial_row_index > final_row_index:
+            #    topLeft = self.createIndex(final_row_index, 0)
+            #    bottomRight = self.createIndex(initial_row_index, self.columnCount())
+            #else:
+            #    topLeft = self.createIndex(initial_row_index, 0)
+            #    bottomRight = self.createIndex(final_row_index, self.columnCount())
+            #this updates everything - we should add checks so we only update what needs to be changed
+            self.layoutChanged.emit()
+
+        def update_txn_status(self, txn):
+            row_index = -1
+            for index, t in enumerate(self._txns):
+                if t == txn:
+                    row_index = index
+                    break
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            status_index = self.createIndex(row_index, 4)
+            self.dataChanged.emit(status_index, status_index)
 
         def remove_txn(self, txn):
             #model_index = -1
@@ -1670,7 +1704,8 @@ class LedgerTxnsDisplay:
         elif index.column() == 4:
             txn.update_reconciled_state(account=self.ledger.account)
             self.storage.save_txn(txn)
-            self._display_ledger()
+            #self._display_ledger()
+            self._txns_model.update_txn_status(txn)
         else:
             self.edit_txn_display = TxnForm(
                     payees=self.ledger.get_payees(),
