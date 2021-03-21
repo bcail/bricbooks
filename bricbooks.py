@@ -1339,14 +1339,13 @@ def get_txns_model_class():
 
         def __init__(self, ledger):
             self._ledger = ledger
-            self._txns = self._ledger.get_sorted_txns_with_balance()
-            self._scheduled_txns_due = self._ledger.get_scheduled_transactions_due()
+            self.set_txns_and_scheduled_txns()
             super().__init__()
 
-        def rowCount(self, parent):
+        def rowCount(self, parent=None):
             return len(self._txns) + len(self._scheduled_txns_due)
 
-        def columnCount(self, parent):
+        def columnCount(self, parent=None):
             return 9
 
         def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
@@ -1374,6 +1373,7 @@ def get_txns_model_class():
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
                 row = index.row()
+                column = index.column()
                 is_scheduled_txn = False
                 if row >= len(self._txns):
                     txn = self._scheduled_txns_due[row-len(self._txns)]
@@ -1381,26 +1381,32 @@ def get_txns_model_class():
                 else:
                     txn = self._txns[index.row()]
                 tds = get_display_strings_for_ledger(self._ledger.account, txn)
-                if index.column() == 0:
+                if column == 0:
                     return tds['txn_type']
-                if index.column() == 1:
+                if column == 1:
                     return tds['txn_date']
-                if index.column() == 2:
+                if column == 2:
                     return tds['payee']
-                if index.column() == 3:
+                if column == 3:
                     return tds['description']
-                if index.column() == 4:
+                if column == 4:
                     if not is_scheduled_txn:
                         return tds['status']
-                if index.column() == 5:
+                if column == 5:
                     return tds['withdrawal']
-                if index.column() == 6:
+                if column == 6:
                     return tds['deposit']
-                if index.column() == 7:
+                if column == 7:
                     if not is_scheduled_txn:
                         return str(fraction_to_decimal(txn.balance))
-                if index.column() == 8:
+                if column == 8:
                     return tds['categories']
+
+        def set_txns_and_scheduled_txns(self):
+            #sets/updates self._txns & self._scheduled_txns_due
+            # must call this whenever ledger is updated
+            self._txns = self._ledger.get_sorted_txns_with_balance()
+            self._scheduled_txns_due = self._ledger.get_scheduled_transactions_due()
 
         def get_txn(self, index):
             row = index.row()
@@ -1408,6 +1414,43 @@ def get_txns_model_class():
                 return self._scheduled_txns_due[row-len(self._txns)]
             else:
                 return self._txns[row]
+
+        def get_bottom_right_index(self):
+            return self.createIndex(self.rowCount(), self.columnCount()-1)
+
+        def add_txn(self, txn):
+            #parent = self.createIndex(0, 0)
+            #model_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t.txn_date >= txn.txn_date:
+            #        model_index = index
+            #        break
+            #self.beginInsertRows(parent, model_index, model_index)
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            #self.endInsertRows()
+            #bottomRight = self.get_bottom_right_index()
+            #self.dataChanged.emit(parent, bottomRight)
+            self.layoutChanged.emit()
+
+        def update_txn(self, txn):
+            pass
+
+        def remove_txn(self, txn):
+            #model_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t == txn:
+            #        model_index = index
+            #        break
+            #parent = self.createIndex(0, 0)
+            #self.beginRemoveRows(parent, model_index, model_index)
+            self._ledger.remove_txn(txn.id)
+            self.set_txns_and_scheduled_txns()
+            #topLeft = self.createIndex(0, 0)
+            #bottomRight = self.get_bottom_right_index()
+            #self.dataChanged.emit(topLeft, bottomRight)
+            #self.endRemoveRows()
+            self.layoutChanged.emit()
 
     return Model
 
@@ -1528,6 +1571,8 @@ class LedgerTxnsDisplay:
         self._post_update_function = post_update_function
         self._display_ledger = display_ledger
         self._model_class = model_class
+        sorted_txns = self.ledger.get_sorted_txns_with_balance()
+        scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
         self._txns_model = self._model_class(self.ledger)
 
     def get_widget(self):
@@ -1552,9 +1597,10 @@ class LedgerTxnsDisplay:
         self.main_widget.setWidget(widget)
         return self.main_widget
 
-    #def display_new_txn(self, txn):
-    #    self.ledger.add_transaction(txn)
-    #    self._redisplay_txns()
+    def display_new_txn(self, txn):
+        self._txns_model.add_txn(txn)
+        #self.ledger.add_transaction(txn)
+        #self._redisplay_txns()
 
     #def _redisplay_txns(self):
     #    '''draw/redraw txns on the screen as needed'''
@@ -1593,11 +1639,12 @@ class LedgerTxnsDisplay:
     #    self._post_update_function()
 
     def _delete(self, txn):
+        self.storage.delete_txn(txn.id)
+        #self.ledger.remove_txn(txn.id)
+        self._txns_model.remove_txn(txn)
+        #self._display_ledger()
         #delete from storage, remove it from ledger, delete the display info
         #   & then redisplay any txns necessary
-        self.storage.delete_txn(txn.id)
-        self._display_ledger()
-        #self.ledger.remove_txn(txn.id)
         #for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
         #    layout.removeWidget(widget)
         #    widget.deleteLater()
@@ -1606,7 +1653,8 @@ class LedgerTxnsDisplay:
 
     def _save_edit(self, txn):
         self.storage.save_txn(txn)
-        self._display_ledger()
+        self._txns_model.update_txn(txn)
+        #self._display_ledger()
         #self.ledger.add_transaction(txn)
         #for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
         #    layout.removeWidget(widget)
@@ -2197,8 +2245,8 @@ class LedgerDisplay:
 
     def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
-        #self.txns_display.display_new_txn(txn)
-        self._display_ledger(self.layout, self._current_account)
+        self.txns_display.display_new_txn(txn)
+        #self._display_ledger(self.layout, self._current_account)
 
 
 class BudgetForm:
