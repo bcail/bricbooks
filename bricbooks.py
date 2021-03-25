@@ -1497,6 +1497,7 @@ class AccountsDisplay:
         self._model_class = model_class
         self._accounts = self.storage.get_accounts()
         self._accounts_model = self._get_accounts_model(self._accounts)
+        self._accounts_widget = self._get_accounts_widget(self._accounts_model)
 
     def get_widget(self):
         main_widget = QtWidgets.QWidget()
@@ -1507,8 +1508,7 @@ class AccountsDisplay:
         self.add_button.clicked.connect(self._open_new_account_form)
         layout.addWidget(self.add_button, row, 0)
         row += 1
-        accounts_widget = self._get_accounts_widget(self._accounts_model)
-        layout.addWidget(accounts_widget, row, 0, 1, 5)
+        layout.addWidget(self._accounts_widget, row, 0, 1, 5)
         main_widget.setLayout(layout)
         return main_widget
 

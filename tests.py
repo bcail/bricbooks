@@ -2014,7 +2014,6 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(accounts[1].name, 'Savings')
         self.assertEqual(accounts[1].parent.name, 'Checking')
 
-    @unittest.skip('either update for model-view change or remove')
     def test_account_edit(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
@@ -2024,7 +2023,11 @@ class TestQtGUI(unittest.TestCase):
         model_class = bb.get_accounts_model_class()
         accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
         widget = accounts_display.get_widget()
-        QtTest.QTest.mouseClick(accounts_display.accounts_widgets[savings.id]['labels']['name'], QtCore.Qt.LeftButton)
+        #https://stackoverflow.com/a/12604740
+        secondRowXPos = accounts_display._accounts_widget.columnViewportPosition(0) + 5
+        secondRowYPos = accounts_display._accounts_widget.rowViewportPosition(1) + 10
+        viewport = accounts_display._accounts_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         accounts_display.edit_account_display._widgets['name'].setText('New Savings')
         accounts_display.edit_account_display._widgets['parent'].setCurrentIndex(1)
         QtTest.QTest.mouseClick(accounts_display.edit_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
@@ -2032,7 +2035,6 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(storage.get_accounts()[1].name, 'New Savings')
         self.assertEqual(storage.get_accounts()[1].parent.name, 'Checking')
 
-    @unittest.skip('either update for model-view change or remove')
     def test_expense_account_edit(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
@@ -2042,7 +2044,10 @@ class TestQtGUI(unittest.TestCase):
         model_class = bb.get_accounts_model_class()
         accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
         widget = accounts_display.get_widget()
-        QtTest.QTest.mouseClick(accounts_display.accounts_widgets[food.id]['labels']['name'], QtCore.Qt.LeftButton)
+        secondRowXPos = accounts_display._accounts_widget.columnViewportPosition(0) + 5
+        secondRowYPos = accounts_display._accounts_widget.rowViewportPosition(1) + 10
+        viewport = accounts_display._accounts_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         accounts_display.edit_account_display._widgets['name'].setText('New Food')
         QtTest.QTest.mouseClick(accounts_display.edit_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         self.assertEqual(len(storage.get_accounts()), 2)
