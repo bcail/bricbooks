@@ -1605,9 +1605,8 @@ class LedgerTxnsDisplay:
         self._post_update_function = post_update_function
         self._display_ledger = display_ledger
         self._model_class = model_class
-        sorted_txns = self.ledger.get_sorted_txns_with_balance()
-        scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
         self._txns_model = self._model_class(self.ledger)
+        self._txns_widget = self._get_txns_widget(self._txns_model)
 
     def get_widget(self):
         self.main_widget = QtWidgets.QScrollArea()
@@ -1617,19 +1616,22 @@ class LedgerTxnsDisplay:
         self.txn_display_data = {}
         #self._redisplay_txns()
 
-        widget = QtWidgets.QTableView()
-        widget.setModel(self._txns_model)
-        widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        widget.resizeColumnsToContents()
-        widget.resizeRowsToContents()
-        widget.clicked.connect(self._edit)
 
         #txns_widget = QtWidgets.QWidget()
         #txns_widget.setLayout(self.txns_layout)
         #self.main_widget.setWidget(txns_widget)
 
-        self.main_widget.setWidget(widget)
+        self.main_widget.setWidget(self._txns_widget)
         return self.main_widget
+
+    def _get_txns_widget(self, txns_model):
+        widget = QtWidgets.QTableView()
+        widget.setModel(txns_model)
+        widget.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        widget.resizeColumnsToContents()
+        widget.resizeRowsToContents()
+        widget.clicked.connect(self._edit)
+        return widget
 
     def display_new_txn(self, txn):
         self._txns_model.add_txn(txn)

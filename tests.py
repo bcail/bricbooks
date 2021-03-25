@@ -2305,7 +2305,10 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn2)
         ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
+        viewport = ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['delete_btn'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
         ledger = storage.get_ledger(account=checking)
@@ -2330,7 +2333,10 @@ class TestQtGUI(unittest.TestCase):
         )
         gui.storage.save_scheduled_transaction(scheduled_txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
-        QtTest.QTest.mouseClick(gui.ledger_display.txns_display._scheduled_txn_widgets[2], QtCore.Qt.LeftButton) #click to show form
+        firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        firstRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
+        viewport = gui.ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.scheduled_txn_display._widgets['skip_btn'], QtCore.Qt.LeftButton) #click to skip next txn
         scheduled_txns = gui.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
