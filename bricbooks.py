@@ -1401,6 +1401,17 @@ def get_txns_model_class():
                         return str(fraction_to_decimal(txn.balance))
                 if column == 8:
                     return tds['categories']
+            elif role == QtCore.Qt.ForegroundRole:
+                row = index.row()
+                column = index.column()
+                is_scheduled_txn = False
+                if row >= len(self._txns):
+                    txn = self._scheduled_txns_due[row-len(self._txns)]
+                    is_scheduled_txn = True
+                else:
+                    txn = self._txns[index.row()]
+                if is_scheduled_txn:
+                    return QtGui.QBrush(QtCore.Qt.gray)
 
         def set_txns_and_scheduled_txns(self):
             #sets/updates self._txns & self._scheduled_txns_due
