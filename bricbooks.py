@@ -1419,18 +1419,8 @@ def get_txns_model_class():
             return self.createIndex(self.rowCount(), self.columnCount()-1)
 
         def add_txn(self, txn):
-            #parent = self.createIndex(0, 0)
-            #model_index = -1
-            #for index, t in enumerate(self._txns):
-            #    if t.txn_date >= txn.txn_date:
-            #        model_index = index
-            #        break
-            #self.beginInsertRows(parent, model_index, model_index)
             self._ledger.add_transaction(txn)
             self.set_txns_and_scheduled_txns()
-            #self.endInsertRows()
-            #bottomRight = self.get_bottom_right_index()
-            #self.dataChanged.emit(parent, bottomRight)
             self.layoutChanged.emit()
 
         def update_txn(self, txn):
@@ -1471,19 +1461,8 @@ def get_txns_model_class():
             self.dataChanged.emit(status_index, status_index)
 
         def remove_txn(self, txn):
-            #model_index = -1
-            #for index, t in enumerate(self._txns):
-            #    if t == txn:
-            #        model_index = index
-            #        break
-            #parent = self.createIndex(0, 0)
-            #self.beginRemoveRows(parent, model_index, model_index)
             self._ledger.remove_txn(txn.id)
             self.set_txns_and_scheduled_txns()
-            #topLeft = self.createIndex(0, 0)
-            #bottomRight = self.get_bottom_right_index()
-            #self.dataChanged.emit(topLeft, bottomRight)
-            #self.endRemoveRows()
             self.layoutChanged.emit()
 
     return Model
@@ -1614,13 +1593,6 @@ class LedgerTxnsDisplay:
         self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
         set_ledger_column_widths(self.txns_layout)
         self.txn_display_data = {}
-        #self._redisplay_txns()
-
-
-        #txns_widget = QtWidgets.QWidget()
-        #txns_widget.setLayout(self.txns_layout)
-        #self.main_widget.setWidget(txns_widget)
-
         self.main_widget.setWidget(self._txns_widget)
         return self.main_widget
 
@@ -1635,68 +1607,14 @@ class LedgerTxnsDisplay:
 
     def display_new_txn(self, txn):
         self._txns_model.add_txn(txn)
-        #self.ledger.add_transaction(txn)
-        #self._redisplay_txns()
-
-    #def _redisplay_txns(self):
-    #    '''draw/redraw txns on the screen as needed'''
-    #    index = 0 #initialize in case there are no txns in the ledger
-    #    if self._filter_text:
-    #        txns = self.ledger.search(self._filter_text)
-    #    else:
-    #        txns = self.ledger.get_sorted_txns_with_balance()
-    #    for index, txn in enumerate(txns):
-    #        if (txn.id not in self.txn_display_data) or (self.txn_display_data[txn.id]['row'] != index):
-    #            self._display_txn(txn, row=index, layout=self.txns_layout)
-    #        else:
-    #            try:
-    #                if self.txn_display_data[txn.id]['widgets']['labels']['balance'].text() != str(fraction_to_decimal(txn.balance)):
-    #                    self._display_txn(txn, row=index, layout=self.txns_layout)
-    #            except KeyError:
-    #                pass
-    #    row = index + 1
-    #    for w in self._scheduled_txn_widgets:
-    #        self.txns_layout.removeWidget(w)
-    #        w.deleteLater()
-    #    self._scheduled_txn_widgets = []
-    #    scheduled_txns_due = self.ledger.get_scheduled_transactions_due()
-    #    if scheduled_txns_due:
-    #        heading = QtWidgets.QLabel('Scheduled Transactions Due')
-    #        self.txns_layout.addWidget(heading, row, 0, 1, 9)
-    #        self._scheduled_txn_widgets.append(heading)
-    #        row += 1
-    #    for scheduled_txn in scheduled_txns_due:
-    #        self._display_scheduled_txn(self.txns_layout, row, scheduled_txn)
-    #        row += 1
-    #    empty = QtWidgets.QLabel('')
-    #    self._scheduled_txn_widgets.append(empty)
-    #    self.txns_layout.addWidget(empty, row, 0)
-    #    self.txns_layout.setRowStretch(row, 1)
-    #    self._post_update_function()
 
     def _delete(self, txn):
         self.storage.delete_txn(txn.id)
-        #self.ledger.remove_txn(txn.id)
         self._txns_model.remove_txn(txn)
-        #self._display_ledger()
-        #delete from storage, remove it from ledger, delete the display info
-        #   & then redisplay any txns necessary
-        #for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-        #    layout.removeWidget(widget)
-        #    widget.deleteLater()
-        #del self.txn_display_data[txn.id]
-        #self._redisplay_txns()
 
     def _save_edit(self, txn):
         self.storage.save_txn(txn)
         self._txns_model.update_txn(txn)
-        #self._display_ledger()
-        #self.ledger.add_transaction(txn)
-        #for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-        #    layout.removeWidget(widget)
-        #    widget.deleteLater()
-        #del self.txn_display_data[txn.id]
-        #self._redisplay_txns()
 
     def _edit(self, index):
         txn = self._txns_model.get_txn(index)
@@ -1706,7 +1624,6 @@ class LedgerTxnsDisplay:
         elif index.column() == 4:
             txn.update_reconciled_state(account=self.ledger.account)
             self.storage.save_txn(txn)
-            #self._display_ledger()
             self._txns_model.update_txn_status(txn)
         else:
             self.edit_txn_display = TxnForm(
@@ -1719,30 +1636,16 @@ class LedgerTxnsDisplay:
                 )
             self.edit_txn_display.show_form()
 
-    #def _update_reconciled_state(self, event, txn_id, layout):
-    #    txn = self.storage.get_txn(txn_id)
-    #    txn.update_reconciled_state(account=self.ledger.account)
-    #    self.storage.save_txn(txn)
-    #    self.ledger.add_transaction(txn)
-    #    for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-    #        layout.removeWidget(widget)
-    #        widget.deleteLater()
-    #    del self.txn_display_data[txn.id]
-    #    self._redisplay_txns()
-
     def _enter_scheduled_txn(self, new_txn, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
         self.storage.save_txn(new_txn)
         self._display_ledger()
-        #self.ledger.add_transaction(new_txn)
-        #self._redisplay_txns()
 
     def _skip_scheduled_txn(self, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
         self.storage.save_scheduled_transaction(scheduled_txn)
         self._display_ledger()
-        #self._redisplay_txns()
 
     def _show_scheduled_txn_form(self, scheduled_txn):
         save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn)
@@ -1755,94 +1658,6 @@ class LedgerTxnsDisplay:
                 skip_txn=partial(self._skip_scheduled_txn, scheduled_txn=scheduled_txn)
             )
         self.scheduled_txn_display.show_form()
-
-    def _display_txn(self, txn, row, layout):
-        #clear labels if this txn was already displayed, create new labels, add them to layout, and set txn_display_data
-        if txn.id in self.txn_display_data:
-            for widget in self.txn_display_data[txn.id]['widgets']['labels'].values():
-                layout.removeWidget(widget)
-                widget.deleteLater()
-        tds = get_display_strings_for_ledger(self.ledger.account, txn)
-        edit_function = partial(self._edit, txn_id=txn.id, layout=layout)
-        update_reconciled_function = partial(self._update_reconciled_state, txn_id=txn.id, layout=layout)
-        type_label = QtWidgets.QLabel(tds['txn_type'])
-        type_label.mousePressEvent = edit_function
-        date_label = QtWidgets.QLabel(tds['txn_date'])
-        date_label.mousePressEvent = edit_function
-        payee_label = QtWidgets.QLabel(tds['payee'])
-        payee_label.mousePressEvent = edit_function
-        description_label = QtWidgets.QLabel(tds['description'])
-        description_label.mousePressEvent = edit_function
-        categories_label = QtWidgets.QLabel(tds['categories'])
-        categories_label.mousePressEvent = edit_function
-        status_label = QtWidgets.QLabel(tds['status'])
-        status_label.mousePressEvent = update_reconciled_function
-        status_label.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
-        deposit_label = QtWidgets.QLabel(tds['deposit'])
-        deposit_label.mousePressEvent = edit_function
-        withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
-        withdrawal_label.mousePressEvent = edit_function
-        try:
-            balance = str(fraction_to_decimal(txn.balance))
-        except AttributeError:
-            balance = ''
-        balance_label = QtWidgets.QLabel(balance)
-        balance_label.mousePressEvent = edit_function
-        layout.addWidget(type_label, row, GUI_FIELDS['txn_type']['column_number'])
-        layout.addWidget(date_label, row, GUI_FIELDS['txn_date']['column_number'])
-        layout.addWidget(payee_label, row, GUI_FIELDS['payee']['column_number'])
-        layout.addWidget(description_label, row, GUI_FIELDS['description']['column_number'])
-        layout.addWidget(categories_label, row, GUI_FIELDS['categories']['column_number'])
-        layout.addWidget(status_label, row, GUI_FIELDS['status']['column_number'])
-        layout.addWidget(withdrawal_label, row, GUI_FIELDS['withdrawal']['column_number'])
-        layout.addWidget(deposit_label, row, GUI_FIELDS['deposit']['column_number'])
-        layout.addWidget(balance_label, row, GUI_FIELDS['balance']['column_number'])
-        self.txn_display_data[txn.id] = {
-                'widgets': {
-                    'labels': {
-                        'type': type_label,
-                        'date': date_label,
-                        'payee': payee_label,
-                        'description': description_label,
-                        'categories': categories_label,
-                        'status': status_label,
-                        'deposit': deposit_label,
-                        'withdrawal': withdrawal_label,
-                        'balance': balance_label
-                    }
-                },
-                'row': row,
-                'txn': txn,
-            }
-
-    def _display_scheduled_txn(self, layout, row, scheduled_txn):
-        show_form = partial(self._show_scheduled_txn_form, scheduled_txn=scheduled_txn, layout=layout)
-        tds = get_display_strings_for_ledger(txn=scheduled_txn, account=self.ledger.account)
-        type_label = QtWidgets.QLabel(tds['txn_type'])
-        type_label.mousePressEvent = show_form
-        date_label = QtWidgets.QLabel(tds['txn_date'])
-        date_label.mousePressEvent = show_form
-        payee_label = QtWidgets.QLabel(tds['payee'])
-        payee_label.mousePressEvent = show_form
-        description_label = QtWidgets.QLabel(tds['description'])
-        description_label.mousePressEvent = show_form
-        withdrawal_label = QtWidgets.QLabel(tds['withdrawal'])
-        withdrawal_label.mousePressEvent = show_form
-        deposit_label = QtWidgets.QLabel(tds['deposit'])
-        deposit_label.mousePressEvent = show_form
-        categories_label = QtWidgets.QLabel(tds['categories'])
-        categories_label.mousePressEvent = show_form
-        layout.addWidget(type_label, row, 0)
-        layout.addWidget(date_label, row, 1)
-        layout.addWidget(payee_label, row, 2)
-        layout.addWidget(description_label, row, 3)
-        layout.addWidget(withdrawal_label, row, 5)
-        layout.addWidget(deposit_label, row, 6)
-        layout.addWidget(categories_label, row, 8)
-        self._scheduled_txn_widgets.extend(
-                [type_label, date_label, payee_label, description_label, withdrawal_label,
-                    deposit_label, categories_label]
-            )
 
 
 def get_new_txn_splits(accounts, initial_txn_splits):
@@ -2264,16 +2079,6 @@ class LedgerDisplay:
         clear_btn = QtWidgets.QPushButton('Show all')
         clear_btn.clicked.connect(self._show_all_txns)
         layout.addWidget(clear_btn, row, 5)
-        #row += 1
-        #layout.addWidget(QtWidgets.QLabel('Type'), row, GUI_FIELDS['txn_type']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Date'), row, GUI_FIELDS['txn_date']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Payee'), row, GUI_FIELDS['payee']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Description'), row, GUI_FIELDS['description']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Categories'), row, GUI_FIELDS['categories']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Status'), row, GUI_FIELDS['status']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Withdrawal (-)'), row, GUI_FIELDS['withdrawal']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Deposit (+)'), row, GUI_FIELDS['deposit']['column_number'])
-        #layout.addWidget(QtWidgets.QLabel('Balance'), row, GUI_FIELDS['balance']['column_number'])
         return row + 1
 
     def _open_new_txn_form(self):
@@ -2283,7 +2088,6 @@ class LedgerDisplay:
     def _save_new_txn(self, txn):
         self.storage.save_txn(txn)
         self.txns_display.display_new_txn(txn)
-        #self._display_ledger(self.layout, self._current_account)
 
 
 class BudgetForm:
