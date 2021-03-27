@@ -2210,13 +2210,11 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn4)
         ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '22')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 1)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '47')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '57')
 
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
+        viewport = ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
 
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['txn_date'].text(), '2017-05-02')
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['payee'].currentText(), 'some payee')
@@ -2231,15 +2229,6 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].splits[checking], {'amount': 20})
         self.assertEqual(txns[2].splits[savings], {'amount': -20})
-        #check display with edits
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['balance'].text(), '5')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn.id]['row'], 0)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['widgets']['labels']['balance'].text(), '30')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn3.id]['row'], 1)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['balance'].text(), '50')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn2.id]['row'], 2)
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['widgets']['labels']['balance'].text(), '60')
-        self.assertEqual(ledger_display.txns_display.txn_display_data[txn4.id]['row'], 3)
 
     def test_ledger_txn_edit_expense_account(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -2256,7 +2245,11 @@ class TestQtGUI(unittest.TestCase):
         ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         #activate editing
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn2.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
+        viewport = ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
+
         #change expense account
         ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(2)
         #save the change
@@ -2284,7 +2277,10 @@ class TestQtGUI(unittest.TestCase):
         ledger_display = bb.LedgerDisplay(storage)
         ledger_display.get_widget()
         #activate editing
-        QtTest.QTest.mouseClick(ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['date'], QtCore.Qt.LeftButton)
+        firstRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        firstRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
+        viewport = ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentText(), 'multiple')
         self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
         bb.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
@@ -2351,7 +2347,10 @@ class TestQtGUI(unittest.TestCase):
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
         gui.storage.save_txn(txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
-        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.txn_display_data[txn.id]['widgets']['labels']['status'], QtCore.Qt.LeftButton) #click to change status
+        firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(4) + 5
+        firstRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
+        viewport = gui.ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         txns = gui.storage.get_ledger(checking).get_sorted_txns_with_balance()
         self.assertEqual(txns[0].splits[checking]['status'], bb.Transaction.CLEARED)
 
