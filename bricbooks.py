@@ -1333,152 +1333,6 @@ def get_accounts_model_class():
     return Model
 
 
-def get_txns_model_class():
-
-    class Model(QtCore.QAbstractTableModel):
-
-        def __init__(self, ledger):
-            self._ledger = ledger
-            self.set_txns_and_scheduled_txns()
-            super().__init__()
-
-        def rowCount(self, parent=None):
-            return len(self._txns) + len(self._scheduled_txns_due)
-
-        def columnCount(self, parent=None):
-            return 9
-
-        def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
-            if role == QtCore.Qt.DisplayRole:
-                if orientation == QtCore.Qt.Horizontal:
-                    if section == 0:
-                        return 'Type'
-                    elif section == 1:
-                        return 'Date'
-                    elif section == 2:
-                        return 'Payee'
-                    elif section == 3:
-                        return 'Description'
-                    elif section == 4:
-                        return 'Status'
-                    elif section == 5:
-                        return 'Withdrawal'
-                    elif section == 6:
-                        return 'Deposit'
-                    elif section == 7:
-                        return 'Balance'
-                    elif section == 8:
-                        return 'Transfer Account'
-
-        def data(self, index, role=QtCore.Qt.DisplayRole):
-            if role == QtCore.Qt.DisplayRole:
-                row = index.row()
-                column = index.column()
-                is_scheduled_txn = False
-                if row >= len(self._txns):
-                    txn = self._scheduled_txns_due[row-len(self._txns)]
-                    is_scheduled_txn = True
-                else:
-                    txn = self._txns[index.row()]
-                tds = get_display_strings_for_ledger(self._ledger.account, txn)
-                if column == 0:
-                    return tds['txn_type']
-                if column == 1:
-                    return tds['txn_date']
-                if column == 2:
-                    return tds['payee']
-                if column == 3:
-                    return tds['description']
-                if column == 4:
-                    if not is_scheduled_txn:
-                        return tds['status']
-                if column == 5:
-                    return tds['withdrawal']
-                if column == 6:
-                    return tds['deposit']
-                if column == 7:
-                    if not is_scheduled_txn:
-                        return str(fraction_to_decimal(txn.balance))
-                if column == 8:
-                    return tds['categories']
-            elif role == QtCore.Qt.ForegroundRole:
-                row = index.row()
-                column = index.column()
-                is_scheduled_txn = False
-                if row >= len(self._txns):
-                    txn = self._scheduled_txns_due[row-len(self._txns)]
-                    is_scheduled_txn = True
-                else:
-                    txn = self._txns[index.row()]
-                if is_scheduled_txn:
-                    return QtGui.QBrush(QtCore.Qt.gray)
-
-        def set_txns_and_scheduled_txns(self):
-            #sets/updates self._txns & self._scheduled_txns_due
-            # must call this whenever ledger is updated
-            self._txns = self._ledger.get_sorted_txns_with_balance()
-            self._scheduled_txns_due = self._ledger.get_scheduled_transactions_due()
-
-        def get_txn(self, index):
-            row = index.row()
-            if row >= len(self._txns):
-                return self._scheduled_txns_due[row-len(self._txns)]
-            else:
-                return self._txns[row]
-
-        def get_bottom_right_index(self):
-            return self.createIndex(self.rowCount(), self.columnCount()-1)
-
-        def add_txn(self, txn):
-            self._ledger.add_transaction(txn)
-            self.set_txns_and_scheduled_txns()
-            self.layoutChanged.emit()
-
-        def update_txn(self, txn):
-            #txn edited:
-            #   date could have changed, and moved this row up or down in the table
-            #   amount could have changed, and affected all the subsequence balances
-            #   any of the fields of this txn could have changed
-            #initial_row_index = -1
-            #for index, t in enumerate(self._txns):
-            #    if t == txn:
-            #        initial_row_index = index
-            #        break
-            self._ledger.add_transaction(txn)
-            self.set_txns_and_scheduled_txns()
-            #final_row_index = -1
-            #for index, t in enumerate(self._txns):
-            #    if t == txn:
-            #        final_row_index = index
-            #        break
-            #if initial_row_index > final_row_index:
-            #    topLeft = self.createIndex(final_row_index, 0)
-            #    bottomRight = self.createIndex(initial_row_index, self.columnCount())
-            #else:
-            #    topLeft = self.createIndex(initial_row_index, 0)
-            #    bottomRight = self.createIndex(final_row_index, self.columnCount())
-            #this updates everything - we should add checks so we only update what needs to be changed
-            self.layoutChanged.emit()
-
-        def update_txn_status(self, txn):
-            row_index = -1
-            for index, t in enumerate(self._txns):
-                if t == txn:
-                    row_index = index
-                    break
-            self._ledger.add_transaction(txn)
-            self.set_txns_and_scheduled_txns()
-            status_index = self.createIndex(row_index, 4)
-            self.dataChanged.emit(status_index, status_index)
-
-        def remove_txn(self, txn):
-            self._ledger.remove_txn(txn.id)
-            self.set_txns_and_scheduled_txns()
-            self.layoutChanged.emit()
-
-    return Model
-
-
 class AccountsDisplay:
 
     def __init__(self, storage, reload_accounts, model_class):
@@ -1583,6 +1437,152 @@ class SplitTransactionEditor:
     def get_txn_splits(self):
         self._show_split_editor()
         return self._final_txn_splits
+
+
+def get_txns_model_class():
+
+    class Model(QtCore.QAbstractTableModel):
+
+        def __init__(self, ledger):
+            self._ledger = ledger
+            self.set_txns_and_scheduled_txns()
+            super().__init__()
+
+        def rowCount(self, parent=None):
+            return len(self._txns) + len(self._scheduled_txns_due)
+
+        def columnCount(self, parent=None):
+            return 9
+
+        def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if orientation == QtCore.Qt.Horizontal:
+                    if section == 0:
+                        return 'Type'
+                    elif section == 1:
+                        return 'Date'
+                    elif section == 2:
+                        return 'Payee'
+                    elif section == 3:
+                        return 'Description'
+                    elif section == 4:
+                        return 'Status'
+                    elif section == 5:
+                        return 'Withdrawal'
+                    elif section == 6:
+                        return 'Deposit'
+                    elif section == 7:
+                        return 'Balance'
+                    elif section == 8:
+                        return 'Transfer Account'
+
+        def data(self, index, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                row = index.row()
+                column = index.column()
+                is_scheduled_txn = False
+                if row >= len(self._txns):
+                    txn = self._scheduled_txns_due[row-len(self._txns)]
+                    is_scheduled_txn = True
+                else:
+                    txn = self._txns[index.row()]
+                tds = get_display_strings_for_ledger(self._ledger.account, txn)
+                if column == 0:
+                    return tds['txn_type']
+                if column == 1:
+                    return tds['txn_date']
+                if column == 2:
+                    return tds['payee']
+                if column == 3:
+                    return tds['description']
+                if column == 4:
+                    if not is_scheduled_txn:
+                        return tds['status']
+                if column == 5:
+                    return tds['withdrawal']
+                if column == 6:
+                    return tds['deposit']
+                if column == 7:
+                    if not is_scheduled_txn:
+                        return str(fraction_to_decimal(txn.balance))
+                if column == 8:
+                    return tds['categories']
+            elif role == QtCore.Qt.BackgroundRole:
+                row = index.row()
+                column = index.column()
+                is_scheduled_txn = False
+                if row >= len(self._txns):
+                    txn = self._scheduled_txns_due[row-len(self._txns)]
+                    is_scheduled_txn = True
+                else:
+                    txn = self._txns[index.row()]
+                if is_scheduled_txn:
+                    return QtGui.QBrush(QtCore.Qt.gray)
+
+        def set_txns_and_scheduled_txns(self):
+            #sets/updates self._txns & self._scheduled_txns_due
+            # must call this whenever ledger is updated
+            self._txns = self._ledger.get_sorted_txns_with_balance()
+            self._scheduled_txns_due = self._ledger.get_scheduled_transactions_due()
+
+        def get_txn(self, index):
+            row = index.row()
+            if row >= len(self._txns):
+                return self._scheduled_txns_due[row-len(self._txns)]
+            else:
+                return self._txns[row]
+
+        def get_bottom_right_index(self):
+            return self.createIndex(self.rowCount(), self.columnCount()-1)
+
+        def add_txn(self, txn):
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            self.layoutChanged.emit()
+
+        def update_txn(self, txn):
+            #txn edited:
+            #   date could have changed, and moved this row up or down in the table
+            #   amount could have changed, and affected all the subsequence balances
+            #   any of the fields of this txn could have changed
+            #initial_row_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t == txn:
+            #        initial_row_index = index
+            #        break
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            #final_row_index = -1
+            #for index, t in enumerate(self._txns):
+            #    if t == txn:
+            #        final_row_index = index
+            #        break
+            #if initial_row_index > final_row_index:
+            #    topLeft = self.createIndex(final_row_index, 0)
+            #    bottomRight = self.createIndex(initial_row_index, self.columnCount())
+            #else:
+            #    topLeft = self.createIndex(initial_row_index, 0)
+            #    bottomRight = self.createIndex(final_row_index, self.columnCount())
+            #this updates everything - we should add checks so we only update what needs to be changed
+            self.layoutChanged.emit()
+
+        def update_txn_status(self, txn):
+            row_index = -1
+            for index, t in enumerate(self._txns):
+                if t == txn:
+                    row_index = index
+                    break
+            self._ledger.add_transaction(txn)
+            self.set_txns_and_scheduled_txns()
+            status_index = self.createIndex(row_index, 4)
+            self.dataChanged.emit(status_index, status_index)
+
+        def remove_txn(self, txn):
+            self._ledger.remove_txn(txn.id)
+            self.set_txns_and_scheduled_txns()
+            self.layoutChanged.emit()
+
+    return Model
 
 
 class LedgerTxnsDisplay:
@@ -1993,8 +1993,9 @@ class ScheduledTxnForm:
 
 class LedgerDisplay:
 
-    def __init__(self, storage, current_account=None):
+    def __init__(self, storage, txns_model_class, current_account=None):
         self.storage = storage
+        self._txns_model_class = txns_model_class
         #choose an account if there is one
         if not current_account:
             accounts = self.storage.get_accounts(type_=AccountType.ASSET)
@@ -2003,7 +2004,6 @@ class LedgerDisplay:
         self._current_account = current_account
         self.txns_display_widget = None
         self.balances_widget = None
-        self._txns_model_class = get_txns_model_class()
 
     def get_widget(self):
         self.widget, self.layout = self._setup_main()
@@ -2181,74 +2181,81 @@ class BudgetForm:
         self._save_budget(b)
 
 
+def get_budget_model_class():
+
+    class Model(QtCore.QAbstractTableModel):
+
+        def __init__(self, budget):
+            self._budget_report = budget.get_report_display(current_date=date.today())
+            self._report_data = []
+            for account, info in self._budget_report['income'].items():
+                self._report_data.append({'account': account, 'info': info})
+            for account, info in self._budget_report['expense'].items():
+                self._report_data.append({'account': account, 'info': info})
+            super().__init__()
+
+        def rowCount(self, parent):
+            return len(self._report_data)
+
+        def columnCount(self, parent):
+            return 9
+
+        def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if orientation == QtCore.Qt.Horizontal:
+                    if section == 0:
+                        return 'Account'
+                    elif section == 1:
+                        return 'Amount'
+                    elif section == 2:
+                        return 'Income'
+                    elif section == 3:
+                        return 'Carryover'
+                    elif section == 4:
+                        return 'Total Budget'
+                    elif section == 5:
+                        return 'Spent'
+                    elif section == 6:
+                        return 'Remaining'
+                    elif section == 7:
+                        return 'Remaining Percent'
+                    elif section == 8:
+                        return 'Current Status'
+
+        def data(self, index, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if index.column() == 0:
+                    return self._report_data[index.row()]['account'].name
+                if index.column() == 1:
+                    return self._report_data[index.row()]['info'].get('amount', '')
+                if index.column() == 2:
+                    return self._report_data[index.row()]['info'].get('income', '')
+                if index.column() == 3:
+                    return self._report_data[index.row()]['info'].get('carryover', '')
+                if index.column() == 4:
+                    return self._report_data[index.row()]['info'].get('total_budget', '')
+                if index.column() == 5:
+                    return self._report_data[index.row()]['info'].get('total_budget', '')
+                if index.column() == 6:
+                    return self._report_data[index.row()]['info'].get('remaining', '')
+                if index.column() == 7:
+                    return self._report_data[index.row()]['info'].get('remaining_percent', '')
+                if index.column() == 8:
+                    return self._report_data[index.row()]['info'].get('current_status', '')
+
+    return Model
+
+
 class BudgetDataDisplay:
     '''Just for displaying budget values and income/expense data.'''
 
-    def __init__(self, budget, save_budget):
+    def __init__(self, budget, save_budget, budget_model_class):
         self._budget = budget
         self._save_budget = save_budget
+        self._budget_model_class = budget_model_class
 
     def _get_model(self):
-        class Model(QtCore.QAbstractTableModel):
-
-            def __init__(self, budget):
-                self._budget_report = budget.get_report_display(current_date=date.today())
-                self._report_data = []
-                for account, info in self._budget_report['income'].items():
-                    self._report_data.append({'account': account, 'info': info})
-                for account, info in self._budget_report['expense'].items():
-                    self._report_data.append({'account': account, 'info': info})
-                super().__init__()
-
-            def rowCount(self, parent):
-                return len(self._report_data)
-
-            def columnCount(self, parent):
-                return 9
-
-            def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
-                if role == QtCore.Qt.DisplayRole:
-                    if orientation == QtCore.Qt.Horizontal:
-                        if section == 0:
-                            return 'Account'
-                        elif section == 1:
-                            return 'Amount'
-                        elif section == 2:
-                            return 'Income'
-                        elif section == 3:
-                            return 'Carryover'
-                        elif section == 4:
-                            return 'Total Budget'
-                        elif section == 5:
-                            return 'Spent'
-                        elif section == 6:
-                            return 'Remaining'
-                        elif section == 7:
-                            return 'Remaining Percent'
-                        elif section == 8:
-                            return 'Current Status'
-
-            def data(self, index, role=QtCore.Qt.DisplayRole):
-                if role == QtCore.Qt.DisplayRole:
-                    if index.column() == 0:
-                        return self._report_data[index.row()]['account'].name
-                    if index.column() == 1:
-                        return self._report_data[index.row()]['info'].get('amount', '')
-                    if index.column() == 2:
-                        return self._report_data[index.row()]['info'].get('income', '')
-                    if index.column() == 3:
-                        return self._report_data[index.row()]['info'].get('carryover', '')
-                    if index.column() == 4:
-                        return self._report_data[index.row()]['info'].get('total_budget', '')
-                    if index.column() == 5:
-                        return self._report_data[index.row()]['info'].get('total_budget', '')
-                    if index.column() == 6:
-                        return self._report_data[index.row()]['info'].get('remaining', '')
-                    if index.column() == 7:
-                        return self._report_data[index.row()]['info'].get('remaining_percent', '')
-                    if index.column() == 8:
-                        return self._report_data[index.row()]['info'].get('current_status', '')
-        return Model(self._budget)
+        return self._budget_model_class(self._budget)
 
     def get_widget(self):
         model = self._get_model()
@@ -2267,8 +2274,9 @@ class BudgetDisplay:
         else:
             return '%s - %s' % (budget.start_date, budget.end_date)
 
-    def __init__(self, storage, current_budget=None):
+    def __init__(self, storage, budget_model_class, current_budget=None):
         self.storage = storage
+        self._budget_model_class = budget_model_class
         if not current_budget:
             budgets = self.storage.get_budgets()
             if budgets:
@@ -2295,7 +2303,7 @@ class BudgetDisplay:
         return widget, layout, row_index
 
     def _display_budget(self, layout, budget, row):
-        self.budget_data_display = BudgetDataDisplay(budget, save_budget=self._save_budget_and_reload)
+        self.budget_data_display = BudgetDataDisplay(budget, save_budget=self._save_budget_and_reload, budget_model_class=self._budget_model_class)
         if self._budget_data_display_widget:
             layout.removeWidget(self._budget_data_display_widget)
             self._budget_data_display_widget.deleteLater()
@@ -2479,6 +2487,8 @@ class GUI_QT:
         self.parent_window.showMaximized()
         self.content_area = None
         self._accounts_model_class = get_accounts_model_class()
+        self._txns_model_class = get_txns_model_class()
+        self._budget_model_class = get_budget_model_class()
 
         if file_name:
             self._load_db(file_name)
@@ -2567,7 +2577,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.ledger_display = LedgerDisplay(self.storage)
+        self.ledger_display = LedgerDisplay(self.storage, txns_model_class=self._txns_model_class)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2575,7 +2585,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.budget_display = BudgetDisplay(self.storage, current_budget=current_budget)
+        self.budget_display = BudgetDisplay(self.storage, budget_model_class=self._budget_model_class, current_budget=current_budget)
         self.main_widget = self.budget_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 

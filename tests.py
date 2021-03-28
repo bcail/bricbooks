@@ -2066,10 +2066,11 @@ class TestQtGUI(unittest.TestCase):
 
     def test_empty_ledger(self):
         storage = bb.SQLiteStorage(':memory:')
-        ledger_display = bb.LedgerDisplay(storage)
+        ledger_display = bb.LedgerDisplay(storage, txns_model_class=bb.get_txns_model_class())
 
     def test_ledger_add(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
@@ -2080,8 +2081,8 @@ class TestQtGUI(unittest.TestCase):
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.count(), 4)
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
@@ -2098,15 +2099,17 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
         storage.save_account(savings)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
-        ledger_display = bb.LedgerDisplay(storage, current_account=savings)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
+        ledger_display.action_combo.setCurrentIndex(1)
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
@@ -2121,15 +2124,16 @@ class TestQtGUI(unittest.TestCase):
             )
 
     def test_add_txn_multiple_splits(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = get_test_account()
         storage.save_account(checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
         rent = get_test_account(type_=bb.AccountType.EXPENSE, name='Rent')
         storage.save_account(rent)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         txn_accounts_display_splits = {rent: {'amount': 3}, housing: {'amount': 7}}
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
@@ -2143,24 +2147,9 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], {'amount': -10})
 
-    def test_ledger_choose_account(self):
-        storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
-        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
-        txn2 = bb.Transaction(splits={savings: {'amount': 5}, checking: {'amount': -5}}, txn_date=date(2017, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        ledger_display = bb.LedgerDisplay(storage, current_account=savings)
-        ledger_display.get_widget()
-        self.assertEqual(ledger_display._current_account, savings)
-        self.assertEqual(ledger_display.action_combo.currentIndex(), 1)
-        self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
-
     def test_ledger_switch_account(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
         savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
         restaurant = bb.Account(type_=bb.AccountType.EXPENSE, name='Restaurants')
@@ -2183,8 +2172,8 @@ class TestQtGUI(unittest.TestCase):
                 description='something',
             )
         storage.save_scheduled_transaction(st)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
         self.assertEqual(ledger_display._current_account, checking)
         self.assertEqual(ledger_display.action_combo.currentIndex(), 0)
         self.assertEqual(ledger_display.action_combo.currentText(), 'Checking')
@@ -2193,7 +2182,8 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
 
     def test_ledger_txn_edit(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = get_test_account()
         storage.save_account(checking)
         savings = get_test_account(name='Savings')
@@ -2208,8 +2198,8 @@ class TestQtGUI(unittest.TestCase):
         storage.save_txn(txn2)
         storage.save_txn(txn3)
         storage.save_txn(txn4)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
 
         secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
         secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
@@ -2231,19 +2221,19 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[2].splits[savings], {'amount': -20})
 
     def test_ledger_txn_edit_expense_account(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
-        storage.save_account(checking)
+        gui.storage.save_account(checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        gui.storage.save_account(housing)
         restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
-        storage.save_account(restaurants)
+        gui.storage.save_account(restaurants)
         txn = bb.Transaction(splits={checking: {'amount': 5}, housing: {'amount': -5}}, txn_date=date(2017, 1, 3))
         txn2 = bb.Transaction(splits={checking: {'amount': 17}, housing: {'amount': -17}}, txn_date=date(2017, 5, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        gui.storage.save_txn(txn)
+        gui.storage.save_txn(txn2)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
         #activate editing
         secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
         secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
@@ -2255,42 +2245,42 @@ class TestQtGUI(unittest.TestCase):
         #save the change
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new category was saved
-        ledger = storage.get_ledger(account=checking)
+        ledger = gui.storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(txns[1].splits[restaurants], {'amount': -17})
 
     def test_ledger_txn_edit_multiple_splits(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
-        storage.save_account(checking)
+        gui.storage.save_account(checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        gui.storage.save_account(housing)
         restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
-        storage.save_account(restaurants)
+        gui.storage.save_account(restaurants)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        gui.storage.save_account(food)
         initial_splits = {checking: {'amount': -25}, housing: {'amount': 20}, restaurants: {'amount': 5}}
         txn_account_display_splits = {housing: {'amount': 15}, restaurants: {'amount': 10}}
         final_splits = {checking: {'amount': -25}, housing: {'amount': 15}, restaurants: {'amount': 10}}
         txn = bb.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
-        storage.save_txn(txn)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        gui.storage.save_txn(txn)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         #activate editing
-        firstRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
-        firstRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
-        viewport = ledger_display.txns_display._txns_widget.viewport()
+        firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        firstRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
+        viewport = gui.ledger_display.txns_display._txns_widget.viewport()
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
-        self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentText(), 'multiple')
-        self.assertEqual(ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
+        self.assertEqual(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentText(), 'multiple')
+        self.assertEqual(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
         bb.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        updated_txn = storage.get_txn(txn.id)
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
+        updated_txn = gui.storage.get_txn(txn.id)
         self.assertDictEqual(updated_txn.splits, final_splits)
 
     def test_ledger_txn_delete(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         storage.save_account(checking)
@@ -2299,8 +2289,8 @@ class TestQtGUI(unittest.TestCase):
         txn2 = bb.Transaction(splits={checking: {'amount': 23}, savings: {'amount': -23}}, txn_date=date(2017, 1, 2))
         storage.save_txn(txn)
         storage.save_txn(txn2)
-        ledger_display = bb.LedgerDisplay(storage)
-        ledger_display.get_widget()
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        ledger_display = gui.ledger_display
         secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
         secondRowYPos = ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
         viewport = ledger_display.txns_display._txns_widget.viewport()
@@ -2355,7 +2345,8 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking]['status'], bb.Transaction.CLEARED)
 
     def test_budget_display(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
@@ -2369,33 +2360,34 @@ class TestQtGUI(unittest.TestCase):
         })
         storage.save_budget(b)
         budget = storage.get_budgets()[0]
-        budget_display = bb.BudgetDisplay(storage=storage, current_budget=budget)
+        QtTest.QTest.mouseClick(gui.budget_button, QtCore.Qt.LeftButton) #go to budget page
+        budget_display = gui.budget_display
         widget = budget_display.get_widget()
 
     def test_budget_create(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        budget_display = bb.BudgetDisplay(storage=storage)
-        budget_display.get_widget()
-        self.assertEqual(budget_display._current_budget, None)
-        self.assertEqual(budget_display._budget_select_combo.currentText(), '')
-        self.assertEqual(budget_display._budget_select_combo.currentData(), None)
-        QtTest.QTest.mouseClick(budget_display.add_button, QtCore.Qt.LeftButton)
-        budget_display.budget_form._widgets['start_date'].setText('2020-01-01')
-        budget_display.budget_form._widgets['end_date'].setText('2020-12-31')
-        budget_display.budget_form._widgets['budget_data'][housing]['amount'].setText('500')
-        budget_display.budget_form._save()
+        QtTest.QTest.mouseClick(gui.budget_button, QtCore.Qt.LeftButton) #go to budget page
+        self.assertFalse(gui.budget_display._current_budget)
+        self.assertEqual(gui.budget_display._budget_select_combo.currentText(), '')
+        self.assertEqual(gui.budget_display._budget_select_combo.currentData(), None)
+        QtTest.QTest.mouseClick(gui.budget_display.add_button, QtCore.Qt.LeftButton)
+        gui.budget_display.budget_form._widgets['start_date'].setText('2020-01-01')
+        gui.budget_display.budget_form._widgets['end_date'].setText('2020-12-31')
+        gui.budget_display.budget_form._widgets['budget_data'][housing]['amount'].setText('500')
+        gui.budget_display.budget_form._save()
         #verify budget saved in storage
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2020, 1, 1))
         self.assertEqual(budget.get_budget_data()[housing]['amount'], 500)
         #verify BudgetDisplay updated
-        self.assertEqual(budget_display._current_budget, budget)
-        self.assertEqual(budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
-        self.assertEqual(budget_display._budget_select_combo.currentData(), budget)
+        self.assertEqual(gui.budget_display._current_budget, budget)
+        self.assertEqual(gui.budget_display._budget_select_combo.currentText(), '2020-01-01 - 2020-12-31')
+        self.assertEqual(gui.budget_display._budget_select_combo.currentData(), budget)
 
     def test_add_scheduled_txn(self):
         gui = bb.GUI_QT(':memory:')
