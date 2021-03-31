@@ -2428,7 +2428,10 @@ class TestQtGUI(unittest.TestCase):
         gui.storage.save_scheduled_transaction(scheduled_txn)
         #go to scheduled txns, click on one to activate edit form, update values, & save it
         QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
-        QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.widgets[scheduled_txn.id]['name'], QtCore.Qt.LeftButton)
+        firstRowXPos = gui.scheduled_txns_display.data_display.main_widget.columnViewportPosition(2) + 5
+        firstRowYPos = gui.scheduled_txns_display.data_display.main_widget.rowViewportPosition(0) + 10
+        viewport = gui.scheduled_txns_display.data_display.main_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         gui.scheduled_txns_display.data_display.edit_form._widgets['name'].setText('updated')
         gui.scheduled_txns_display.data_display.edit_form._widgets['withdrawal'].setText('15')
         self.assertEqual(gui.scheduled_txns_display.data_display.edit_form._widgets['accounts_display']._categories_combo.currentData(), housing)

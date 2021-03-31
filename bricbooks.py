@@ -1603,7 +1603,6 @@ class LedgerTxnsDisplay:
         self.main_widget.setWidgetResizable(True)
         self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
         set_ledger_column_widths(self.txns_layout)
-        self.txn_display_data = {}
         self.main_widget.setWidget(self._txns_widget)
         return self.main_widget
 
@@ -2356,54 +2355,75 @@ class BudgetDisplay:
         self.budget_form.show_form()
 
 
+def get_scheduled_txns_model_class():
+
+    class Model(QtCore.QAbstractTableModel):
+
+        def __init__(self, scheduled_txns):
+            self._scheduled_txns = scheduled_txns
+            super().__init__()
+
+        def rowCount(self, parent):
+            return len(self._scheduled_txns)
+
+        def columnCount(self, parent):
+            return 5
+
+        def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                if orientation == QtCore.Qt.Horizontal:
+                    if section == 0:
+                        return 'Name'
+                    elif section == 1:
+                        return 'Frequency'
+                    elif section == 2:
+                        return 'Next Due Date'
+                    elif section == 3:
+                        return 'Payee'
+                    elif section == 4:
+                        return 'Splits'
+
+        def data(self, index, role=QtCore.Qt.DisplayRole):
+            if role == QtCore.Qt.DisplayRole:
+                column = index.column()
+                row = index.row()
+                if column == 0:
+                    return self._scheduled_txns[row].name
+                elif column == 1:
+                    return self._scheduled_txns[row].frequency.value
+                elif column == 2:
+                    return str(self._scheduled_txns[row].next_due_date)
+                elif column == 3:
+                    return self._scheduled_txns[row].payee
+                elif column == 4:
+                    return splits_display(self._scheduled_txns[row].splits)
+
+        def get_scheduled_txn_id(self, index):
+            return self._scheduled_txns[index.row()].id
+
+    return Model
+
+
 class ScheduledTxnsDataDisplay:
     '''for displaying the list of scheduled transactions'''
 
-    def __init__(self, scheduled_txns, storage, reload_function):
+    def __init__(self, scheduled_txns, storage, model_class, reload_function):
         self.scheduled_txns = scheduled_txns
         self.storage = storage
+        self._model_class = model_class
         self._reload = reload_function
+        self._model = model_class(self.scheduled_txns)
         self.widgets = {}
 
     def get_widget(self):
-        self.main_widget = QtWidgets.QScrollArea()
-        self.main_widget.setWidgetResizable(True)
-        self.layout = QtWidgets.QGridLayout()
-        row_index = 0
-        for st in self.scheduled_txns:
-            edit_function = partial(self._edit, st_id=st.id, layout=self.layout)
-            st_widgets = {}
-            name_label = QtWidgets.QLabel(st.name)
-            name_label.mousePressEvent = edit_function
-            self.layout.addWidget(name_label, row_index, 0)
-            st_widgets['name'] = name_label
-            frequency_label = QtWidgets.QLabel(st.frequency.name)
-            frequency_label.mousePressEvent = edit_function
-            self.layout.addWidget(frequency_label, row_index, 1)
-            st_widgets['frequency'] = frequency_label
-            next_due_date_label = QtWidgets.QLabel(str(st.next_due_date))
-            next_due_date_label.mousePressEvent = edit_function
-            self.layout.addWidget(next_due_date_label, row_index, 2)
-            st_widgets['next_due_date'] = next_due_date_label
-            payee_name = ''
-            if st.payee:
-                payee_name = st.payee.name
-            payee_label = QtWidgets.QLabel(payee_name)
-            payee_label.mousePressEvent = edit_function
-            self.layout.addWidget(payee_label, row_index, 3)
-            st_widgets['payee'] = payee_label
-            splits_label = QtWidgets.QLabel(splits_display(st.splits))
-            splits_label.mousePressEvent = edit_function
-            self.layout.addWidget(splits_label, row_index, 4)
-            st_widgets['splits'] = splits_label
-            self.widgets[st.id] = st_widgets
-            row_index += 1
-        self.widget = QtWidgets.QWidget()
-        self.widget.setLayout(self.layout)
-        self.main_widget.setWidget(self.widget)
+        self.main_widget = QtWidgets.QTableView()
+        self.main_widget.setModel(self._model)
+        self.main_widget.resizeColumnsToContents()
+        self.main_widget.clicked.connect(self._edit)
         return self.main_widget
 
-    def _edit(self, event, st_id, layout):
+    def _edit(self, index):
+        st_id = self._model.get_scheduled_txn_id(index)
         scheduled_txn = self.storage.get_scheduled_transaction(st_id)
         self.edit_form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
         self.edit_form.show_form()
@@ -2415,8 +2435,9 @@ class ScheduledTxnsDataDisplay:
 
 class ScheduledTxnsDisplay:
 
-    def __init__(self, storage):
+    def __init__(self, storage, model_class):
         self.storage = storage
+        self._model_class = model_class
         self._data_display_widget = None
 
     def get_widget(self):
@@ -2439,12 +2460,6 @@ class ScheduledTxnsDisplay:
         self.add_button = QtWidgets.QPushButton('New Scheduled Transaction')
         self.add_button.clicked.connect(partial(self._open_form, scheduled_txn=None))
         layout.addWidget(self.add_button, row, 0)
-        row += 1
-        layout.addWidget(QtWidgets.QLabel('Name'), row, 0)
-        layout.addWidget(QtWidgets.QLabel('Frequency'), row, 1)
-        layout.addWidget(QtWidgets.QLabel('Next Due Date'), row, 2)
-        layout.addWidget(QtWidgets.QLabel('Payee'), row, 3)
-        layout.addWidget(QtWidgets.QLabel('Splits'), row, 4)
         return row + 1
 
     def _display_scheduled_txns(self, layout):
@@ -2453,7 +2468,8 @@ class ScheduledTxnsDisplay:
             layout.removeWidget(self._data_display_widget)
             self._data_display_widget.deleteLater()
         if scheduled_txns:
-            self.data_display = ScheduledTxnsDataDisplay(scheduled_txns, storage=self.storage, reload_function=partial(self._display_scheduled_txns, layout=layout))
+            self.data_display = ScheduledTxnsDataDisplay(scheduled_txns, storage=self.storage, model_class=self._model_class,
+                    reload_function=partial(self._display_scheduled_txns, layout=layout))
             self._data_display_widget = self.data_display.get_widget()
             layout.addWidget(self._data_display_widget, self._row_index, 0, 1, 5)
             self._row_index += 1
@@ -2489,6 +2505,7 @@ class GUI_QT:
         self._accounts_model_class = get_accounts_model_class()
         self._txns_model_class = get_txns_model_class()
         self._budget_model_class = get_budget_model_class()
+        self._scheduled_txns_model_class = get_scheduled_txns_model_class()
 
         if file_name:
             self._load_db(file_name)
@@ -2593,7 +2610,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.scheduled_txns_display = ScheduledTxnsDisplay(self.storage)
+        self.scheduled_txns_display = ScheduledTxnsDisplay(self.storage, model_class=self._scheduled_txns_model_class)
         self.main_widget = self.scheduled_txns_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
