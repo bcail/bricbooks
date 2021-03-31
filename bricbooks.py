@@ -1769,6 +1769,9 @@ class TxnForm:
             entry = QtWidgets.QLineEdit()
             if self._txn:
                 entry.setText(tds[name])
+            else:
+                if name == 'txn_date':
+                    entry.setText(str(date.today()))
             self._widgets[name] = entry
             widgets[GUI_FIELDS[name]['add_edit_column_number']] = entry
             labels[GUI_FIELDS[name]['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS[name]['label'])

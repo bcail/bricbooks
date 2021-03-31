@@ -2085,6 +2085,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display = gui.ledger_display
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
         self.assertEqual(ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.count(), 4)
+        self.assertEqual(ledger_display.add_txn_display._widgets['txn_date'].text(), str(date.today()))
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
         ledger_display.add_txn_display._widgets['payee'].setCurrentText('Burgers')
