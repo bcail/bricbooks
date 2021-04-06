@@ -95,6 +95,10 @@ class TestAccount(unittest.TestCase):
         a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', number='')
         self.assertEqual(a.number, None)
 
+    def test_securities_account(self):
+        a = bb.Account(id_=1, type_=bb.AccountType.SECURITY, name='test')
+        self.assertEqual(list({a: 1}.keys())[0], a)
+
 
 class TestTransaction(unittest.TestCase):
 
@@ -149,7 +153,7 @@ class TestTransaction(unittest.TestCase):
                 payee=bb.Payee('payee 1'),
                 description='2 hamburgers',
             )
-        txn_splits = {self.checking: {'amount': Fraction(100), 'status': 'C'}, self.savings: {'amount': Fraction(-100)}}
+        txn_splits = {self.checking: {'amount': Fraction(100), 'quantity': Fraction(100), 'status': 'C'}, self.savings: {'amount': Fraction(-100), 'quantity': Fraction(-100)}}
         self.assertEqual(t.splits, txn_splits)
         self.assertTrue(isinstance(t.splits[self.checking]['amount'], Fraction))
         self.assertEqual(t.txn_date, date.today())
@@ -173,7 +177,7 @@ class TestTransaction(unittest.TestCase):
                 splits={self.checking: {'amount': '-1'}, self.savings: {'amount': '1'}},
                 txn_date=date.today(),
             )
-        self.assertEqual(t.splits, {self.checking: {'amount': Fraction(-1)}, self.savings: {'amount': Fraction(1)}})
+        self.assertEqual(t.splits, {self.checking: {'amount': -1, 'quantity': -1}, self.savings: {'amount': 1, 'quantity': 1}})
 
     def test_txn_payee(self):
         t = bb.Transaction(
@@ -203,8 +207,8 @@ class TestTransaction(unittest.TestCase):
                 categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
         self.assertEqual(t.splits, {
-            self.checking: {'amount': 101, 'status': 'C'},
-            self.savings: {'amount': -101},
+            self.checking: {'amount': 101, 'quantity': 101, 'status': 'C'},
+            self.savings: {'amount': -101, 'quantity': -101},
         })
 
     def test_txn_status(self):
@@ -223,7 +227,7 @@ class TestTransaction(unittest.TestCase):
                 },
                 txn_date=date.today(),
             )
-        self.assertEqual(t.splits[self.checking], {'amount': -101})
+        self.assertEqual(t.splits[self.checking], {'amount': -101, 'quantity': -101})
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(
                     splits={
@@ -403,6 +407,24 @@ class TestLedger(unittest.TestCase):
         ledger.add_transaction(bb.Transaction(id_=4, splits=splits3, txn_date=date.today()+timedelta(days=3)))
         ledger.add_transaction(bb.Transaction(id_=5, splits=splits4, txn_date=date.today()+timedelta(days=5)))
         expected_balances = bb.LedgerBalances(current='70.45', current_cleared='82.45')
+        self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
+
+    def test_securities_account_balances(self):
+        fund_account = get_test_account(id_=1, type_=bb.AccountType.SECURITY)
+        ledger = bb.Ledger(account=fund_account)
+        splits1 = {fund_account: {'amount': 50, 'quantity': 3, 'status': bb.Transaction.RECONCILED}, self.savings: {'amount': '-50'}}
+        splits2 = {fund_account: {'amount': '32.45', 'quantity': '2.1', 'status': bb.Transaction.CLEARED}, self.savings: {'amount': '-32.45'}}
+        splits3 = {fund_account: {'amount': -12, 'quantity': '-0.8'}, self.savings: {'amount': 12}}
+        splits4 = {fund_account: {'amount': 1, 'quantity': '0.01'}, self.savings: {'amount': -1}}
+        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 6, 24)))
+        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 8, 5)))
+        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date(2017, 6, 5)))
+        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=3)))
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(txns[0].balance, Fraction('-0.8'))
+        self.assertEqual(txns[1].balance, Fraction('2.2'))
+        self.assertEqual(txns[3].balance, Fraction('4.31'))
+        expected_balances = bb.LedgerBalances(current='4.3', current_cleared='5.1')
         self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
 
     def test_get_scheduled_txns_due(self):
@@ -1044,7 +1066,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_from_db = storage.get_txn(txn_id)
         self.assertEqual(txn_from_db.txn_type, '123')
         self.assertEqual(txn_from_db.payee, payee)
-        self.assertEqual(txn_from_db.splits[checking], {'amount': -101, 'status': 'C'})
+        self.assertEqual(txn_from_db.splits[checking], {'amount': -101, 'quantity': -101, 'status': 'C'})
         #update it & save again
         splits = {
                 checking: {'amount': '-101'},
@@ -1538,7 +1560,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
 class TestCLI(unittest.TestCase):
 
-    ACCOUNT_FORM_OUTPUT = '  name:   type (asset,liability,equity,income,expense):   number:   parent account id: '
+    ACCOUNT_FORM_OUTPUT = '  name:   type (asset,security,liability,equity,income,expense):   number:   parent account id: '
 
     def setUp(self):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
@@ -1656,8 +1678,8 @@ class TestCLI(unittest.TestCase):
         ledger = self.cli.storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
-        self.assertEqual(txn.splits[checking], {'amount': -15, 'status': 'C'})
-        self.assertEqual(txn.splits[savings], {'amount': 15})
+        self.assertEqual(txn.splits[checking], {'amount': -15, 'quantity': -15, 'status': 'C'})
+        self.assertEqual(txn.splits[savings], {'amount': 15, 'quantity': 15})
         self.assertEqual(txn.txn_type, 'type 1')
         self.assertEqual(txn.payee, payee)
         self.assertEqual(txn.description, 'description')
@@ -1726,9 +1748,9 @@ class TestCLI(unittest.TestCase):
         ledger = self.cli.storage.get_ledger(1)
         edited_txn = ledger.get_txn(id_=txn.id)
         self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
-        self.assertEqual(edited_txn.splits[checking], {'amount': -90})
-        self.assertEqual(edited_txn.splits[savings], {'amount': 50})
-        self.assertEqual(edited_txn.splits[another_account], {'amount': 40})
+        self.assertEqual(edited_txn.splits[checking], {'amount': -90, 'quantity': -90})
+        self.assertEqual(edited_txn.splits[savings], {'amount': 50, 'quantity': 50})
+        self.assertEqual(edited_txn.splits[another_account], {'amount': 40, 'quantity': 40})
         self.assertEqual(edited_txn.description, 'new description')
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue('Checking amount' in buffer_value)
@@ -1844,8 +1866,8 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].splits,
                 {
-                    checking: {'amount': -15, 'status': 'R'},
-                    savings: {'amount': 15},
+                    checking: {'amount': -15, 'quantity': -15, 'status': 'R'},
+                    savings: {'amount': 15, 'quantity': 15},
                 })
         self.assertEqual(scheduled_txns[0].txn_type, 't')
         self.assertEqual(scheduled_txns[0].payee.name, 'payee')
@@ -1872,7 +1894,7 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_scheduled_txn()
         scheduled_txns = self.cli.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15})
+        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].txn_type, 't')
         self.assertEqual(scheduled_txns[0].payee.name, 'payee')
@@ -2095,7 +2117,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 3)
-        self.assertEqual(txns[1].splits[checking], {'amount': -18})
+        self.assertEqual(txns[1].splits[checking], {'amount': -18, 'quantity': -18})
         self.assertEqual(txns[1].payee.name, 'Burgers')
 
     def test_ledger_add_not_first_account(self):
@@ -2121,7 +2143,7 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits,
-                {savings: {'amount': -18}, housing: {'amount': 18}}
+                {savings: {'amount': -18, 'quantity': -18}, housing: {'amount': 18, 'quantity': 18}}
             )
 
     def test_add_txn_multiple_splits(self):
@@ -2146,7 +2168,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].splits[checking], {'amount': -10})
+        self.assertEqual(txns[0].splits[checking], {'amount': -10, 'quantity': -10})
 
     def test_ledger_switch_account(self):
         gui = bb.GUI_QT(':memory:')
@@ -2218,8 +2240,8 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
-        self.assertEqual(txns[2].splits[checking], {'amount': 20})
-        self.assertEqual(txns[2].splits[savings], {'amount': -20})
+        self.assertEqual(txns[2].splits[checking], {'amount': 20, 'quantity': 20})
+        self.assertEqual(txns[2].splits[savings], {'amount': -20, 'quantity': -20})
 
     def test_ledger_txn_edit_expense_account(self):
         gui = bb.GUI_QT(':memory:')
@@ -2248,7 +2270,7 @@ class TestQtGUI(unittest.TestCase):
         #make sure new category was saved
         ledger = gui.storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(txns[1].splits[restaurants], {'amount': -17})
+        self.assertEqual(txns[1].splits[restaurants], {'amount': -17, 'quantity': -17})
 
     def test_ledger_txn_edit_multiple_splits(self):
         gui = bb.GUI_QT(':memory:')
@@ -2262,7 +2284,7 @@ class TestQtGUI(unittest.TestCase):
         gui.storage.save_account(food)
         initial_splits = {checking: {'amount': -25}, housing: {'amount': 20}, restaurants: {'amount': 5}}
         txn_account_display_splits = {housing: {'amount': 15}, restaurants: {'amount': 10}}
-        final_splits = {checking: {'amount': -25}, housing: {'amount': 15}, restaurants: {'amount': 10}}
+        final_splits = {checking: {'amount': -25, 'quantity': -25}, housing: {'amount': 15, 'quantity': 15}, restaurants: {'amount': 10, 'quantity': 10}}
         txn = bb.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
         gui.storage.save_txn(txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
@@ -2301,7 +2323,7 @@ class TestQtGUI(unittest.TestCase):
         ledger = storage.get_ledger(account=checking)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].splits[checking], {'amount': 23})
+        self.assertEqual(txns[0].splits[checking], {'amount': 23, 'quantity': 23})
 
     def test_ledger_skip_scheduled_txn(self):
         gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
@@ -2407,8 +2429,8 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.form._widgets['save_btn'], QtCore.Qt.LeftButton)
         scheduled_txns = gui.storage.get_scheduled_transactions()
         self.assertEqual(scheduled_txns[0].name, 'test st')
-        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -37})
-        self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 37})
+        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -37, 'quantity': -37})
+        self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 37, 'quantity': 37})
         self.assertEqual(scheduled_txns[0].payee.name, 'Someone')
 
     def test_edit_scheduled_txn(self):
@@ -2440,8 +2462,8 @@ class TestQtGUI(unittest.TestCase):
         scheduled_txns = gui.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'updated')
-        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15})
-        self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15})
+        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
+        self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15, 'quantity': 15})
 
 
 class TestLoadTestData(unittest.TestCase):
@@ -2462,7 +2484,7 @@ class TestImport(unittest.TestCase):
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 34)
         assets = storage.get_accounts(type_=bb.AccountType.ASSET)
-        self.assertEqual(len(assets), 5)
+        self.assertEqual(len(assets), 4)
         liabilities = storage.get_accounts(type_=bb.AccountType.LIABILITY)
         self.assertEqual(len(liabilities), 1)
         expenses = storage.get_accounts(type_=bb.AccountType.EXPENSE)
@@ -2471,6 +2493,8 @@ class TestImport(unittest.TestCase):
         self.assertEqual(len(incomes), 9)
         equities = storage.get_accounts(type_=bb.AccountType.EQUITY)
         self.assertEqual(len(equities), 2)
+        securities = storage.get_accounts(type_=bb.AccountType.SECURITY)
+        self.assertEqual(len(securities), 1)
         payees = storage.get_payees()
         self.assertEqual(len(payees), 2)
         checking = storage.get_account(name='Checking')
@@ -2506,4 +2530,3 @@ if __name__ == '__main__':
     else:
         from PySide2 import QtWidgets, QtTest, QtCore
         unittest.main()
-

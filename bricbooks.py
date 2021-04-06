@@ -33,6 +33,7 @@ class CommodityType(Enum):
 
 class AccountType(Enum):
     ASSET = 'asset'
+    SECURITY = 'security' #for mutual funds, stocks, ... anything traded in shares
     LIABILITY = 'liability'
     EQUITY = 'equity'
     INCOME = 'income'
@@ -81,6 +82,9 @@ class InvalidPayeeError(RuntimeError):
     pass
 
 class InvalidAmount(RuntimeError):
+    pass
+
+class InvalidQuantity(RuntimeError):
     pass
 
 class InvalidTransactionError(RuntimeError):
@@ -232,6 +236,19 @@ def get_validated_amount(value):
     return amount
 
 
+def get_validated_quantity(value):
+    quantity = None
+    #try to only allow exact values (eg. no floats)
+    if isinstance(value, (int, str, Fraction)):
+        try:
+            quantity = Fraction(value)
+        except InvalidOperation:
+            raise InvalidQuantity('error generating Fraction from "{value}"')
+    else:
+        raise InvalidQuantity(f'invalid value type: {type(value)} {value}')
+    return quantity
+
+
 def fraction_to_decimal(f):
     return Decimal(f.numerator) / Decimal(f.denominator)
 
@@ -247,7 +264,9 @@ def check_txn_splits(splits):
             amount = get_validated_amount(info['amount'])
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid split: %s' % e)
-        amt_str = str(amount)
+        if 'quantity' not in info:
+            info['quantity'] = amount
+        info['quantity'] = get_validated_quantity(info['quantity'])
         total += amount
         info['amount'] = amount
         if 'status' in info:
@@ -438,12 +457,20 @@ class Ledger:
     def _sort_txns(self, txns):
         return sorted(txns, key=lambda t: t.txn_date)
 
+    def _get_balance_field(self):
+        if self.account.type == AccountType.SECURITY:
+            field = 'quantity'
+        else:
+            field = 'amount'
+        return field
+
     def _add_balance_to_txns(self, txns):
         #txns must be sorted in chronological order (not reversed) already
         txns_with_balance = []
         balance = Fraction(0)
+        field = self._get_balance_field()
         for t in txns:
-            balance = balance + t.splits[self.account]['amount']
+            balance = balance + t.splits[self.account][field]
             t.balance = balance
             txns_with_balance.append(t)
         return txns_with_balance
@@ -481,11 +508,12 @@ class Ledger:
         current = Fraction(0)
         current_cleared = Fraction(0)
         today = date.today()
+        field = self._get_balance_field()
         for t in sorted_txns:
             if t.txn_date <= today:
                 current = t.balance
                 if t.splits[self.account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
-                    current_cleared = current_cleared + t.splits[self.account]['amount']
+                    current_cleared = current_cleared + t.splits[self.account][field]
         return LedgerBalances(
                 current=str(fraction_to_decimal(current)),
                 current_cleared=str(fraction_to_decimal(current_cleared)),
@@ -856,7 +884,7 @@ class SQLiteStorage:
             return self._get_accounts_by_type(type_)
         else:
             accounts = []
-            for type_ in [AccountType.ASSET, AccountType.LIABILITY, AccountType.INCOME, AccountType.EXPENSE, AccountType.EQUITY]:
+            for type_ in [AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.INCOME, AccountType.EXPENSE, AccountType.EQUITY]:
                 accounts.extend(self._get_accounts_by_type(type_))
             return accounts
 
@@ -868,14 +896,14 @@ class SQLiteStorage:
         payee = self.get_payee(payee_id)
         cursor = self._db_connection.cursor()
         splits = {}
-        split_records = cursor.execute('SELECT account_id, value, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
+        split_records = cursor.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = {'amount': split_record[1]}
-                if split_record[2]:
-                    splits[account]['status'] = split_record[2]
+                splits[account] = {'amount': split_record[1], 'quantity': split_record[2]}
+                if split_record[3]:
+                    splits[account]['status'] = split_record[3]
         return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, id_=id_)
 
     def get_txn(self, txn_id):
@@ -917,11 +945,13 @@ class SQLiteStorage:
                 self.save_account(account)
             amount = info['amount']
             amount = f'{amount.numerator}/{amount.denominator}'
+            quantity = info['quantity']
+            quantity = f'{quantity.numerator}/{quantity.denominator}'
             status = info.get('status', None)
             if account.id in old_txn_split_account_ids:
-                c.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, amount, status, txn.id, account.id))
+                c.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
             else:
-                c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, amount, status))
+                c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
@@ -1110,6 +1140,7 @@ class SQLiteStorage:
 def import_kmymoney(kmy_file, storage):
     import gzip
     from xml.etree import ElementTree as ET
+    print(f'{datetime.now()} uncompressing & parsing file...')
     uncompressed_file = gzip.GzipFile(fileobj=kmy_file)
     root = ET.parse(uncompressed_file).getroot()
     #migrate accounts
@@ -1127,6 +1158,9 @@ def import_kmymoney(kmy_file, storage):
             type_ = AccountType.INCOME
         elif account.attrib['type'] in ['16']:
             type_ = AccountType.EQUITY
+        elif account.attrib['type'] in ['15']:
+            type_ = AccountType.SECURITY
+        print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
         acc_obj = Account(
                     type_=type_,
                     name=account.attrib['name'],
@@ -1168,10 +1202,10 @@ def import_kmymoney(kmy_file, storage):
                     )
                 )
         except Exception as e:
-            print(f'error migrating transaction: {e}\n  {transaction.attrib}')
+            print(f'{datetime.now()} error migrating transaction: {e}\n  {transaction.attrib}')
     for top_level_el in root:
         if top_level_el.tag not in ['ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
-            print(f"didn't migrate {top_level_el.tag} data")
+            print(f"{datetime.now()} didn't migrate {top_level_el.tag} data")
 
 
 ### CLI/GUI ###
@@ -3023,9 +3057,12 @@ def import_file(file_to_import):
         bb_filename = input('enter name of new bricbooks file to create for import: ')
         if os.path.exists(bb_filename):
             raise Exception(f'{bb_filename} already exists')
+        print(f'{datetime.now()} importing {file_to_import} to {bb_filename}...')
         storage = SQLiteStorage(bb_filename)
         with open(file_to_import, 'rb') as f:
             import_kmymoney(f, storage)
+    else:
+        print(f'invalid import file {file_to_import} - must end with .kmy')
 
 
 def parse_args():
