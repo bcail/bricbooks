@@ -1,8 +1,9 @@
 '''
 Architecture:
-    Inner Layer - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
-    Middle Layer - SQLiteStorage (or another storage class). Knows about inner layer objects, but not the UI.
-    Outer Layer - UI (Qt, console). Knows about storage layer and inner objects.
+    Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
+    Storage - SQLiteStorage (or another storage class). Handles saving & retrieving business objects from storage.
+    Engine - has a storage object, and implements application logic.
+    Outer Layer - UI (Qt, console). Has an engine object, and handles displaying data to the user and sending user actions to the engine.
     No objects should use private/hidden members of other objects.
 '''
 from collections import namedtuple
@@ -1133,6 +1134,24 @@ class SQLiteStorage:
         for st_record in scheduled_txns_records:
             scheduled_txns.append(self.get_scheduled_transaction(st_record[0]))
         return scheduled_txns
+
+
+### ENGINE ###
+
+class Engine:
+
+    def __init__(self, storage):
+        self._storage = storage
+
+    def get_accounts(self):
+        return self._storage.get_accounts()
+
+    def get_ledger_accounts(self):
+        '''Retrieve accounts for Ledger display'''
+        accounts = []
+        for account_type in [AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY]:
+            accounts.extend(self._storage.get_accounts(type_=account_type))
+        return accounts
 
 
 ### IMPORT ###
@@ -2575,6 +2594,7 @@ class GUI_QT:
                 show_error(msg='File %s is not a database' % file_name)
                 return
             raise
+        self._engine = Engine(self.storage)
         if self.content_area:
             self.parent_layout.removeWidget(self.content_area)
             self.content_area.deleteLater()
@@ -2585,7 +2605,7 @@ class GUI_QT:
         self.parent_layout.addWidget(self.content_area, 1, 0, 1, 6)
         self.main_widget = None
         self._show_action_buttons(self.parent_layout)
-        accounts = self.storage.get_accounts()
+        accounts = self._engine.get_accounts()
         if accounts:
             self._show_ledger()
         else:
@@ -2619,19 +2639,19 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.accounts_display = AccountsDisplay(self.storage, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
+        self.accounts_display = AccountsDisplay(self._engine._storage, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):
-        accounts = self.storage.get_accounts(type_=AccountType.ASSET)
+        accounts = self._engine._storage.get_accounts(type_=AccountType.ASSET)
         if not accounts:
             show_error('Enter an asset account first.')
             return
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.ledger_display = LedgerDisplay(self.storage, txns_model_class=self._txns_model_class)
+        self.ledger_display = LedgerDisplay(self._engine._storage, txns_model_class=self._txns_model_class)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2639,7 +2659,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.budget_display = BudgetDisplay(self.storage, budget_model_class=self._budget_model_class, current_budget=current_budget)
+        self.budget_display = BudgetDisplay(self._engine._storage, budget_model_class=self._budget_model_class, current_budget=current_budget)
         self.main_widget = self.budget_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2647,7 +2667,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.scheduled_txns_display = ScheduledTxnsDisplay(self.storage, model_class=self._scheduled_txns_model_class)
+        self.scheduled_txns_display = ScheduledTxnsDisplay(self._engine._storage, model_class=self._scheduled_txns_model_class)
         self.main_widget = self.scheduled_txns_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2663,7 +2683,8 @@ class CLI:
     NUM_TXNS_IN_PAGE = 50
 
     def __init__(self, filename, print_file=None):
-        self.storage = SQLiteStorage(filename)
+        storage = SQLiteStorage(filename)
+        self._engine = Engine(storage)
         self.print = partial(print, file=print_file)
 
     def input(self, prompt='', prefill=None):
@@ -2679,7 +2700,7 @@ class CLI:
 
     def _list_accounts(self):
         self.print(self.ACCOUNT_LIST_HEADER)
-        for a in self.storage.get_accounts():
+        for a in self._engine.get_accounts():
             if a.number:
                 number = a.number
             else:
@@ -2705,8 +2726,8 @@ class CLI:
         parent_id = self.input(prompt='  parent account id: ')
         parent = None
         if parent_id:
-            parent = self.storage.get_account(parent_id)
-        self.storage.save_account(
+            parent = self._engine._storage.get_account(parent_id)
+        self._engine._storage.save_account(
                 Account(id_=acc_id, name=name, type_=acct_type, number=number, parent=parent)
             )
 
@@ -2716,14 +2737,14 @@ class CLI:
 
     def _edit_account(self):
         acc_id = self.input('Account ID: ')
-        account = self.storage.get_account(acc_id)
+        account = self._engine._storage.get_account(acc_id)
         self._get_and_save_account(account=account)
 
     def _list_account_txns(self, num_txns_in_page=None):
         if not num_txns_in_page:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
         acc_id = self.input('Account ID: ')
-        ledger = self.storage.get_ledger(acc_id)
+        ledger = self._engine._storage.get_ledger(acc_id)
         ledger_balances = ledger.get_current_balances_for_display()
         summary_line = f'{ledger.account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
         self.print(summary_line)
@@ -2738,7 +2759,7 @@ class CLI:
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
-                tds = get_display_strings_for_ledger(self.storage.get_account(acc_id), t)
+                tds = get_display_strings_for_ledger(self._engine._storage.get_account(acc_id), t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
                     tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], fraction_to_decimal(t.balance), t.id)
                 )
@@ -2775,7 +2796,7 @@ class CLI:
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
-                account = self.storage.get_account(acct_id)
+                account = self._engine._storage.get_account(acct_id)
                 amt = self.input(prompt=' amount: ')
                 if amt:
                     splits[account] = {'amount': amt}
@@ -2805,7 +2826,7 @@ class CLI:
         if payee.startswith("'"):
             txn_info['payee'] = Payee(payee[1:])
         else:
-            txn_info['payee'] = self.storage.get_payee(payee)
+            txn_info['payee'] = self._engine._storage.get_payee(payee)
         txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
         return txn_info
 
@@ -2821,7 +2842,7 @@ class CLI:
             date_prefill = ''
         info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
         info.update(self._get_common_txn_info(txn=txn))
-        self.storage.save_txn(Transaction(**info))
+        self._engine._storage.save_txn(Transaction(**info))
 
     def _create_txn(self):
         self.print('Create Transaction:')
@@ -2829,15 +2850,15 @@ class CLI:
 
     def _edit_txn(self):
         txn_id = self.input(prompt='Txn ID: ')
-        txn = self.storage.get_txn(txn_id)
+        txn = self._engine._storage.get_txn(txn_id)
         self._get_and_save_txn(txn=txn)
 
     def _list_payees(self):
-        for p in self.storage.get_payees():
+        for p in self._engine._storage.get_payees():
             self.print('%s: %s' % (p.id, p.name))
 
     def _list_scheduled_txns(self):
-        for st in self.storage.get_scheduled_transactions():
+        for st in self._engine._storage.get_scheduled_transactions():
             self.print(st)
         self._enter_scheduled_txn()
         self._skip_scheduled_txn()
@@ -2847,10 +2868,10 @@ class CLI:
         while True:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
-                scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+                scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
                 self._get_and_save_txn(txn=scheduled_txn)
                 scheduled_txn.advance_to_next_due_date()
-                self.storage.save_scheduled_transaction(scheduled_txn)
+                self._engine._storage.save_scheduled_transaction(scheduled_txn)
             else:
                 break
 
@@ -2859,15 +2880,15 @@ class CLI:
         while True:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
-                scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+                scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
                 scheduled_txn.advance_to_next_due_date()
-                self.storage.save_scheduled_transaction(scheduled_txn)
+                self._engine._storage.save_scheduled_transaction(scheduled_txn)
             else:
                 break
 
     def _display_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
-        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+        scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
         self.print('%s: %s' % (scheduled_txn.id, scheduled_txn.name))
         self.print('  frequency: %s' % scheduled_txn.frequency.name)
         self.print('  next due date: %s' % scheduled_txn.next_due_date)
@@ -2897,7 +2918,7 @@ class CLI:
         id_ = None
         if scheduled_txn:
             id_ = scheduled_txn.id
-        self.storage.save_scheduled_transaction(
+        self._engine._storage.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
                 frequency=frequency,
@@ -2913,16 +2934,16 @@ class CLI:
 
     def _edit_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
-        scheduled_txn = self.storage.get_scheduled_transaction(scheduled_txn_id)
+        scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
         self._get_and_save_scheduled_txn(scheduled_txn=scheduled_txn)
 
     def _list_budgets(self):
-        for b in self.storage.get_budgets():
+        for b in self._engine._storage.get_budgets():
             self.print(b)
 
     def _display_budget(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self.storage.get_budget(budget_id)
+        budget = self._engine._storage.get_budget(budget_id)
         self.print(budget)
         account_budget_info = budget.get_budget_data()
         for account, info in account_budget_info.items():
@@ -2940,7 +2961,7 @@ class CLI:
 
     def _display_budget_report(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self.storage.get_budget(budget_id)
+        budget = self._engine._storage.get_budget(budget_id)
         self.print(budget)
         budget_report = budget.get_report_display(current_date=date.today())
         for account, info in budget_report['income'].items():
@@ -2958,7 +2979,7 @@ class CLI:
             if acct_id:
                 amt = self.input(' amount: ')
                 if amt:
-                    account = self.storage.get_account(acct_id)
+                    account = self._engine._storage.get_account(acct_id)
                     account_info[account] = {'amount': amt}
                     carryover = self.input(' carryover: ')
                     if carryover:
@@ -2970,7 +2991,7 @@ class CLI:
                     break
             else:
                 break
-        self.storage.save_budget(
+        self._engine._storage.save_budget(
                 Budget(
                     start_date=start_date,
                     end_date=end_date,
@@ -2980,7 +3001,7 @@ class CLI:
 
     def _edit_budget(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self.storage.get_budget(budget_id)
+        budget = self._engine._storage.get_budget(budget_id)
         start_date = self.input(prompt='  start date: ')
         end_date = self.input(prompt='  end date: ')
         account_info = {}
@@ -2994,7 +3015,7 @@ class CLI:
             notes = self.input(' notes: ', prefill=info.get('notes', ''))
             if notes:
                 account_info[account]['notes'] = notes
-        self.storage.save_budget(
+        self._engine._storage.save_budget(
                 Budget(
                     start_date=start_date,
                     end_date=end_date,

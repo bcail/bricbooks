@@ -900,23 +900,6 @@ class TestSQLiteStorage(unittest.TestCase):
         account = storage.get_account(number='4010')
         self.assertEqual(account.name, 'Checking')
 
-    def test_get_accounts(self):
-        storage = bb.SQLiteStorage(':memory:')
-        checking = get_test_account()
-        storage.save_account(checking)
-        savings = get_test_account(name='Savings')
-        storage.save_account(savings)
-        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
-        accounts = storage.get_accounts()
-        self.assertEqual(len(accounts), 3)
-        self.assertEqual(accounts[0].name, 'Checking')
-        self.assertEqual(accounts[1].name, 'Savings')
-        self.assertEqual(accounts[2].name, 'Housing')
-        accounts = storage.get_accounts(type_=bb.AccountType.EXPENSE)
-        self.assertEqual(len(accounts), 1)
-        self.assertEqual(accounts[0].name, 'Housing')
-
     def test_payee_unique(self):
         storage = bb.SQLiteStorage(':memory:')
         payee = bb.Payee('payee')
@@ -1558,6 +1541,44 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
 
+def create_test_accounts(storage):
+    accounts = {
+            'Checking': bb.AccountType.ASSET,
+            'Savings': bb.AccountType.ASSET,
+            'Retirement 401k': bb.AccountType.ASSET,
+            'Stock A': bb.AccountType.SECURITY,
+            'Mortgage': bb.AccountType.LIABILITY,
+            'Wages': bb.AccountType.INCOME,
+            'Housing': bb.AccountType.EXPENSE,
+            'Food': bb.AccountType.EXPENSE,
+            'Opening Balances': bb.AccountType.EQUITY,
+        }
+    for name, type_ in accounts.items():
+        account = get_test_account(type_=type_, name=name)
+        storage.save_account(account)
+
+
+class TestEngine(unittest.TestCase):
+
+    def test_get_accounts(self):
+        storage = bb.SQLiteStorage(':memory:')
+        create_test_accounts(storage)
+        engine = bb.Engine(storage)
+        accounts = engine.get_accounts()
+        self.assertEqual(len(accounts), 9)
+        self.assertEqual(accounts[0].name, 'Checking')
+        self.assertEqual(accounts[1].name, 'Savings')
+        self.assertEqual(accounts[2].name, 'Retirement 401k')
+
+    def test_get_ledger_accounts(self):
+        storage = bb.SQLiteStorage(':memory:')
+        create_test_accounts(storage)
+        engine = bb.Engine(storage)
+        accounts = engine.get_ledger_accounts()
+        self.assertEqual(len(accounts), 6)
+        self.assertEqual(accounts[0].name, 'Checking')
+
+
 class TestCLI(unittest.TestCase):
 
     ACCOUNT_FORM_OUTPUT = '  name:   type (asset,security,liability,equity,income,expense):   number:   parent account id: '
@@ -1570,14 +1591,14 @@ class TestCLI(unittest.TestCase):
     @patch('builtins.input')
     def test_run(self, input_mock):
         checking = get_test_account(name='Checking account')
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         input_mock.side_effect = ['h', 'a', 'q']
         self.cli.run()
         self.assertTrue('| Checking account' in self.memory_buffer.getvalue())
 
     def test_list_accounts(self):
         checking = get_test_account(name='Checking account with long name cut off')
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         self.cli._list_accounts()
         output = '%s\n' % bb.CLI.ACCOUNT_LIST_HEADER
         output += ' 1    | ASSET       |         | Checking account with long nam |                               \n'
@@ -1586,10 +1607,10 @@ class TestCLI(unittest.TestCase):
     @patch('builtins.input')
     def test_create_account(self, input_mock):
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         input_mock.side_effect = ['Checking', 'asset', '400', str(savings.id)]
         self.cli._create_account()
-        accounts = self.cli.storage.get_accounts()
+        accounts = self.cli._engine._storage.get_accounts()
         self.assertEqual(accounts[1].name, 'Checking')
         self.assertEqual(accounts[1].type, bb.AccountType.ASSET)
         self.assertEqual(accounts[1].parent, savings)
@@ -1600,11 +1621,11 @@ class TestCLI(unittest.TestCase):
     def test_edit_account(self, input_mock):
         input_mock.side_effect = ['1', 'Checking updated', 'asset', '400', '2']
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         self.cli._edit_account()
-        accounts = self.cli.storage.get_accounts()
+        accounts = self.cli._engine._storage.get_accounts()
         self.assertEqual(accounts[0].name, 'Checking updated')
         self.assertEqual(accounts[0].type, bb.AccountType.ASSET)
         self.assertEqual(accounts[0].number, '400')
@@ -1617,14 +1638,14 @@ class TestCLI(unittest.TestCase):
         self.maxDiff = None
         input_mock.return_value = '1'
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
-        self.cli.storage.save_txn(txn)
-        self.cli.storage.save_txn(txn2)
-        self.cli.storage.save_scheduled_transaction(
+        self.cli._engine._storage.save_txn(txn)
+        self.cli._engine._storage.save_txn(txn2)
+        self.cli._engine._storage.save_scheduled_transaction(
                 bb.ScheduledTransaction(
                     name='scheduled txn',
                     frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1646,13 +1667,13 @@ class TestCLI(unittest.TestCase):
     def test_list_account_txns_paged(self, input_mock):
         input_mock.return_value = '1'
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
-        self.cli.storage.save_txn(txn)
-        self.cli.storage.save_txn(txn2)
+        self.cli._engine._storage.save_txn(txn)
+        self.cli._engine._storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue('(o) older' in printed_output)
@@ -1667,15 +1688,15 @@ class TestCLI(unittest.TestCase):
     @patch('builtins.input')
     def test_create_txn(self, input_mock):
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         payee = bb.Payee(name='payee 1')
-        self.cli.storage.save_payee(payee)
+        self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', 'C', '2', '15', '', '',
                 'type 1', str(payee.id), 'description']
         self.cli._create_txn()
-        ledger = self.cli.storage.get_ledger(1)
+        ledger = self.cli._engine._storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[checking], {'amount': -15, 'quantity': -15, 'status': 'C'})
@@ -1690,13 +1711,13 @@ class TestCLI(unittest.TestCase):
     @patch('builtins.input')
     def test_create_txn_new_payee(self, input_mock):
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        ledger = self.cli.storage.get_ledger(1)
+        ledger = self.cli._engine._storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
@@ -1705,15 +1726,15 @@ class TestCLI(unittest.TestCase):
         '''make sure the user can enter the payee's name, even if the payee is already
         in the DB'''
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         payee = bb.Payee(name='payee 1')
-        self.cli.storage.save_payee(payee)
+        self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        ledger = self.cli.storage.get_ledger(1)
+        ledger = self.cli._engine._storage.get_ledger(1)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
@@ -1721,11 +1742,11 @@ class TestCLI(unittest.TestCase):
     def test_create_txn_list_payees(self, input_mock):
         '''make sure user can list payees if desired'''
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         payee = bb.Payee(name='payee 1')
-        self.cli.storage.save_payee(payee)
+        self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', 'p', "'payee 1", 'description']
         self.cli._create_txn()
@@ -1737,15 +1758,15 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['1', '2017-02-13', '-90', '', '50', '', '3', '40', '', '',
                 '', '', 'new description']
         checking = get_test_account()
-        self.cli.storage.save_account(checking)
+        self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(savings)
         another_account = get_test_account(name='Another')
-        self.cli.storage.save_account(another_account)
+        self.cli._engine._storage.save_account(another_account)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1))
-        self.cli.storage.save_txn(txn)
+        self.cli._engine._storage.save_txn(txn)
         self.cli._edit_txn()
-        ledger = self.cli.storage.get_ledger(1)
+        ledger = self.cli._engine._storage.get_ledger(1)
         edited_txn = ledger.get_txn(id_=txn.id)
         self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
         self.assertEqual(edited_txn.splits[checking], {'amount': -90, 'quantity': -90})
@@ -1761,8 +1782,8 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['', '']
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(checking)
+        self.cli._engine._storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1773,7 +1794,7 @@ class TestCLI(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        self.cli.storage.save_scheduled_transaction(st)
+        self.cli._engine._storage.save_scheduled_transaction(st)
         self.cli._list_scheduled_txns()
         output = '1: weekly 1'
         buffer_value = self.memory_buffer.getvalue()
@@ -1783,8 +1804,8 @@ class TestCLI(unittest.TestCase):
     def test_display_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(checking)
+        self.cli._engine._storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1795,7 +1816,7 @@ class TestCLI(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        self.cli.storage.save_scheduled_transaction(st)
+        self.cli._engine._storage.save_scheduled_transaction(st)
         input_mock.side_effect = [str(st.id)]
         self.cli._display_scheduled_txn()
         buffer_value = self.memory_buffer.getvalue()
@@ -1805,8 +1826,8 @@ class TestCLI(unittest.TestCase):
     def test_enter_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(checking)
+        self.cli._engine._storage.save_account(savings)
         valid_splits={
              checking: {'amount': -101},
              savings: {'amount': 101},
@@ -1817,22 +1838,22 @@ class TestCLI(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        self.cli.storage.save_scheduled_transaction(st)
+        self.cli._engine._storage.save_scheduled_transaction(st)
         input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
         self.cli._list_scheduled_txns()
-        ledger = self.cli.storage.get_ledger(checking.id)
+        ledger = self.cli._engine._storage.get_ledger(checking.id)
         txn = ledger.get_sorted_txns_with_balance()[0]
         self.assertEqual(txn.splits, valid_splits)
         self.assertEqual(txn.txn_date, date(2019, 1, 2))
-        scheduled_txn = self.cli.storage.get_scheduled_transaction(st.id)
+        scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
 
     @patch('builtins.input')
     def test_skip_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        self.cli._engine._storage.save_account(checking)
+        self.cli._engine._storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1843,12 +1864,12 @@ class TestCLI(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        self.cli.storage.save_scheduled_transaction(st)
+        self.cli._engine._storage.save_scheduled_transaction(st)
         input_mock.side_effect = ['', str(st.id), '']
         self.cli._list_scheduled_txns()
-        scheduled_txn = self.cli.storage.get_scheduled_transaction(st.id)
+        scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
-        ledger = self.cli.storage.get_ledger(checking.id)
+        ledger = self.cli._engine._storage.get_ledger(checking.id)
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(txns, [])
 
@@ -1856,11 +1877,12 @@ class TestCLI(unittest.TestCase):
     def test_create_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        storage = self.cli._engine._storage
+        storage.save_account(checking)
+        storage.save_account(savings)
         input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16', '1', '-15', 'R', '2', '15', '', '', 't', '\'payee', 'desc']
         self.cli._create_scheduled_txn()
-        scheduled_txns = self.cli.storage.get_scheduled_transactions()
+        scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'weekly 1')
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
@@ -1877,8 +1899,9 @@ class TestCLI(unittest.TestCase):
     def test_edit_scheduled_txn(self, input_mock):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        self.cli.storage.save_account(checking)
-        self.cli.storage.save_account(savings)
+        storage = self.cli._engine._storage
+        storage.save_account(checking)
+        storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1889,10 +1912,10 @@ class TestCLI(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        self.cli.storage.save_scheduled_transaction(st)
+        storage.save_scheduled_transaction(st)
         input_mock.side_effect = [str(st.id), 'weekly 1', 'weekly', '2020-01-16', '-15', '', '15', '', '', 't', '\'payee', 'desc']
         self.cli._edit_scheduled_txn()
-        scheduled_txns = self.cli.storage.get_scheduled_transactions()
+        scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
@@ -1901,18 +1924,19 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].description, 'desc')
 
     def test_list_budgets(self):
+        storage = self.cli._engine._storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        self.cli.storage.save_account(housing)
+        storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        self.cli.storage.save_account(food)
+        storage.save_account(food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        self.cli.storage.save_account(wages)
+        storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {'amount': 25, 'carryover': 0},
             wages: {'amount': 100},
         })
-        self.cli.storage.save_budget(b)
+        storage.save_budget(b)
         self.cli._list_budgets()
         output = '1: 2018-01-01 - 2018-12-31\n'
         buffer_value = self.memory_buffer.getvalue()
@@ -1920,18 +1944,19 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_display_budget(self, input_mock):
+        storage = self.cli._engine._storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        self.cli.storage.save_account(housing)
+        storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        self.cli.storage.save_account(food)
+        storage.save_account(food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        self.cli.storage.save_account(wages)
+        storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {'amount': 25, 'carryover': 0},
             wages: {'amount': 100},
         })
-        self.cli.storage.save_budget(b)
+        storage.save_budget(b)
         input_mock.side_effect = [str(b.id)]
         self.cli._display_budget()
         buffer_value = self.memory_buffer.getvalue()
@@ -1939,19 +1964,20 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_display_budget_report(self, input_mock):
+        storage = self.cli._engine._storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        self.cli.storage.save_account(housing)
+        storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        self.cli.storage.save_account(food)
+        storage.save_account(food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        self.cli.storage.save_account(wages)
+        storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {'amount': 25, 'carryover': 0},
             wages: {'amount': 100},
         })
-        self.cli.storage.save_budget(b)
-        self.cli.storage.save_txn(
+        storage.save_budget(b)
+        storage.save_txn(
                 bb.Transaction(
                     txn_date='2019-01-13',
                     splits={wages: {'amount': '-101'}, housing: {'amount': 101}},
@@ -1964,15 +1990,16 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_create_budget(self, input_mock):
+        storage = self.cli._engine._storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        self.cli.storage.save_account(housing)
+        storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        self.cli.storage.save_account(food)
+        storage.save_account(food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        self.cli.storage.save_account(wages)
+        storage.save_account(wages)
         input_mock.side_effect = ['2019-01-10', '2019-11-30', str(housing.id), '100', '', '', '']
         self.cli._create_budget()
-        budget = self.cli.storage.get_budgets()[0]
+        budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))
         self.assertEqual(budget.end_date, date(2019, 11, 30))
         budget_data = budget.get_budget_data()
@@ -1982,21 +2009,22 @@ class TestCLI(unittest.TestCase):
 
     @patch('builtins.input')
     def test_edit_budget(self, input_mock):
+        storage = self.cli._engine._storage
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        self.cli.storage.save_account(housing)
+        storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        self.cli.storage.save_account(food)
+        storage.save_account(food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        self.cli.storage.save_account(wages)
+        storage.save_account(wages)
         b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {},
             wages: {'amount': 100},
         })
-        self.cli.storage.save_budget(b)
+        storage.save_budget(b)
         input_mock.side_effect = [str(b.id), '2019-01-10', '2019-11-30', '40', '', '', '', '', '', '100', '', '']
         self.cli._edit_budget()
-        budget = self.cli.storage.get_budgets()[0]
+        budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))
         budget_data = budget.get_budget_data()
         self.assertEqual(budget_data[housing]['amount'], 40)
@@ -2522,6 +2550,7 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(TestLedger, 'test'))
         suite.addTest(unittest.makeSuite(TestBudget, 'test'))
         suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
+        suite.addTest(unittest.makeSuite(TestEngine, 'test'))
         suite.addTest(unittest.makeSuite(TestCLI, 'test'))
         suite.addTest(unittest.makeSuite(TestLoadTestData, 'test'))
         suite.addTest(unittest.makeSuite(TestImport, 'test'))
