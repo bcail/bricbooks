@@ -21,6 +21,9 @@ def _load_data(storage, many_txns):
     credit_card = bb.Account(type_=bb.AccountType.LIABILITY, name='Credit Card')
     storage.save_account(credit_card)
 
+    wages = bb.Account(type_=bb.AccountType.INCOME, number='200', name='Wages')
+    storage.save_account(wages)
+
     food = bb.Account(type_=bb.AccountType.EXPENSE, number='300', name='Food')
     storage.save_account(food)
     restaurants = bb.Account(type_=bb.AccountType.EXPENSE, number='310', name='Restaurants', parent=food)
@@ -42,11 +45,17 @@ def _load_data(storage, many_txns):
     taxes = bb.Account(type_=bb.AccountType.EXPENSE, number='700', name='Taxes')
     storage.save_account(taxes)
 
+    retirement_401k = bb.Account(type_=bb.AccountType.ASSET, number='800', name='401k')
+    storage.save_account(retirement_401k)
+    stock_a = bb.Account(type_=bb.AccountType.SECURITY, number='805', name='Stock A', parent=retirement_401k)
+    storage.save_account(stock_a)
+
     payee = bb.Payee("Joe's Burgers")
     storage.save_payee(payee)
 
     storage.save_txn(bb.Transaction(splits={opening_balances: {'amount': '-1000'}, checking: {'amount': 1000}}, txn_date='2018-01-01'))
     storage.save_txn(bb.Transaction(splits={opening_balances: {'amount': '-1000'}, savings: {'amount': 1000}}, txn_date='2018-01-01'))
+    storage.save_txn(bb.Transaction(splits={wages: {'amount': '-1000'}, checking: {'amount': 900}, stock_a: {'amount': 100, 'quantity': '5.23'}}, txn_date='2018-01-01'))
     storage.save_txn(bb.Transaction(splits={checking: {'amount': '-10'}, restaurants: {'amount': 10}}, txn_date='2018-01-01', txn_type='123', payee=payee))
     storage.save_txn(bb.Transaction(splits={checking: {'amount': '-20'}, restaurants: {'amount': 20}}, txn_date='2018-01-02'))
     storage.save_txn(bb.Transaction(splits={checking: {'amount': '-30'}, restaurants: {'amount': 30}}, txn_date='2018-01-04'))
