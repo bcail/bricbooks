@@ -2121,7 +2121,8 @@ class TestQtGUI(unittest.TestCase):
 
     def test_empty_ledger(self):
         storage = bb.SQLiteStorage(':memory:')
-        ledger_display = bb.LedgerDisplay(storage, txns_model_class=bb.get_txns_model_class())
+        engine = bb.Engine(storage)
+        ledger_display = bb.LedgerDisplay(engine, txns_model_class=bb.get_txns_model_class())
 
     def test_ledger_add(self):
         gui = bb.GUI_QT(':memory:')

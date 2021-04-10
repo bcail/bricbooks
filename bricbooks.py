@@ -2048,8 +2048,9 @@ class ScheduledTxnForm:
 
 class LedgerDisplay:
 
-    def __init__(self, storage, txns_model_class, current_account=None):
-        self.storage = storage
+    def __init__(self, engine, txns_model_class, current_account=None):
+        self._engine = engine
+        self.storage = self._engine._storage
         self._txns_model_class = txns_model_class
         #choose an account if there is one
         if not current_account:
@@ -2125,8 +2126,7 @@ class LedgerDisplay:
     def _show_headings(self, layout, row):
         self.action_combo = QtWidgets.QComboBox()
         current_index = 0
-        accounts = self.storage.get_accounts(type_=AccountType.ASSET)
-        accounts.extend(self.storage.get_accounts(type_=AccountType.LIABILITY))
+        accounts = self._engine.get_ledger_accounts()
         for index, a in enumerate(accounts):
             if a.id == self._current_account.id:
                 current_index = index
@@ -2652,7 +2652,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.ledger_display = LedgerDisplay(self._engine._storage, txns_model_class=self._txns_model_class)
+        self.ledger_display = LedgerDisplay(engine=self._engine, txns_model_class=self._txns_model_class)
         self.main_widget = self.ledger_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
