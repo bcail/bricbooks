@@ -2046,12 +2046,14 @@ class TestQtGUI(unittest.TestCase):
         bb_qt_gui = bb.GUI_QT(':memory:')
 
     def test_account(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         a = get_test_account()
         storage.save_account(a)
-        model_class = bb.get_accounts_model_class()
-        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
-        widget = accounts_display.get_widget()
+        #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
+        accounts_display = gui.accounts_display
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
         accounts_display.add_account_display._widgets['number'].setText('400')
         accounts_display.add_account_display._widgets['name'].setText('Savings')
@@ -2065,14 +2067,16 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(accounts[1].parent.name, 'Checking')
 
     def test_account_edit(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
         savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
-        model_class = bb.get_accounts_model_class()
-        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
-        widget = accounts_display.get_widget()
+        #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
+        accounts_display = gui.accounts_display
         #https://stackoverflow.com/a/12604740
         secondRowXPos = accounts_display._accounts_widget.columnViewportPosition(0) + 5
         secondRowYPos = accounts_display._accounts_widget.rowViewportPosition(1) + 10
@@ -2086,14 +2090,16 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(storage.get_accounts()[1].parent.name, 'Checking')
 
     def test_expense_account_edit(self):
-        storage = bb.SQLiteStorage(':memory:')
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
         checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
         food = bb.Account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
-        model_class = bb.get_accounts_model_class()
-        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
-        widget = accounts_display.get_widget()
+        #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
+        accounts_display = gui.accounts_display
         secondRowXPos = accounts_display._accounts_widget.columnViewportPosition(0) + 5
         secondRowYPos = accounts_display._accounts_widget.rowViewportPosition(1) + 10
         viewport = accounts_display._accounts_widget.viewport()
@@ -2105,10 +2111,9 @@ class TestQtGUI(unittest.TestCase):
 
     @patch('bricbooks.set_widget_error_state')
     def test_account_exception(self, mock_method):
-        storage = bb.SQLiteStorage(':memory:')
-        model_class = bb.get_accounts_model_class()
-        accounts_display = bb.AccountsDisplay(storage, reload_accounts=fake_method, model_class=model_class)
-        widget = accounts_display.get_widget()
+        gui = bb.GUI_QT(':memory:')
+        storage = gui.storage
+        accounts_display = gui.accounts_display
         account_form = bb.AccountForm(storage.get_accounts())
         account_form.show_form()
         QtTest.QTest.mouseClick(account_form._widgets['save_btn'], QtCore.Qt.LeftButton)

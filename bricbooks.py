@@ -1380,19 +1380,19 @@ def get_accounts_model_class():
                     if self._accounts[index.row()].parent:
                         return str(self._accounts[index.row()].parent)
 
-        def get_account_id(self, index):
-            return self._accounts[index.row()].id
+        def get_account(self, index):
+            return self._accounts[index.row()]
 
     return Model
 
 
 class AccountsDisplay:
 
-    def __init__(self, storage, reload_accounts, model_class):
-        self.storage = storage
+    def __init__(self, accounts, save_account, reload_accounts, model_class):
+        self._accounts = accounts
+        self._save_account = save_account
         self._reload = reload_accounts
         self._model_class = model_class
-        self._accounts = self.storage.get_accounts()
         self._accounts_model = self._get_accounts_model(self._accounts)
         self._accounts_widget = self._get_accounts_widget(self._accounts_model)
 
@@ -1422,16 +1422,16 @@ class AccountsDisplay:
         return widget
 
     def _open_new_account_form(self):
-        self.add_account_display = AccountForm(self.storage.get_accounts(), save_account=self._save_account)
+        self.add_account_display = AccountForm(self._accounts, save_account=self._handle_new_account)
         self.add_account_display.show_form()
 
-    def _save_account(self, account):
-        self.storage.save_account(account)
+    def _handle_new_account(self, account):
+        self._save_account(account)
         self._reload()
 
     def _edit(self, index):
-        acc_id = self._accounts_model.get_account_id(index)
-        self.edit_account_display = AccountForm(self.storage.get_accounts(), account=self.storage.get_account(acc_id), save_account=self._save_account)
+        account = self._accounts_model.get_account(index)
+        self.edit_account_display = AccountForm(self._accounts, account=account, save_account=self._handle_new_account)
         self.edit_account_display.show_form()
 
 
@@ -2639,7 +2639,8 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.accounts_display = AccountsDisplay(self._engine._storage, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
+        accounts = self._engine.get_accounts()
+        self.accounts_display = AccountsDisplay(accounts, save_account=self._engine._storage.save_account, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
