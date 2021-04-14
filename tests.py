@@ -1560,6 +1560,27 @@ def create_test_accounts(storage):
 
 class TestEngine(unittest.TestCase):
 
+    def test_get_currencies(self):
+        storage = bb.SQLiteStorage(':memory:')
+        create_test_accounts(storage)
+        engine = bb.Engine(storage)
+        currencies = engine.get_currencies()
+        self.assertEqual(len(currencies), 1)
+        self.assertEqual(currencies[0].type, bb.CommodityType.CURRENCY)
+        self.assertEqual(currencies[0].code, 'USD')
+
+    def test_save_commodity(self):
+        storage = bb.SQLiteStorage(':memory:')
+        engine = bb.Engine(storage)
+        engine.save_commodity(
+                bb.Commodity(type_=bb.CommodityType.CURRENCY, code='ABC', name='Some Currency')
+            )
+        currencies = engine.get_currencies()
+        self.assertEqual(len(currencies), 2)
+        self.assertEqual(currencies[1].type, bb.CommodityType.CURRENCY)
+        self.assertEqual(currencies[1].code, 'ABC')
+        self.assertEqual(currencies[1].name, 'Some Currency')
+
     def test_get_accounts(self):
         storage = bb.SQLiteStorage(':memory:')
         create_test_accounts(storage)
@@ -2513,8 +2534,10 @@ class TestImport(unittest.TestCase):
     def test_kmymoney(self):
         filename = 'import_test.kmy'
         storage = bb.SQLiteStorage(':memory:')
+        engine = bb.Engine(storage)
         with open(filename, 'rb') as f:
             bb.import_kmymoney(kmy_file=f, storage=storage)
+        currencies = engine.get_currencies()
         accounts = storage.get_accounts()
         self.assertEqual(len(accounts), 34)
         assets = storage.get_accounts(type_=bb.AccountType.ASSET)

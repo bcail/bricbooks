@@ -73,6 +73,9 @@ except ImportError:
     pass
 
 
+class InvalidCommodityError(RuntimeError):
+    pass
+
 class InvalidAccountError(RuntimeError):
     pass
 
@@ -156,6 +159,30 @@ def increment_quarter(date_obj):
 
 def increment_year(date_obj):
     return date(date_obj.year+1, date_obj.month, date_obj.day)
+
+
+class Commodity:
+
+    def __init__(self, id_=None, type_=None, code=None, name=None):
+        self.id = id_
+        if not type_:
+            raise InvalidCommodityError('Commodity must have a type')
+        if not code:
+            raise InvalidCommodityError('Commodity must have a code')
+        if not name:
+            raise InvalidCommodityError('Commodity must have a name')
+        self.type = self._check_type(type_)
+        self.code = code
+        self.name = name
+
+    def _check_type(self, type_):
+        if isinstance(type_, CommodityType):
+            return type_
+        else:
+            try:
+                return CommodityType(type_)
+            except ValueError:
+                raise InvalidCommityError('Invalid commodity type "%s"' % type_)
 
 
 class Account:
@@ -796,6 +823,19 @@ class SQLiteStorage:
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
         conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
 
+    def get_commodities(self):
+        currencies = []
+        records = self._db_connection.execute('SELECT id, type, code, name FROM commodities').fetchall()
+        for r in records:
+            currencies.append(Commodity(id_=r[0], type_=CommodityType(r[1]), code=r[2], name=r[3]))
+        return currencies
+
+    def save_commodity(self, commodity):
+        c = self._db_connection.cursor()
+        c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (commodity.type.value, commodity.code, commodity.name))
+        commodity.id = c.lastrowid
+        self._db_connection.commit()
+
     def get_account(self, id_=None, number=None, name=None):
         if id_:
             account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
@@ -1143,6 +1183,13 @@ class Engine:
     def __init__(self, storage):
         self._storage = storage
 
+    def save_commodity(self, c):
+        self._storage.save_commodity(c)
+
+    def get_currencies(self):
+        commodities = self._storage.get_commodities()
+        return [c for c in commodities if c.type == CommodityType.CURRENCY]
+
     def get_accounts(self):
         return self._storage.get_accounts()
 
@@ -1179,6 +1226,7 @@ def import_kmymoney(kmy_file, storage):
             type_ = AccountType.EQUITY
         elif account.attrib['type'] in ['15']:
             type_ = AccountType.SECURITY
+        print(account.attrib)
         print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
         acc_obj = Account(
                     type_=type_,
