@@ -30,6 +30,7 @@ CUR_DIR = Path(__file__).parent.resolve()
 
 class CommodityType(Enum):
     CURRENCY = 'currency'
+    SECURITY = 'security'
 
 
 class AccountType(Enum):
@@ -187,13 +188,16 @@ class Commodity:
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, number=None, name=None, parent=None):
+    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
+        if not commodity:
+            raise InvalidAccountError('Account must have a commodity')
         if not name:
             raise InvalidAccountNameError('Account must have a name')
         self.type = self._check_type(type_)
+        self.commodity = commodity
         self.number = number or None
         self.name = name
         self.parent = parent
@@ -823,6 +827,15 @@ class SQLiteStorage:
         conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
         conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
 
+    def get_commodity(self, id_=None, code=None):
+        if id_:
+            record = self._db_connection.execute('SELECT id, type, code, name FROM commodities WHERE id = ?', (id_,)).fetchone()
+        elif code:
+            record = self._db_connection.execute('SELECT id, type, code, name FROM commodities WHERE code = ?', (code,)).fetchone()
+        else:
+            raise Exception('get_commodity: must pass in id_ or code')
+        return Commodity(id_=record[0], type_=CommodityType(record[1]), code=record[2], name=record[3])
+
     def get_commodities(self):
         currencies = []
         records = self._db_connection.execute('SELECT id, type, code, name FROM commodities').fetchall()
@@ -838,27 +851,29 @@ class SQLiteStorage:
 
     def get_account(self, id_=None, number=None, name=None):
         if id_:
-            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
+            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with id "{id_}"')
         elif number:
-            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE number = ?', (number,)).fetchone()
+            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE number = ?', (number,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with number "{number}"')
         elif name:
-            account_info = self._db_connection.execute('SELECT id, type, number, name, parent_id FROM accounts WHERE name = ?', (name,)).fetchone()
+            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE name = ?', (name,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with name "{name}"')
         else:
-            raise Exception('must pass in id_ or name')
+            raise Exception('get_account: must pass in id_ or number or name')
+        commodity = self.get_commodity(account_info[2])
         parent = None
-        if account_info[4]:
-            parent = self.get_account(account_info[4])
+        if account_info[5]:
+            parent = self.get_account(account_info[5])
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
-                number=account_info[2],
-                name=account_info[3],
+                commodity=commodity,
+                number=account_info[3],
+                name=account_info[4],
                 parent=parent,
             )
 
@@ -868,12 +883,12 @@ class SQLiteStorage:
         if account.parent:
             parent_id = account.parent.id
         if account.id:
-            c.execute('UPDATE accounts SET type = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
-                    (account.type.value, account.number, account.name, parent_id, account.id))
+            c.execute('UPDATE accounts SET type = ?, commodity_id = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
+                    (account.type.value, account.commodity.id, account.number, account.name, parent_id, account.id))
             if c.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
-            c.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, 1, account.number, account.name, parent_id))
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.commodity.id, account.number, account.name, parent_id))
             account.id = c.lastrowid
         self._db_connection.commit()
 
@@ -1200,6 +1215,21 @@ class Engine:
             accounts.extend(self._storage.get_accounts(type_=account_type))
         return accounts
 
+    def save_account(self, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
+        parent = None
+        if parent_id:
+            parent = self._storage.get_account(id_=parent_id)
+        if commodity_id:
+            commodity = self._storage.get_commodity(id_=commodity_id)
+        else:
+            if id_:
+                commodity = self._storage.get_account(id_).commodity
+            else:
+                commodity = self.get_currencies()[0]
+        self._storage.save_account(
+                Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
+            )
+
 
 ### IMPORT ###
 
@@ -1209,6 +1239,31 @@ def import_kmymoney(kmy_file, storage):
     print(f'{datetime.now()} uncompressing & parsing file...')
     uncompressed_file = gzip.GzipFile(fileobj=kmy_file)
     root = ET.parse(uncompressed_file).getroot()
+    #migrate currencies
+    #need to keep track of kmymoney currency id mapping to our commodity id
+    print(f'{datetime.now()} migrating commodities (currencies & securities)...')
+    commodity_mapping_info = {}
+    currencies = root.find('CURRENCIES')
+    for currency in currencies.iter('CURRENCY'):
+        currency_id = currency.attrib['id']
+        if currency_id == 'USD': #USD is added automatically when storage is initialized
+            commodity_mapping_info['USD'] = storage.get_commodity(code='USD').id
+            continue
+        commodity = Commodity(type_=CommodityType.CURRENCY, code=currency_id, name=currency.attrib['name'])
+        try:
+            storage.save_commodity(commodity)
+            commodity_mapping_info[currency_id] = commodity.id
+        except Exception as e:
+            print(f'{datetime.now()} error migrating currency: {e}\n  {currency.attrib}')
+    securities = root.find('SECURITIES')
+    for security in securities.iter('SECURITY'):
+        security_id = security.attrib['id']
+        commodity = Commodity(type_=CommodityType.SECURITY, code=security_id, name=currency.attrib['name'])
+        try:
+            storage.save_commodity(commodity)
+            commodity_mapping_info[security_id] = commodity.id
+        except Exception as e:
+            print(f'{datetime.now()} error migrating security: {e}\n  {security.attrib}')
     #migrate accounts
     #need to keep track of kmymoney account id mapping to our account id
     print(f'{datetime.now()} migrating accounts...')
@@ -1226,10 +1281,12 @@ def import_kmymoney(kmy_file, storage):
             type_ = AccountType.EQUITY
         elif account.attrib['type'] in ['15']:
             type_ = AccountType.SECURITY
-        print(account.attrib)
+        currency_id = commodity_mapping_info[account.attrib['currency']]
+        commodity = storage.get_commodity(id_=currency_id)
         print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
         acc_obj = Account(
                     type_=type_,
+                    commodity=commodity,
                     name=account.attrib['name'],
                 )
         storage.save_account(acc_obj)
@@ -1271,7 +1328,7 @@ def import_kmymoney(kmy_file, storage):
         except Exception as e:
             print(f'{datetime.now()} error migrating transaction: {e}\n  {transaction.attrib}')
     for top_level_el in root:
-        if top_level_el.tag not in ['ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
+        if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
             print(f"{datetime.now()} didn't migrate {top_level_el.tag} data")
 
 
@@ -1360,7 +1417,7 @@ class AccountForm:
         parent_combo = QtWidgets.QComboBox()
         parent_combo.addItem('---------', None)
         for index, acc in enumerate(self._all_accounts):
-            parent_combo.addItem(acc.name, acc)
+            parent_combo.addItem(acc.name, acc.id)
             if self._account and self._account.parent == acc:
                 parent_combo.setCurrentIndex(index+1)
         layout.addWidget(parent_combo, row, ACCOUNTS_GUI_FIELDS['parent']['column_number'])
@@ -1377,15 +1434,16 @@ class AccountForm:
         type_ = self._widgets['type'].currentData()
         number = self._widgets['number'].text()
         name = self._widgets['name'].text()
-        parent = self._widgets['parent'].currentData()
+        parent_id = self._widgets['parent'].currentData()
         if self._account:
             id_ = self._account.id
+            commodity_id = self._account.commodity.id
         else:
             id_ = None
+            commodity_id = None
         try:
-            account = Account(id_=id_, type_=type_, number=number, name=name, parent=parent)
+            self._save_account(id_=id_, type_=type_, commodity_id=commodity_id, number=number, name=name, parent_id=parent_id)
             self._display.accept()
-            self._save_account(account)
         except InvalidAccountNameError:
             set_widget_error_state(self._widgets['name'])
 
@@ -1473,8 +1531,8 @@ class AccountsDisplay:
         self.add_account_display = AccountForm(self._accounts, save_account=self._handle_new_account)
         self.add_account_display.show_form()
 
-    def _handle_new_account(self, account):
-        self._save_account(account)
+    def _handle_new_account(self, id_, type_, commodity_id, number, name, parent_id):
+        self._save_account(id_=id_, type_=type_, commodity_id=commodity_id, number=number, name=name, parent_id=parent_id)
         self._reload()
 
     def _edit(self, index):
@@ -2688,7 +2746,7 @@ class GUI_QT:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
         accounts = self._engine.get_accounts()
-        self.accounts_display = AccountsDisplay(accounts, save_account=self._engine._storage.save_account, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
+        self.accounts_display = AccountsDisplay(accounts, save_account=self._engine.save_account, reload_accounts=self._show_accounts, model_class=self._accounts_model_class)
         self.main_widget = self.accounts_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2773,12 +2831,10 @@ class CLI:
         acct_type = self.input(prompt='  type (%s): ' % acct_type_options, prefill=acct_type_prefill)
         number = self.input(prompt='  number: ', prefill=number_prefill)
         parent_id = self.input(prompt='  parent account id: ')
-        parent = None
-        if parent_id:
-            parent = self._engine._storage.get_account(parent_id)
-        self._engine._storage.save_account(
-                Account(id_=acc_id, name=name, type_=acct_type, number=number, parent=parent)
-            )
+        commodity_id = None
+        if account:
+            commodity_id = account.commodity.id
+        self._engine.save_account(id_=acc_id, name=name, type_=acct_type, commodity_id=commodity_id, number=number, parent_id=parent_id)
 
     def _create_account(self):
         self.print('Create Account:')

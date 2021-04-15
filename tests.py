@@ -12,8 +12,9 @@ import bricbooks as bb
 import load_test_data
 
 
-def get_test_account(id_=None, name='Checking', type_=bb.AccountType.ASSET):
-    return bb.Account(id_=id_, type_=type_, name=name)
+def get_test_account(id_=None, name='Checking', type_=bb.AccountType.ASSET, number=None, parent=None):
+    commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
+    return bb.Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
 
 
 class TestUtils(unittest.TestCase):
@@ -55,15 +56,18 @@ class TestUtils(unittest.TestCase):
 
 class TestAccount(unittest.TestCase):
 
+    def setUp(self):
+        self.commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
+
     def test_init(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, number='400', name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.parent, None)
         self.assertEqual(a.number, '400')
 
     def test_str(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, number='400', name='Checking')
         self.assertEqual(str(a), '400 - Checking')
 
     def test_account_type(self):
@@ -71,32 +75,32 @@ class TestAccount(unittest.TestCase):
             bb.Account(id_=1, name='Checking')
         self.assertEqual(str(cm.exception), 'Account must have a type')
         with self.assertRaises(bb.InvalidAccountError) as cm:
-            bb.Account(id_=1, type_='asdf', name='Checking')
+            bb.Account(id_=1, type_='asdf', commodity=self.commodity, name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
-        a = bb.Account(id_=1, type_='asset', name='Checking')
+        a = bb.Account(id_=1, type_='asset', commodity=self.commodity, name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
 
     def test_eq(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, name='Checking')
-        a2 = bb.Account(id_=2, type_=bb.AccountType.ASSET, name='Savings')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, name='Checking')
+        a2 = bb.Account(id_=2, type_=bb.AccountType.ASSET, commodity=self.commodity, name='Savings')
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = bb.Account(type_=bb.AccountType.ASSET, name='Other')
+        a3 = bb.Account(type_=bb.AccountType.ASSET, commodity=self.commodity, name='Other')
         with self.assertRaises(bb.InvalidAccountError) as cm:
             a == a3
         self.assertEqual(str(cm.exception), "Can't compare accounts without an id")
 
     def test_parent(self):
-        housing = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
-        rent = bb.Account(id_=2, type_=bb.AccountType.EXPENSE, name='Rent', parent=housing)
+        housing = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Housing')
+        rent = bb.Account(id_=2, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Rent', parent=housing)
         self.assertEqual(rent.parent, housing)
 
     def test_empty_strings_for_non_required_elements(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', number='')
+        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Test', number='')
         self.assertEqual(a.number, None)
 
     def test_securities_account(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.SECURITY, name='test')
+        a = bb.Account(id_=1, type_=bb.AccountType.SECURITY, commodity=self.commodity, name='test')
         self.assertEqual(list({a: 1}.keys())[0], a)
 
 
@@ -793,9 +797,9 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account(self):
         storage = bb.SQLiteStorage(':memory:')
-        assets = bb.Account(type_=bb.AccountType.ASSET, name='All Assets')
+        assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
         storage.save_account(assets)
-        checking = bb.Account(type_=bb.AccountType.ASSET, number='4010', name='Checking', parent=assets)
+        checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name='Checking', parent=assets)
         storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -805,7 +809,7 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
-        savings = bb.Account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
+        savings = get_test_account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
@@ -814,7 +818,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
         #checking has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception) as cm:
@@ -825,24 +829,24 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_parent_not_in_db(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
-        checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(checking_child)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_parent_account(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
-        checking_child = bb.Account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(checking_child)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_account_with_txns(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
-        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(checking)
         storage.save_account(savings)
         txn = bb.Transaction(txn_date=date(2020,10,15), splits={checking: {'amount': 10}, savings: {'amount': -10}})
@@ -853,25 +857,25 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_account_number_must_be_unique(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = bb.Account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
-        checking2 = bb.Account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
+        checking2 = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
         storage.save_account(checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(checking2)
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.number')
         #make sure saving works once number is updated
-        checking2 = bb.Account(type_=bb.AccountType.INCOME, number='5-1', name='Checking')
+        checking2 = get_test_account(type_=bb.AccountType.INCOME, number='5-1', name='Checking')
         storage.save_account(checking2)
 
     def test_account_name_and_parent_must_be_unique(self):
         storage = bb.SQLiteStorage(':memory:')
-        bank_accounts = bb.Account(type_=bb.AccountType.ASSET, name='Bank Accounts')
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+        bank_accounts = get_test_account(type_=bb.AccountType.ASSET, name='Bank Accounts')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
         storage.save_account(bank_accounts)
         storage.save_account(checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             storage.save_account(
-                    bb.Account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+                    get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
                 )
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
 
@@ -2090,9 +2094,9 @@ class TestQtGUI(unittest.TestCase):
     def test_account_edit(self):
         gui = bb.GUI_QT(':memory:')
         storage = gui.storage
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
-        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
+        savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
@@ -2113,9 +2117,9 @@ class TestQtGUI(unittest.TestCase):
     def test_expense_account_edit(self):
         gui = bb.GUI_QT(':memory:')
         storage = gui.storage
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         storage.save_account(checking)
-        food = bb.Account(type_=bb.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         storage.save_account(food)
         #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
@@ -2135,10 +2139,9 @@ class TestQtGUI(unittest.TestCase):
         gui = bb.GUI_QT(':memory:')
         storage = gui.storage
         accounts_display = gui.accounts_display
-        account_form = bb.AccountForm(storage.get_accounts())
-        account_form.show_form()
-        QtTest.QTest.mouseClick(account_form._widgets['save_btn'], QtCore.Qt.LeftButton)
-        mock_method.assert_called_once_with(account_form._widgets['name'])
+        QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
+        QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
+        mock_method.assert_called_once_with(accounts_display.add_account_display._widgets['name'])
 
     def test_empty_ledger(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -2228,9 +2231,9 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_switch_account(self):
         gui = bb.GUI_QT(':memory:')
         storage = gui.storage
-        checking = bb.Account(type_=bb.AccountType.ASSET, name='Checking')
-        savings = bb.Account(type_=bb.AccountType.ASSET, name='Savings')
-        restaurant = bb.Account(type_=bb.AccountType.EXPENSE, name='Restaurants')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
+        restaurant = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
         storage.save_account(checking)
         storage.save_account(savings)
         storage.save_account(restaurant)
