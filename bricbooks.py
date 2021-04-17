@@ -27,6 +27,13 @@ __version__ = '0.1.dev'
 TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.1'
 CUR_DIR = Path(__file__).parent.resolve()
+LOG_FILENAME = 'bricbooks.log'
+
+
+def log(msg):
+    log_filepath = CUR_DIR / LOG_FILENAME
+    with open(log_filepath, 'ab') as f:
+        f.write(msg.encode('utf8'))
 
 
 class CommodityType(Enum):
@@ -3220,8 +3227,13 @@ if __name__ == '__main__':
         if not args.file_name:
             print('file name argument required for CLI mode')
             sys.exit(1)
-        CLI(args.file_name).run()
-        sys.exit(0)
+        try:
+            CLI(args.file_name).run()
+            sys.exit(0)
+        except Exception:
+            import traceback
+            log(traceback.format_exc())
+            raise
 
     try:
         from PySide2 import QtWidgets, QtGui, QtCore
@@ -3233,5 +3245,9 @@ if __name__ == '__main__':
         gui = GUI_QT(args.file_name)
     else:
         gui = GUI_QT()
-    app.exec_()
-
+    try:
+        app.exec_()
+    except Exception:
+        import traceback
+        log(traceback.format_exc())
+        raise
