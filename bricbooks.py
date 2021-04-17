@@ -23,7 +23,8 @@ except ImportError:
     readline = None
 
 
-TITLE = 'bricbooks'
+__version__ = '0.1.dev'
+TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.1'
 CUR_DIR = Path(__file__).parent.resolve()
 
@@ -3166,7 +3167,7 @@ class CLI:
             'bc': {'description': 'create budget', 'function': self._create_budget},
             'be': {'description': 'edit budget', 'function': self._edit_budget},
         }
-        self.print('Command-line PFT')
+        self.print(f'*** {TITLE} ***')
         self._print_help(info)
         try:
             self._command_loop(info)
