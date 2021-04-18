@@ -765,7 +765,7 @@ class TestSQLiteStorage(unittest.TestCase):
         misc_table_records = storage._db_connection.execute('SELECT * FROM misc').fetchall()
         self.assertEqual(misc_table_records, [('schema_version', '0')])
         commodities_table_records = storage._db_connection.execute('SELECT * FROM commodities').fetchall()
-        self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
+        self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar', None, None)])
 
     def test_init_no_filename(self):
         with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
@@ -794,6 +794,15 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(self.file_name)
         tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
+
+    def test_commodity(self):
+        storage = bb.SQLiteStorage(':memory:')
+        c = storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 20))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+        #now insert with correct currency id of 1 (USD)
+        c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
 
     def test_save_account(self):
         storage = bb.SQLiteStorage(':memory:')
