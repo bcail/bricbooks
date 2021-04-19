@@ -1789,10 +1789,12 @@ class LedgerTxnsDisplay:
     def _delete(self, txn):
         self.storage.delete_txn(txn.id)
         self._txns_model.remove_txn(txn)
+        self._post_update_function()
 
     def _save_edit(self, txn):
         self.storage.save_txn(txn)
         self._txns_model.update_txn(txn)
+        self._post_update_function()
 
     def _edit(self, index):
         txn = self._txns_model.get_txn(index)
@@ -2180,6 +2182,7 @@ class LedgerDisplay:
         self.widget, self.layout = self._setup_main()
         if self._current_account:
             self._display_ledger(self.layout, self._current_account)
+            self._display_balances_widget(self.layout, self.ledger)
         else:
             self.layout.addWidget(QtWidgets.QLabel(''), self._ledger_txns_row_index, 0, 1, 9)
             self.layout.setRowStretch(self._ledger_txns_row_index, 1)
@@ -2671,7 +2674,6 @@ class GUI_QT:
         self.parent_layout = QtWidgets.QGridLayout()
         self.parent_layout.setContentsMargins(4, 4, 4, 4)
         self.parent_window.setLayout(self.parent_layout)
-        self.parent_window.showMaximized()
         self.content_area = None
         self._accounts_model_class = get_accounts_model_class()
         self._txns_model_class = get_txns_model_class()
@@ -2682,6 +2684,7 @@ class GUI_QT:
             self._load_db(file_name)
         else:
             self._show_splash()
+        self.parent_window.showMaximized()
 
     def _show_splash(self):
         #show screen for creating new db or opening existing one
