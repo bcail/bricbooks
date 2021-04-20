@@ -2116,13 +2116,13 @@ class ScheduledTxnForm:
         if withdrawal:
             withdrawal_entry.setText(withdrawal)
         self._widgets['withdrawal'] = withdrawal_entry
-        layout.addWidget(withdrawal_entry, 4, 1)
+        layout.addWidget(withdrawal_entry, 5, 1)
         layout.addWidget(QtWidgets.QLabel('Deposit'), 6, 0)
         deposit_entry = QtWidgets.QLineEdit()
         if deposit:
             deposit_entry.setText(deposit)
         self._widgets['deposit'] = deposit_entry
-        layout.addWidget(deposit_entry, 5, 1)
+        layout.addWidget(deposit_entry, 6, 1)
         layout.addWidget(QtWidgets.QLabel('Categories'), 7, 0)
         txn_accounts_display = TxnAccountsDisplay(self._storage, txn=self._scheduled_txn, main_account=account)
         self._widgets['accounts_display'] = txn_accounts_display
