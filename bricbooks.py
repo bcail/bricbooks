@@ -26,7 +26,7 @@ except ImportError:
 __version__ = '0.2.dev'
 TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.1'
-CUR_DIR = Path(__file__).parent.resolve()
+CUR_DIR = os.getcwd()
 LOG_FILENAME = 'bricbooks.log'
 
 
@@ -799,8 +799,7 @@ class SQLiteStorage:
         if conn_name == ':memory:':
             self._db_connection = sqlite3.connect(conn_name)
         else:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            file_path = os.path.join(current_dir, conn_name)
+            file_path = os.path.join(CUR_DIR, conn_name)
             self._db_connection = sqlite3.connect(file_path)
         self._db_connection.execute('PRAGMA foreign_keys = ON;')
         result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
