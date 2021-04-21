@@ -1806,7 +1806,7 @@ class LedgerTxnsDisplay:
             self._txns_model.update_txn_status(txn)
         else:
             self.edit_txn_display = TxnForm(
-                    payees=self.ledger.get_payees(),
+                    payees=self.storage.get_payees(),
                     save_txn=self._save_edit,
                     storage=self.storage,
                     current_account=self.ledger.account,
@@ -1829,7 +1829,7 @@ class LedgerTxnsDisplay:
     def _show_scheduled_txn_form(self, scheduled_txn):
         save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn)
         self.scheduled_txn_display = TxnForm(
-                payees=self.ledger.get_payees(),
+                payees=self.storage.get_payees(),
                 save_txn=save_txn,
                 storage=self.storage,
                 current_account=self.ledger.account,
@@ -2567,7 +2567,9 @@ def get_scheduled_txns_model_class():
                 elif column == 2:
                     return str(self._scheduled_txns[row].next_due_date)
                 elif column == 3:
-                    return self._scheduled_txns[row].payee
+                    payee = self._scheduled_txns[row].payee
+                    if payee:
+                        return payee.name
                 elif column == 4:
                     return splits_display(self._scheduled_txns[row].splits)
 
