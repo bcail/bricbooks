@@ -2392,6 +2392,44 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], {'amount': 23, 'quantity': 23})
 
+    def test_ledger_enter_scheduled_txn(self):
+        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
+        gui.storage.save_account(checking)
+        gui.storage.save_account(savings)
+        gui.storage.save_account(housing)
+        gui.storage.save_txn(
+                bb.Transaction(
+                    txn_date=date(2018, 1, 11),
+                    splits={checking: {'amount': 150}, savings: {'amount': -150}},
+                    description='some txn',
+                )
+            )
+        splits = {checking: {'amount': -100}, housing: {'amount': 100}}
+        scheduled_txn = bb.ScheduledTransaction(
+            name='weekly',
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+            splits=splits,
+            next_due_date=date(2018, 1, 13),
+        )
+        gui.storage.save_scheduled_transaction(scheduled_txn)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        secondRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
+        secondRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
+        viewport = gui.ledger_display.txns_display._txns_widget.viewport()
+        QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
+        QtTest.QTest.mouseClick(gui.ledger_display.txns_display.scheduled_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton) #click to skip next txn
+        scheduled_txns = gui.storage.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
+        ledger = gui.storage.get_ledger(account=checking)
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].splits[checking]['amount'], 150)
+        self.assertEqual(txns[1].splits[checking]['amount'], -100)
+
     def test_ledger_skip_scheduled_txn(self):
         gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
         checking = get_test_account()

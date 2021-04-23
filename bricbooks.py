@@ -2019,7 +2019,7 @@ class TxnForm:
             'status': status,
             'categories': categories,
         }
-        if self._txn:
+        if self._txn and not isinstance(self._txn, ScheduledTransaction):
             kwargs['id_'] = self._txn.id
         txn = Transaction.from_user_info(**kwargs)
         self._txn_display.accept()
