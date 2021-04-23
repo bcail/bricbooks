@@ -1862,6 +1862,12 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(checking)
         self.cli._engine._storage.save_account(savings)
+        self.cli._engine._storage.save_txn(
+            bb.Transaction(
+                txn_date=date(2018, 5, 13),
+                splits={checking: {'amount': 175}, savings: {'amount': -175}}
+            )
+        )
         valid_splits={
              checking: {'amount': -101},
              savings: {'amount': 101},
@@ -1876,9 +1882,11 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
         self.cli._list_scheduled_txns()
         ledger = self.cli._engine._storage.get_ledger(checking.id)
-        txn = ledger.get_sorted_txns_with_balance()[0]
-        self.assertEqual(txn.splits, valid_splits)
-        self.assertEqual(txn.txn_date, date(2019, 1, 2))
+        txns = ledger.get_sorted_txns_with_balance()
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].splits[checking]['amount'], 175)
+        self.assertEqual(txns[1].splits, valid_splits)
+        self.assertEqual(txns[1].txn_date, date(2019, 1, 2))
         scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
 
