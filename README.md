@@ -30,6 +30,11 @@ USER TIPS
 ---------
 - To add a starting balance to an account, create an "Opening Balances" Equity account, and make the first transaction a withdrawal from Opening Balances and deposit to the new account.
 
+LICENSES
+--------
+- bricbooks is licensed under the MIT license
+- the Windows executables include [LGPL](https://www.gnu.org/licenses/lgpl-3.0.txt) [Qt](https://download.qt.io/official_releases/qt/5.15/5.15.1/single/qt-everywhere-src-5.15.1.zip) and [Pyside2](https://download.qt.io/official_releases/QtForPython/pyside2/PySide2-5.15.1-src/pyside-setup-opensource-src-5.15.1.zip) code
+
 RESOURCES
 ---------
 - [KMyMoney](https://kmymoney.org/) - [Handbook](https://docs.kde.org/stable5/en/extragear-office/kmymoney/index.html)
