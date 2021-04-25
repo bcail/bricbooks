@@ -215,6 +215,50 @@ class TestTransaction(unittest.TestCase):
             self.savings: {'amount': -101, 'quantity': -101},
         })
 
+    def test_txn_from_user_info_withdrawal_splits(self):
+        #test passing in list, just one account, ...
+        house = get_test_account(id_=3, name='House')
+        txn = bb.Transaction.from_user_info(
+                txn_date='2017-10-15',
+                account=self.checking,
+                deposit='',
+                withdrawal='100',
+                categories={self.savings: {'amount': 45}, house: {'amount': 55}},
+                txn_type='1234',
+                description='something',
+                payee=bb.Payee('payee 1'),
+                status='R',
+            )
+        self.assertEqual(txn.splits,
+                {
+                    self.checking: {'amount': -100, 'quantity': -100, 'status': 'R'},
+                    self.savings: {'amount': 45, 'quantity': 45},
+                    house: {'amount': 55, 'quantity': 55},
+                }
+            )
+
+    def test_txn_from_user_info_deposit_splits(self):
+        #test passing in list, just one account, ...
+        wages = get_test_account(id_=3, type_=bb.AccountType.INCOME, name='Wages')
+        txn = bb.Transaction.from_user_info(
+                txn_date='2017-10-15',
+                account=self.checking,
+                deposit='100',
+                withdrawal='',
+                categories={self.savings: {'amount': -45}, wages: {'amount': -55}},
+                txn_type='1234',
+                description='something',
+                payee=bb.Payee('company'),
+                status='R',
+            )
+        self.assertEqual(txn.splits,
+                {
+                    self.checking: {'amount': 100, 'quantity': 100, 'status': 'R'},
+                    self.savings: {'amount': -45, 'quantity': -45},
+                    wages: {'amount': -55, 'quantity': -55},
+                }
+            )
+
     def test_txn_status(self):
         t = bb.Transaction(
                 splits={
@@ -241,24 +285,6 @@ class TestTransaction(unittest.TestCase):
                     txn_date=date.today(),
                 )
         self.assertEqual(str(cm.exception), 'invalid status "d"')
-
-    def test_txn_splits_from_user_info(self):
-        #test passing in list, just one account, ...
-        house = get_test_account(id_=3, name='House')
-        splits = bb.Transaction.splits_from_user_info(
-                account=self.checking,
-                deposit='',
-                withdrawal='100',
-                input_categories={self.savings: {'amount': -45}, house: {'amount': -55}},
-                status='R',
-            )
-        self.assertEqual(splits,
-                {
-                    self.checking: {'amount': '-100', 'status': 'R'},
-                    self.savings: {'amount': -45},
-                    house: {'amount': -55},
-                }
-            )
 
     def test_get_display_strings(self):
         t = bb.Transaction(

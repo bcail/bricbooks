@@ -344,29 +344,28 @@ class Transaction:
     def splits_from_user_info(account, deposit, withdrawal, input_categories, status=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
-        categories = {}
         try:
             amount = get_validated_amount(deposit or withdrawal)
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid deposit/withdrawal: %s' % e)
+        if deposit:
+            splits[account] = {'amount': amount}
+        else:
+            splits[account] = {'amount': amount * -1}
         if isinstance(input_categories, Account):
-            categories[input_categories] = {'amount': amount}
+            if deposit:
+                splits[input_categories] = {'amount': amount * -1}
+            else:
+                splits[input_categories] = {'amount': amount}
         elif isinstance(input_categories, dict):
+            #don't need to negate any of the values here - should already be set correctly when user enters splits
             for acc, split_info in input_categories.items():
                 if isinstance(split_info, dict) and 'amount' in split_info:
-                    categories[acc] = split_info
+                    splits[acc] = split_info
                 else:
                     raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         else:
             raise InvalidTransactionError(f'invalid input categories: {input_categories}')
-        if deposit:
-            splits[account] = {'amount': deposit}
-            for acc, split_info in categories.items():
-                splits[acc] = {'amount': f'-{split_info["amount"]}'}
-        elif withdrawal:
-            splits[account] = {'amount': f'-{withdrawal}'}
-            for acc, split_info in categories.items():
-                splits[acc] = split_info
         status = Transaction.handle_status(status)
         if status:
             splits[account]['status'] = status
