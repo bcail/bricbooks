@@ -293,6 +293,10 @@ def fraction_to_decimal(f):
     return Decimal(f.numerator) / Decimal(f.denominator)
 
 
+def amount_display(amount):
+    return '{0:,}'.format(fraction_to_decimal(amount))
+
+
 def check_txn_splits(splits):
     if not splits or len(splits.items()) < 2:
         raise InvalidTransactionError('transaction must have at least 2 splits')
@@ -318,7 +322,7 @@ def check_txn_splits(splits):
     if total != Fraction(0):
         amounts = []
         for account, info in splits.items():
-            amounts.append(str(fraction_to_decimal(info['amount'])))
+            amounts.append(amount_display(info['amount']))
         raise InvalidTransactionError("splits don't balance: %s" % ', '.join(amounts))
     return splits
 
@@ -442,11 +446,11 @@ def get_display_strings_for_ledger(account, txn):
     amount = txn.splits[account]['amount']
     if amount < Fraction(0):
         #make negative amount display as positive
-        withdrawal = str(fraction_to_decimal(amount * Fraction('-1')))
+        withdrawal = amount_display(amount * Fraction('-1'))
         deposit = ''
     else:
         withdrawal = ''
-        deposit = str(fraction_to_decimal(amount))
+        deposit = amount_display(amount)
     if txn.payee:
         payee = txn.payee.name
     else:
@@ -554,8 +558,8 @@ class Ledger:
                 if t.splits[self.account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
                     current_cleared = current_cleared + t.splits[self.account][field]
         return LedgerBalances(
-                current=str(fraction_to_decimal(current)),
-                current_cleared=str(fraction_to_decimal(current_cleared)),
+                current=amount_display(current),
+                current_cleared=amount_display(current_cleared),
             )
 
     def get_payees(self):
@@ -574,7 +578,7 @@ def splits_display(splits):
     account_amt_list = []
     for account, info in splits.items():
         amount = info['amount']
-        account_amt_list.append(f'{account.name}: {fraction_to_decimal(amount)}')
+        account_amt_list.append(f'{account.name}: {amount_display(amount)}')
     return '; '.join(account_amt_list)
 
 
@@ -776,8 +780,7 @@ class Budget:
                     report_info[key] = ''
                 else:
                     if isinstance(report_info[key], Fraction):
-                        decimal_value = Decimal(report_info[key].numerator) / Decimal(report_info[key].denominator)
-                        report_info[key] = str(decimal_value)
+                        report_info[key] = amount_display(report_info[key])
                     else:
                         report_info[key] = str(report_info[key])
             if account.type == AccountType.EXPENSE:
@@ -1582,7 +1585,7 @@ class SplitTransactionEditor:
             for acc, split_info in self._initial_txn_splits.items():
                 amt = split_info['amount']
                 if acc == account:
-                    amount_entry.setText(str(fraction_to_decimal(amt)))
+                    amount_entry.setText(amount_display(amt))
             self._entries[account.id] = (amount_entry, account)
             layout.addWidget(amount_entry, row, 1)
             row += 1
@@ -1670,7 +1673,7 @@ def get_txns_model_class():
                     return tds['deposit']
                 if column == 7:
                     if not is_scheduled_txn:
-                        return str(fraction_to_decimal(txn.balance))
+                        return amount_display(txn.balance)
                 if column == 8:
                     return tds['categories']
             elif role == QtCore.Qt.BackgroundRole:
@@ -2095,9 +2098,9 @@ class ScheduledTxnForm:
             account = list(self._scheduled_txn.splits.keys())[0]
             amount = self._scheduled_txn.splits[account]['amount']
             if amount > 0:
-                deposit = str(fraction_to_decimal(amount))
+                deposit = amount_display(amount)
             else:
-                withdrawal = str(fraction_to_decimal(amount * Fraction(-1)))
+                withdrawal = amount_display(amount * Fraction(-1))
 
         layout.addWidget(QtWidgets.QLabel('Account'), 4, 0)
         account_entry = QtWidgets.QComboBox()
@@ -2878,7 +2881,7 @@ class CLI:
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(self._engine._storage.get_account(acc_id), t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], fraction_to_decimal(t.balance), t.id)
+                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], amount_display(t.balance), t.id)
                 )
             if more_txns:
                 prompt = '(o) older txns'
@@ -3066,11 +3069,11 @@ class CLI:
         for account, info in account_budget_info.items():
             amount = info.get('amount', '')
             if amount:
-                amount = str(fraction_to_decimal(amount))
+                amount = amount_display(amount)
             display = f' {account}: {amount}'
             carryover = info.get('carryover', '')
             if carryover:
-                carryover = str(fraction_to_decimal(carryover))
+                carryover = amount_display(carryover)
                 display += f' (carryover: {carryover})'
             if info.get('notes', None):
                 display += f' {info["notes"]}'
