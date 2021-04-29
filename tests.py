@@ -202,7 +202,7 @@ class TestTransaction(unittest.TestCase):
         t = bb.Transaction.from_user_info(
                 account=self.checking,
                 txn_type='1234',
-                deposit='101',
+                deposit='1,001',
                 withdrawal='',
                 txn_date='2017-10-15',
                 description='something',
@@ -211,8 +211,8 @@ class TestTransaction(unittest.TestCase):
                 categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
         self.assertEqual(t.splits, {
-            self.checking: {'amount': 101, 'quantity': 101, 'status': 'C'},
-            self.savings: {'amount': -101, 'quantity': -101},
+            self.checking: {'amount': 1001, 'quantity': 1001, 'status': 'C'},
+            self.savings: {'amount': -1001, 'quantity': -1001},
         })
 
     def test_txn_from_user_info_withdrawal_splits(self):

@@ -263,6 +263,9 @@ class Payee:
 
 def get_validated_amount(value):
     amount = None
+    #a string could contain ',', so remove those
+    if isinstance(value, str):
+        value = value.replace(',', '')
     #try to only allow exact values (eg. no floats)
     if isinstance(value, (int, str, Fraction)):
         try:
@@ -278,6 +281,9 @@ def get_validated_amount(value):
 
 def get_validated_quantity(value):
     quantity = None
+    #a string could contain ',', so remove those
+    if isinstance(value, str):
+        value = value.replace(',', '')
     #try to only allow exact values (eg. no floats)
     if isinstance(value, (int, str, Fraction)):
         try:
