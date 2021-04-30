@@ -1792,6 +1792,7 @@ class LedgerTxnsDisplay:
 
     def display_new_txn(self, txn):
         self._txns_model.add_txn(txn)
+        self._post_update_function()
 
     def _delete(self, txn):
         self.storage.delete_txn(txn.id)
@@ -1812,6 +1813,7 @@ class LedgerTxnsDisplay:
             txn.update_reconciled_state(account=self.ledger.account)
             self.storage.save_txn(txn)
             self._txns_model.update_txn_status(txn)
+            self._post_update_function()
         else:
             self.edit_txn_display = TxnForm(
                     payees=self.storage.get_payees(),
@@ -1828,6 +1830,7 @@ class LedgerTxnsDisplay:
         self.storage.save_scheduled_transaction(scheduled_txn)
         self.storage.save_txn(new_txn)
         self._display_ledger()
+        self._post_update_function()
 
     def _skip_scheduled_txn(self, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
@@ -2189,7 +2192,6 @@ class LedgerDisplay:
         self.widget, self.layout = self._setup_main()
         if self._current_account:
             self._display_ledger(self.layout, self._current_account)
-            self._display_balances_widget(self.layout, self.ledger)
         else:
             self.layout.addWidget(QtWidgets.QLabel(''), self._ledger_txns_row_index, 0, 1, 9)
             self.layout.setRowStretch(self._ledger_txns_row_index, 1)
@@ -2216,6 +2218,7 @@ class LedgerDisplay:
             self.txns_display_widget.deleteLater()
         self.txns_display_widget = self.txns_display.get_widget()
         layout.addWidget(self.txns_display_widget, self._ledger_txns_row_index, 0, 1, 9)
+        self._display_balances_widget(layout, self.ledger)
 
     def _display_balances_widget(self, layout, ledger):
         if self.balances_widget:
