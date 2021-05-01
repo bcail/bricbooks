@@ -23,7 +23,7 @@ except ImportError:
     readline = None
 
 
-__version__ = '0.2'
+__version__ = '0.2.1dev'
 TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.1'
 CUR_DIR = os.getcwd()
