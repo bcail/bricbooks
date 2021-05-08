@@ -2629,8 +2629,6 @@ class ScheduledTxnsDisplay:
     def get_widget(self):
         self.widget, self.layout, self._row_index = self._setup_main()
         self._display_scheduled_txns(self.layout)
-        self.layout.addWidget(QtWidgets.QLabel(''), self._row_index, 0, 1, 6)
-        self.layout.setRowStretch(self._row_index, 1)
         return self.widget
 
     def _setup_main(self):
