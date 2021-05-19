@@ -1777,7 +1777,6 @@ class LedgerTxnsDisplay:
         self.main_widget = QtWidgets.QScrollArea()
         self.main_widget.setWidgetResizable(True)
         self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
-        set_ledger_column_widths(self.txns_layout)
         self.main_widget.setWidget(self._txns_widget)
         return self.main_widget
 
@@ -2201,7 +2200,6 @@ class LedgerDisplay:
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        set_ledger_column_widths(layout)
         new_row = self._show_headings(layout, row=0)
         self._ledger_txns_row_index = new_row
         widget.setLayout(layout)
@@ -2418,7 +2416,7 @@ def get_budget_model_class():
                 if index.column() == 4:
                     return self._report_data[index.row()]['info'].get('total_budget', '')
                 if index.column() == 5:
-                    return self._report_data[index.row()]['info'].get('total_budget', '')
+                    return self._report_data[index.row()]['info'].get('spent', '')
                 if index.column() == 6:
                     return self._report_data[index.row()]['info'].get('remaining', '')
                 if index.column() == 7:
