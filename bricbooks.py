@@ -744,21 +744,23 @@ class Budget:
 
     def get_report_display(self, current_date=None):
         '''adds income & spending data to budget data, & converts to strings, for a budget report to display
-        { 'expense': {
-                expense_account1: {'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'remaining_percent': '50%', 'notes': 'note1'},
-                expense_account2: {'amount': '5', 'total_budget': '5', 'remaining': '5', 'remaining_percent': '100%'},
-                expense_account3: {},
-            },
-          'income': {
-                income_account1: {'amount': '10', 'income': '7', 'remaining': '3', 'remaining_percent': '30%', 'notes': 'note2', 'current_status': '-1.2%'}, #based on date passed in, should be at 71.2% (only relevant if date is within the budget period (get percentage through budget period, compare to remaining_percent)
-                income_account2: {},
-          } }
+        { 'expense': [
+                {'name': ..., 'amount': '10', 'income': '5', 'carryover': '5', 'total_budget': '20', 'spent': '10', 'remaining': '10', 'remaining_percent': '50%', 'notes': 'note1'},
+                {'name': ..., 'amount': '5', 'total_budget': '5', 'remaining': '5', 'remaining_percent': '100%'},
+                {},
+            ],
+          'income': [
+                {'name': ..., 'amount': '10', 'income': '7', 'remaining': '3', 'remaining_percent': '30%', 'notes': 'note2', 'current_status': '-1.2%'}, #based on date passed in, should be at 71.2% (only relevant if date is within the budget period (get percentage through budget period, compare to remaining_percent)
+                {'name': ...},
+          ] }
         '''
         if self._income_spending_info is None:
             raise BudgetError('must pass in income_spending_info to get the report display')
-        report = {'expense': {}, 'income': {}}
+        report = {'expense': [], 'income': []}
+        income_totals_info = {'name': 'Total Income', 'amount': Fraction(0)}
+        expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0)}
         for account, budget_info in self._budget_data.items():
-            report_info = {}
+            report_info = {'name': account.name}
             report_info.update(budget_info)
             for key, value in self._income_spending_info.get(account, {}).items():
                 if value:
@@ -767,6 +769,7 @@ class Budget:
                 carryover = report_info.get('carryover', Fraction(0))
                 income = report_info.get('income', Fraction(0))
                 if account.type == AccountType.EXPENSE:
+                    expense_totals_info['amount'] += report_info['amount']
                     report_info['total_budget'] = report_info['amount'] + carryover + income
                     spent = report_info.get('spent', Fraction(0))
                     report_info['remaining'] = report_info['total_budget'] - spent
@@ -777,6 +780,7 @@ class Budget:
                     except InvalidOperation:
                         report_info['remaining_percent'] = 'error'
                 else:
+                    income_totals_info['amount'] += report_info['amount']
                     report_info['remaining'] = report_info['amount'] - income
                     remaining_percent = Fraction(100) - ((income / report_info['amount']) * Fraction(100))
                     report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(remaining_percent)))
@@ -790,9 +794,20 @@ class Budget:
                     else:
                         report_info[key] = str(report_info[key])
             if account.type == AccountType.EXPENSE:
-                report['expense'][account] = report_info
+                report['expense'].append(report_info)
             else:
-                report['income'][account] = report_info
+                report['income'].append(report_info)
+        for info in [income_totals_info, expense_totals_info]:
+            for key in info.keys():
+                if info[key] == Fraction(0):
+                    info[key] = ''
+                else:
+                    if isinstance(info[key], Fraction):
+                        info[key] = amount_display(info[key])
+                    else:
+                        info[key] = str(info[key])
+        report['income'].append(income_totals_info)
+        report['expense'].append(expense_totals_info)
         return report
 
 
@@ -2369,10 +2384,10 @@ def get_budget_model_class():
         def __init__(self, budget):
             self._budget_report = budget.get_report_display(current_date=date.today())
             self._report_data = []
-            for account, info in self._budget_report['income'].items():
-                self._report_data.append({'account': account, 'info': info})
-            for account, info in self._budget_report['expense'].items():
-                self._report_data.append({'account': account, 'info': info})
+            for info in self._budget_report['income']:
+                self._report_data.append(info)
+            for info in self._budget_report['expense']:
+                self._report_data.append(info)
             super().__init__()
 
         def rowCount(self, parent):
@@ -2406,23 +2421,23 @@ def get_budget_model_class():
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
                 if index.column() == 0:
-                    return self._report_data[index.row()]['account'].name
+                    return self._report_data[index.row()].get('name', '')
                 if index.column() == 1:
-                    return self._report_data[index.row()]['info'].get('amount', '')
+                    return self._report_data[index.row()].get('amount', '')
                 if index.column() == 2:
-                    return self._report_data[index.row()]['info'].get('income', '')
+                    return self._report_data[index.row()].get('income', '')
                 if index.column() == 3:
-                    return self._report_data[index.row()]['info'].get('carryover', '')
+                    return self._report_data[index.row()].get('carryover', '')
                 if index.column() == 4:
-                    return self._report_data[index.row()]['info'].get('total_budget', '')
+                    return self._report_data[index.row()].get('total_budget', '')
                 if index.column() == 5:
-                    return self._report_data[index.row()]['info'].get('spent', '')
+                    return self._report_data[index.row()].get('spent', '')
                 if index.column() == 6:
-                    return self._report_data[index.row()]['info'].get('remaining', '')
+                    return self._report_data[index.row()].get('remaining', '')
                 if index.column() == 7:
-                    return self._report_data[index.row()]['info'].get('remaining_percent', '')
+                    return self._report_data[index.row()].get('remaining_percent', '')
                 if index.column() == 8:
-                    return self._report_data[index.row()]['info'].get('current_status', '')
+                    return self._report_data[index.row()].get('current_status', '')
 
     return Model
 
@@ -3089,10 +3104,10 @@ class CLI:
         budget = self._engine._storage.get_budget(budget_id)
         self.print(budget)
         budget_report = budget.get_report_display(current_date=date.today())
-        for account, info in budget_report['income'].items():
-            self.print(f'{account}: {info}')
-        for account, info in budget_report['expense'].items():
-            self.print(f'{account}: {info}')
+        for info in budget_report['income']:
+            self.print(info)
+        for info in budget_report['expense']:
+            self.print(info)
 
     def _create_budget(self):
         self.print('Create Budget:')

@@ -731,7 +731,10 @@ class TestBudget(unittest.TestCase):
         income_spending_info = {housing: {'income': 5, 'spent': 10}, food: {'income': ''}, wages: {'income': 80}}
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display(current_date=date(2018, 7, 1))
-        housing_info = budget_report['expense'][housing]
+        self.assertEqual(len(budget_report['income']), 3)
+        self.assertEqual(len(budget_report['expense']), 5)
+        housing_info = budget_report['expense'][0]
+        self.assertEqual(housing_info['name'], 'Housing')
         self.assertEqual(housing_info['amount'], '15')
         self.assertEqual(housing_info['carryover'], '5')
         self.assertEqual(housing_info['income'], '5')
@@ -740,11 +743,12 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['remaining'], '15')
         self.assertEqual(housing_info['remaining_percent'], '60%')
         self.assertEqual(housing_info['current_status'], '-10%')
-        food_info = budget_report['expense'][food]
-        self.assertEqual(food_info, {})
-        transportation_info = budget_report['expense'][transportation]
+        food_info = budget_report['expense'][1]
+        self.assertEqual(food_info, {'name': 'Food'})
+        transportation_info = budget_report['expense'][2]
         self.assertEqual(transportation_info,
                 {
+                    'name': 'Transportation',
                     'amount': '10',
                     'total_budget': '10',
                     'remaining': '10',
@@ -752,9 +756,12 @@ class TestBudget(unittest.TestCase):
                     'current_status': '-50%',
                 }
             )
-        wages_info = budget_report['income'][wages]
+        self.assertEqual(budget_report['expense'][3], {'name': 'Something'})
+        self.assertEqual(budget_report['expense'][4], {'name': 'Total Expense', 'amount': '25'})
+        wages_info = budget_report['income'][0]
         self.assertEqual(wages_info,
                 {
+                    'name': 'Wages',
                     'amount': '100',
                     'income': '80',
                     'remaining': '20',
@@ -763,7 +770,8 @@ class TestBudget(unittest.TestCase):
                     'current_status': '+30%',
                 }
             )
-        self.assertEqual(budget_report['income'][interest], {})
+        self.assertEqual(budget_report['income'][1], {'name': 'Interest'})
+        self.assertEqual(budget_report['income'][2], {'name': 'Total Income', 'amount': '100'})
 
 
 TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
@@ -1349,22 +1357,24 @@ class TestSQLiteStorage(unittest.TestCase):
 
         report_display = budget.get_report_display(current_date=date(2018, 6, 30))
         expenses = report_display['expense']
-        self.assertEqual(expenses[housing]['amount'], '135')
-        self.assertEqual(expenses[housing]['spent'], '101')
-        self.assertEqual(expenses[housing]['notes'], 'hello')
+        self.assertEqual(expenses[0]['name'], 'Housing')
+        self.assertEqual(expenses[0]['amount'], '135')
+        self.assertEqual(expenses[0]['spent'], '101')
+        self.assertEqual(expenses[0]['notes'], 'hello')
 
-        self.assertEqual(expenses[food]['amount'], '70')
-        self.assertEqual(expenses[food]['carryover'], '15')
-        self.assertEqual(expenses[food]['income'], '15')
-        self.assertEqual(expenses[food]['spent'], '102.46')
+        self.assertEqual(expenses[1]['name'], 'Food')
+        self.assertEqual(expenses[1]['amount'], '70')
+        self.assertEqual(expenses[1]['carryover'], '15')
+        self.assertEqual(expenses[1]['income'], '15')
+        self.assertEqual(expenses[1]['spent'], '102.46')
 
-        self.assertEqual(expenses[transportation], {})
+        self.assertEqual(expenses[2], {'name': 'Transportation'})
 
         incomes = report_display['income']
-        self.assertEqual(incomes[wages]['amount'], '70')
-        self.assertEqual(incomes[wages]['income'], '100')
-        self.assertEqual(incomes[wages]['remaining'], '-30')
-        self.assertEqual(incomes[wages]['current_status'], '+93%')
+        self.assertEqual(incomes[0]['amount'], '70')
+        self.assertEqual(incomes[0]['income'], '100')
+        self.assertEqual(incomes[0]['remaining'], '-30')
+        self.assertEqual(incomes[0]['current_status'], '+93%')
 
 
     def test_get_budgets(self):
@@ -1392,8 +1402,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].start_date, date(2018, 1, 1))
         self.assertEqual(budgets[0].end_date, date(2018, 12, 31))
-        expense_account = list(budgets[0].get_report_display()['expense'].keys())[0]
-        self.assertEqual(expense_account.name, 'Housing')
+        self.assertEqual(budgets[0].get_report_display()['expense'][0]['name'], 'Housing')
 
     def test_save_scheduled_txn(self):
         storage = bb.SQLiteStorage(':memory:')
