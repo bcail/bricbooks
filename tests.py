@@ -710,6 +710,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(bb.Budget.round_percent_available(Decimal('2.5')), 3)
 
     def test_get_report_display(self):
+        self.maxDiff = None
         housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
         food = get_test_account(id_=2, type_=bb.AccountType.EXPENSE, name='Food')
         transportation = get_test_account(id_=3, type_=bb.AccountType.EXPENSE, name='Transportation')
@@ -757,7 +758,19 @@ class TestBudget(unittest.TestCase):
                 }
             )
         self.assertEqual(budget_report['expense'][3], {'name': 'Something'})
-        self.assertEqual(budget_report['expense'][4], {'name': 'Total Expense', 'amount': '25'})
+        self.assertEqual(budget_report['expense'][4],
+                {
+                    'name': 'Total Expense',
+                    'amount': '25',
+                    'carryover': '5',
+                    'income': '5',
+                    'total_budget': '35',
+                    'spent': '10',
+                    'remaining': '25',
+                    'remaining_percent': '71%',
+                    'current_status': '-21%',
+                }
+            )
         wages_info = budget_report['income'][0]
         self.assertEqual(wages_info,
                 {
@@ -771,7 +784,17 @@ class TestBudget(unittest.TestCase):
                 }
             )
         self.assertEqual(budget_report['income'][1], {'name': 'Interest'})
-        self.assertEqual(budget_report['income'][2], {'name': 'Total Income', 'amount': '100'})
+        self.assertEqual(budget_report['income'][2],
+                {
+                    'name': 'Total Income',
+                    'amount': '100',
+                    'carryover': '',
+                    'income': '80',
+                    'remaining': '20',
+                    'remaining_percent': '20%',
+                    'current_status': '+30%',
+                }
+            )
 
 
 TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]

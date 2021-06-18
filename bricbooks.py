@@ -757,8 +757,8 @@ class Budget:
         if self._income_spending_info is None:
             raise BudgetError('must pass in income_spending_info to get the report display')
         report = {'expense': [], 'income': []}
-        income_totals_info = {'name': 'Total Income', 'amount': Fraction(0)}
-        expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0)}
+        income_totals_info = {'name': 'Total Income', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0)}
+        expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0), 'spent': Fraction(0)}
         for account, budget_info in self._budget_data.items():
             report_info = {'name': account.name}
             report_info.update(budget_info)
@@ -770,8 +770,11 @@ class Budget:
                 income = report_info.get('income', Fraction(0))
                 if account.type == AccountType.EXPENSE:
                     expense_totals_info['amount'] += report_info['amount']
+                    expense_totals_info['carryover'] += carryover
+                    expense_totals_info['income'] += income
                     report_info['total_budget'] = report_info['amount'] + carryover + income
                     spent = report_info.get('spent', Fraction(0))
+                    expense_totals_info['spent'] += spent
                     report_info['remaining'] = report_info['total_budget'] - spent
                     try:
                         percent_available = (report_info['remaining'] / report_info['total_budget']) * Fraction(100)
@@ -781,6 +784,8 @@ class Budget:
                         report_info['remaining_percent'] = 'error'
                 else:
                     income_totals_info['amount'] += report_info['amount']
+                    income_totals_info['carryover'] += carryover
+                    income_totals_info['income'] += income
                     report_info['remaining'] = report_info['amount'] - income
                     remaining_percent = Fraction(100) - ((income / report_info['amount']) * Fraction(100))
                     report_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(remaining_percent)))
@@ -797,6 +802,18 @@ class Budget:
                 report['expense'].append(report_info)
             else:
                 report['income'].append(report_info)
+        expense_totals_info['total_budget'] = expense_totals_info['amount'] + expense_totals_info['carryover'] + expense_totals_info['income']
+        expense_totals_info['remaining'] = expense_totals_info['total_budget'] - expense_totals_info['spent']
+        expense_percent_available = (expense_totals_info['remaining'] / expense_totals_info['total_budget']) * Fraction(100)
+        expense_totals_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(expense_percent_available)))
+        expense_totals_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, expense_percent_available)
+        income_totals_info['remaining'] = income_totals_info['amount'] - income_totals_info['income']
+        if income_totals_info['amount']:
+            income_percent_available = (income_totals_info['remaining'] / income_totals_info['amount']) * Fraction(100)
+        else:
+            income_percent_available = Fraction(0)
+        income_totals_info['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(income_percent_available)))
+        income_totals_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, income_percent_available)
         for info in [income_totals_info, expense_totals_info]:
             for key in info.keys():
                 if info[key] == Fraction(0):
