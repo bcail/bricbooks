@@ -738,6 +738,10 @@ class Budget:
         else:
             raise BudgetError("Can't compare budgets without an id")
 
+    @staticmethod
+    def sort_accounts(accounts):
+        return sorted([a for a in accounts], key=lambda acc: acc.number or 'ZZZ')
+
     def get_budget_data(self):
         '''returns {account1: {'amount': xxx}, account2: {}, ...}'''
         return self._budget_data
@@ -759,7 +763,13 @@ class Budget:
         report = {'expense': [], 'income': []}
         income_totals_info = {'name': 'Total Income', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0)}
         expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0), 'spent': Fraction(0)}
-        for account, budget_info in self._budget_data.items():
+        accounts_to_process = []
+        top_level_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent]))
+        for top in top_level_accounts:
+            accounts_to_process.append(top)
+            accounts_to_process.extend(Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top])))
+        for account in accounts_to_process:
+            budget_info = self._budget_data[account]
             report_info = {'name': account.name}
             report_info.update(budget_info)
             for key, value in self._income_spending_info.get(account, {}).items():

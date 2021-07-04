@@ -711,15 +711,23 @@ class TestBudget(unittest.TestCase):
 
     def test_get_report_display(self):
         self.maxDiff = None
-        housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
-        food = get_test_account(id_=2, type_=bb.AccountType.EXPENSE, name='Food')
+        housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing', number='400')
+        maintenance = get_test_account(id_=7, type_=bb.AccountType.EXPENSE, name='Maintenance', number='420', parent=housing)
+        rent = get_test_account(id_=8, type_=bb.AccountType.EXPENSE, name='Rent', number='410', parent=housing)
+        food = get_test_account(id_=2, type_=bb.AccountType.EXPENSE, name='Food', number='600')
+        restaurants = get_test_account(id_=9, type_=bb.AccountType.EXPENSE, name='Restaurants', number='610', parent=food)
+        groceries = get_test_account(id_=10, type_=bb.AccountType.EXPENSE, name='Groceries', number='620', parent=food)
         transportation = get_test_account(id_=3, type_=bb.AccountType.EXPENSE, name='Transportation')
         something = get_test_account(id_=4, type_=bb.AccountType.EXPENSE, name='Something')
         wages = get_test_account(id_=5, type_=bb.AccountType.INCOME, name='Wages')
         interest = get_test_account(id_=6, type_=bb.AccountType.INCOME, name='Interest')
         account_budget_info = {
-                housing: {'amount': 15, 'carryover': 5},
+                maintenance: {},
+                rent: {},
+                restaurants: {},
                 food: {},
+                housing: {'amount': 15, 'carryover': 5},
+                groceries: {},
                 transportation: {'amount': 10},
                 something: {'amount': 0},
                 wages: {'amount': 100, 'notes': 'note 1'},
@@ -733,7 +741,7 @@ class TestBudget(unittest.TestCase):
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display(current_date=date(2018, 7, 1))
         self.assertEqual(len(budget_report['income']), 3)
-        self.assertEqual(len(budget_report['expense']), 5)
+        self.assertEqual(len(budget_report['expense']), 9)
         housing_info = budget_report['expense'][0]
         self.assertEqual(housing_info['name'], 'Housing')
         self.assertEqual(housing_info['amount'], '15')
@@ -744,9 +752,11 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['remaining'], '15')
         self.assertEqual(housing_info['remaining_percent'], '60%')
         self.assertEqual(housing_info['current_status'], '-10%')
-        food_info = budget_report['expense'][1]
+        self.assertEqual(budget_report['expense'][1]['name'], 'Rent')
+        self.assertEqual(budget_report['expense'][2]['name'], 'Maintenance')
+        food_info = budget_report['expense'][3]
         self.assertEqual(food_info, {'name': 'Food'})
-        transportation_info = budget_report['expense'][2]
+        transportation_info = budget_report['expense'][6]
         self.assertEqual(transportation_info,
                 {
                     'name': 'Transportation',
@@ -757,8 +767,8 @@ class TestBudget(unittest.TestCase):
                     'current_status': '-50%',
                 }
             )
-        self.assertEqual(budget_report['expense'][3], {'name': 'Something'})
-        self.assertEqual(budget_report['expense'][4],
+        self.assertEqual(budget_report['expense'][7], {'name': 'Something'})
+        self.assertEqual(budget_report['expense'][8],
                 {
                     'name': 'Total Expense',
                     'amount': '25',
