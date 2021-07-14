@@ -764,8 +764,12 @@ class Budget:
         income_totals_info = {'name': 'Total Income', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0)}
         expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0), 'spent': Fraction(0)}
         accounts_to_process = []
-        top_level_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent]))
-        for top in top_level_accounts:
+        top_level_income_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent and a.type == AccountType.INCOME]))
+        top_level_expense_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent and a.type == AccountType.EXPENSE]))
+        for top in top_level_income_accounts:
+            accounts_to_process.append(top)
+            accounts_to_process.extend(Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top])))
+        for top in top_level_expense_accounts:
             accounts_to_process.append(top)
             accounts_to_process.extend(Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top])))
         for account in accounts_to_process:
