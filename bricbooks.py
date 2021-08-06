@@ -768,6 +768,23 @@ class Budget:
                 report_info['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, remaining_percent)
         return report_info
 
+    def _process_account(self, account, current_date, report, expense_totals_info, income_totals_info):
+        report_info = self._get_account_report_info(account, current_date)
+        carryover = report_info.get('carryover', Fraction(0))
+        income = report_info.get('income', Fraction(0))
+        if account.type == AccountType.EXPENSE:
+            spent = report_info.get('spent', Fraction(0))
+            expense_totals_info['amount'] += report_info.get('amount', Fraction(0))
+            expense_totals_info['carryover'] += carryover
+            expense_totals_info['income'] += income
+            expense_totals_info['spent'] += spent
+            report['expense'].append(report_info)
+        else:
+            income_totals_info['amount'] += report_info.get('amount', Fraction(0))
+            income_totals_info['carryover'] += carryover
+            income_totals_info['income'] += income
+            report['income'].append(report_info)
+
     def get_budget_data(self):
         '''returns {account1: {'amount': xxx}, account2: {}, ...}'''
         return self._budget_data
@@ -789,31 +806,12 @@ class Budget:
         report = {'expense': [], 'income': []}
         income_totals_info = {'name': 'Total Income', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0)}
         expense_totals_info = {'name': 'Total Expense', 'amount': Fraction(0), 'carryover': Fraction(0), 'income': Fraction(0), 'spent': Fraction(0)}
-        accounts_to_process = []
         top_level_income_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent and a.type == AccountType.INCOME]))
         top_level_expense_accounts = Budget.sort_accounts(list([a for a in self._budget_data.keys() if not a.parent and a.type == AccountType.EXPENSE]))
-        for top in top_level_income_accounts:
-            accounts_to_process.append(top)
-            accounts_to_process.extend(Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top])))
-        for top in top_level_expense_accounts:
-            accounts_to_process.append(top)
-            accounts_to_process.extend(Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top])))
-        for account in accounts_to_process:
-            report_info = self._get_account_report_info(account, current_date)
-            carryover = report_info.get('carryover', Fraction(0))
-            income = report_info.get('income', Fraction(0))
-            if account.type == AccountType.EXPENSE:
-                spent = report_info.get('spent', Fraction(0))
-                expense_totals_info['amount'] += report_info.get('amount', Fraction(0))
-                expense_totals_info['carryover'] += carryover
-                expense_totals_info['income'] += income
-                expense_totals_info['spent'] += spent
-                report['expense'].append(report_info)
-            else:
-                income_totals_info['amount'] += report_info.get('amount', Fraction(0))
-                income_totals_info['carryover'] += carryover
-                income_totals_info['income'] += income
-                report['income'].append(report_info)
+        for top_level_account in (top_level_income_accounts + top_level_expense_accounts):
+            self._process_account(top_level_account, current_date, report, expense_totals_info, income_totals_info)
+            for account in Budget.sort_accounts(list([a for a in self._budget_data.keys() if a.parent == top_level_account])):
+                self._process_account(account, current_date, report, expense_totals_info, income_totals_info)
         expense_totals_info['total_budget'] = expense_totals_info['amount'] + expense_totals_info['carryover'] + expense_totals_info['income']
         expense_totals_info['remaining'] = expense_totals_info['total_budget'] - expense_totals_info['spent']
         expense_percent_available = (expense_totals_info['remaining'] / expense_totals_info['total_budget']) * Fraction(100)
