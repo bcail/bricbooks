@@ -741,7 +741,7 @@ class TestBudget(unittest.TestCase):
         budget = bb.Budget(year=2018, account_budget_info=account_budget_info, income_spending_info=income_spending_info)
         budget_report = budget.get_report_display(current_date=date(2018, 7, 1))
         self.assertEqual(len(budget_report['income']), 3)
-        self.assertEqual(len(budget_report['expense']), 9)
+        self.assertEqual(len(budget_report['expense']), 11)
         housing_info = budget_report['expense'][0]
         self.assertEqual(housing_info['name'], 'Housing')
         self.assertEqual(housing_info['amount'], '15')
@@ -754,9 +754,14 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['current_status'], '-10%')
         self.assertEqual(budget_report['expense'][1]['name'], 'Rent')
         self.assertEqual(budget_report['expense'][2]['name'], 'Maintenance')
-        food_info = budget_report['expense'][3]
+        self.assertEqual(budget_report['expense'][3]['name'], 'Total Housing')
+        self.assertEqual(budget_report['expense'][3]['amount'], '15')
+        food_info = budget_report['expense'][4]
         self.assertEqual(food_info, {'name': 'Food'})
-        transportation_info = budget_report['expense'][6]
+        self.assertEqual(budget_report['expense'][5]['name'], 'Restaurants')
+        self.assertEqual(budget_report['expense'][6]['name'], 'Groceries')
+        self.assertEqual(budget_report['expense'][7]['name'], 'Total Food')
+        transportation_info = budget_report['expense'][8]
         self.assertEqual(transportation_info,
                 {
                     'name': 'Transportation',
@@ -767,8 +772,8 @@ class TestBudget(unittest.TestCase):
                     'current_status': '-50%',
                 }
             )
-        self.assertEqual(budget_report['expense'][7], {'name': 'Something'})
-        self.assertEqual(budget_report['expense'][8],
+        self.assertEqual(budget_report['expense'][9], {'name': 'Something'})
+        self.assertEqual(budget_report['expense'][10],
                 {
                     'name': 'Total Expense',
                     'amount': '25',
