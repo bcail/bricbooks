@@ -824,8 +824,23 @@ class Budget:
                 self._process_account(account, current_date, report, expense_totals_info, income_totals_info, group_totals)
             if has_children:
                 if top_level_account.type == AccountType.EXPENSE:
+                    group_totals['total_budget'] = group_totals['amount'] + group_totals['carryover'] + group_totals['income']
+                    group_totals['remaining'] = group_totals['total_budget'] - group_totals['spent']
+                    if group_totals['total_budget']:
+                        group_percent_available = (group_totals['remaining'] / group_totals['total_budget']) * Fraction(100)
+                    else:
+                        group_percent_available = Fraction(0)
+                    group_totals['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(group_percent_available)))
+                    group_totals['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, group_percent_available)
                     report['expense'].append(group_totals)
                 else:
+                    group_totals['remaining'] = group_totals['amount'] - group_totals['income']
+                    if group_totals['amount']:
+                        group_percent_available = (group_totals['remaining'] / group_totals['amount']) * Fraction(100)
+                    else:
+                        group_percent_available = Fraction(0)
+                    group_totals['remaining_percent'] = '{}%'.format(Budget.round_percent_available(fraction_to_decimal(group_percent_available)))
+                    group_totals['current_status'] = Budget.get_current_status(current_date, self.start_date, self.end_date, group_percent_available)
                     report['income'].append(group_totals)
         expense_totals_info['total_budget'] = expense_totals_info['amount'] + expense_totals_info['carryover'] + expense_totals_info['income']
         expense_totals_info['remaining'] = expense_totals_info['total_budget'] - expense_totals_info['spent']

@@ -756,6 +756,7 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['expense'][2]['name'], 'Maintenance')
         self.assertEqual(budget_report['expense'][3]['name'], 'Total Housing')
         self.assertEqual(budget_report['expense'][3]['amount'], '15')
+        self.assertEqual(budget_report['expense'][3]['total_budget'], '25')
         food_info = budget_report['expense'][4]
         self.assertEqual(food_info, {'name': 'Food'})
         self.assertEqual(budget_report['expense'][5]['name'], 'Restaurants')
