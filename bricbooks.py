@@ -1751,7 +1751,7 @@ def get_txns_model_class():
                 if column == 6:
                     return tds['deposit']
                 if column == 7:
-                    if not is_scheduled_txn:
+                    if not is_scheduled_txn and hasattr(txn, 'balance'):
                         return amount_display(txn.balance)
                 if column == 8:
                     return tds['categories']
@@ -1838,9 +1838,13 @@ class LedgerTxnsDisplay:
         self._post_update_function = post_update_function
         self._display_ledger = display_ledger
         self._model_class = model_class
+        if self._filter_text:
+            txns = self.ledger.search(self._filter_text)
+        else:
+            txns = self.ledger.get_sorted_txns_with_balance()
         self._txns_model = self._model_class(
                 self.ledger.account,
-                self.ledger.get_sorted_txns_with_balance(),
+                txns,
                 self.ledger.get_scheduled_transactions_due()
             )
         self._txns_widget = self._get_txns_widget(self._txns_model)
