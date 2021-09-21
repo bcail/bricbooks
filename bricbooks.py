@@ -1848,7 +1848,6 @@ class LedgerTxnsDisplay:
     def get_widget(self):
         self.main_widget = QtWidgets.QScrollArea()
         self.main_widget.setWidgetResizable(True)
-        self.txns_layout = QtWidgets.QGridLayout() #need handle to this for display_new_txn
         self.main_widget.setWidget(self._txns_widget)
         return self.main_widget
 
@@ -1861,7 +1860,8 @@ class LedgerTxnsDisplay:
         widget.clicked.connect(self._edit)
         return widget
 
-    def display_new_txn(self, txn):
+    def handle_new_txn(self, txn):
+        self.storage.save_txn(txn)
         self.ledger.add_transaction(txn)
         self._txns_model.add_txn(
                 txn,
@@ -2366,12 +2366,8 @@ class LedgerDisplay:
         return row + 1
 
     def _open_new_txn_form(self):
-        self.add_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=self._save_new_txn, storage=self.storage, current_account=self._current_account)
+        self.add_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=self.txns_display.handle_new_txn, storage=self.storage, current_account=self._current_account)
         self.add_txn_display.show_form()
-
-    def _save_new_txn(self, txn):
-        self.storage.save_txn(txn)
-        self.txns_display.display_new_txn(txn)
 
 
 class BudgetForm:
