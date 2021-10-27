@@ -1293,8 +1293,11 @@ class Engine:
         commodities = self._storage.get_commodities()
         return [c for c in commodities if c.type == CommodityType.CURRENCY]
 
-    def get_accounts(self):
-        return self._storage.get_accounts()
+    def get_account(self, id_=None, number=None, name=None):
+        return self._storage.get_account(id_=id_, number=None, name=None)
+
+    def get_accounts(self, type_=None):
+        return self._storage.get_accounts(type_=type_)
 
     def get_ledger_accounts(self):
         '''Retrieve accounts for Ledger display'''
@@ -2276,7 +2279,7 @@ class LedgerDisplay:
         self._txns_model_class = txns_model_class
         #choose an account if there is one
         if not current_account:
-            accounts = self.storage.get_accounts(type_=AccountType.ASSET)
+            accounts = self._engine.get_accounts(type_=AccountType.ASSET)
             if accounts:
                 current_account = accounts[0]
         self._current_account = current_account
@@ -2335,7 +2338,7 @@ class LedgerDisplay:
         return widget
 
     def _update_account(self, index):
-        self._current_account = self.storage.get_accounts()[index]
+        self._current_account = self._engine.get_accounts()[index]
         self._display_ledger(layout=self.layout, account=self._current_account)
 
     def _filter_txns(self):
@@ -2863,7 +2866,7 @@ class GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):
-        accounts = self._engine._storage.get_accounts(type_=AccountType.ASSET)
+        accounts = self._engine.get_accounts(type_=AccountType.ASSET)
         if not accounts:
             show_error('Enter an asset account first.')
             return
@@ -2954,7 +2957,7 @@ class CLI:
 
     def _edit_account(self):
         acc_id = self.input('Account ID: ')
-        account = self._engine._storage.get_account(acc_id)
+        account = self._engine.get_account(id_=acc_id)
         self._get_and_save_account(account=account)
 
     def _list_account_txns(self, num_txns_in_page=None):
@@ -2976,7 +2979,7 @@ class CLI:
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
-                tds = get_display_strings_for_ledger(self._engine._storage.get_account(acc_id), t)
+                tds = get_display_strings_for_ledger(self._engine.get_account(id_=acc_id), t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
                     tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], amount_display(t.balance), t.id)
                 )
@@ -3013,7 +3016,7 @@ class CLI:
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
-                account = self._engine._storage.get_account(acct_id)
+                account = self._engine.get_account(id_=acct_id)
                 amt = self.input(prompt=' amount: ')
                 if amt:
                     splits[account] = {'amount': amt}
@@ -3196,7 +3199,7 @@ class CLI:
             if acct_id:
                 amt = self.input(' amount: ')
                 if amt:
-                    account = self._engine._storage.get_account(acct_id)
+                    account = self._engine.get_account(id_=acct_id)
                     account_info[account] = {'amount': amt}
                     carryover = self.input(' carryover: ')
                     if carryover:
