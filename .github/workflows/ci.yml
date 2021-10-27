@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10']
+        python-version: [3.6, 3.7, 3.8, 3.9]
     name: Python ${{ matrix.python-version }} Linux tests
     steps:
       - uses: actions/checkout@v2
@@ -21,6 +21,21 @@ jobs:
       - run: sudo apt-get install -y xvfb libxkbcommon-x11-0 '^libxcb.*'
       - run: python bricbooks.py --install_qt
       - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests.py
+
+  py310:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10']
+    name: Python ${{ matrix.python-version }} Linux non-gui tests
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - run: python tests.py --no-gui
 
   windows:
     runs-on: windows-latest

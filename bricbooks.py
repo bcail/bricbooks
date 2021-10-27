@@ -25,7 +25,7 @@ except ImportError:
 
 __version__ = '0.4.dev'
 TITLE = f'bricbooks {__version__}'
-PYSIDE2_VERSION = '5.15.1'
+PYSIDE2_VERSION = '5.15.2'
 CUR_DIR = os.getcwd()
 LOG_FILENAME = 'bricbooks.log'
 
@@ -3342,6 +3342,8 @@ if __name__ == '__main__':
     try:
         from PySide2 import QtWidgets, QtGui, QtCore
     except ImportError:
+        if sys.version_info[1] > 9:
+            sys.exit('bricbooks GUI is not compatible with Python 3.10 yet. You can still run the CLI version like this: "python bricbooks.py --cli"')
         install_qt_for_python()
 
     app = QtWidgets.QApplication([])
