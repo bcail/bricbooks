@@ -2736,5 +2736,8 @@ if __name__ == '__main__':
         runner = unittest.TextTestRunner()
         runner.run(suite)
     else:
-        from PySide2 import QtWidgets, QtTest, QtCore
-        unittest.main()
+        try:
+            from PySide2 import QtWidgets, QtTest, QtCore
+        except ImportError:
+            from PySide6 import QtWidgets, QtTest, QtCore
+            unittest.main()

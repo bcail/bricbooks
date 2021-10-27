@@ -26,6 +26,7 @@ except ImportError:
 __version__ = '0.4.dev'
 TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.2'
+PYSIDE6_VERSION = '6.2.1'
 CUR_DIR = os.getcwd()
 LOG_FILENAME = 'bricbooks.log'
 
@@ -51,8 +52,12 @@ class AccountType(Enum):
 
 
 def _do_qt_install():
-    cmd = [sys.executable, '-m', 'pip', 'install', 'PySide2==%s' % PYSIDE2_VERSION]
-    print('installing Qt for Python (PySide2): %s' % ' '.join(cmd))
+    if sys.version_info[1] > 9:
+        pyside = f'PySide6=={PYSIDE6_VERSION}'
+    else:
+        pyside = f'PySide2=={PYSIDE2_VERSION}'
+    cmd = [sys.executable, '-m', 'pip', 'install', pyside]
+    print(f'installing Qt for Python ({pyside}): %s' % ' '.join(cmd))
     try:
         result = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         print(result.stdout.decode('utf8'))
@@ -79,7 +84,10 @@ def install_qt_for_python():
 try:
     from PySide2 import QtWidgets, QtGui, QtCore
 except ImportError:
-    pass
+    try:
+        from PySide6 import QtWidgets, QtGui, QtCore
+    except ImportError:
+        pass
 
 
 class InvalidCommodityError(RuntimeError):
@@ -3344,10 +3352,11 @@ if __name__ == '__main__':
 
     try:
         from PySide2 import QtWidgets, QtGui, QtCore
-    except ImportError:
-        if sys.version_info[1] > 9:
-            sys.exit('bricbooks GUI is not compatible with Python 3.10 yet. You can still run the CLI version like this: "python bricbooks.py --cli"')
-        install_qt_for_python()
+    except ImportError as e:
+        try:
+            from PySide6 import QtWidgets, QtGui, QtCore
+        except ImportError as e:
+            install_qt_for_python()
 
     app = QtWidgets.QApplication([])
     if args.file_name:
