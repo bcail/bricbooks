@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - run: sudo apt-get install -y xvfb libxkbcommon-x11-0 '^libxcb.*'
+      - run: sudo apt-get install -y xvfb libxkbcommon-x11-0 libopengl0 '^libxcb.*'
       - run: python bricbooks.py --install_qt
       - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests.py
 
