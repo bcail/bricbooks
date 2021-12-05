@@ -2740,4 +2740,4 @@ if __name__ == '__main__':
             from PySide2 import QtWidgets, QtTest, QtCore
         except ImportError:
             from PySide6 import QtWidgets, QtTest, QtCore
-            unittest.main()
+        unittest.main()
