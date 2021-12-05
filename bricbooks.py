@@ -308,7 +308,7 @@ def fraction_to_decimal(f):
 
 
 def amount_display(amount):
-    return '{0:,}'.format(fraction_to_decimal(amount))
+    return '{0:,.2f}'.format(fraction_to_decimal(amount))
 
 
 def check_txn_splits(splits):

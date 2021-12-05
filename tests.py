@@ -119,7 +119,7 @@ class TestTransaction(unittest.TestCase):
     def test_splits_must_balance(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(splits={self.checking: {'amount': -100}, self.savings: {'amount': 90}})
-        self.assertEqual(str(cm.exception), "splits don't balance: -100, 90")
+        self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
 
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
@@ -288,7 +288,7 @@ class TestTransaction(unittest.TestCase):
 
     def test_get_display_strings(self):
         t = bb.Transaction(
-                splits={self.checking: {'amount': '-1.23', 'status': 'C'}, self.savings: {'amount': '1.23'}},
+                splits={self.checking: {'amount': '-1.2', 'status': 'C'}, self.savings: {'amount': '1.2'}},
                 txn_type='1234',
                 txn_date=date.today(),
                 description='something',
@@ -298,7 +298,7 @@ class TestTransaction(unittest.TestCase):
                 bb.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
                     'txn_type': '1234',
-                    'withdrawal': '1.23',
+                    'withdrawal': '1.20',
                     'deposit': '',
                     'description': 'something',
                     'txn_date': str(date.today()),
@@ -312,7 +312,7 @@ class TestTransaction(unittest.TestCase):
                 {
                     'txn_type': '1234',
                     'withdrawal': '',
-                    'deposit': '1.23',
+                    'deposit': '1.20',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
@@ -330,7 +330,7 @@ class TestTransaction(unittest.TestCase):
                 {
                     'txn_type': '',
                     'withdrawal': '',
-                    'deposit': '100',
+                    'deposit': '100.00',
                     'description': '',
                     'txn_date': str(date.today()),
                     'payee': '',
@@ -454,7 +454,7 @@ class TestLedger(unittest.TestCase):
         self.assertEqual(txns[0].balance, Fraction('-0.8'))
         self.assertEqual(txns[1].balance, Fraction('2.2'))
         self.assertEqual(txns[3].balance, Fraction('4.31'))
-        expected_balances = bb.LedgerBalances(current='4.3', current_cleared='5.1')
+        expected_balances = bb.LedgerBalances(current='4.30', current_cleared='5.10')
         self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
 
     def test_get_scheduled_txns_due(self):
@@ -744,19 +744,19 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(len(budget_report['expense']), 11)
         housing_info = budget_report['expense'][0]
         self.assertEqual(housing_info['name'], 'Housing')
-        self.assertEqual(housing_info['amount'], '15')
-        self.assertEqual(housing_info['carryover'], '5')
+        self.assertEqual(housing_info['amount'], '15.00')
+        self.assertEqual(housing_info['carryover'], '5.00')
         self.assertEqual(housing_info['income'], '5')
-        self.assertEqual(housing_info['total_budget'], '25')
+        self.assertEqual(housing_info['total_budget'], '25.00')
         self.assertEqual(housing_info['spent'], '10')
-        self.assertEqual(housing_info['remaining'], '15')
+        self.assertEqual(housing_info['remaining'], '15.00')
         self.assertEqual(housing_info['remaining_percent'], '60%')
         self.assertEqual(housing_info['current_status'], '-10%')
         self.assertEqual(budget_report['expense'][1]['name'], 'Rent')
         self.assertEqual(budget_report['expense'][2]['name'], 'Maintenance')
         self.assertEqual(budget_report['expense'][3]['name'], 'Total Housing')
-        self.assertEqual(budget_report['expense'][3]['amount'], '15')
-        self.assertEqual(budget_report['expense'][3]['total_budget'], '25')
+        self.assertEqual(budget_report['expense'][3]['amount'], '15.00')
+        self.assertEqual(budget_report['expense'][3]['total_budget'], '25.00')
         food_info = budget_report['expense'][4]
         self.assertEqual(food_info, {'name': 'Food'})
         self.assertEqual(budget_report['expense'][5]['name'], 'Restaurants')
@@ -766,9 +766,9 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(transportation_info,
                 {
                     'name': 'Transportation',
-                    'amount': '10',
-                    'total_budget': '10',
-                    'remaining': '10',
+                    'amount': '10.00',
+                    'total_budget': '10.00',
+                    'remaining': '10.00',
                     'remaining_percent': '100%',
                     'current_status': '-50%',
                 }
@@ -777,12 +777,12 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['expense'][10],
                 {
                     'name': 'Total Expense',
-                    'amount': '25',
-                    'carryover': '5',
-                    'income': '5',
-                    'total_budget': '35',
-                    'spent': '10',
-                    'remaining': '25',
+                    'amount': '25.00',
+                    'carryover': '5.00',
+                    'income': '5.00',
+                    'total_budget': '35.00',
+                    'spent': '10.00',
+                    'remaining': '25.00',
                     'remaining_percent': '71%',
                     'current_status': '-21%',
                 }
@@ -791,9 +791,9 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(wages_info,
                 {
                     'name': 'Wages',
-                    'amount': '100',
+                    'amount': '100.00',
                     'income': '80',
-                    'remaining': '20',
+                    'remaining': '20.00',
                     'remaining_percent': '20%',
                     'notes': 'note 1',
                     'current_status': '+30%',
@@ -803,10 +803,10 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(budget_report['income'][2],
                 {
                     'name': 'Total Income',
-                    'amount': '100',
+                    'amount': '100.00',
                     'carryover': '',
-                    'income': '80',
-                    'remaining': '20',
+                    'income': '80.00',
+                    'remaining': '20.00',
                     'remaining_percent': '20%',
                     'current_status': '+30%',
                 }
@@ -1397,22 +1397,22 @@ class TestSQLiteStorage(unittest.TestCase):
         report_display = budget.get_report_display(current_date=date(2018, 6, 30))
         expenses = report_display['expense']
         self.assertEqual(expenses[0]['name'], 'Housing')
-        self.assertEqual(expenses[0]['amount'], '135')
-        self.assertEqual(expenses[0]['spent'], '101')
+        self.assertEqual(expenses[0]['amount'], '135.00')
+        self.assertEqual(expenses[0]['spent'], '101.00')
         self.assertEqual(expenses[0]['notes'], 'hello')
 
         self.assertEqual(expenses[1]['name'], 'Food')
-        self.assertEqual(expenses[1]['amount'], '70')
-        self.assertEqual(expenses[1]['carryover'], '15')
-        self.assertEqual(expenses[1]['income'], '15')
+        self.assertEqual(expenses[1]['amount'], '70.00')
+        self.assertEqual(expenses[1]['carryover'], '15.00')
+        self.assertEqual(expenses[1]['income'], '15.00')
         self.assertEqual(expenses[1]['spent'], '102.46')
 
         self.assertEqual(expenses[2], {'name': 'Transportation'})
 
         incomes = report_display['income']
-        self.assertEqual(incomes[0]['amount'], '70')
-        self.assertEqual(incomes[0]['income'], '100')
-        self.assertEqual(incomes[0]['remaining'], '-30')
+        self.assertEqual(incomes[0]['amount'], '70.00')
+        self.assertEqual(incomes[0]['income'], '100.00')
+        self.assertEqual(incomes[0]['remaining'], '-30.00')
         self.assertEqual(incomes[0]['current_status'], '+93%')
 
 
@@ -1762,10 +1762,10 @@ class TestCLI(unittest.TestCase):
                 )
             )
         self.cli._list_account_txns()
-        txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5          | 5         \n'
-        txn2_output = ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5          | 10        \n'
+        txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5.00       | 5.00      \n'
+        txn2_output = ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5.00       | 10.00     \n'
         printed_output = self.memory_buffer.getvalue()
-        self.assertTrue('Account ID: Checking (Current balance: 10; Cleared: 0)' in printed_output)
+        self.assertTrue('Account ID: Checking (Current balance: 10.00; Cleared: 0.00)' in printed_output)
         self.assertTrue('scheduled txn' in printed_output)
         self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
         self.assertTrue(txn1_output in printed_output)
