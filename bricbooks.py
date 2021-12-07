@@ -730,7 +730,17 @@ class Budget:
                         raise BudgetError('invalid budget info: %s' % info)
                 self._budget_data[account] = keep_info
         self.id = id_
-        self._income_spending_info = income_spending_info
+        self._income_spending_info = None
+        if income_spending_info:
+            self._income_spending_info = {}
+            for account, info in income_spending_info.items():
+                good_info = {}
+                for key, val in info.items():
+                    if val:
+                        good_info[key] = get_validated_amount(val)
+                    else:
+                        good_info[key] = val
+                self._income_spending_info[account] = good_info
 
     def __str__(self):
         if self.name:
@@ -871,8 +881,10 @@ class Budget:
                 else:
                     if isinstance(info[key], Fraction):
                         info[key] = amount_display(info[key])
+                    elif isinstance(info[key], str):
+                        pass
                     else:
-                        info[key] = str(info[key])
+                        raise BudgetError(f'invalid value for display: {key} => {info[key]}')
         return report
 
 

@@ -746,9 +746,9 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(housing_info['name'], 'Housing')
         self.assertEqual(housing_info['amount'], '15.00')
         self.assertEqual(housing_info['carryover'], '5.00')
-        self.assertEqual(housing_info['income'], '5')
+        self.assertEqual(housing_info['income'], '5.00')
         self.assertEqual(housing_info['total_budget'], '25.00')
-        self.assertEqual(housing_info['spent'], '10')
+        self.assertEqual(housing_info['spent'], '10.00')
         self.assertEqual(housing_info['remaining'], '15.00')
         self.assertEqual(housing_info['remaining_percent'], '60%')
         self.assertEqual(housing_info['current_status'], '-10%')
@@ -792,7 +792,7 @@ class TestBudget(unittest.TestCase):
                 {
                     'name': 'Wages',
                     'amount': '100.00',
-                    'income': '80',
+                    'income': '80.00',
                     'remaining': '20.00',
                     'remaining_percent': '20%',
                     'notes': 'note 1',
