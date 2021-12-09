@@ -1584,6 +1584,8 @@ def get_accounts_model_class():
                         return 'Name'
                     elif section == 3:
                         return 'Parent'
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
@@ -1596,6 +1598,8 @@ def get_accounts_model_class():
                 if index.column() == 3:
                     if self._accounts[index.row()].parent:
                         return str(self._accounts[index.row()].parent)
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def get_account(self, index):
             return self._accounts[index.row()]
@@ -1746,6 +1750,8 @@ def get_txns_model_class():
                         return 'Balance'
                     elif section == 8:
                         return 'Transfer Account'
+            if role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
@@ -1789,6 +1795,8 @@ def get_txns_model_class():
                     txn = self._txns[index.row()]
                 if is_scheduled_txn:
                     return QtGui.QBrush(QtCore.Qt.gray)
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def get_txn(self, index):
             row = index.row()
@@ -2517,6 +2525,8 @@ def get_budget_model_class():
                         return 'Remaining Percent'
                     elif section == 8:
                         return 'Current Status'
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
@@ -2538,6 +2548,8 @@ def get_budget_model_class():
                     return self._report_data[index.row()].get('remaining_percent', '')
                 if index.column() == 8:
                     return self._report_data[index.row()].get('current_status', '')
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
     return Model
 
@@ -2679,6 +2691,8 @@ def get_scheduled_txns_model_class():
                         return 'Payee'
                     elif section == 4:
                         return 'Splits'
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
             if role == QtCore.Qt.DisplayRole:
@@ -2696,6 +2710,8 @@ def get_scheduled_txns_model_class():
                         return payee.name
                 elif column == 4:
                     return splits_display(self._scheduled_txns[row].splits)
+            elif role == QtCore.Qt.TextAlignmentRole:
+                return QtCore.Qt.AlignCenter
 
         def get_scheduled_txn_id(self, index):
             return self._scheduled_txns[index.row()].id
