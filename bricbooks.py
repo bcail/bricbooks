@@ -1754,9 +1754,9 @@ def get_txns_model_class():
                 return QtCore.Qt.AlignCenter
 
         def data(self, index, role=QtCore.Qt.DisplayRole):
+            column = index.column()
             if role == QtCore.Qt.DisplayRole:
                 row = index.row()
-                column = index.column()
                 is_scheduled_txn = False
                 if row >= len(self._txns):
                     txn = self._scheduled_txns_due[row-len(self._txns)]
@@ -1786,7 +1786,6 @@ def get_txns_model_class():
                     return tds['categories']
             elif role == QtCore.Qt.BackgroundRole:
                 row = index.row()
-                column = index.column()
                 is_scheduled_txn = False
                 if row >= len(self._txns):
                     txn = self._scheduled_txns_due[row-len(self._txns)]
@@ -1796,7 +1795,8 @@ def get_txns_model_class():
                 if is_scheduled_txn:
                     return QtGui.QBrush(QtCore.Qt.gray)
             elif role == QtCore.Qt.TextAlignmentRole:
-                return QtCore.Qt.AlignCenter
+                if column != 3: #Description should be aligned left
+                    return QtCore.Qt.AlignCenter
 
         def get_txn(self, index):
             row = index.row()
