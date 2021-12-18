@@ -1686,6 +1686,40 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(len(accounts), 6)
         self.assertEqual(accounts[0].name, 'Checking')
 
+    def test_get_transactions(self):
+        storage = bb.SQLiteStorage(':memory:')
+        create_test_accounts(storage)
+        engine = bb.Engine(storage)
+        checking = engine.get_account(name='Checking')
+        savings = engine.get_account(name='Savings')
+        wages = engine.get_account(name='Wages')
+        food = engine.get_account(name='Food')
+        txn = bb.Transaction(splits={checking: {'amount': -5, 'status': bb.Transaction.CLEARED}, food: {'amount': 5}}, txn_date=date(2017, 1, 15), txn_type='ACH', payee='Some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
+        txn3 = bb.Transaction(splits={wages: {'amount': -100}, savings: {'amount': 100}}, txn_date=date(2017, 1, 31))
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
+        engine.save_transaction(txn3)
+        #all txns
+        txns = engine.get_transactions()
+        self.assertEqual(len(txns), 3)
+        self.assertEqual(txns[0].txn_date, date(2017, 1, 2))
+        #get txns for an account, with balance
+        txns = engine.get_transactions(accounts=[checking], with_balance=True)
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].balance, Fraction(5))
+        #get txns matching multiple accounts
+        txns = engine.get_transactions(accounts=[checking, food])
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].txn_date, date(2017, 1, 15))
+        #get txns with a status
+        txns = engine.get_transactions(accounts=[checking], status=bb.Transaction.CLEARED)
+        self.assertEqual(len(txns), 1)
+        #search txns
+        txns = engine.get_transactions(query='some payee')
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].payee.name, 'Some payee')
+
 
 class TestCLI(unittest.TestCase):
 

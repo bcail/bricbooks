@@ -1076,6 +1076,15 @@ class SQLiteStorage:
         db_info = cursor.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
+    def get_transactions(self):
+        txns = []
+        db_txn_id_records = self._db_connection.execute('SELECT id FROM transactions').fetchall()
+        txn_ids = set([r[0] for r in db_txn_id_records])
+        for txn_id in txn_ids:
+            txn = self.get_txn(txn_id)
+            txns.append(txn)
+        return txns
+
     def save_txn(self, txn):
         c = self._db_connection.cursor()
         if txn.payee:
@@ -1314,7 +1323,7 @@ class Engine:
         return [c for c in commodities if c.type == CommodityType.CURRENCY]
 
     def get_account(self, id_=None, number=None, name=None):
-        return self._storage.get_account(id_=id_, number=None, name=None)
+        return self._storage.get_account(id_=id_, number=number, name=name)
 
     def get_accounts(self, type_=None):
         return self._storage.get_accounts(type_=type_)
@@ -1340,6 +1349,45 @@ class Engine:
         self._storage.save_account(
                 Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
             )
+
+    @staticmethod
+    def sort_txns(txns, key='date'):
+        return sorted(txns, key=lambda t: t.txn_date)
+
+    @staticmethod
+    def add_balance_to_txns(txns, account, balance_field='amount'):
+        #txns must be sorted in chronological order (not reversed) already
+        txns_with_balance = []
+        balance = Fraction(0)
+        for t in txns:
+            balance = balance + t.splits[account][balance_field]
+            t.balance = balance
+            txns_with_balance.append(t)
+        return txns_with_balance
+
+    def get_transactions(self, accounts=None, query=None, status=None, sort='date', with_balance=False):
+        results = self._storage.get_transactions()
+        if accounts:
+            for acc in accounts:
+                if status:
+                    results = [t for t in results if acc in t.splits and t.splits[acc].get('status') == status]
+                else:
+                    results = [t for t in results if acc in t.splits]
+        if query:
+            query = query.lower()
+            results = [t for t in results
+                    if ((t.payee and query in t.payee.name.lower()) or (t.description and query in t.description.lower()))]
+        sorted_results = Engine.sort_txns(results, key='date')
+        if with_balance:
+            if len(accounts) == 1 and not any([query, status]):
+                return Engine.add_balance_to_txns(sorted_results, account=accounts[0])
+            else:
+                raise Exception("can't add balance - fix parameters")
+        else:
+            return sorted_results
+
+    def save_transaction(self, txn):
+        self._storage.save_txn(txn)
 
 
 ### IMPORT ###
