@@ -1365,7 +1365,7 @@ class Engine:
             txns_with_balance.append(t)
         return txns_with_balance
 
-    def get_transactions(self, accounts=None, query=None, status=None, sort='date', with_balance=False):
+    def get_transactions(self, accounts=None, query=None, status=None, sort='date'):
         results = self._storage.get_transactions()
         if accounts:
             for acc in accounts:
@@ -1378,16 +1378,45 @@ class Engine:
             results = [t for t in results
                     if ((t.payee and query in t.payee.name.lower()) or (t.description and query in t.description.lower()))]
         sorted_results = Engine.sort_txns(results, key='date')
-        if with_balance:
-            if len(accounts) == 1 and not any([query, status]):
-                return Engine.add_balance_to_txns(sorted_results, account=accounts[0])
-            else:
-                raise Exception("can't add balance - fix parameters")
+        #add balance if we have all the txns for a specific account, without limiting by another account, or a query, or a status, ...
+        if accounts and len(accounts) == 1 and not any([query, status]):
+            return Engine.add_balance_to_txns(sorted_results, account=accounts[0])
         else:
             return sorted_results
 
+    def get_current_balances_for_display(self, account, balance_field='amount'):
+        sorted_txns = self.get_transactions(accounts=[account])
+        current = Fraction(0)
+        current_cleared = Fraction(0)
+        today = date.today()
+        for t in sorted_txns:
+            if t.txn_date <= today:
+                current = t.balance
+                if t.splits[account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
+                    current_cleared = current_cleared + t.splits[account][balance_field]
+        return LedgerBalances(
+                current=amount_display(current),
+                current_cleared=amount_display(current_cleared),
+            )
+
     def save_transaction(self, txn):
         self._storage.save_txn(txn)
+
+    def delete_transaction(self, txn_id):
+        self._storage.delete_txn(txn_id)
+
+    def get_payees(self):
+        return self._storage.get_payees()
+
+    def get_scheduled_transactions_due(self, accounts=None):
+        scheduled_txns = self._storage.get_scheduled_transactions()
+        if accounts:
+            for acc in accounts:
+                scheduled_txns = [st for st in scheduled_txns if acc in st.splits]
+        return [t for t in scheduled_txns if t.is_due()]
+
+    def save_scheduled_transaction(self, scheduled_txn):
+        return self._storage.save_scheduled_transaction(scheduled_txn)
 
 
 ### IMPORT ###
@@ -1908,23 +1937,20 @@ def get_txns_model_class():
 
 class LedgerTxnsDisplay:
 
-    def __init__(self, ledger, storage, filter_text, post_update_function, model_class, display_ledger):
-        self.ledger = ledger
-        self.storage = storage
+    def __init__(self, engine, account, filter_text, post_update_function, model_class, display_ledger):
+        self.engine = engine
+        self.account = account
         self._filter_text = filter_text
         self._scheduled_txn_widgets = []
         #post_update_function is for updating the balances widgets
         self._post_update_function = post_update_function
         self._display_ledger = display_ledger
         self._model_class = model_class
-        if self._filter_text:
-            txns = self.ledger.search(self._filter_text)
-        else:
-            txns = self.ledger.get_sorted_txns_with_balance()
+        txns = self.engine.get_transactions(accounts=[self.account], query=self._filter_text)
         self._txns_model = self._model_class(
-                self.ledger.account,
+                self.account,
                 txns,
-                self.ledger.get_scheduled_transactions_due()
+                self.engine.get_scheduled_transactions_due(accounts=[self.account])
             )
         self._txns_widget = self._get_txns_widget(self._txns_model)
 
@@ -1944,32 +1970,29 @@ class LedgerTxnsDisplay:
         return widget
 
     def handle_new_txn(self, txn):
-        self.storage.save_txn(txn)
-        self.ledger.add_transaction(txn)
+        self.engine.save_transaction(txn)
         self._txns_model.add_txn(
                 txn,
-                self.ledger.get_sorted_txns_with_balance(),
-                self.ledger.get_scheduled_transactions_due()
+                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
 
     def _delete(self, txn):
-        self.storage.delete_txn(txn.id)
-        self.ledger.remove_txn(txn.id)
+        self.engine.delete_transaction(txn.id)
         self._txns_model.remove_txn(
                 txn,
-                self.ledger.get_sorted_txns_with_balance(),
-                self.ledger.get_scheduled_transactions_due()
+                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
 
     def _save_edit(self, txn):
-        self.storage.save_txn(txn)
-        self.ledger.add_transaction(txn)
+        self.engine.save_transaction(txn)
         self._txns_model.update_txn(
                 txn,
-                self.ledger.get_sorted_txns_with_balance(),
-                self.ledger.get_scheduled_transactions_due()
+                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
 
@@ -1979,21 +2002,20 @@ class LedgerTxnsDisplay:
             self._show_scheduled_txn_form(txn)
         #if status column was clicked, just update status instead of opening edit form
         elif index.column() == 4:
-            txn.update_reconciled_state(account=self.ledger.account)
-            self.storage.save_txn(txn)
-            self.ledger.add_transaction(txn)
+            txn.update_reconciled_state(account=self.account)
+            self.engine.save_transaction(txn)
             self._txns_model.update_txn_status(
                     txn,
-                    self.ledger.get_sorted_txns_with_balance(),
-                    self.ledger.get_scheduled_transactions_due()
+                    self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                    self.engine.get_scheduled_transactions_due()
                 )
             self._post_update_function()
         else:
             self.edit_txn_display = TxnForm(
-                    payees=self.storage.get_payees(),
+                    payees=self.engine.get_payees(),
                     save_txn=self._save_edit,
-                    storage=self.storage,
-                    current_account=self.ledger.account,
+                    storage=self.engine._storage,
+                    current_account=self.account,
                     txn=txn,
                     delete_txn=self._delete
                 )
@@ -2001,23 +2023,23 @@ class LedgerTxnsDisplay:
 
     def _enter_scheduled_txn(self, new_txn, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
-        self.storage.save_scheduled_transaction(scheduled_txn)
-        self.storage.save_txn(new_txn)
+        self.engine.save_scheduled_transaction(scheduled_txn)
+        self.engine.save_transaction(new_txn)
         self._display_ledger()
         self._post_update_function()
 
     def _skip_scheduled_txn(self, scheduled_txn):
         scheduled_txn.advance_to_next_due_date()
-        self.storage.save_scheduled_transaction(scheduled_txn)
+        self.engine.save_scheduled_transaction(scheduled_txn)
         self._display_ledger()
 
     def _show_scheduled_txn_form(self, scheduled_txn):
         save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn)
         self.scheduled_txn_display = TxnForm(
-                payees=self.storage.get_payees(),
+                payees=self.engine.get_payees(),
                 save_txn=save_txn,
-                storage=self.storage,
-                current_account=self.ledger.account,
+                storage=self.engine._storage,
+                current_account=self.account,
                 txn=scheduled_txn,
                 skip_txn=partial(self._skip_scheduled_txn, scheduled_txn=scheduled_txn)
             )
@@ -2381,9 +2403,8 @@ class LedgerDisplay:
         return widget, layout
 
     def _display_ledger(self, layout, account, filter_text=''):
-        self.ledger = self.storage.get_ledger(account=account)
-        self.txns_display = LedgerTxnsDisplay(self.ledger, self.storage, filter_text,
-                post_update_function=partial(self._display_balances_widget, layout=layout, ledger=self.ledger),
+        self.txns_display = LedgerTxnsDisplay(self._engine, account, filter_text,
+                post_update_function=partial(self._display_balances_widget, layout=layout),
                 model_class=self._txns_model_class,
                 display_ledger=partial(self._display_ledger, layout=layout, account=account))
         if self.txns_display_widget:
@@ -2391,21 +2412,21 @@ class LedgerDisplay:
             self.txns_display_widget.deleteLater()
         self.txns_display_widget = self.txns_display.get_widget()
         layout.addWidget(self.txns_display_widget, self._ledger_txns_row_index, 0, 1, 9)
-        self._display_balances_widget(layout, self.ledger)
+        self._display_balances_widget(layout)
 
-    def _display_balances_widget(self, layout, ledger):
+    def _display_balances_widget(self, layout):
         if self.balances_widget:
             layout.removeWidget(self.balances_widget)
             self.balances_widget.deleteLater()
-        self.balances_widget = self._get_balances_widget(ledger=ledger)
+        self.balances_widget = self._get_balances_widget()
         layout.addWidget(self.balances_widget, self._ledger_txns_row_index+1, 0, 1, 9)
 
-    def _get_balances_widget(self, ledger):
+    def _get_balances_widget(self):
         #this is a row below the list of txns
         widget = QtWidgets.QWidget()
         layout = QtWidgets.QGridLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        balances = ledger.get_current_balances_for_display()
+        balances = self._engine.get_current_balances_for_display(account=self._current_account)
         balance_text = f'Current Balance: {balances.current}'
         cleared_text = f'Cleared: {balances.current_cleared}'
         layout.addWidget(QtWidgets.QLabel(cleared_text), 0, 0)
@@ -2449,7 +2470,7 @@ class LedgerDisplay:
         return row + 1
 
     def _open_new_txn_form(self):
-        self.add_txn_display = TxnForm(payees=self.ledger.get_payees(), save_txn=self.txns_display.handle_new_txn, storage=self.storage, current_account=self._current_account)
+        self.add_txn_display = TxnForm(payees=self._engine.get_payees(), save_txn=self.txns_display.handle_new_txn, storage=self.storage, current_account=self._current_account)
         self.add_txn_display.show_form()
 
 
@@ -3146,7 +3167,7 @@ class CLI:
             date_prefill = ''
         info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
         info.update(self._get_common_txn_info(txn=txn))
-        self._engine._storage.save_txn(Transaction(**info))
+        self._engine.save_transaction(Transaction(**info))
 
     def _create_txn(self):
         self.print('Create Transaction:')

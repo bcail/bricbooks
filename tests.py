@@ -1705,7 +1705,7 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 2))
         #get txns for an account, with balance
-        txns = engine.get_transactions(accounts=[checking], with_balance=True)
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].balance, Fraction(5))
         #get txns matching multiple accounts
