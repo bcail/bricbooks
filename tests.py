@@ -2326,7 +2326,10 @@ class TestQtGUI(unittest.TestCase):
         txns = ledger.get_sorted_txns_with_balance()
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits,
-                {savings: {'amount': -18, 'quantity': -18}, housing: {'amount': 18, 'quantity': 18}}
+                {
+                    savings: {'amount': -18, 'quantity': -18},
+                    housing: {'amount': 18, 'quantity': 18},
+                }
             )
 
     def test_add_txn_multiple_splits(self):

@@ -1325,15 +1325,18 @@ class Engine:
     def get_account(self, id_=None, number=None, name=None):
         return self._storage.get_account(id_=id_, number=number, name=name)
 
-    def get_accounts(self, type_=None):
-        return self._storage.get_accounts(type_=type_)
+    def get_accounts(self, types=None):
+        if types:
+            accounts = []
+            for type_ in types:
+                accounts.extend(self._storage.get_accounts(type_=type_))
+            return accounts
+        else:
+            return self._storage.get_accounts()
 
     def get_ledger_accounts(self):
         '''Retrieve accounts for Ledger display'''
-        accounts = []
-        for account_type in [AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY]:
-            accounts.extend(self._storage.get_accounts(type_=account_type))
-        return accounts
+        return self.get_accounts(types=[AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY])
 
     def save_account(self, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
         parent = None
@@ -2012,9 +2015,9 @@ class LedgerTxnsDisplay:
             self._post_update_function()
         else:
             self.edit_txn_display = TxnForm(
+                    accounts=self.engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]),
                     payees=self.engine.get_payees(),
                     save_txn=self._save_edit,
-                    storage=self.engine._storage,
                     current_account=self.account,
                     txn=txn,
                     delete_txn=self._delete
@@ -2036,9 +2039,9 @@ class LedgerTxnsDisplay:
     def _show_scheduled_txn_form(self, scheduled_txn):
         save_txn = partial(self._enter_scheduled_txn, scheduled_txn=scheduled_txn)
         self.scheduled_txn_display = TxnForm(
+                accounts=self.engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]),
                 payees=self.engine.get_payees(),
                 save_txn=save_txn,
-                storage=self.engine._storage,
                 current_account=self.account,
                 txn=scheduled_txn,
                 skip_txn=partial(self._skip_scheduled_txn, scheduled_txn=scheduled_txn)
@@ -2053,8 +2056,8 @@ def get_new_txn_splits(accounts, initial_txn_splits):
 
 class TxnAccountsDisplay:
 
-    def __init__(self, storage, main_account=None, txn=None):
-        self._storage = storage
+    def __init__(self, accounts=None, main_account=None, txn=None):
+        self._accounts = accounts
         self._main_account = main_account
         self._txn = txn
         layout = QtWidgets.QGridLayout()
@@ -2062,10 +2065,7 @@ class TxnAccountsDisplay:
         self._categories_combo.addItem('---------', None)
         current_index = 0
         index = 0
-        accounts = []
-        for type_ in [AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]:
-            accounts.extend(self._storage.get_accounts(type_=type_))
-        for account in accounts:
+        for account in self._accounts:
             if account != self._main_account:
                 #find correct account in the list if txn has just two splits
                 if txn and len(txn.splits.keys()) == 2:
@@ -2094,8 +2094,7 @@ class TxnAccountsDisplay:
         initial_txn_splits = {}
         if self._txn:
             initial_txn_splits = self._txn.splits
-        accounts = self._storage.get_accounts()
-        new_txn_splits = get_new_txn_splits(accounts, initial_txn_splits)
+        new_txn_splits = get_new_txn_splits(self._accounts, initial_txn_splits)
         if new_txn_splits and new_txn_splits != initial_txn_splits:
             self._categories_combo.setCurrentIndex(self._multiple_entry_index)
             self._categories_combo.setItemData(self._multiple_entry_index, new_txn_splits)
@@ -2116,10 +2115,10 @@ class TxnForm:
     Transaction when user finishes entering data.
     Displays ScheduledTransaction actions if txn is a ScheduledTxn.'''
 
-    def __init__(self, payees, save_txn, storage, current_account, txn=None, delete_txn=None, skip_txn=None):
+    def __init__(self, accounts, payees, save_txn, current_account, txn=None, delete_txn=None, skip_txn=None):
+        self._accounts = accounts
         self._payees = payees
         self._save_txn = save_txn
-        self._storage = storage
         self._current_account = current_account
         self._txn = txn
         self._delete_txn = delete_txn
@@ -2175,7 +2174,11 @@ class TxnForm:
         self._widgets['payee'] = payee_entry
         widgets[GUI_FIELDS['payee']['add_edit_column_number']] = payee_entry
         labels[GUI_FIELDS['payee']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['payee']['label'])
-        txn_accounts_display = TxnAccountsDisplay(self._storage, main_account=self._current_account, txn=self._txn)
+        txn_accounts_display = TxnAccountsDisplay(
+                accounts=self._accounts,
+                main_account=self._current_account,
+                txn=self._txn
+            )
         widgets[GUI_FIELDS['categories']['add_edit_column_number']] = txn_accounts_display.get_widget()
         labels[GUI_FIELDS['categories']['add_edit_column_number']] = QtWidgets.QLabel(GUI_FIELDS['categories']['label'])
         self._widgets['accounts_display'] = txn_accounts_display
@@ -2243,11 +2246,11 @@ class TxnForm:
 
 class ScheduledTxnForm:
 
-    def __init__(self, save_scheduled_txn, storage, scheduled_txn=None):
+    def __init__(self, accounts, payees, save_scheduled_txn, scheduled_txn=None):
+        self._accounts = accounts
+        self._payees = payees
         self._scheduled_txn = scheduled_txn
         self._save_scheduled_txn = save_scheduled_txn
-        self._storage = storage
-        self._accounts = storage.get_accounts()
         self._widgets = {}
 
     def show_form(self):
@@ -2289,7 +2292,7 @@ class ScheduledTxnForm:
         payee_entry.setEditable(True)
         payee_entry.addItem('')
         payee_index = 0
-        for index, payee in enumerate(self._storage.get_payees()):
+        for index, payee in enumerate(self._payees):
             payee_entry.addItem(payee.name, payee)
             if self._scheduled_txn and self._scheduled_txn.payee and self._scheduled_txn.payee.name == payee.name:
                 payee_index = index + 1 #because of first empty item
@@ -2331,7 +2334,11 @@ class ScheduledTxnForm:
         self._widgets['deposit'] = deposit_entry
         layout.addWidget(deposit_entry, 6, 1)
         layout.addWidget(QtWidgets.QLabel('Categories'), 7, 0)
-        txn_accounts_display = TxnAccountsDisplay(self._storage, txn=self._scheduled_txn, main_account=account)
+        txn_accounts_display = TxnAccountsDisplay(
+                accounts=self._accounts,
+                txn=self._scheduled_txn,
+                main_account=account
+            )
         self._widgets['accounts_display'] = txn_accounts_display
         layout.addWidget(txn_accounts_display.get_widget(), 7, 1)
         save_button = QtWidgets.QPushButton('Save')
@@ -2377,7 +2384,7 @@ class LedgerDisplay:
         self._txns_model_class = txns_model_class
         #choose an account if there is one
         if not current_account:
-            accounts = self._engine.get_accounts(type_=AccountType.ASSET)
+            accounts = self._engine.get_accounts(types=[AccountType.ASSET])
             if accounts:
                 current_account = accounts[0]
         self._current_account = current_account
@@ -2470,7 +2477,12 @@ class LedgerDisplay:
         return row + 1
 
     def _open_new_txn_form(self):
-        self.add_txn_display = TxnForm(payees=self._engine.get_payees(), save_txn=self.txns_display.handle_new_txn, storage=self.storage, current_account=self._current_account)
+        self.add_txn_display = TxnForm(
+                accounts=self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY]),
+                payees=self._engine.get_payees(),
+                save_txn=self.txns_display.handle_new_txn,
+                current_account=self._current_account
+            )
         self.add_txn_display.show_form()
 
 
@@ -2809,7 +2821,12 @@ class ScheduledTxnsDataDisplay:
     def _edit(self, index):
         st_id = self._model.get_scheduled_txn_id(index)
         scheduled_txn = self.storage.get_scheduled_transaction(st_id)
-        self.edit_form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+        self.edit_form = ScheduledTxnForm(
+                accounts=self.storage.get_accounts(),
+                payees=self.storage.get_payees(),
+                save_scheduled_txn=self._save_scheduled_txn_and_reload,
+                scheduled_txn=scheduled_txn
+            )
         self.edit_form.show_form()
 
     def _save_scheduled_txn_and_reload(self, scheduled_txn):
@@ -2858,9 +2875,19 @@ class ScheduledTxnsDisplay:
 
     def _open_form(self, scheduled_txn):
         if scheduled_txn:
-            self.form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+            self.form = ScheduledTxnForm(
+                    accounts=self.storage.get_accounts(),
+                    payees=self.storage.get_payees(),
+                    save_scheduled_txn=self._save_scheduled_txn_and_reload,
+                    scheduled_txn=scheduled_txn
+                )
         else:
-            self.form = ScheduledTxnForm(storage=self.storage, save_scheduled_txn=self._save_scheduled_txn_and_reload, scheduled_txn=scheduled_txn)
+            self.form = ScheduledTxnForm(
+                    accounts=self.storage.get_accounts(),
+                    payees=self.storage.get_payees(),
+                    save_scheduled_txn=self._save_scheduled_txn_and_reload,
+                    scheduled_txn=scheduled_txn
+                )
         self.form.show_form()
 
     def _save_scheduled_txn_and_reload(self, scheduled_txn):
@@ -2971,7 +2998,7 @@ class GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
     def _show_ledger(self):
-        accounts = self._engine.get_accounts(type_=AccountType.ASSET)
+        accounts = self._engine.get_accounts(types=[AccountType.ASSET])
         if not accounts:
             show_error('Enter an asset account first.')
             return
