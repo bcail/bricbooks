@@ -491,103 +491,6 @@ def get_display_strings_for_ledger(account, txn):
 LedgerBalances = namedtuple('LedgerBalances', ['current', 'current_cleared'])
 
 
-class Ledger:
-
-    def __init__(self, account=None):
-        if account is None:
-            raise InvalidLedgerError('ledger must have an account')
-        self.account = account
-        self._txns = {}
-        self._scheduled_txns = {}
-
-    def __str__(self):
-        return '%s ledger' % self.account.name
-
-    def add_transaction(self, txn):
-        if not txn.id:
-            raise Exception('txn must have an id')
-        self._txns[txn.id] = txn
-
-    def add_scheduled_transaction(self, scheduled_txn):
-        self._scheduled_txns[scheduled_txn.id] = scheduled_txn
-
-    def _sort_txns(self, txns):
-        return sorted(txns, key=lambda t: t.txn_date)
-
-    def _get_balance_field(self):
-        if self.account.type == AccountType.SECURITY:
-            field = 'quantity'
-        else:
-            field = 'amount'
-        return field
-
-    def _add_balance_to_txns(self, txns):
-        #txns must be sorted in chronological order (not reversed) already
-        txns_with_balance = []
-        balance = Fraction(0)
-        field = self._get_balance_field()
-        for t in txns:
-            balance = balance + t.splits[self.account][field]
-            t.balance = balance
-            txns_with_balance.append(t)
-        return txns_with_balance
-
-    def get_sorted_txns_with_balance(self, reverse=False):
-        if reverse:
-            sorted_txns = self._sort_txns(self._txns.values())
-            sorted_txns_with_balance = self._add_balance_to_txns(sorted_txns)
-            return list(reversed(sorted_txns_with_balance))
-        else:
-            sorted_txns = self._sort_txns(self._txns.values())
-            return self._add_balance_to_txns(sorted_txns)
-
-    def search(self, search_term):
-        results = []
-        search_term = search_term.lower()
-        for t in self._txns.values():
-            if t.payee and search_term in t.payee.name.lower():
-                results.append(t)
-            elif t.description and search_term in t.description.lower():
-                results.append(t)
-        return self._sort_txns(results)
-
-    def get_txn(self, id_):
-        return self._txns[id_]
-
-    def remove_txn(self, id_):
-        del self._txns[id_]
-
-    def clear_txns(self):
-        self._txns = {}
-
-    def get_current_balances_for_display(self):
-        sorted_txns = self.get_sorted_txns_with_balance()
-        current = Fraction(0)
-        current_cleared = Fraction(0)
-        today = date.today()
-        field = self._get_balance_field()
-        for t in sorted_txns:
-            if t.txn_date <= today:
-                current = t.balance
-                if t.splits[self.account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
-                    current_cleared = current_cleared + t.splits[self.account][field]
-        return LedgerBalances(
-                current=amount_display(current),
-                current_cleared=amount_display(current_cleared),
-            )
-
-    def get_payees(self):
-        payees = set()
-        for txn in self._txns.values():
-            if txn.payee:
-                payees.add(txn.payee)
-        return sorted(list(payees), key=lambda p: p.name)
-
-    def get_scheduled_transactions_due(self):
-        all_scheduled_txns = list(self._scheduled_txns.values())
-        return [t for t in all_scheduled_txns if t.is_due()]
-
-
 def splits_display(splits):
     account_amt_list = []
     for account, info in splits.items():
@@ -1132,21 +1035,6 @@ class SQLiteStorage:
         self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
-    def get_ledger(self, account):
-        if not isinstance(account, Account):
-            account = self.get_account(account)
-        ledger = Ledger(account=account)
-        db_txn_id_records = self._db_connection.execute('SELECT txn_id FROM transaction_splits WHERE account_id = ?', (account.id,)).fetchall()
-        txn_ids = set([r[0] for r in db_txn_id_records])
-        for txn_id in txn_ids:
-            txn = self.get_txn(txn_id)
-            ledger.add_transaction(txn)
-        db_scheduled_txn_id_records = self._db_connection.execute('SELECT scheduled_txn_id FROM scheduled_transaction_splits WHERE account_id = ?', (account.id,)).fetchall()
-        scheduled_txn_ids = set(r[0] for r in db_scheduled_txn_id_records)
-        for scheduled_txn_id in scheduled_txn_ids:
-            ledger.add_scheduled_transaction(self.get_scheduled_transaction(scheduled_txn_id))
-        return ledger
-
     def save_budget(self, budget):
         c = self._db_connection.cursor()
         if budget.id:
@@ -1338,7 +1226,10 @@ class Engine:
         '''Retrieve accounts for Ledger display'''
         return self.get_accounts(types=[AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY])
 
-    def save_account(self, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
+    def save_account(self, account=None, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
+        if account:
+            self._storage.save_account(account)
+            return
         parent = None
         if parent_id:
             parent = self._storage.get_account(id_=parent_id)
@@ -1368,7 +1259,10 @@ class Engine:
             txns_with_balance.append(t)
         return txns_with_balance
 
-    def get_transactions(self, accounts=None, query=None, status=None, sort='date'):
+    def get_transaction(self, id_):
+        return self._storage.get_txn(id_)
+
+    def get_transactions(self, accounts=None, query=None, status=None, sort='date', reverse=False):
         results = self._storage.get_transactions()
         if accounts:
             for acc in accounts:
@@ -1383,7 +1277,9 @@ class Engine:
         sorted_results = Engine.sort_txns(results, key='date')
         #add balance if we have all the txns for a specific account, without limiting by another account, or a query, or a status, ...
         if accounts and len(accounts) == 1 and not any([query, status]):
-            return Engine.add_balance_to_txns(sorted_results, account=accounts[0])
+            sorted_results = Engine.add_balance_to_txns(sorted_results, account=accounts[0])
+        if reverse:
+            return list(reversed(sorted_results))
         else:
             return sorted_results
 
@@ -1410,6 +1306,12 @@ class Engine:
 
     def get_payees(self):
         return self._storage.get_payees()
+
+    def save_payee(self, payee):
+        return self._storage.save_payee(payee)
+
+    def get_scheduled_transaction(self, id_):
+        return self._storage.get_scheduled_transaction(id_)
 
     def get_scheduled_transactions_due(self, accounts=None):
         scheduled_txns = self._storage.get_scheduled_transactions()
@@ -3096,17 +2998,17 @@ class CLI:
         if not num_txns_in_page:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
         acc_id = self.input('Account ID: ')
-        ledger = self._engine._storage.get_ledger(acc_id)
-        ledger_balances = ledger.get_current_balances_for_display()
-        summary_line = f'{ledger.account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
+        account = self._engine.get_account(id_=acc_id)
+        ledger_balances = self._engine.get_current_balances_for_display(account=account)
+        summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
         self.print(summary_line)
-        scheduled_txns_due = ledger.get_scheduled_transactions_due()
+        scheduled_txns_due = self._engine.get_scheduled_transactions_due(accounts=[account])
         if scheduled_txns_due:
             self.print('Scheduled Transactions due:')
             for st in scheduled_txns_due:
                 self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
-        txns = ledger.get_sorted_txns_with_balance(reverse=True)
+        txns = self._engine.get_transactions(accounts=[account], reverse=True)
         page_index = 1
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)

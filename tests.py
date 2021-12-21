@@ -362,164 +362,6 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(bb._categories_display(t.splits, main_account=a), 'Savings')
 
 
-class TestLedger(unittest.TestCase):
-
-    def setUp(self):
-        self.checking = get_test_account(id_=1)
-        self.savings = get_test_account(id_=2, name='Savings')
-
-    def test_init(self):
-        with self.assertRaises(bb.InvalidLedgerError) as cm:
-            bb.Ledger()
-        self.assertEqual(str(cm.exception), 'ledger must have an account')
-        ledger = bb.Ledger(account=self.checking)
-        self.assertEqual(ledger.account, self.checking)
-
-    def test_add_transaction(self):
-        ledger = bb.Ledger(account=self.checking)
-        self.assertEqual(ledger._txns, {})
-        splits = {self.checking: {'amount': 100}, self.savings: {'amount': -100}}
-        txn = bb.Transaction(id_=1, splits=splits, txn_date=date.today())
-        ledger.add_transaction(txn)
-        self.assertEqual(ledger._txns, {1: txn})
-
-    def test_add_scheduled_txn(self):
-        ledger = bb.Ledger(account=self.checking)
-        self.assertEqual(ledger._scheduled_txns, {})
-        splits = {self.checking: {'amount': 100}, self.savings: {'amount': -100}}
-        scheduled_txn = bb.ScheduledTransaction(
-            id_=1,
-            name='weekly',
-            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-            splits=splits,
-            next_due_date=date.today()
-        )
-        ledger.add_scheduled_transaction(scheduled_txn)
-        self.assertEqual(ledger._scheduled_txns,
-            {1: scheduled_txn})
-
-    def test_get_ledger_txns(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits1 = {self.checking: {'amount': '32.45'}, self.savings: {'amount': '-32.45'}}
-        splits2 = {self.checking: {'amount': -12}, self.savings: {'amount': 12}}
-        splits3 = {self.checking: {'amount': 1}, self.savings: {'amount': -1}}
-        splits4 = {self.checking: {'amount': 10}, self.savings: {'amount': -10}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
-        ledger_records = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(ledger_records[0].txn_date, date(2017, 4, 25))
-        self.assertEqual(ledger_records[0].balance, 10)
-        self.assertEqual(ledger_records[1].txn_date, date(2017, 6, 5))
-        self.assertEqual(ledger_records[1].balance, -2)
-        self.assertEqual(ledger_records[2].txn_date, date(2017, 7, 30))
-        self.assertEqual(ledger_records[2].balance, -1)
-        self.assertEqual(ledger_records[3].txn_date, date(2017, 8, 5))
-        self.assertEqual(ledger_records[3].balance, Fraction('31.45'))
-
-        reversed_ledger_records = ledger.get_sorted_txns_with_balance(reverse=True)
-        self.assertEqual(reversed_ledger_records[0].txn_date, date(2017, 8, 5))
-        self.assertEqual(reversed_ledger_records[0].balance, Fraction('31.45'))
-        self.assertEqual(reversed_ledger_records[3].txn_date, date(2017, 4, 25))
-        self.assertEqual(reversed_ledger_records[3].balance, 10)
-
-    def test_balances(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits0 = {self.checking: {'amount': 50, 'status': bb.Transaction.RECONCILED}, self.savings: {'amount': '-50'}}
-        splits1 = {self.checking: {'amount': '32.45', 'status': bb.Transaction.CLEARED}, self.savings: {'amount': '-32.45'}}
-        splits2 = {self.checking: {'amount': -12}, self.savings: {'amount': 12}}
-        splits3 = {self.checking: {'amount': 1}, self.savings: {'amount': -1}}
-        splits4 = {self.checking: {'amount': 10}, self.savings: {'amount': -10}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits0, txn_date=date(2017, 6, 24)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(bb.Transaction(id_=4, splits=splits3, txn_date=date.today()+timedelta(days=3)))
-        ledger.add_transaction(bb.Transaction(id_=5, splits=splits4, txn_date=date.today()+timedelta(days=5)))
-        expected_balances = bb.LedgerBalances(current='70.45', current_cleared='82.45')
-        self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
-
-    def test_securities_account_balances(self):
-        fund_account = get_test_account(id_=1, type_=bb.AccountType.SECURITY)
-        ledger = bb.Ledger(account=fund_account)
-        splits1 = {fund_account: {'amount': 50, 'quantity': 3, 'status': bb.Transaction.RECONCILED}, self.savings: {'amount': '-50'}}
-        splits2 = {fund_account: {'amount': '32.45', 'quantity': '2.1', 'status': bb.Transaction.CLEARED}, self.savings: {'amount': '-32.45'}}
-        splits3 = {fund_account: {'amount': -12, 'quantity': '-0.8'}, self.savings: {'amount': 12}}
-        splits4 = {fund_account: {'amount': 1, 'quantity': '0.01'}, self.savings: {'amount': -1}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 6, 24)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date.today()+timedelta(days=3)))
-        txns = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(txns[0].balance, Fraction('-0.8'))
-        self.assertEqual(txns[1].balance, Fraction('2.2'))
-        self.assertEqual(txns[3].balance, Fraction('4.31'))
-        expected_balances = bb.LedgerBalances(current='4.30', current_cleared='5.10')
-        self.assertEqual(ledger.get_current_balances_for_display(), expected_balances)
-
-    def test_get_scheduled_txns_due(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits = {self.checking: {'amount': 100}, self.savings: {'amount': -100}}
-        not_due_txn = bb.ScheduledTransaction(
-            id_=1,
-            name='not due',
-            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-            splits=splits,
-            next_due_date=date.today() + timedelta(days=1),
-        )
-        due_txn = bb.ScheduledTransaction(
-            id_=2,
-            name='due',
-            frequency=bb.ScheduledTransactionFrequency.MONTHLY,
-            splits=splits,
-            next_due_date=date.today()
-        )
-        ledger.add_scheduled_transaction(not_due_txn)
-        ledger.add_scheduled_transaction(due_txn)
-        self.assertEqual(ledger.get_scheduled_transactions_due(),
-            [due_txn])
-
-    def test_search(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits1 = {self.checking: {'amount': '32.45'}, self.savings: {'amount': '-32.45'}}
-        splits2 = {self.checking: {'amount': -12}, self.savings: {'amount': 12}}
-        splits3 = {self.checking: {'amount': 1}, self.savings: {'amount': -1}}
-        splits4 = {self.checking: {'amount': 10}, self.savings: {'amount': -10}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, payee=bb.Payee('someone'), txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits3, description='Some description', txn_date=date(2017, 7, 30)))
-        ledger.add_transaction(bb.Transaction(id_=4, splits=splits4, txn_date=date(2017, 4, 25)))
-        results = ledger.search('some')
-        self.assertEqual(len(results), 2)
-        self.assertEqual(results[0].description, 'Some description')
-
-    def test_get_txn(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits1 = {self.checking: {'amount': '-32.45'}, self.savings: {'amount': '32.45'}}
-        splits2 = {self.checking: {'amount': -12}, self.savings: {'amount': 12}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits1, txn_date=date(2017, 8, 5)))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits2, txn_date=date(2017, 6, 5)))
-        txn = ledger.get_txn(id_=2)
-        self.assertEqual(txn.splits[self.checking]['amount'], -12)
-
-    def test_clear_txns(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits = {self.checking: {'amount': 100}, self.savings: {'amount': -100}}
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5)))
-        ledger.clear_txns()
-        self.assertEqual(ledger.get_sorted_txns_with_balance(), [])
-
-    def test_get_payees(self):
-        ledger = bb.Ledger(account=self.checking)
-        splits = {self.checking: {'amount': '12.34'}, self.savings: {'amount': '-12.34'}}
-        burger_king = bb.Payee('Burger King', id_=1)
-        mcdonalds = bb.Payee('McDonalds', id_=2)
-        ledger.add_transaction(bb.Transaction(id_=1, splits=splits, txn_date=date(2017, 8, 5), payee=mcdonalds))
-        ledger.add_transaction(bb.Transaction(id_=2, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
-        ledger.add_transaction(bb.Transaction(id_=3, splits=splits, txn_date=date(2017, 8, 5), payee=burger_king))
-        self.assertEqual(ledger.get_payees(), [burger_king, mcdonalds])
-
-
 class TestScheduledTransaction(unittest.TestCase):
 
     def setUp(self):
@@ -1157,57 +999,6 @@ class TestSQLiteStorage(unittest.TestCase):
                 [(1, txn_id, checking.id, '-101/1', '-101/1', None, None, 'buy'),
                  (2, txn_id, another_acct.id, '101/1', '101/1', None, None, None)])
 
-    def test_get_ledger(self):
-        storage = bb.SQLiteStorage(':memory:')
-        checking = get_test_account()
-        storage.save_account(checking)
-        savings = get_test_account(name='Savings')
-        storage.save_account(savings)
-        savings2 = get_test_account(name='Savings 2')
-        storage.save_account(savings2)
-        pizza_hut = bb.Payee('Pizza Hut')
-        storage.save_payee(pizza_hut)
-        subway = bb.Payee('Subway')
-        storage.save_payee(subway)
-        wendys = bb.Payee('Wendys')
-        storage.save_payee(wendys)
-        txn1 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=pizza_hut, description='inv #1', splits={checking: {'amount': '101'}, savings: {'amount': '-101'}})
-        storage.save_txn(txn1)
-        txn2 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', splits={checking: {'amount': '46.23'}, savings: {'amount': '-46.23'}})
-        storage.save_txn(txn2)
-        txn3 = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 28), payee=subway, description='inv #42', splits={savings2: {'amount': '-6.53'}, savings: {'amount': '6.53'}})
-        storage.save_txn(txn3)
-        st = bb.ScheduledTransaction(
-                name='weekly 1',
-                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-                next_due_date='2019-01-02',
-                splits={checking: {'amount': -1}, savings: {'amount': 1}},
-                txn_type='a',
-                payee=wendys,
-                description='something',
-            )
-        storage.save_scheduled_transaction(st)
-        st2 = bb.ScheduledTransaction(
-                name='weekly 2',
-                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-                next_due_date='2019-01-02',
-                splits={savings: {'amount': -1}, savings2: {'amount': 1}},
-                txn_type='a',
-                payee=wendys,
-                description='something',
-            )
-        storage.save_scheduled_transaction(st2)
-        ledger = storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
-        self.assertEqual(len(txns), 2)
-        self.assertEqual(txns[0].splits[checking]['amount'], 101)
-        self.assertEqual(txns[1].splits[checking]['amount'], Fraction('46.23'))
-        scheduled_txns_due = ledger.get_scheduled_transactions_due()
-        self.assertEqual(len(scheduled_txns_due), 1)
-        self.assertEqual(scheduled_txns_due[0].id, st.id)
-        ledger_by_id = storage.get_ledger(account=checking.id)
-        self.assertEqual(len(txns), 2)
-
     def test_delete_txn_from_db(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
@@ -1838,8 +1629,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', 'C', '2', '15', '', '',
                 'type 1', str(payee.id), 'description']
         self.cli._create_txn()
-        ledger = self.cli._engine._storage.get_ledger(1)
-        txn = ledger.get_sorted_txns_with_balance()[0]
+        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[checking], {'amount': -15, 'quantity': -15, 'status': 'C'})
         self.assertEqual(txn.splits[savings], {'amount': 15, 'quantity': 15})
@@ -1859,8 +1649,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        ledger = self.cli._engine._storage.get_ledger(1)
-        txn = ledger.get_sorted_txns_with_balance()[0]
+        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
@@ -1876,8 +1665,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        ledger = self.cli._engine._storage.get_ledger(1)
-        txn = ledger.get_sorted_txns_with_balance()[0]
+        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
@@ -1906,10 +1694,9 @@ class TestCLI(unittest.TestCase):
         another_account = get_test_account(name='Another')
         self.cli._engine._storage.save_account(another_account)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1))
-        self.cli._engine._storage.save_txn(txn)
+        self.cli._engine.save_transaction(txn)
         self.cli._edit_txn()
-        ledger = self.cli._engine._storage.get_ledger(1)
-        edited_txn = ledger.get_txn(id_=txn.id)
+        edited_txn = self.cli._engine.get_transaction(id_=txn.id)
         self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
         self.assertEqual(edited_txn.splits[checking], {'amount': -90, 'quantity': -90})
         self.assertEqual(edited_txn.splits[savings], {'amount': 50, 'quantity': 50})
@@ -1989,13 +1776,12 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_scheduled_transaction(st)
         input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
         self.cli._list_scheduled_txns()
-        ledger = self.cli._engine._storage.get_ledger(checking.id)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = self.cli._engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking]['amount'], 175)
         self.assertEqual(txns[1].splits, valid_splits)
         self.assertEqual(txns[1].txn_date, date(2019, 1, 2))
-        scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
+        scheduled_txn = self.cli._engine.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
 
     @patch('builtins.input')
@@ -2019,8 +1805,7 @@ class TestCLI(unittest.TestCase):
         self.cli._list_scheduled_txns()
         scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
-        ledger = self.cli._engine._storage.get_ledger(checking.id)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = self.cli._engine.get_transactions(accounts=[checking])
         self.assertEqual(txns, [])
 
     @patch('builtins.input')
@@ -2275,17 +2060,17 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account()
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        engine.save_account(account=savings)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        engine.save_account(account=housing)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
@@ -2297,8 +2082,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
-        ledger = storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[1].splits[checking], {'amount': -18, 'quantity': -18})
         self.assertEqual(txns[1].payee.name, 'Burgers')
@@ -2306,13 +2090,13 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account()
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        engine.save_account(account=savings)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        engine.save_account(account=housing)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         ledger_display.action_combo.setCurrentIndex(1)
@@ -2322,8 +2106,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved correctly
-        ledger = storage.get_ledger(account=savings)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[savings])
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits,
                 {
@@ -2334,13 +2117,13 @@ class TestQtGUI(unittest.TestCase):
 
     def test_add_txn_multiple_splits(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account()
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        engine.save_account(account=housing)
         rent = get_test_account(type_=bb.AccountType.EXPENSE, name='Rent')
-        storage.save_account(rent)
+        engine.save_account(account=rent)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         QtTest.QTest.mouseClick(ledger_display.add_button, QtCore.Qt.LeftButton)
@@ -2351,8 +2134,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
-        ledger = storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], {'amount': -10, 'quantity': -10})
 
@@ -2410,21 +2192,21 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_edit(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account()
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        engine.save_account(account=savings)
         payee = bb.Payee('some payee')
-        storage.save_payee(payee)
+        engine.save_payee(payee)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 3))
         txn2 = bb.Transaction(splits={checking: {'amount': 17}, savings: {'amount': -17}}, txn_date=date(2017, 5, 2), payee=payee)
         txn3 = bb.Transaction(splits={checking: {'amount': 25}, savings: {'amount': -25}}, txn_date=date(2017, 10, 18))
         txn4 = bb.Transaction(splits={checking: {'amount': 10}, savings: {'amount': -10}}, txn_date=date(2018, 6, 6))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        storage.save_txn(txn3)
-        storage.save_txn(txn4)
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
+        engine.save_transaction(txn3)
+        engine.save_transaction(txn4)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
 
@@ -2440,8 +2222,7 @@ class TestQtGUI(unittest.TestCase):
         ledger_display.txns_display.edit_txn_display._widgets['deposit'].setText('20')
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure edit was saved
-        ledger = storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[2].txn_date, date(2017, 12, 31))
         self.assertEqual(txns[2].splits[checking], {'amount': 20, 'quantity': 20})
@@ -2450,15 +2231,15 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_txn_edit_expense_account(self):
         gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
-        gui.storage.save_account(checking)
+        gui._engine.save_account(account=checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        gui.storage.save_account(housing)
+        gui._engine.save_account(account=housing)
         restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
-        gui.storage.save_account(restaurants)
+        gui._engine.save_account(account=restaurants)
         txn = bb.Transaction(splits={checking: {'amount': 5}, housing: {'amount': -5}}, txn_date=date(2017, 1, 3))
         txn2 = bb.Transaction(splits={checking: {'amount': 17}, housing: {'amount': -17}}, txn_date=date(2017, 5, 2))
-        gui.storage.save_txn(txn)
-        gui.storage.save_txn(txn2)
+        gui._engine.save_transaction(txn)
+        gui._engine.save_transaction(txn2)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         #activate editing
@@ -2472,8 +2253,7 @@ class TestQtGUI(unittest.TestCase):
         #save the change
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new category was saved
-        ledger = gui.storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = gui._engine.get_transactions(accounts=[checking])
         self.assertEqual(txns[1].splits[restaurants], {'amount': -17, 'quantity': -17})
 
     def test_ledger_txn_edit_multiple_splits(self):
@@ -2507,15 +2287,15 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_txn_delete(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        engine.save_account(account=checking)
+        engine.save_account(account=savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
         txn2 = bb.Transaction(splits={checking: {'amount': 23}, savings: {'amount': -23}}, txn_date=date(2017, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         secondRowXPos = ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
@@ -2524,8 +2304,7 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         QtTest.QTest.mouseClick(ledger_display.txns_display.edit_txn_display._widgets['delete_btn'], QtCore.Qt.LeftButton)
         #make sure txn was deleted
-        ledger = storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].splits[checking], {'amount': 23, 'quantity': 23})
 
@@ -2534,10 +2313,10 @@ class TestQtGUI(unittest.TestCase):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
-        gui.storage.save_account(checking)
-        gui.storage.save_account(savings)
-        gui.storage.save_account(housing)
-        gui.storage.save_txn(
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
+        gui._engine.save_account(account=housing)
+        gui._engine.save_transaction(
                 bb.Transaction(
                     txn_date=date(2018, 1, 11),
                     splits={checking: {'amount': 150}, savings: {'amount': -150}},
@@ -2551,7 +2330,7 @@ class TestQtGUI(unittest.TestCase):
             splits=splits,
             next_due_date=date(2018, 1, 13),
         )
-        gui.storage.save_scheduled_transaction(scheduled_txn)
+        gui._engine.save_scheduled_transaction(scheduled_txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         secondRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
         secondRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(1) + 10
@@ -2561,8 +2340,7 @@ class TestQtGUI(unittest.TestCase):
         scheduled_txns = gui.storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
-        ledger = gui.storage.get_ledger(account=checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = gui._engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking]['amount'], 150)
         self.assertEqual(txns[1].splits[checking]['amount'], -100)
@@ -2597,16 +2375,16 @@ class TestQtGUI(unittest.TestCase):
         gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        gui.storage.save_account(checking)
-        gui.storage.save_account(savings)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
-        gui.storage.save_txn(txn)
+        gui._engine.save_transaction(txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(4) + 5
         firstRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
         viewport = gui.ledger_display.txns_display._txns_widget.viewport()
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
-        txns = gui.storage.get_ledger(checking).get_sorted_txns_with_balance()
+        txns = gui._engine.get_transactions(accounts=[checking])
         self.assertEqual(txns[0].splits[checking]['status'], bb.Transaction.CLEARED)
 
     def test_budget_display(self):
@@ -2742,11 +2520,10 @@ class TestImport(unittest.TestCase):
         payees = storage.get_payees()
         self.assertEqual(len(payees), 2)
         checking = storage.get_account(name='Checking')
-        ledger = storage.get_ledger(checking)
-        txns = ledger.get_sorted_txns_with_balance()
+        txns = engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[1].payee.name, 'A restaurant')
-        balances = ledger.get_current_balances_for_display()
+        balances = engine.get_current_balances_for_display(account=checking)
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
         self.assertEqual(balances, expected_balances)
 
