@@ -1982,9 +1982,9 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         a = get_test_account()
-        storage.save_account(a)
+        engine.save_account(account=a)
         #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
@@ -1994,7 +1994,7 @@ class TestQtGUI(unittest.TestCase):
         accounts_display.add_account_display._widgets['name'].setText('Savings')
         accounts_display.add_account_display._widgets['parent'].setCurrentIndex(1)
         QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        accounts = storage.get_accounts()
+        accounts = engine.get_accounts()
         self.assertEqual(len(accounts), 2)
         self.assertEqual(accounts[1].type.name, 'ASSET')
         self.assertEqual(accounts[1].number, '400')
@@ -2003,11 +2003,11 @@ class TestQtGUI(unittest.TestCase):
 
     def test_account_edit(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
-        storage.save_account(savings)
+        engine.save_account(account=savings)
         #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
@@ -2020,17 +2020,17 @@ class TestQtGUI(unittest.TestCase):
         accounts_display.edit_account_display._widgets['name'].setText('New Savings')
         accounts_display.edit_account_display._widgets['parent'].setCurrentIndex(1)
         QtTest.QTest.mouseClick(accounts_display.edit_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        self.assertEqual(len(storage.get_accounts()), 2)
-        self.assertEqual(storage.get_accounts()[1].name, 'New Savings')
-        self.assertEqual(storage.get_accounts()[1].parent.name, 'Checking')
+        self.assertEqual(len(engine.get_accounts()), 2)
+        self.assertEqual(engine.get_accounts()[1].name, 'New Savings')
+        self.assertEqual(engine.get_accounts()[1].parent.name, 'Checking')
 
     def test_expense_account_edit(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
-        storage.save_account(checking)
+        engine.save_account(account=checking)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        engine.save_account(account=food)
         #go to ledger page, and back to accounts, so the test account we added gets picked up in gui
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.accounts_button, QtCore.Qt.LeftButton)
@@ -2041,13 +2041,12 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         accounts_display.edit_account_display._widgets['name'].setText('New Food')
         QtTest.QTest.mouseClick(accounts_display.edit_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        self.assertEqual(len(storage.get_accounts()), 2)
-        self.assertEqual(storage.get_accounts()[1].name, 'New Food')
+        self.assertEqual(len(engine.get_accounts()), 2)
+        self.assertEqual(engine.get_accounts()[1].name, 'New Food')
 
     @patch('bricbooks.set_widget_error_state')
     def test_account_exception(self, mock_method):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
         accounts_display = gui.accounts_display
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
@@ -2140,19 +2139,19 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_switch_account(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
         restaurant = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
-        storage.save_account(checking)
-        storage.save_account(savings)
-        storage.save_account(restaurant)
+        engine.save_account(account=checking)
+        engine.save_account(account=savings)
+        engine.save_account(account=restaurant)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
         txn3 = bb.Transaction(splits={savings: {'amount': 5}, checking: {'amount': -5}}, txn_date=date(2018, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        storage.save_txn(txn3)
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
+        engine.save_transaction(txn3)
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2162,7 +2161,7 @@ class TestQtGUI(unittest.TestCase):
                 payee=bb.Payee('Wendys'),
                 description='something',
             )
-        storage.save_scheduled_transaction(st)
+        engine.save_scheduled_transaction(st)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         ledger_display = gui.ledger_display
         self.assertEqual(ledger_display._current_account, checking)
@@ -2174,17 +2173,17 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_filter(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        engine.save_account(account=checking)
+        engine.save_account(account=savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today(), description='something')
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
         txn3 = bb.Transaction(splits={savings: {'amount': 5}, checking: {'amount': -5}}, txn_date=date(2018, 1, 2))
-        storage.save_txn(txn)
-        storage.save_txn(txn2)
-        storage.save_txn(txn3)
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
+        engine.save_transaction(txn3)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         gui.ledger_display._filter_box.setText('something')
         QtTest.QTest.mouseClick(gui.ledger_display._filter_btn, QtCore.Qt.LeftButton)
@@ -2259,18 +2258,18 @@ class TestQtGUI(unittest.TestCase):
     def test_ledger_txn_edit_multiple_splits(self):
         gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
-        gui.storage.save_account(checking)
+        gui._engine.save_account(account=checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        gui.storage.save_account(housing)
+        gui._engine.save_account(account=housing)
         restaurants = get_test_account(type_=bb.AccountType.EXPENSE, name='Restaurants')
-        gui.storage.save_account(restaurants)
+        gui._engine.save_account(account=restaurants)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        gui.storage.save_account(food)
+        gui._engine.save_account(account=food)
         initial_splits = {checking: {'amount': -25}, housing: {'amount': 20}, restaurants: {'amount': 5}}
         txn_account_display_splits = {housing: {'amount': 15}, restaurants: {'amount': 10}}
         final_splits = {checking: {'amount': -25, 'quantity': -25}, housing: {'amount': 15, 'quantity': 15}, restaurants: {'amount': 10, 'quantity': 10}}
         txn = bb.Transaction(splits=initial_splits, txn_date=date(2017, 1, 3))
-        gui.storage.save_txn(txn)
+        gui._engine.save_transaction(txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         #activate editing
         firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
@@ -2282,7 +2281,7 @@ class TestQtGUI(unittest.TestCase):
         bb.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        updated_txn = gui.storage.get_txn(txn.id)
+        updated_txn = gui._engine.get_transaction(txn.id)
         self.assertDictEqual(updated_txn.splits, final_splits)
 
     def test_ledger_txn_delete(self):
@@ -2337,7 +2336,7 @@ class TestQtGUI(unittest.TestCase):
         viewport = gui.ledger_display.txns_display._txns_widget.viewport()
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(secondRowXPos, secondRowYPos))
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.scheduled_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton) #click to skip next txn
-        scheduled_txns = gui.storage.get_scheduled_transactions()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
         txns = gui._engine.get_transactions(accounts=[checking])
@@ -2350,9 +2349,9 @@ class TestQtGUI(unittest.TestCase):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
-        gui.storage.save_account(checking)
-        gui.storage.save_account(savings)
-        gui.storage.save_account(housing)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
+        gui._engine.save_account(account=housing)
         splits = {checking: {'amount': -100}, housing: {'amount': 100}}
         scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
@@ -2360,14 +2359,14 @@ class TestQtGUI(unittest.TestCase):
             splits=splits,
             next_due_date=date(2018, 1, 13),
         )
-        gui.storage.save_scheduled_transaction(scheduled_txn)
+        gui._engine.save_scheduled_transaction(scheduled_txn)
         QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
         firstRowXPos = gui.ledger_display.txns_display._txns_widget.columnViewportPosition(0) + 5
         firstRowYPos = gui.ledger_display.txns_display._txns_widget.rowViewportPosition(0) + 10
         viewport = gui.ledger_display.txns_display._txns_widget.viewport()
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.scheduled_txn_display._widgets['skip_btn'], QtCore.Qt.LeftButton) #click to skip next txn
-        scheduled_txns = gui.storage.get_scheduled_transactions()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
 
@@ -2389,31 +2388,31 @@ class TestQtGUI(unittest.TestCase):
 
     def test_budget_display(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        engine.save_account(account=housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        engine.save_account(account=food)
         wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
-        storage.save_account(wages)
+        engine.save_account(account=wages)
         b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {'amount': 25, 'carryover': 0},
             wages: {'amount': 100},
         })
-        storage.save_budget(b)
-        budget = storage.get_budgets()[0]
+        engine.save_budget(b)
+        budget = engine.get_budgets()[0]
         QtTest.QTest.mouseClick(gui.budget_button, QtCore.Qt.LeftButton) #go to budget page
         budget_display = gui.budget_display
         widget = budget_display.get_widget()
 
     def test_budget_create(self):
         gui = bb.GUI_QT(':memory:')
-        storage = gui.storage
+        engine = gui._engine
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        engine.save_account(account=housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        engine.save_account(account=food)
         QtTest.QTest.mouseClick(gui.budget_button, QtCore.Qt.LeftButton) #go to budget page
         self.assertFalse(gui.budget_display._current_budget)
         self.assertEqual(gui.budget_display._budget_select_combo.currentText(), '')
@@ -2424,7 +2423,7 @@ class TestQtGUI(unittest.TestCase):
         gui.budget_display.budget_form._widgets['budget_data'][housing]['amount'].setText('500')
         gui.budget_display.budget_form._save()
         #verify budget saved in storage
-        budget = storage.get_budgets()[0]
+        budget = engine.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2020, 1, 1))
         self.assertEqual(budget.get_budget_data()[housing]['amount'], 500)
         #verify BudgetDisplay updated
@@ -2436,8 +2435,8 @@ class TestQtGUI(unittest.TestCase):
         gui = bb.GUI_QT(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        gui.storage.save_account(checking)
-        gui.storage.save_account(savings)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
         QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.add_button, QtCore.Qt.LeftButton)
         gui.scheduled_txns_display.form._widgets['name'].setText('test st')
@@ -2447,7 +2446,7 @@ class TestQtGUI(unittest.TestCase):
         gui.scheduled_txns_display.form._widgets['withdrawal'].setText('37')
         gui.scheduled_txns_display.form._widgets['accounts_display']._categories_combo.setCurrentIndex(2)
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.form._widgets['save_btn'], QtCore.Qt.LeftButton)
-        scheduled_txns = gui.storage.get_scheduled_transactions()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(scheduled_txns[0].name, 'test st')
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -37, 'quantity': -37})
         self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 37, 'quantity': 37})
@@ -2458,9 +2457,9 @@ class TestQtGUI(unittest.TestCase):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
-        gui.storage.save_account(checking)
-        gui.storage.save_account(savings)
-        gui.storage.save_account(housing)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
+        gui._engine.save_account(account=housing)
         splits = {checking: {'amount': -100}, housing: {'amount': 100}}
         scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
@@ -2468,7 +2467,7 @@ class TestQtGUI(unittest.TestCase):
             splits=splits,
             next_due_date=date.today()
         )
-        gui.storage.save_scheduled_transaction(scheduled_txn)
+        gui._engine.save_scheduled_transaction(scheduled_txn)
         #go to scheduled txns, click on one to activate edit form, update values, & save it
         QtTest.QTest.mouseClick(gui.scheduled_txns_button, QtCore.Qt.LeftButton)
         firstRowXPos = gui.scheduled_txns_display.data_display.main_widget.columnViewportPosition(2) + 5
@@ -2479,7 +2478,7 @@ class TestQtGUI(unittest.TestCase):
         gui.scheduled_txns_display.data_display.edit_form._widgets['withdrawal'].setText('15')
         self.assertEqual(gui.scheduled_txns_display.data_display.edit_form._widgets['accounts_display']._categories_combo.currentData(), housing)
         QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.edit_form._widgets['save_btn'], QtCore.Qt.LeftButton)
-        scheduled_txns = gui.storage.get_scheduled_transactions()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'updated')
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})

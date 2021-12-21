@@ -1313,6 +1313,9 @@ class Engine:
     def get_scheduled_transaction(self, id_):
         return self._storage.get_scheduled_transaction(id_)
 
+    def get_scheduled_transactions(self):
+        return self._storage.get_scheduled_transactions()
+
     def get_scheduled_transactions_due(self, accounts=None):
         scheduled_txns = self._storage.get_scheduled_transactions()
         if accounts:
@@ -1322,6 +1325,12 @@ class Engine:
 
     def save_scheduled_transaction(self, scheduled_txn):
         return self._storage.save_scheduled_transaction(scheduled_txn)
+
+    def get_budgets(self):
+        return self._storage.get_budgets()
+
+    def save_budget(self, budget):
+        return self._storage.save_budget(budget)
 
 
 ### IMPORT ###
@@ -2843,13 +2852,13 @@ class GUI_QT:
 
     def _load_db(self, file_name):
         try:
-            self.storage = SQLiteStorage(file_name)
+            storage = SQLiteStorage(file_name)
         except sqlite3.DatabaseError as e:
             if 'file is not a database' in str(e):
                 show_error(msg='File %s is not a database' % file_name)
                 return
             raise
-        self._engine = Engine(self.storage)
+        self._engine = Engine(storage)
         if self.content_area:
             self.parent_layout.removeWidget(self.content_area)
             self.content_area.deleteLater()
