@@ -960,7 +960,7 @@ class SQLiteStorage:
             raise InvalidTransactionError('no db_info to construct transaction')
         id_, currency_id, txn_type, txn_date, payee_id, description, date_entered = db_info
         txn_date = get_date(txn_date)
-        payee = self.get_payee(payee_id)
+        payee = self.get_payee(id_=payee_id)
         cursor = self._db_connection.cursor()
         splits = {}
         split_records = cursor.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
@@ -1070,9 +1070,9 @@ class SQLiteStorage:
                     c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         self._db_connection.commit()
 
-    def get_budget(self, budget_id):
+    def get_budget(self, id_):
         c = self._db_connection.cursor()
-        records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (budget_id,)).fetchall()
+        records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (id_,)).fetchall()
         start_date = get_date(records[0][0])
         end_date = get_date(records[0][1])
         account_budget_info = {}
@@ -1095,7 +1095,7 @@ class SQLiteStorage:
                     spent += amt
             all_income_spending_info[account]['spent'] = spent
             all_income_spending_info[account]['income'] = income
-            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget_id, account.id)).fetchall()
+            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (id_, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
                 account_budget_info[account]['amount'] = r[0]
@@ -1103,7 +1103,7 @@ class SQLiteStorage:
                 account_budget_info[account]['notes'] = r[2]
             else:
                 account_budget_info[account] = {}
-        return Budget(id_=budget_id, start_date=start_date, end_date=end_date, account_budget_info=account_budget_info,
+        return Budget(id_=id_, start_date=start_date, end_date=end_date, account_budget_info=account_budget_info,
                 income_spending_info=all_income_spending_info)
 
     def get_budgets(self):
@@ -1174,7 +1174,7 @@ class SQLiteStorage:
                 if split_record[2]:
                     splits[account]['status'] = split_record[2]
         rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
-        payee = self.get_payee(rows[0][4])
+        payee = self.get_payee(id_=rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
                 frequency=ScheduledTransactionFrequency(rows[0][1]),
@@ -1304,6 +1304,9 @@ class Engine:
     def delete_transaction(self, txn_id):
         self._storage.delete_txn(txn_id)
 
+    def get_payee(self, id_=None, name=None):
+        return self._storage.get_payee(id_=id_, name=name)
+
     def get_payees(self):
         return self._storage.get_payees()
 
@@ -1325,6 +1328,9 @@ class Engine:
 
     def save_scheduled_transaction(self, scheduled_txn):
         return self._storage.save_scheduled_transaction(scheduled_txn)
+
+    def get_budget(self, id_):
+        return self._storage.get_budget(id_=id_)
 
     def get_budgets(self):
         return self._storage.get_budgets()
@@ -2638,7 +2644,7 @@ class BudgetDisplay:
     def _save_budget_and_reload(self, budget, new_budget=False):
         self.storage.save_budget(budget)
         #need to reload budget from storage here, so txn info is picked up
-        self._current_budget = self.storage.get_budget(budget_id=budget.id)
+        self._current_budget = self.storage.get_budget(id_=budget.id)
         if new_budget:
             #need to add new budget to select combo and select it
             num_items = self._budget_select_combo.count()
@@ -3022,7 +3028,7 @@ class CLI:
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
-                tds = get_display_strings_for_ledger(self._engine.get_account(id_=acc_id), t)
+                tds = get_display_strings_for_ledger(account, t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
                     tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], amount_display(t.balance), t.id)
                 )
@@ -3089,7 +3095,7 @@ class CLI:
         if payee.startswith("'"):
             txn_info['payee'] = Payee(payee[1:])
         else:
-            txn_info['payee'] = self._engine._storage.get_payee(payee)
+            txn_info['payee'] = self._engine.get_payee(id_=payee)
         txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
         return txn_info
 
@@ -3113,15 +3119,15 @@ class CLI:
 
     def _edit_txn(self):
         txn_id = self.input(prompt='Txn ID: ')
-        txn = self._engine._storage.get_txn(txn_id)
+        txn = self._engine.get_transaction(id_=txn_id)
         self._get_and_save_txn(txn=txn)
 
     def _list_payees(self):
-        for p in self._engine._storage.get_payees():
+        for p in self._engine.get_payees():
             self.print('%s: %s' % (p.id, p.name))
 
     def _list_scheduled_txns(self):
-        for st in self._engine._storage.get_scheduled_transactions():
+        for st in self._engine.get_scheduled_transactions():
             self.print(st)
         self._enter_scheduled_txn()
         self._skip_scheduled_txn()
@@ -3131,10 +3137,10 @@ class CLI:
         while True:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
-                scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
+                scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
                 self._get_and_save_txn(txn=scheduled_txn)
                 scheduled_txn.advance_to_next_due_date()
-                self._engine._storage.save_scheduled_transaction(scheduled_txn)
+                self._engine.save_scheduled_transaction(scheduled_txn)
             else:
                 break
 
@@ -3143,15 +3149,15 @@ class CLI:
         while True:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
-                scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
+                scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
                 scheduled_txn.advance_to_next_due_date()
-                self._engine._storage.save_scheduled_transaction(scheduled_txn)
+                self._engine.save_scheduled_transaction(scheduled_txn)
             else:
                 break
 
     def _display_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
-        scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
+        scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
         self.print('%s: %s' % (scheduled_txn.id, scheduled_txn.name))
         self.print('  frequency: %s' % scheduled_txn.frequency.name)
         self.print('  next due date: %s' % scheduled_txn.next_due_date)
@@ -3181,7 +3187,7 @@ class CLI:
         id_ = None
         if scheduled_txn:
             id_ = scheduled_txn.id
-        self._engine._storage.save_scheduled_transaction(
+        self._engine.save_scheduled_transaction(
             ScheduledTransaction(
                 name=name,
                 frequency=frequency,
@@ -3197,16 +3203,16 @@ class CLI:
 
     def _edit_scheduled_txn(self):
         scheduled_txn_id = self.input('Enter scheduled txn ID: ')
-        scheduled_txn = self._engine._storage.get_scheduled_transaction(scheduled_txn_id)
+        scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
         self._get_and_save_scheduled_txn(scheduled_txn=scheduled_txn)
 
     def _list_budgets(self):
-        for b in self._engine._storage.get_budgets():
+        for b in self._engine.get_budgets():
             self.print(b)
 
     def _display_budget(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self._engine._storage.get_budget(budget_id)
+        budget = self._engine.get_budget(budget_id)
         self.print(budget)
         account_budget_info = budget.get_budget_data()
         for account, info in account_budget_info.items():
@@ -3224,7 +3230,7 @@ class CLI:
 
     def _display_budget_report(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self._engine._storage.get_budget(budget_id)
+        budget = self._engine.get_budget(budget_id)
         self.print(budget)
         budget_report = budget.get_report_display(current_date=date.today())
         for info in budget_report['income']:
@@ -3254,7 +3260,7 @@ class CLI:
                     break
             else:
                 break
-        self._engine._storage.save_budget(
+        self._engine.save_budget(
                 Budget(
                     start_date=start_date,
                     end_date=end_date,
@@ -3264,7 +3270,7 @@ class CLI:
 
     def _edit_budget(self):
         budget_id = self.input('Enter budget ID: ')
-        budget = self._engine._storage.get_budget(budget_id)
+        budget = self._engine.get_budget(budget_id)
         start_date = self.input(prompt='  start date: ')
         end_date = self.input(prompt='  end date: ')
         account_info = {}
@@ -3278,7 +3284,7 @@ class CLI:
             notes = self.input(' notes: ', prefill=info.get('notes', ''))
             if notes:
                 account_info[account]['notes'] = notes
-        self._engine._storage.save_budget(
+        self._engine.save_budget(
                 Budget(
                     start_date=start_date,
                     end_date=end_date,
