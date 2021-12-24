@@ -1209,6 +1209,9 @@ class Engine:
         except sqlite3.DatabaseError as e:
             raise InvalidStorageFile(str(e))
 
+    def get_commodity(self, id_=None, code=None):
+        return self._storage.get_commodity(id_=id_, code=code)
+
     def save_commodity(self, c):
         self._storage.save_commodity(c)
 
@@ -1347,7 +1350,7 @@ class Engine:
 
 ### IMPORT ###
 
-def import_kmymoney(kmy_file, storage):
+def import_kmymoney(kmy_file, engine):
     import gzip
     from xml.etree import ElementTree as ET
     print(f'{datetime.now()} uncompressing & parsing file...')
@@ -1361,11 +1364,11 @@ def import_kmymoney(kmy_file, storage):
     for currency in currencies.iter('CURRENCY'):
         currency_id = currency.attrib['id']
         if currency_id == 'USD': #USD is added automatically when storage is initialized
-            commodity_mapping_info['USD'] = storage.get_commodity(code='USD').id
+            commodity_mapping_info['USD'] = engine.get_commodity(code='USD').id
             continue
         commodity = Commodity(type_=CommodityType.CURRENCY, code=currency_id, name=currency.attrib['name'])
         try:
-            storage.save_commodity(commodity)
+            engine.save_commodity(commodity)
             commodity_mapping_info[currency_id] = commodity.id
         except Exception as e:
             print(f'{datetime.now()} error migrating currency: {e}\n  {currency.attrib}')
@@ -1374,7 +1377,7 @@ def import_kmymoney(kmy_file, storage):
         security_id = security.attrib['id']
         commodity = Commodity(type_=CommodityType.SECURITY, code=security_id, name=currency.attrib['name'])
         try:
-            storage.save_commodity(commodity)
+            engine.save_commodity(commodity)
             commodity_mapping_info[security_id] = commodity.id
         except Exception as e:
             print(f'{datetime.now()} error migrating security: {e}\n  {security.attrib}')
@@ -1396,14 +1399,14 @@ def import_kmymoney(kmy_file, storage):
         elif account.attrib['type'] in ['15']:
             type_ = AccountType.SECURITY
         currency_id = commodity_mapping_info[account.attrib['currency']]
-        commodity = storage.get_commodity(id_=currency_id)
+        commodity = engine.get_commodity(id_=currency_id)
         print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
                     name=account.attrib['name'],
                 )
-        storage.save_account(acc_obj)
+        engine.save_account(acc_obj)
         account_mapping_info[account.attrib['id']] = acc_obj.id
     #migrate payees
     print(f'{datetime.now()} migrating payees...')
@@ -1411,7 +1414,7 @@ def import_kmymoney(kmy_file, storage):
     payees = root.find('PAYEES')
     for payee in payees.iter('PAYEE'):
         payee_obj = Payee(name=payee.attrib['name'])
-        storage.save_payee(payee_obj)
+        engine.save_payee(payee_obj)
         payee_mapping_info[payee.attrib['id']] = payee_obj.id
     #migrate transactions
     print(f'{datetime.now()} migrating transactions...')
@@ -1422,7 +1425,7 @@ def import_kmymoney(kmy_file, storage):
             splits = {}
             for split in splits_el.iter('SPLIT'):
                 account_orig_id = split.attrib['account']
-                account = storage.get_account(account_mapping_info[account_orig_id])
+                account = engine.get_account(account_mapping_info[account_orig_id])
                 #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
                 splits[account] = {'amount': split.attrib['value']}
                 if split.attrib['reconcileflag'] == '2':
@@ -1431,8 +1434,8 @@ def import_kmymoney(kmy_file, storage):
                     splits[account]['status'] = Transaction.CLEARED
                 payee = None
                 if split.attrib['payee']:
-                    payee = storage.get_payee(id_=payee_mapping_info[split.attrib['payee']])
-            storage.save_txn(
+                    payee = engine.get_payee(id_=payee_mapping_info[split.attrib['payee']])
+            engine.save_transaction(
                     Transaction(
                         splits=splits,
                         txn_date=transaction.attrib['postdate'],
