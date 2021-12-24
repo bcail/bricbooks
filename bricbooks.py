@@ -1338,6 +1338,11 @@ class Engine:
     def save_scheduled_transaction(self, scheduled_txn):
         return self._storage.save_scheduled_transaction(scheduled_txn)
 
+    def skip_scheduled_transaction(self, id_):
+        scheduled_txn = self.get_scheduled_transaction(id_)
+        scheduled_txn.advance_to_next_due_date()
+        self.save_scheduled_transaction(scheduled_txn)
+
     def get_budget(self, id_):
         return self._storage.get_budget(id_=id_)
 
@@ -1957,9 +1962,8 @@ class LedgerTxnsDisplay:
         self._display_ledger()
         self._post_update_function()
 
-    def _skip_scheduled_txn(self, scheduled_txn):
-        scheduled_txn.advance_to_next_due_date()
-        self.engine.save_scheduled_transaction(scheduled_txn)
+    def _skip_scheduled_txn(self, scheduled_txn_id):
+        self.engine.skip_scheduled_transaction(scheduled_txn_id)
         self._display_ledger()
 
     def _show_scheduled_txn_form(self, scheduled_txn):
@@ -1970,7 +1974,7 @@ class LedgerTxnsDisplay:
                 save_txn=save_txn,
                 current_account=self.account,
                 txn=scheduled_txn,
-                skip_txn=partial(self._skip_scheduled_txn, scheduled_txn=scheduled_txn)
+                skip_txn=partial(self._skip_scheduled_txn, scheduled_txn_id=scheduled_txn.id)
             )
         self.scheduled_txn_display.show_form()
 
@@ -3154,9 +3158,7 @@ class CLI:
         while True:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
-                scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
-                scheduled_txn.advance_to_next_due_date()
-                self._engine.save_scheduled_transaction(scheduled_txn)
+                self._engine.skip_scheduled_transaction(scheduled_txn_id)
             else:
                 break
 
