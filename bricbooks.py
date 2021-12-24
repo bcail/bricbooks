@@ -2664,8 +2664,7 @@ class BudgetDisplay:
         if budget:
             self.budget_form = BudgetForm(budget=budget, save_budget=self._save_budget_and_reload)
         else:
-            income_and_expense_accounts = self._engine.get_accounts(type_=AccountType.INCOME)
-            income_and_expense_accounts.extend(self._engine.get_accounts(type_=AccountType.EXPENSE))
+            income_and_expense_accounts = self._engine.get_accounts(types=[AccountType.INCOME, AccountType.EXPENSE])
             self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=partial(self._save_budget_and_reload, new_budget=True))
         self.budget_form.show_form()
 
@@ -2937,7 +2936,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.budget_display = BudgetDisplay(self._engine._storage, budget_model_class=self._budget_model_class, current_budget=current_budget)
+        self.budget_display = BudgetDisplay(self._engine, budget_model_class=self._budget_model_class, current_budget=current_budget)
         self.main_widget = self.budget_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -3354,9 +3353,9 @@ def import_file(file_to_import):
         if os.path.exists(bb_filename):
             raise Exception(f'{bb_filename} already exists')
         print(f'{datetime.now()} importing {file_to_import} to {bb_filename}...')
-        storage = SQLiteStorage(bb_filename)
+        engine = Engine(bb_filename)
         with open(file_to_import, 'rb') as f:
-            import_kmymoney(f, storage)
+            import_kmymoney(f, engine)
     else:
         print(f'invalid import file {file_to_import} - must end with .kmy')
 
