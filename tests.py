@@ -1419,7 +1419,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
 
-def create_test_accounts(storage):
+def create_test_accounts(engine):
     accounts = {
             'Checking': bb.AccountType.ASSET,
             'Savings': bb.AccountType.ASSET,
@@ -1433,23 +1433,21 @@ def create_test_accounts(storage):
         }
     for name, type_ in accounts.items():
         account = get_test_account(type_=type_, name=name)
-        storage.save_account(account)
+        engine.save_account(account)
 
 
 class TestEngine(unittest.TestCase):
 
     def test_get_currencies(self):
-        storage = bb.SQLiteStorage(':memory:')
-        create_test_accounts(storage)
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
+        create_test_accounts(engine)
         currencies = engine.get_currencies()
         self.assertEqual(len(currencies), 1)
         self.assertEqual(currencies[0].type, bb.CommodityType.CURRENCY)
         self.assertEqual(currencies[0].code, 'USD')
 
     def test_save_commodity(self):
-        storage = bb.SQLiteStorage(':memory:')
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
         engine.save_commodity(
                 bb.Commodity(type_=bb.CommodityType.CURRENCY, code='ABC', name='Some Currency')
             )
@@ -1460,9 +1458,8 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(currencies[1].name, 'Some Currency')
 
     def test_get_accounts(self):
-        storage = bb.SQLiteStorage(':memory:')
-        create_test_accounts(storage)
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
+        create_test_accounts(engine)
         accounts = engine.get_accounts()
         self.assertEqual(len(accounts), 9)
         self.assertEqual(accounts[0].name, 'Checking')
@@ -1470,17 +1467,15 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(accounts[2].name, 'Retirement 401k')
 
     def test_get_ledger_accounts(self):
-        storage = bb.SQLiteStorage(':memory:')
-        create_test_accounts(storage)
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
+        create_test_accounts(engine)
         accounts = engine.get_ledger_accounts()
         self.assertEqual(len(accounts), 6)
         self.assertEqual(accounts[0].name, 'Checking')
 
     def test_get_transactions(self):
-        storage = bb.SQLiteStorage(':memory:')
-        create_test_accounts(storage)
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
+        create_test_accounts(engine)
         checking = engine.get_account(name='Checking')
         savings = engine.get_account(name='Savings')
         wages = engine.get_account(name='Wages')
@@ -2053,8 +2048,7 @@ class TestQtGUI(unittest.TestCase):
         mock_method.assert_called_once_with(accounts_display.add_account_display._widgets['name'])
 
     def test_empty_ledger(self):
-        storage = bb.SQLiteStorage(':memory:')
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
         ledger_display = bb.LedgerDisplay(engine, txns_model_class=bb.get_txns_model_class())
 
     def test_ledger_add(self):
@@ -2497,8 +2491,8 @@ class TestImport(unittest.TestCase):
 
     def test_kmymoney(self):
         filename = 'import_test.kmy'
-        storage = bb.SQLiteStorage(':memory:')
-        engine = bb.Engine(storage)
+        engine = bb.Engine(':memory:')
+        storage = engine._storage
         with open(filename, 'rb') as f:
             bb.import_kmymoney(kmy_file=f, storage=storage)
         currencies = engine.get_currencies()

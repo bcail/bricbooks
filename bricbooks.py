@@ -123,6 +123,9 @@ class BudgetError(RuntimeError):
 class SQLiteStorageError(RuntimeError):
     pass
 
+class InvalidStorageFile(RuntimeError):
+    pass
+
 
 def get_date(val):
     if isinstance(val, str):
@@ -1200,8 +1203,11 @@ class SQLiteStorage:
 
 class Engine:
 
-    def __init__(self, storage):
-        self._storage = storage
+    def __init__(self, file_name):
+        try:
+            self._storage = SQLiteStorage(file_name)
+        except sqlite3.DatabaseError as e:
+            raise InvalidStorageFile(str(e))
 
     def save_commodity(self, c):
         self._storage.save_commodity(c)
@@ -2297,7 +2303,6 @@ class LedgerDisplay:
 
     def __init__(self, engine, txns_model_class, current_account=None):
         self._engine = engine
-        self.storage = self._engine._storage
         self._txns_model_class = txns_model_class
         #choose an account if there is one
         if not current_account:
@@ -2580,11 +2585,11 @@ class BudgetDisplay:
         else:
             return '%s - %s' % (budget.start_date, budget.end_date)
 
-    def __init__(self, storage, budget_model_class, current_budget=None):
-        self.storage = storage
+    def __init__(self, engine, budget_model_class, current_budget=None):
+        self._engine = engine
         self._budget_model_class = budget_model_class
         if not current_budget:
-            budgets = self.storage.get_budgets()
+            budgets = self._engine.get_budgets()
             if budgets:
                 current_budget = budgets[0]
         self._current_budget = current_budget
@@ -2621,14 +2626,14 @@ class BudgetDisplay:
         layout.addWidget(self._edit_button, row, 0)
 
     def _update_budget(self, index=0):
-        self._current_budget = self.storage.get_budgets()[index]
+        self._current_budget = self._engine.get_budgets()[index]
         self._budget_select_combo.setCurrentIndex(index)
         self._display_budget(layout=self.layout, budget=self._current_budget, row=self._row_index)
 
     def _show_headings(self, layout, row):
         self._budget_select_combo = QtWidgets.QComboBox()
         current_index = 0
-        budgets = self.storage.get_budgets()
+        budgets = self._engine.get_budgets()
         for index, budget in enumerate(budgets):
             if budget == self._current_budget:
                 current_index = index
@@ -2642,9 +2647,9 @@ class BudgetDisplay:
         return row + 1
 
     def _save_budget_and_reload(self, budget, new_budget=False):
-        self.storage.save_budget(budget)
+        self._engine.save_budget(budget)
         #need to reload budget from storage here, so txn info is picked up
-        self._current_budget = self.storage.get_budget(id_=budget.id)
+        self._current_budget = self._engine.get_budget(id_=budget.id)
         if new_budget:
             #need to add new budget to select combo and select it
             num_items = self._budget_select_combo.count()
@@ -2656,8 +2661,8 @@ class BudgetDisplay:
         if budget:
             self.budget_form = BudgetForm(budget=budget, save_budget=self._save_budget_and_reload)
         else:
-            income_and_expense_accounts = self.storage.get_accounts(type_=AccountType.INCOME)
-            income_and_expense_accounts.extend(self.storage.get_accounts(type_=AccountType.EXPENSE))
+            income_and_expense_accounts = self._engine.get_accounts(type_=AccountType.INCOME)
+            income_and_expense_accounts.extend(self._engine.get_accounts(type_=AccountType.EXPENSE))
             self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=partial(self._save_budget_and_reload, new_budget=True))
         self.budget_form.show_form()
 
@@ -2720,9 +2725,9 @@ def get_scheduled_txns_model_class():
 class ScheduledTxnsDataDisplay:
     '''for displaying the list of scheduled transactions'''
 
-    def __init__(self, scheduled_txns, storage, model_class, reload_function):
+    def __init__(self, scheduled_txns, engine, model_class, reload_function):
         self.scheduled_txns = scheduled_txns
-        self.storage = storage
+        self._engine = engine
         self._model_class = model_class
         self._reload = reload_function
         self._model = model_class(self.scheduled_txns)
@@ -2737,24 +2742,24 @@ class ScheduledTxnsDataDisplay:
 
     def _edit(self, index):
         st_id = self._model.get_scheduled_txn_id(index)
-        scheduled_txn = self.storage.get_scheduled_transaction(st_id)
+        scheduled_txn = self._engine.get_scheduled_transaction(st_id)
         self.edit_form = ScheduledTxnForm(
-                accounts=self.storage.get_accounts(),
-                payees=self.storage.get_payees(),
+                accounts=self._engine.get_accounts(),
+                payees=self._engine.get_payees(),
                 save_scheduled_txn=self._save_scheduled_txn_and_reload,
                 scheduled_txn=scheduled_txn
             )
         self.edit_form.show_form()
 
     def _save_scheduled_txn_and_reload(self, scheduled_txn):
-        self.storage.save_scheduled_transaction(scheduled_txn)
+        self._engine.save_scheduled_transaction(scheduled_txn)
         self._reload()
 
 
 class ScheduledTxnsDisplay:
 
-    def __init__(self, storage, model_class):
-        self.storage = storage
+    def __init__(self, engine, model_class):
+        self._engine = engine
         self._model_class = model_class
         self._data_display_widget = None
 
@@ -2779,12 +2784,12 @@ class ScheduledTxnsDisplay:
         return row + 1
 
     def _display_scheduled_txns(self, layout):
-        scheduled_txns = self.storage.get_scheduled_transactions()
+        scheduled_txns = self._engine.get_scheduled_transactions()
         if self._data_display_widget:
             layout.removeWidget(self._data_display_widget)
             self._data_display_widget.deleteLater()
         if scheduled_txns:
-            self.data_display = ScheduledTxnsDataDisplay(scheduled_txns, storage=self.storage, model_class=self._model_class,
+            self.data_display = ScheduledTxnsDataDisplay(scheduled_txns, engine=self._engine, model_class=self._model_class,
                     reload_function=partial(self._display_scheduled_txns, layout=layout))
             self._data_display_widget = self.data_display.get_widget()
             layout.addWidget(self._data_display_widget, self._row_index, 0, 1, 5)
@@ -2793,22 +2798,22 @@ class ScheduledTxnsDisplay:
     def _open_form(self, scheduled_txn):
         if scheduled_txn:
             self.form = ScheduledTxnForm(
-                    accounts=self.storage.get_accounts(),
-                    payees=self.storage.get_payees(),
+                    accounts=self._engine.get_accounts(),
+                    payees=self._engine.get_payees(),
                     save_scheduled_txn=self._save_scheduled_txn_and_reload,
                     scheduled_txn=scheduled_txn
                 )
         else:
             self.form = ScheduledTxnForm(
-                    accounts=self.storage.get_accounts(),
-                    payees=self.storage.get_payees(),
+                    accounts=self._engine.get_accounts(),
+                    payees=self._engine.get_payees(),
                     save_scheduled_txn=self._save_scheduled_txn_and_reload,
                     scheduled_txn=scheduled_txn
                 )
         self.form.show_form()
 
     def _save_scheduled_txn_and_reload(self, scheduled_txn):
-        self.storage.save_scheduled_transaction(scheduled_txn)
+        self._engine.save_scheduled_transaction(scheduled_txn)
         self._display_scheduled_txns(layout=self.layout)
 
 
@@ -2858,13 +2863,12 @@ class GUI_QT:
 
     def _load_db(self, file_name):
         try:
-            storage = SQLiteStorage(file_name)
-        except sqlite3.DatabaseError as e:
+            self._engine = Engine(file_name)
+        except InvalidStorageFile as e:
             if 'file is not a database' in str(e):
                 show_error(msg='File %s is not a database' % file_name)
                 return
             raise
-        self._engine = Engine(storage)
         if self.content_area:
             self.parent_layout.removeWidget(self.content_area)
             self.content_area.deleteLater()
@@ -2938,7 +2942,7 @@ class GUI_QT:
         if self.main_widget:
             self.content_layout.removeWidget(self.main_widget)
             self.main_widget.deleteLater()
-        self.scheduled_txns_display = ScheduledTxnsDisplay(self._engine._storage, model_class=self._scheduled_txns_model_class)
+        self.scheduled_txns_display = ScheduledTxnsDisplay(self._engine, model_class=self._scheduled_txns_model_class)
         self.main_widget = self.scheduled_txns_display.get_widget()
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
@@ -2953,9 +2957,8 @@ class CLI:
 
     NUM_TXNS_IN_PAGE = 50
 
-    def __init__(self, filename, print_file=None):
-        storage = SQLiteStorage(filename)
-        self._engine = Engine(storage)
+    def __init__(self, file_name, print_file=None):
+        self._engine = Engine(file_name)
         self.print = partial(print, file=print_file)
 
     def input(self, prompt='', prefill=None):
