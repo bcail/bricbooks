@@ -488,6 +488,8 @@ def get_display_strings_for_ledger(account, txn):
     else:
         display_strings['status'] = txn.splits[account].get('status', '')
         display_strings['txn_date'] = str(txn.txn_date)
+    if hasattr(txn, 'balance'):
+        display_strings['balance'] = amount_display(txn.balance)
     return display_strings
 
 
@@ -1791,8 +1793,7 @@ def get_txns_model_class():
                 if column == 6:
                     return tds['deposit']
                 if column == 7:
-                    if not is_scheduled_txn and hasattr(txn, 'balance'):
-                        return amount_display(txn.balance)
+                    return tds.get('balance', None)
                 if column == 8:
                     return tds['categories']
             elif role == QtCore.Qt.BackgroundRole:
@@ -3021,25 +3022,32 @@ class CLI:
     def _list_account_txns(self, num_txns_in_page=None):
         if not num_txns_in_page:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
-        acc_id = self.input('Account ID: ')
-        account = self._engine.get_account(id_=acc_id)
-        ledger_balances = self._engine.get_current_balances_for_display(account=account)
-        summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
-        self.print(summary_line)
-        scheduled_txns_due = self._engine.get_scheduled_transactions_due(accounts=[account])
-        if scheduled_txns_due:
-            self.print('Scheduled Transactions due:')
-            for st in scheduled_txns_due:
-                self.print(f'{st.id} {st.name} {st.next_due_date}')
+        user_input = self.input('Account ID (or search string): ')
+        user_input_parts = user_input.split()
+        account = self._engine.get_account(id_=int(user_input_parts[0]))
+        status = None
+        if len(user_input_parts) > 1:
+            for clause in user_input_parts[1:]:
+                if clause.startswith('status:'):
+                    status = clause.replace('status:', '')
+        else:
+            ledger_balances = self._engine.get_current_balances_for_display(account=account)
+            summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
+            self.print(summary_line)
+            scheduled_txns_due = self._engine.get_scheduled_transactions_due(accounts=[account])
+            if scheduled_txns_due:
+                self.print('Scheduled Transactions due:')
+                for st in scheduled_txns_due:
+                    self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
-        txns = self._engine.get_transactions(accounts=[account], reverse=True)
+        txns = self._engine.get_transactions(accounts=[account], status=status, reverse=True)
         page_index = 1
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(account, t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], amount_display(t.balance), t.id)
+                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
                 )
             if more_txns:
                 prompt = '(o) older txns'

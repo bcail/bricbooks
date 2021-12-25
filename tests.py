@@ -294,6 +294,7 @@ class TestTransaction(unittest.TestCase):
                 description='something',
                 payee=bb.Payee('asdf'),
             )
+        t.balance = Fraction(5)
         self.assertDictEqual(
                 bb.get_display_strings_for_ledger(account=self.checking, txn=t),
                 {
@@ -305,6 +306,7 @@ class TestTransaction(unittest.TestCase):
                     'payee': 'asdf',
                     'status': 'C',
                     'categories': 'Savings',
+                    'balance': '5.00',
                 }
             )
         self.assertDictEqual(
@@ -318,6 +320,7 @@ class TestTransaction(unittest.TestCase):
                     'payee': 'asdf',
                     'status': '',
                     'categories': 'Checking',
+                    'balance': '5.00',
                 }
             )
 
@@ -1566,14 +1569,14 @@ class TestCLI(unittest.TestCase):
         self.maxDiff = None
         input_mock.return_value = '1'
         checking = get_test_account()
-        self.cli._engine._storage.save_account(checking)
+        self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
-        self.cli._engine._storage.save_account(savings)
+        self.cli._engine.save_account(savings)
         txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
-        self.cli._engine._storage.save_txn(txn)
-        self.cli._engine._storage.save_txn(txn2)
-        self.cli._engine._storage.save_scheduled_transaction(
+        self.cli._engine.save_transaction(txn)
+        self.cli._engine.save_transaction(txn2)
+        self.cli._engine.save_scheduled_transaction(
                 bb.ScheduledTransaction(
                     name='scheduled txn',
                     frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1585,11 +1588,32 @@ class TestCLI(unittest.TestCase):
         txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5.00       | 5.00      \n'
         txn2_output = ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5.00       | 10.00     \n'
         printed_output = self.memory_buffer.getvalue()
-        self.assertTrue('Account ID: Checking (Current balance: 10.00; Cleared: 0.00)' in printed_output)
+        self.assertTrue('Account ID (or search string): Checking (Current balance: 10.00; Cleared: 0.00)' in printed_output)
         self.assertTrue('scheduled txn' in printed_output)
         self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
         self.assertTrue(txn1_output in printed_output)
         self.assertTrue(txn2_output in printed_output)
+
+    @patch('builtins.input')
+    def test_list_account_txns_by_status(self, input_mock):
+        self.maxDiff = None
+        input_mock.return_value = '1 status:C'
+        checking = get_test_account()
+        self.cli._engine.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli._engine.save_account(savings)
+        txn = bb.Transaction(splits={checking: {'amount': 5, 'status': bb.Transaction.CLEARED}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), txn_type='ACH', payee='some payee', description='description')
+        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        self.cli._engine.save_transaction(txn)
+        self.cli._engine.save_transaction(txn2)
+        self.cli._list_account_txns()
+        txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5.00       |           \n'
+        txn2_output = '2017-01-02'
+        printed_output = self.memory_buffer.getvalue()
+        self.assertTrue('Account ID (or search string)' in printed_output)
+        self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
+        self.assertTrue(txn1_output in printed_output)
+        self.assertFalse(txn2_output in printed_output)
 
     @patch('builtins.input')
     def test_list_account_txns_paged(self, input_mock):
