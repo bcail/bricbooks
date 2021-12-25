@@ -1875,16 +1875,22 @@ class LedgerTxnsDisplay:
     def __init__(self, engine, account, filter_text, post_update_function, model_class, display_ledger):
         self.engine = engine
         self.account = account
-        self._filter_text = filter_text
+        self._status = ''
+        self._filter_text = ''
+        filter_parts = filter_text.split()
+        for fp in filter_parts:
+            if fp.startswith('status:'):
+                self._status = fp.replace('status:', '')
+            else:
+                self._filter_text += f' {fp}'
         self._scheduled_txn_widgets = []
         #post_update_function is for updating the balances widgets
         self._post_update_function = post_update_function
         self._display_ledger = display_ledger
         self._model_class = model_class
-        txns = self.engine.get_transactions(accounts=[self.account], query=self._filter_text)
         self._txns_model = self._model_class(
                 self.account,
-                txns,
+                self._get_txns(),
                 self.engine.get_scheduled_transactions_due(accounts=[self.account])
             )
         self._txns_widget = self._get_txns_widget(self._txns_model)
@@ -1908,16 +1914,19 @@ class LedgerTxnsDisplay:
         self.engine.save_transaction(txn)
         self._txns_model.add_txn(
                 txn,
-                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self._get_txns(),
                 self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
+
+    def _get_txns(self):
+        return self.engine.get_transactions(accounts=[self.account], status=self._status.strip(), query=self._filter_text.strip())
 
     def _delete(self, txn):
         self.engine.delete_transaction(txn.id)
         self._txns_model.remove_txn(
                 txn,
-                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self._get_txns(),
                 self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
@@ -1926,7 +1935,7 @@ class LedgerTxnsDisplay:
         self.engine.save_transaction(txn)
         self._txns_model.update_txn(
                 txn,
-                self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                self._get_txns(),
                 self.engine.get_scheduled_transactions_due()
             )
         self._post_update_function()
@@ -1941,7 +1950,7 @@ class LedgerTxnsDisplay:
             self.engine.save_transaction(txn)
             self._txns_model.update_txn_status(
                     txn,
-                    self.engine.get_transactions(accounts=[self.account], query=self._filter_text),
+                    self._get_txns(),
                     self.engine.get_scheduled_transactions_due()
                 )
             self._post_update_function()

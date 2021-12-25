@@ -2207,6 +2207,25 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(gui.ledger_display._filter_btn, QtCore.Qt.LeftButton)
         self.assertEqual(len(gui.ledger_display.txns_display._txns_model._txns), 1)
 
+    def test_ledger_status(self):
+        gui = bb.GUI_QT(':memory:')
+        engine = gui._engine
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
+        engine.save_account(account=checking)
+        engine.save_account(account=savings)
+        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date.today())
+        txn2 = bb.Transaction(splits={checking: {'amount': 5, 'status': bb.Transaction.CLEARED}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
+        txn3 = bb.Transaction(splits={savings: {'amount': 5}, checking: {'amount': -5}}, txn_date=date(2018, 1, 2))
+        engine.save_transaction(txn)
+        engine.save_transaction(txn2)
+        engine.save_transaction(txn3)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        gui.ledger_display._filter_box.setText('status:C')
+        QtTest.QTest.mouseClick(gui.ledger_display._filter_btn, QtCore.Qt.LeftButton)
+        self.assertEqual(len(gui.ledger_display.txns_display._txns_model._txns), 1)
+        self.assertEqual(gui.ledger_display.txns_display._txns_model._txns[0].txn_date, date(2017, 1, 2))
+
     def test_ledger_txn_edit(self):
         gui = bb.GUI_QT(':memory:')
         engine = gui._engine
