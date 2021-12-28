@@ -3035,10 +3035,13 @@ class CLI:
         user_input_parts = user_input.split()
         account = self._engine.get_account(id_=int(user_input_parts[0]))
         status = None
+        account_ids = []
         if len(user_input_parts) > 1:
             for clause in user_input_parts[1:]:
                 if clause.startswith('status:'):
                     status = clause.replace('status:', '')
+                elif clause.startswith('acc:'):
+                    account_ids.append(int(clause.replace('acc:', '')))
         else:
             ledger_balances = self._engine.get_current_balances_for_display(account=account)
             summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
@@ -3049,7 +3052,10 @@ class CLI:
                 for st in scheduled_txns_due:
                     self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
-        txns = self._engine.get_transactions(accounts=[account], status=status, reverse=True)
+        accounts = [account]
+        if account_ids:
+            accounts.extend([self._engine.get_account(id_=id_) for id_ in account_ids])
+        txns = self._engine.get_transactions(accounts=accounts, status=status, reverse=True)
         page_index = 1
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)

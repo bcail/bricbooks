@@ -1595,7 +1595,7 @@ class TestCLI(unittest.TestCase):
         self.assertTrue(txn2_output in printed_output)
 
     @patch('builtins.input')
-    def test_list_account_txns_by_status(self, input_mock):
+    def test_list_account_txns_filter_status(self, input_mock):
         self.maxDiff = None
         input_mock.return_value = '1 status:C'
         checking = get_test_account()
@@ -1614,6 +1614,29 @@ class TestCLI(unittest.TestCase):
         self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
         self.assertTrue(txn1_output in printed_output)
         self.assertFalse(txn2_output in printed_output)
+
+    @patch('builtins.input')
+    def test_list_account_txns_filter_account(self, input_mock):
+        self.maxDiff = None
+        checking = get_test_account()
+        self.cli._engine.save_account(checking)
+        savings = get_test_account(name='Savings')
+        self.cli._engine.save_account(savings)
+        rent = get_test_account(name='Rent')
+        self.cli._engine.save_account(rent)
+        input_mock.return_value = f'1 acc:{rent.id}'
+        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1))
+        txn2 = bb.Transaction(splits={checking: {'amount': -5}, rent: {'amount': 5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        self.cli._engine.save_transaction(txn)
+        self.cli._engine.save_transaction(txn2)
+        self.cli._list_account_txns()
+        txn1_output = '2017-01-01'
+        txn2_output = '2017-01-02'
+        printed_output = self.memory_buffer.getvalue()
+        self.assertTrue('Account ID (or search string)' in printed_output)
+        self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
+        self.assertTrue(txn2_output in printed_output)
+        self.assertFalse(txn1_output in printed_output)
 
     @patch('builtins.input')
     def test_list_account_txns_paged(self, input_mock):
