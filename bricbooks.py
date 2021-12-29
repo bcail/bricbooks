@@ -1872,7 +1872,7 @@ def get_txns_model_class():
 
 class LedgerTxnsDisplay:
 
-    def __init__(self, engine, account, filter_text, post_update_function, model_class, display_ledger):
+    def __init__(self, engine, account, filter_text, filter_account_id, post_update_function, model_class, display_ledger):
         self.engine = engine
         self.account = account
         self._status = ''
@@ -1883,6 +1883,7 @@ class LedgerTxnsDisplay:
                 self._status = fp.replace('status:', '')
             else:
                 self._filter_text += f' {fp}'
+        self._filter_account_id = filter_account_id
         self._scheduled_txn_widgets = []
         #post_update_function is for updating the balances widgets
         self._post_update_function = post_update_function
@@ -1920,7 +1921,10 @@ class LedgerTxnsDisplay:
         self._post_update_function()
 
     def _get_txns(self):
-        return self.engine.get_transactions(accounts=[self.account], status=self._status.strip(), query=self._filter_text.strip())
+        accounts = [self.account]
+        if self._filter_account_id:
+            accounts.append(self.engine.get_account(id_=self._filter_account_id))
+        return self.engine.get_transactions(accounts=accounts, status=self._status.strip(), query=self._filter_text.strip())
 
     def _delete(self, txn):
         self.engine.delete_transaction(txn.id)
@@ -2348,8 +2352,8 @@ class LedgerDisplay:
         widget.setLayout(layout)
         return widget, layout
 
-    def _display_ledger(self, layout, account, filter_text=''):
-        self.txns_display = LedgerTxnsDisplay(self._engine, account, filter_text,
+    def _display_ledger(self, layout, account, filter_text='', filter_account_id=None):
+        self.txns_display = LedgerTxnsDisplay(self._engine, account, filter_text, filter_account_id,
                 post_update_function=partial(self._display_balances_widget, layout=layout),
                 model_class=self._txns_model_class,
                 display_ledger=partial(self._display_ledger, layout=layout, account=account))
@@ -2385,7 +2389,7 @@ class LedgerDisplay:
         self._display_ledger(layout=self.layout, account=self._current_account)
 
     def _filter_txns(self):
-        self._display_ledger(layout=self.layout, account=self._current_account, filter_text=self._filter_box.text())
+        self._display_ledger(layout=self.layout, account=self._current_account, filter_text=self._filter_box.text(), filter_account_id=self.filter_account_combo.currentData())
 
     def _show_all_txns(self):
         self._filter_box.setText('')
@@ -2406,7 +2410,14 @@ class LedgerDisplay:
         self.add_button.clicked.connect(self._open_new_txn_form)
         layout.addWidget(self.add_button, row, 1)
         self._filter_box = QtWidgets.QLineEdit()
-        layout.addWidget(self._filter_box, row, 3)
+        layout.addWidget(self._filter_box, row, 2)
+        self.filter_account_combo = QtWidgets.QComboBox()
+        self.filter_account_combo.addItem('All Transfer Accounts', None)
+        accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
+        for a in accounts:
+            if a != self._current_account:
+                self.filter_account_combo.addItem(a.name, a.id)
+        layout.addWidget(self.filter_account_combo, row, 3)
         self._filter_btn = QtWidgets.QPushButton('Filter')
         self._filter_btn.clicked.connect(self._filter_txns)
         layout.addWidget(self._filter_btn, row, 4)
