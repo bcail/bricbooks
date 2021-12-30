@@ -764,10 +764,12 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_cant_delete_parent_account(self):
         storage = bb.SQLiteStorage(':memory:')
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        storage.save_account(checking)
+        storage.save_account(checking_child)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_account(checking_child)
+            storage._db_connection.execute(f'DELETE FROM accounts WHERE id={checking.id}')
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_account_with_txns(self):
@@ -2598,7 +2600,6 @@ if __name__ == '__main__':
         suite.addTest(unittest.makeSuite(TestAccount, 'test'))
         suite.addTest(unittest.makeSuite(TestTransaction, 'test'))
         suite.addTest(unittest.makeSuite(TestScheduledTransaction, 'test'))
-        suite.addTest(unittest.makeSuite(TestLedger, 'test'))
         suite.addTest(unittest.makeSuite(TestBudget, 'test'))
         suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
         suite.addTest(unittest.makeSuite(TestEngine, 'test'))
