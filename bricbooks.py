@@ -2098,7 +2098,7 @@ class TxnForm:
         for index, status in enumerate(['', Transaction.CLEARED, Transaction.RECONCILED]):
             status_entry.addItem(status)
             try:
-                if self._txn and self._txn.status == status:
+                if self._txn and self._txn.splits[self._current_account].get('status') == status:
                     status_entry.setCurrentIndex(index)
             except AttributeError: #ScheduledTxn doesn't have a status
                 pass
