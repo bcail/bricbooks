@@ -2166,9 +2166,12 @@ class TxnForm:
         }
         if self._txn and not isinstance(self._txn, ScheduledTransaction):
             kwargs['id_'] = self._txn.id
-        txn = Transaction.from_user_info(**kwargs)
-        self._txn_display.accept()
-        self._save_txn(txn)
+        try:
+            txn = Transaction.from_user_info(**kwargs)
+            self._txn_display.accept()
+            self._save_txn(txn)
+        except Exception as e:
+            show_error(msg=str(e))
 
     def delete(self):
         self._txn_display.accept()

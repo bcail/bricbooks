@@ -2129,6 +2129,22 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].splits[checking], {'amount': -18, 'quantity': -18})
         self.assertEqual(txns[1].payee.name, 'Burgers')
 
+    @patch('bricbooks.show_error')
+    def test_ledger_add_txn_error(self, mock_method):
+        gui = bb.GUI_QT(':memory:')
+        checking = get_test_account()
+        gui._engine.save_account(account=checking)
+        savings = get_test_account(name='Savings')
+        gui._engine.save_account(account=savings)
+        QtTest.QTest.mouseClick(gui.ledger_button, QtCore.Qt.LeftButton) #go to ledger page
+        QtTest.QTest.mouseClick(gui.ledger_display.add_button, QtCore.Qt.LeftButton)
+        gui.ledger_display.add_txn_display._widgets['txn_date'].setText('')
+        gui.ledger_display.add_txn_display._widgets['withdrawal'].setText('18')
+        gui.ledger_display.add_txn_display._widgets['payee'].setCurrentText('Burgers')
+        gui.ledger_display.add_txn_display._widgets['accounts_display']._categories_combo.setCurrentIndex(1)
+        QtTest.QTest.mouseClick(gui.ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
+        mock_method.assert_called_once_with(msg='transaction must have a txn_date')
+
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
         gui = bb.GUI_QT(':memory:')
