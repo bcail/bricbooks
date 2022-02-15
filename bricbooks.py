@@ -1492,15 +1492,6 @@ GUI_FIELDS = {
     }
 
 
-ERROR_STYLE = '''QLineEdit {
-    border: 2px solid red;
-}'''
-
-
-def set_widget_error_state(widget):
-    widget.setStyleSheet(ERROR_STYLE)
-
-
 class AccountForm:
     '''display widgets for Account data, and create a new
         Account when user finishes entering data'''
@@ -1568,8 +1559,8 @@ class AccountForm:
         try:
             self._save_account(id_=id_, type_=type_, commodity_id=commodity_id, number=number, name=name, parent_id=parent_id)
             self._display.accept()
-        except InvalidAccountNameError:
-            set_widget_error_state(self._widgets['name'])
+        except InvalidAccountNameError as e:
+            show_error(msg=str(e))
 
 
 def get_accounts_model_class():

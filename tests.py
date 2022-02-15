@@ -2088,13 +2088,13 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(engine.get_accounts()), 2)
         self.assertEqual(engine.get_accounts()[1].name, 'New Food')
 
-    @patch('bricbooks.set_widget_error_state')
+    @patch('bricbooks.show_error')
     def test_account_exception(self, mock_method):
         gui = bb.GUI_QT(':memory:')
         accounts_display = gui.accounts_display
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
-        mock_method.assert_called_once_with(accounts_display.add_account_display._widgets['name'])
+        mock_method.assert_called_once_with(msg='Account must have a name')
 
     def test_empty_ledger(self):
         engine = bb.Engine(':memory:')
