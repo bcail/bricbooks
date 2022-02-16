@@ -2168,18 +2168,18 @@ class TxnForm:
             kwargs['id_'] = self._txn.id
         try:
             txn = Transaction.from_user_info(**kwargs)
-            self._txn_display.accept()
             self._save_txn(txn)
+            self._txn_display.accept()
         except Exception as e:
             show_error(msg=str(e))
 
     def delete(self):
-        self._txn_display.accept()
         self._delete_txn(self._txn)
+        self._txn_display.accept()
 
     def _skip(self):
-        self._txn_display.accept()
         self._skip_txn()
+        self._txn_display.accept()
 
 
 class ScheduledTxnForm:
@@ -2310,8 +2310,8 @@ class ScheduledTxnForm:
                 payee=payee,
                 id_=id_,
             )
-        self._display.accept()
         self._save_scheduled_txn(scheduled_txn=st)
+        self._display.accept()
 
 
 class LedgerDisplay:
@@ -2506,8 +2506,8 @@ class BudgetForm:
             b = Budget(start_date=start_date, end_date=end_date, id_=self._budget.id, account_budget_info=account_budget_info)
         else:
             b = Budget(start_date=start_date, end_date=end_date, account_budget_info=account_budget_info)
-        self._display.accept()
         self._save_budget(b)
+        self._display.accept()
 
 
 def get_budget_model_class():
