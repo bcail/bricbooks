@@ -3,6 +3,7 @@ from decimal import Decimal
 from fractions import Fraction
 import io
 import os
+import shutil
 import sqlite3
 import tempfile
 import unittest
@@ -664,17 +665,11 @@ TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('bu
 class TestSQLiteStorage(unittest.TestCase):
 
     def setUp(self):
-        self.file_name =  'testsuite.sqlite3'
-        try:
-            os.remove(self.file_name)
-        except FileNotFoundError:
-            pass
+        self.tmp = tempfile.mkdtemp()
+        self.file_name = os.path.join(self.tmp, 'testsuite.sqlite3')
 
     def tearDown(self):
-        try:
-            os.remove(self.file_name)
-        except FileNotFoundError:
-            pass
+        shutil.rmtree(self.tmp)
 
     def test_init(self):
         storage = bb.SQLiteStorage(':memory:')
