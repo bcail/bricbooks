@@ -821,27 +821,28 @@ class SQLiteStorage:
         '''
         Initialize empty DB.
         '''
-        conn = self._db_connection
-        conn.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type TEXT NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL, trading_currency_id INTEGER, trading_market TEXT,'\
+        cur = self._db_connection.cursor()
+        cur.execute('CREATE TABLE commodities (id INTEGER PRIMARY KEY, type TEXT NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL, trading_currency_id INTEGER, trading_market TEXT,'\
                 'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id))')
-        conn.execute('CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT, routing_number TEXT, bic TEXT)')
-        conn.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type TEXT NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed TEXT,'\
+        cur.execute('CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT, routing_number TEXT, bic TEXT)')
+        cur.execute('CREATE TABLE accounts (id INTEGER PRIMARY KEY, type TEXT NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed TEXT,'\
                 'FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), FOREIGN KEY(institution_id) REFERENCES institutions(id), UNIQUE(name, parent_id))')
-        conn.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
-        conn.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
+        cur.execute('CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)')
+        cur.execute('CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT,'\
                 'FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
-        conn.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency TEXT NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
+        cur.execute('CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)')
+        cur.execute('CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency TEXT NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT,'\
                 'FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
+        cur.execute('CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT,'\
                 'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, type TEXT, date TEXT, payee_id INTEGER, description TEXT, date_entered TEXT,'\
+        cur.execute('CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, type TEXT, date TEXT, payee_id INTEGER, description TEXT, date_entered TEXT,'\
                 'FOREIGN KEY(currency_id) REFERENCES commodities(id), FOREIGN KEY(payee_id) REFERENCES payees(id))')
-        conn.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT, action TEXT,'\
+        cur.execute('CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT, action TEXT,'\
                 'FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))')
-        conn.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
-        conn.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
-        conn.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
+        cur.execute('CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)')
+        cur.execute('INSERT INTO misc(key, value) VALUES(?, ?)', ('schema_version', '0'))
+        cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (CommodityType.CURRENCY.value, 'USD', 'US Dollar'))
+        self._db_connection.commit()
 
     def get_commodity(self, id_=None, code=None):
         if id_:
@@ -860,9 +861,9 @@ class SQLiteStorage:
         return currencies
 
     def save_commodity(self, commodity):
-        c = self._db_connection.cursor()
-        c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (commodity.type.value, commodity.code, commodity.name))
-        commodity.id = c.lastrowid
+        cur = self._db_connection.cursor()
+        cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (commodity.type.value, commodity.code, commodity.name))
+        commodity.id = cur.lastrowid
         self._db_connection.commit()
 
     def get_account(self, id_=None, number=None, name=None):
@@ -894,18 +895,18 @@ class SQLiteStorage:
             )
 
     def save_account(self, account):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         parent_id = None
         if account.parent:
             parent_id = account.parent.id
         if account.id:
-            c.execute('UPDATE accounts SET type = ?, commodity_id = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
+            cur.execute('UPDATE accounts SET type = ?, commodity_id = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
                     (account.type.value, account.commodity.id, account.number, account.name, parent_id, account.id))
-            if c.rowcount < 1:
+            if cur.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
-            c.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.commodity.id, account.number, account.name, parent_id))
-            account.id = c.lastrowid
+            cur.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.commodity.id, account.number, account.name, parent_id))
+            account.id = cur.lastrowid
         self._db_connection.commit()
 
     def get_payee(self, id_=None, name=None):
@@ -934,14 +935,14 @@ class SQLiteStorage:
         return payees
 
     def save_payee(self, payee):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         if payee.id:
-            c.execute('UPDATE payees SET name = ?, notes = ?', (payee.name, payee.notes))
-            if c.rowcount < 1:
+            cur.execute('UPDATE payees SET name = ?, notes = ?', (payee.name, payee.notes))
+            if cur.rowcount < 1:
                 raise Exception('no payee with id %s to update' % payee.id)
         else:
-            c.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', (payee.name, payee.notes))
-            payee.id = c.lastrowid
+            cur.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', (payee.name, payee.notes))
+            payee.id = cur.lastrowid
         self._db_connection.commit()
 
     def _get_accounts_by_type(self, type_):
@@ -966,9 +967,9 @@ class SQLiteStorage:
         id_, currency_id, txn_type, txn_date, payee_id, description, date_entered = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
-        cursor = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         splits = {}
-        split_records = cursor.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -979,9 +980,9 @@ class SQLiteStorage:
         return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, id_=id_)
 
     def get_txn(self, txn_id):
-        cursor = self._db_connection.cursor()
-        cursor.execute('SELECT * FROM transactions WHERE id = ?', (txn_id,))
-        db_info = cursor.fetchone()
+        cur = self._db_connection.cursor()
+        cur.execute('SELECT * FROM transactions WHERE id = ?', (txn_id,))
+        db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
     def get_transactions(self):
@@ -994,7 +995,7 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         if txn.payee:
             if not txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=txn.payee.name)
@@ -1006,21 +1007,21 @@ class SQLiteStorage:
         else:
             payee = None
         if txn.id:
-            c.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
+            cur.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
                 (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
-            if c.rowcount < 1:
+            if cur.rowcount < 1:
                 raise Exception('no txn with id %s to update' % txn.id)
         else:
-            c.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
+            cur.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
                 (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
-            txn.id = c.lastrowid
+            txn.id = cur.lastrowid
         #update transaction splits
-        splits_db_info = c.execute('SELECT account_id FROM transaction_splits WHERE txn_id = ?', (txn.id,)).fetchall()
+        splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE txn_id = ?', (txn.id,)).fetchall()
         old_txn_split_account_ids = [r[0] for r in splits_db_info]
         new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
         split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
         for account_id in split_account_ids_to_delete:
-            c.execute('DELETE FROM transaction_splits WHERE txn_id = ? AND account_id = ?', (txn.id, account_id))
+            cur.execute('DELETE FROM transaction_splits WHERE txn_id = ? AND account_id = ?', (txn.id, account_id))
         for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
@@ -1030,54 +1031,55 @@ class SQLiteStorage:
             quantity = f'{quantity.numerator}/{quantity.denominator}'
             status = info.get('status', None)
             if account.id in old_txn_split_account_ids:
-                c.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
+                cur.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
             else:
-                c.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
+                cur.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
-        self._db_connection.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn_id,))
-        self._db_connection.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
+        cur = self._db_connection.cursor()
+        cur.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn_id,))
+        cur.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
     def save_budget(self, budget):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         if budget.id:
-            c.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
+            cur.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
                 (budget.name, str(budget.start_date), str(budget.end_date), budget.id))
             #handle budget_values
-            values_db_info = c.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (budget.id,)).fetchall()
+            values_db_info = cur.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (budget.id,)).fetchall()
             old_account_ids = [r[0] for r in values_db_info]
             budget_data = budget.get_budget_data()
             new_account_ids = [a.id for a in budget_data.keys()]
             account_ids_to_delete = set(old_account_ids) - set(new_account_ids)
             for account_id in account_ids_to_delete:
-                c.execute('DELETE FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget.id, account_id))
+                cur.execute('DELETE FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget.id, account_id))
             for account, info in budget_data.items():
                 if info:
                     carryover = str(info.get('carryover', ''))
                     notes = info.get('notes', '')
                     if account.id in old_account_ids:
                         values = (str(info['amount']), carryover, notes, budget.id, account.id)
-                        c.execute('UPDATE budget_values SET amount = ?, carryover = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
+                        cur.execute('UPDATE budget_values SET amount = ?, carryover = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
                     else:
                         values = (budget.id, account.id, str(info['amount']), carryover, notes)
-                        c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+                        cur.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         else:
-            c.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
-            budget.id = c.lastrowid
+            cur.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
+            budget.id = cur.lastrowid
             budget_data = budget.get_budget_data()
             for account, info in budget_data.items():
                 if info:
                     carryover = str(info.get('carryover', ''))
                     notes = info.get('notes', '')
                     values = (budget.id, account.id, str(info['amount']), carryover, notes)
-                    c.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+                    cur.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         self._db_connection.commit()
 
     def get_budget(self, id_):
-        c = self._db_connection.cursor()
-        records = c.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (id_,)).fetchall()
+        cur = self._db_connection.cursor()
+        records = cur.execute('SELECT start_date, end_date FROM budgets WHERE id = ?', (id_,)).fetchall()
         start_date = get_date(records[0][0])
         end_date = get_date(records[0][1])
         account_budget_info = {}
@@ -1100,7 +1102,7 @@ class SQLiteStorage:
                     spent += amt
             all_income_spending_info[account]['spent'] = spent
             all_income_spending_info[account]['income'] = income
-            budget_records = c.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (id_, account.id)).fetchall()
+            budget_records = cur.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (id_, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
                 account_budget_info[account]['amount'] = r[0]
@@ -1113,15 +1115,15 @@ class SQLiteStorage:
 
     def get_budgets(self):
         budgets = []
-        c = self._db_connection.cursor()
-        budget_records = c.execute('SELECT id FROM budgets ORDER BY start_date DESC').fetchall()
+        cur = self._db_connection.cursor()
+        budget_records = cur.execute('SELECT id FROM budgets ORDER BY start_date DESC').fetchall()
         for budget_record in budget_records:
             budget_id = int(budget_record[0])
             budgets.append(self.get_budget(budget_id))
         return budgets
 
     def save_scheduled_transaction(self, scheduled_txn):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
 
         if scheduled_txn.payee:
             if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
@@ -1136,41 +1138,41 @@ class SQLiteStorage:
 
         #update existing scheduled transaction
         if scheduled_txn.id:
-            c.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
+            cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
-            if c.rowcount < 1:
+            if cur.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             #handle splits
-            splits_db_info = c.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,)).fetchall()
+            splits_db_info = cur.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,)).fetchall()
             old_split_account_ids = [r[0] for r in splits_db_info]
             new_split_account_ids = [a.id for a in scheduled_txn.splits.keys()]
             split_account_ids_to_delete = set(old_split_account_ids) - set(new_split_account_ids)
             for account_id in split_account_ids_to_delete:
-                c.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
+                cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
                 amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
                 if account.id in old_split_account_ids:
-                    c.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_txn_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
+                    cur.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_txn_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
                 else:
-                    c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         #add new scheduled transaction
         else:
-            c.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
+            cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
-            scheduled_txn.id = c.lastrowid
+            scheduled_txn.id = cur.lastrowid
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
                 amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
-                c.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
-        c = self._db_connection.cursor()
+        cur = self._db_connection.cursor()
         splits = {}
-        split_records = c.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1178,7 +1180,7 @@ class SQLiteStorage:
                 splits[account] = {'amount': split_record[1]}
                 if split_record[2]:
                     splits[account]['status'] = split_record[2]
-        rows = c.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        rows = cur.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(id_=rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
@@ -1193,8 +1195,8 @@ class SQLiteStorage:
         return st
 
     def get_scheduled_transactions(self):
-        c = self._db_connection.cursor()
-        scheduled_txns_records = c.execute('SELECT id FROM scheduled_transactions').fetchall()
+        cur = self._db_connection.cursor()
+        scheduled_txns_records = cur.execute('SELECT id FROM scheduled_transactions').fetchall()
         scheduled_txns = []
         for st_record in scheduled_txns_records:
             scheduled_txns.append(self.get_scheduled_transaction(st_record[0]))
