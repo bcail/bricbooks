@@ -23,7 +23,7 @@ except ImportError:
     readline = None
 
 
-__version__ = '0.4.dev'
+__version__ = '0.4'
 TITLE = f'bricbooks {__version__}'
 PYSIDE2_VERSION = '5.15.2'
 PYSIDE6_VERSION = '6.2.1'
