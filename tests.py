@@ -664,13 +664,6 @@ TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('bu
 
 class TestSQLiteStorage(unittest.TestCase):
 
-    def setUp(self):
-        self.tmp = tempfile.mkdtemp()
-        self.file_name = os.path.join(self.tmp, 'testsuite.sqlite3')
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp)
-
     def test_init(self):
         storage = bb.SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
@@ -687,26 +680,32 @@ class TestSQLiteStorage(unittest.TestCase):
             bb.SQLiteStorage(None)
 
     def test_init_file_doesnt_exist(self):
-        storage = bb.SQLiteStorage(self.file_name)
-        tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+            storage = bb.SQLiteStorage(file_name)
+            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_init_empty_file(self):
-        with open(self.file_name, 'wb') as f:
-            pass
-        storage = bb.SQLiteStorage(self.file_name)
-        tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+            with open(file_name, 'wb') as f:
+                pass
+            storage = bb.SQLiteStorage(file_name)
+            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
 
     def test_init_db_already_setup(self):
-        #set up file
-        init_storage = bb.SQLiteStorage(self.file_name)
-        tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, TABLES)
-        #and now open it again and make sure everything's fine
-        storage = bb.SQLiteStorage(self.file_name)
-        tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, TABLES)
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+            #set up file
+            init_storage = bb.SQLiteStorage(file_name)
+            tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            self.assertEqual(tables, TABLES)
+            #and now open it again and make sure everything's fine
+            storage = bb.SQLiteStorage(file_name)
+            tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            self.assertEqual(tables, TABLES)
 
     def test_commodity(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -1096,20 +1095,22 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records, [])
 
     def test_save_budget_file(self):
-        #test that save actually gets committed
-        storage = bb.SQLiteStorage(self.file_name)
-        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
-        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
-        b = bb.Budget(year=2018, account_budget_info={
-            housing: {'amount': 15, 'carryover': 0},
-            food: {'amount': 25, 'carryover': 0},
-        })
-        storage.save_budget(b)
-        storage = bb.SQLiteStorage(self.file_name)
-        cursor = storage._db_connection.cursor()
-        records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+            #test that save actually gets committed
+            storage = bb.SQLiteStorage(file_name)
+            housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
+            storage.save_account(housing)
+            food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
+            storage.save_account(food)
+            b = bb.Budget(year=2018, account_budget_info={
+                housing: {'amount': 15, 'carryover': 0},
+                food: {'amount': 25, 'carryover': 0},
+            })
+            storage.save_budget(b)
+            storage = bb.SQLiteStorage(file_name)
+            cursor = storage._db_connection.cursor()
+            records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
 
     def test_save_budget_account_foreignkey_error(self):
