@@ -684,6 +684,7 @@ class TestSQLiteStorage(unittest.TestCase):
             file_name = os.path.join(tmp, 'test.sqlite3')
             storage = bb.SQLiteStorage(file_name)
             tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            storage._db_connection.close()
         self.assertEqual(tables, TABLES)
 
     def test_init_empty_file(self):
@@ -693,6 +694,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 pass
             storage = bb.SQLiteStorage(file_name)
             tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            storage._db_connection.close()
         self.assertEqual(tables, TABLES)
 
     def test_init_db_already_setup(self):
@@ -704,7 +706,9 @@ class TestSQLiteStorage(unittest.TestCase):
             self.assertEqual(tables, TABLES)
             #and now open it again and make sure everything's fine
             storage = bb.SQLiteStorage(file_name)
-            tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            init_storage._db_connection.close()
+            storage._db_connection.close()
             self.assertEqual(tables, TABLES)
 
     def test_commodity(self):
@@ -1108,9 +1112,11 @@ class TestSQLiteStorage(unittest.TestCase):
                 food: {'amount': 25, 'carryover': 0},
             })
             storage.save_budget(b)
+            storage._db_connection.close()
             storage = bb.SQLiteStorage(file_name)
             cursor = storage._db_connection.cursor()
             records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
+            storage._db_connection.close()
         self.assertEqual(len(records), 1)
 
     def test_save_budget_account_foreignkey_error(self):
