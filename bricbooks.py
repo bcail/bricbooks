@@ -801,19 +801,107 @@ class Budget:
 class SQLiteStorage:
 
     DB_INIT_STATEMENTS = [
-        'CREATE TABLE commodities (id INTEGER PRIMARY KEY, type TEXT NOT NULL, code TEXT UNIQUE, name TEXT NOT NULL, trading_currency_id INTEGER, trading_market TEXT, FOREIGN KEY(trading_currency_id) REFERENCES commodities(id))',
-        'CREATE TABLE institutions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, address TEXT, routing_number TEXT, bic TEXT)',
-        'CREATE TABLE accounts (id INTEGER PRIMARY KEY, type TEXT NOT NULL, commodity_id INTEGER NOT NULL, institution_id INTEGER, number TEXT UNIQUE, name TEXT NOT NULL, parent_id INTEGER, closed TEXT, FOREIGN KEY(parent_id) REFERENCES accounts(id), FOREIGN KEY(commodity_id) REFERENCES commodities(id), FOREIGN KEY(institution_id) REFERENCES institutions(id), UNIQUE(name, parent_id))',
-        'CREATE TABLE budgets (id INTEGER PRIMARY KEY, name TEXT, start_date TEXT NOT NULL, end_date TEXT NOT NULL)',
-        'CREATE TABLE budget_values (id INTEGER PRIMARY KEY, budget_id INTEGER NOT NULL, account_id INTEGER NOT NULL, amount TEXT, carryover TEXT, notes TEXT, FOREIGN KEY(budget_id) REFERENCES budgets(id), FOREIGN KEY(account_id) REFERENCES accounts(id))',
-        'CREATE TABLE payees (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, notes TEXT)',
-        'CREATE TABLE scheduled_transactions (id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, frequency TEXT NOT NULL, next_due_date TEXT NOT NULL, txn_type TEXT, payee_id INTEGER, description TEXT, FOREIGN KEY(payee_id) REFERENCES payees(id))',
-        'CREATE TABLE scheduled_transaction_splits (id INTEGER PRIMARY KEY, scheduled_txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT, FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))',
-        'CREATE TABLE transactions (id INTEGER PRIMARY KEY, currency_id INTEGER NOT NULL, type TEXT, date TEXT, payee_id INTEGER, description TEXT, date_entered TEXT, FOREIGN KEY(currency_id) REFERENCES commodities(id), FOREIGN KEY(payee_id) REFERENCES payees(id))',
-        'CREATE TABLE transaction_splits (id INTEGER PRIMARY KEY, txn_id INTEGER NOT NULL, account_id INTEGER NOT NULL, value TEXT, quantity TEXT, reconciled_state TEXT, description TEXT, action TEXT, FOREIGN KEY(txn_id) REFERENCES transactions(id), FOREIGN KEY(account_id) REFERENCES accounts(id))',
-        'CREATE TABLE misc (key TEXT UNIQUE NOT NULL, value TEXT)',
+        'CREATE TABLE commodities ('
+            'id INTEGER PRIMARY KEY,'
+            'type TEXT NOT NULL,'
+            'code TEXT UNIQUE,'
+            'name TEXT NOT NULL,'
+            'trading_currency_id INTEGER,'
+            'trading_market TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id))',
+        'CREATE TABLE institutions ('
+            'id INTEGER PRIMARY KEY,'
+            'name TEXT UNIQUE NOT NULL,'
+            'address TEXT,'
+            'routing_number TEXT,'
+            'bic TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TABLE accounts ('
+            'id INTEGER PRIMARY KEY,'
+            'type TEXT NOT NULL,'
+            'commodity_id INTEGER NOT NULL,'
+            'institution_id INTEGER,'
+            'number TEXT UNIQUE,'
+            'name TEXT NOT NULL,'
+            'parent_id INTEGER,'
+            'closed TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(parent_id) REFERENCES accounts(id),'
+            'FOREIGN KEY(commodity_id) REFERENCES commodities(id),'
+            'FOREIGN KEY(institution_id) REFERENCES institutions(id),'
+            'UNIQUE(name, parent_id))',
+        'CREATE TABLE budgets ('
+            'id INTEGER PRIMARY KEY,'
+            'name TEXT,'
+            'start_date TEXT NOT NULL,'
+            'end_date TEXT NOT NULL,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TABLE budget_values ('
+            'id INTEGER PRIMARY KEY,'
+            'budget_id INTEGER NOT NULL,'
+            'account_id INTEGER NOT NULL,'
+            'amount TEXT,'
+            'carryover TEXT,'
+            'notes TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(budget_id) REFERENCES budgets(id),'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TABLE payees ('
+            'id INTEGER PRIMARY KEY,'
+            'name TEXT UNIQUE NOT NULL,'
+            'notes TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TABLE scheduled_transactions ('
+            'id INTEGER PRIMARY KEY,'
+            'name TEXT UNIQUE NOT NULL,'
+            'frequency TEXT NOT NULL,'
+            'next_due_date TEXT NOT NULL,'
+            'txn_type TEXT,'
+            'payee_id INTEGER,'
+            'description TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(payee_id) REFERENCES payees(id))',
+        'CREATE TABLE scheduled_transaction_splits ('
+            'id INTEGER PRIMARY KEY,'
+            'scheduled_txn_id INTEGER NOT NULL,'
+            'account_id INTEGER NOT NULL,'
+            'value TEXT,'
+            'quantity TEXT,'
+            'reconciled_state TEXT,'
+            'description TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id),'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TABLE transactions ('
+            'id INTEGER PRIMARY KEY,'
+            'currency_id INTEGER NOT NULL,'
+            'type TEXT,'
+            'date TEXT,'
+            'payee_id INTEGER,'
+            'description TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(currency_id) REFERENCES commodities(id),'
+            'FOREIGN KEY(payee_id) REFERENCES payees(id))',
+        'CREATE TABLE transaction_splits ('
+            'id INTEGER PRIMARY KEY,'
+            'txn_id INTEGER NOT NULL,'
+            'account_id INTEGER NOT NULL,'
+            'value TEXT,'
+            'quantity TEXT,'
+            'reconciled_state TEXT,'
+            'description TEXT,'
+            'action TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(txn_id) REFERENCES transactions(id),'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TABLE misc ('
+            'key TEXT UNIQUE NOT NULL,'
+            'value TEXT,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
         'INSERT INTO misc(key, value) VALUES("%s", "%s")' % ('schema_version', '0'),
-        'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' % (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
+        'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
+            (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
     ]
 
     def __init__(self, conn_name):
@@ -962,7 +1050,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, currency_id, txn_type, txn_date, payee_id, description, date_entered = db_info
+        id_, currency_id, txn_type, txn_date, payee_id, description = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -979,7 +1067,7 @@ class SQLiteStorage:
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT * FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,currency_id,type,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from fractions import Fraction
 import io
@@ -668,10 +668,10 @@ class TestSQLiteStorage(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
-        misc_table_records = storage._db_connection.execute('SELECT * FROM misc').fetchall()
+        misc_table_records = storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
         self.assertEqual(misc_table_records, [('schema_version', '0')])
-        commodities_table_records = storage._db_connection.execute('SELECT * FROM commodities').fetchall()
-        self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar', None, None)])
+        commodities_table_records = storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
+        self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
 
     def test_init_no_filename(self):
         with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
@@ -730,16 +730,20 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(assets.id, 1)
         self.assertEqual(checking.id, 2)
         c = storage._db_connection.cursor()
-        c.execute('SELECT * FROM accounts WHERE id = ?', (checking.id,))
+        account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,created'
+        c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
-        self.assertEqual(db_info,
+        self.assertEqual(db_info[:len(db_info)-1],
                 (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
+        utc_now = datetime.now(timezone.utc)
+        created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
+        self.assertTrue((utc_now - created) < timedelta(seconds=20))
         savings = get_test_account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
-        c.execute('SELECT * FROM accounts WHERE id = ?', (savings.id,))
+        c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
-        self.assertEqual(db_info,
-                [(savings.id, 'asset', 1, None, None, 'Savings', None, None)])
+        self.assertEqual(db_info[0][:len(db_info[0])-1],
+                (savings.id, 'asset', 1, None, None, 'Savings', None, None))
 
     def test_save_account_error_invalid_id(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -857,10 +861,13 @@ class TestSQLiteStorage(unittest.TestCase):
         storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = storage._db_connection.cursor()
-        c.execute('SELECT * FROM transactions')
+        c.execute('SELECT id,currency_id,type,date,payee_id,description,created FROM transactions')
         db_info = c.fetchone()
-        self.assertEqual(db_info,
-                (1, 1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich', None))
+        self.assertEqual(db_info[:len(db_info)-1],
+                (1, 1, '', date.today().strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
+        utc_now = datetime.now(timezone.utc)
+        created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
+        self.assertTrue((utc_now - created) < timedelta(seconds=20))
         c.execute('SELECT id,txn_id,account_id,value,quantity,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, '-101/1', '-101/1', 'C', None),
@@ -932,14 +939,14 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         storage.save_txn(t)
         c = storage._db_connection.cursor()
-        c.execute('SELECT * FROM transactions')
+        c.execute('SELECT id,currency_id,type,date,payee_id,description FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None, None))
-        c.execute('SELECT * FROM transaction_splits')
+                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
+        c.execute('SELECT id,txn_id,account_id,value,quantity FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1', None, None, None),
-                                             (2, 1, 2, '-101/1', '-101/1', None, None, None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, '101/1', '101/1'),
+                                             (2, 1, 2, '-101/1', '-101/1')])
 
     def test_round_trip(self):
         storage = bb.SQLiteStorage(':memory:')
@@ -962,17 +969,19 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_id = t.id
         #verify db
         c = storage._db_connection.cursor()
-        txn_db_info = c.execute('SELECT * FROM transactions').fetchall()
+        txn_fields = 'id,currency_id,type,date,payee_id,description'
+        txn_db_info = c.execute(f'SELECT {txn_fields} FROM transactions').fetchall()
         self.assertEqual(txn_db_info,
-                [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, None, None)])
-        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+                [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, None)])
+        txn_split_fields = 'id,txn_id,account_id,value,quantity,reconciled_state,description,action'
+        splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, '-101/1', '-101/1', 'C', None, None),
                  (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
         #update a db field that the Transaction object isn't aware of
         c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
         storage._db_connection.commit()
-        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+        splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, '-101/1', '-101/1', 'C', None, 'buy'),
                  (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
@@ -993,11 +1002,11 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         storage.save_txn(updated_txn)
         c = storage._db_connection.cursor()
-        c.execute('SELECT * FROM transactions')
+        c.execute(f'SELECT {txn_fields} FROM transactions')
         db_info = c.fetchall()
         self.assertEqual(db_info,
-                [(txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None, None)])
-        splits_db_info = c.execute('SELECT * FROM transaction_splits').fetchall()
+                [(txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None)])
+        splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, '-101/1', '-101/1', None, None, 'buy'),
                  (2, txn_id, another_acct.id, '101/1', '101/1', None, None, None)])
@@ -1061,7 +1070,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 food: {'amount': 45, 'carryover': 0},
             }, id_=b.id)
         storage.save_budget(b)
-        records = cursor.execute('SELECT * FROM budgets').fetchall()
+        records = cursor.execute('SELECT id,name,start_date,end_date FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], (1, None, '2018-01-01', '2018-12-24'))
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
@@ -1264,7 +1273,7 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         storage.save_scheduled_transaction(st)
         self.assertEqual(st.id, 1)
-        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        st_records = storage._db_connection.execute('SELECT id,name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
                 (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something'))
@@ -1368,7 +1377,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(st_records), 1)
         retrieved_scheduled_txn = storage.get_scheduled_transaction(st_id)
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 16))
-        split_records = storage._db_connection.execute('SELECT * FROM scheduled_transaction_splits').fetchall()
+        split_records = storage._db_connection.execute('SELECT id,scheduled_txn_id,account_id,value,quantity,reconciled_state,description FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(split_records,
                 [(1, st_id, checking.id, '-101/1', '-101/1', None, None),
                  (2, st_id, another_acct.id, '101/1', '101/1', None, None)])
