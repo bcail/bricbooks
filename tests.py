@@ -2638,6 +2638,7 @@ class TestImport(unittest.TestCase):
 if __name__ == '__main__':
     import sys
     print(sys.version)
+    print(f'sqlite3: {sqlite3.sqlite_version_info}')
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-gui', dest='no_gui', action='store_true')
