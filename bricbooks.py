@@ -809,14 +809,18 @@ class SQLiteStorage:
             'trading_currency_id INTEGER,'
             'trading_market TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id))',
+        'CREATE TRIGGER commodity_updated UPDATE ON commodities BEGIN UPDATE commodities SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE institutions ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
             'address TEXT,'
             'routing_number TEXT,'
             'bic TEXT,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TRIGGER institution_updated UPDATE ON institutions BEGIN UPDATE institutions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE accounts ('
             'id INTEGER PRIMARY KEY,'
             'type TEXT NOT NULL,'
@@ -827,16 +831,20 @@ class SQLiteStorage:
             'parent_id INTEGER,'
             'closed TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(parent_id) REFERENCES accounts(id),'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id),'
             'FOREIGN KEY(institution_id) REFERENCES institutions(id),'
             'UNIQUE(name, parent_id))',
+        'CREATE TRIGGER account_updated UPDATE ON accounts BEGIN UPDATE accounts SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE budgets ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT,'
             'start_date TEXT NOT NULL,'
             'end_date TEXT NOT NULL,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TRIGGER budget_updated UPDATE ON budgets BEGIN UPDATE budgets SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE budget_values ('
             'id INTEGER PRIMARY KEY,'
             'budget_id INTEGER NOT NULL,'
@@ -845,13 +853,17 @@ class SQLiteStorage:
             'carryover TEXT,'
             'notes TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(budget_id) REFERENCES budgets(id),'
             'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TRIGGER budget_value_updated UPDATE ON budget_values BEGIN UPDATE budget_values SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE payees ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
             'notes TEXT,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TRIGGER payee_updated UPDATE ON payees BEGIN UPDATE payees SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transactions ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
@@ -861,7 +873,9 @@ class SQLiteStorage:
             'payee_id INTEGER,'
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id))',
+        'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
             'id INTEGER PRIMARY KEY,'
             'scheduled_txn_id INTEGER NOT NULL,'
@@ -871,8 +885,10 @@ class SQLiteStorage:
             'reconciled_state TEXT,'
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id),'
             'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
             'currency_id INTEGER NOT NULL,'
@@ -881,8 +897,10 @@ class SQLiteStorage:
             'payee_id INTEGER,'
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(currency_id) REFERENCES commodities(id),'
             'FOREIGN KEY(payee_id) REFERENCES payees(id))',
+        'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_splits ('
             'id INTEGER PRIMARY KEY,'
             'txn_id INTEGER NOT NULL,'
@@ -893,12 +911,16 @@ class SQLiteStorage:
             'description TEXT,'
             'action TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(txn_id) REFERENCES transactions(id),'
             'FOREIGN KEY(account_id) REFERENCES accounts(id))',
+        'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
             'key TEXT UNIQUE NOT NULL,'
             'value TEXT,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+        'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'INSERT INTO misc(key, value) VALUES("%s", "%s")' % ('schema_version', '0'),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),

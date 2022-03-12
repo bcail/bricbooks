@@ -6,6 +6,7 @@ import os
 import shutil
 import sqlite3
 import tempfile
+import time
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -730,19 +731,34 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(assets.id, 1)
         self.assertEqual(checking.id, 2)
         c = storage._db_connection.cursor()
-        account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,created'
+        account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,created,updated'
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
-        self.assertEqual(db_info[:len(db_info)-1],
+        self.assertEqual(db_info[:len(db_info)-2],
                 (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
         utc_now = datetime.now(timezone.utc)
-        created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
+        created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
+        updated = datetime.fromisoformat(f'{db_info[-1]}+00:00')
+        self.assertEqual(created, updated)
+        time.sleep(1)
+
+        checking.name = 'checking updated'
+        storage.save_account(checking)
+        c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
+        db_info = c.fetchone()
+        self.assertEqual(db_info[:len(db_info)-2],
+                (checking.id, 'asset', 1, None, '4010', 'checking updated', assets.id, None))
+        new_created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
+        self.assertEqual(created, new_created)
+        new_updated = datetime.fromisoformat(f'{db_info[-1]}+00:00')
+        self.assertTrue(new_updated > updated)
+
         savings = get_test_account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
         storage.save_account(savings)
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
-        self.assertEqual(db_info[0][:len(db_info[0])-1],
+        self.assertEqual(db_info[0][:len(db_info[0])-2],
                 (savings.id, 'asset', 1, None, None, 'Savings', None, None))
 
     def test_save_account_error_invalid_id(self):
@@ -1000,12 +1016,16 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_date=date.today(),
                 id_=txn_id,
             )
+        time.sleep(1)
         storage.save_txn(updated_txn)
         c = storage._db_connection.cursor()
-        c.execute(f'SELECT {txn_fields} FROM transactions')
+        c.execute(f'SELECT {txn_fields},created,updated FROM transactions')
         db_info = c.fetchall()
-        self.assertEqual(db_info,
-                [(txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None)])
+        self.assertEqual(db_info[0][:-2],
+                (txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
+        created = datetime.fromisoformat(f'{db_info[0][-2]}+00:00')
+        updated = datetime.fromisoformat(f'{db_info[0][-1]}+00:00')
+        self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, '-101/1', '-101/1', None, None, 'buy'),
