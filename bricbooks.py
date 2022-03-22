@@ -870,7 +870,7 @@ class SQLiteStorage:
             'name TEXT UNIQUE NOT NULL,'
             'frequency TEXT NOT NULL,'
             'next_due_date TEXT NOT NULL,'
-            'txn_type TEXT,'
+            'type TEXT,'
             'payee_id INTEGER,'
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -879,7 +879,7 @@ class SQLiteStorage:
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
             'id INTEGER PRIMARY KEY,'
-            'scheduled_txn_id INTEGER NOT NULL,'
+            'scheduled_transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
             'value TEXT,'
             'quantity TEXT,'
@@ -887,7 +887,7 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(scheduled_txn_id) REFERENCES scheduled_transactions(id),'
+            'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id),'
             'FOREIGN KEY(account_id) REFERENCES accounts(id)) STRICT',
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transactions ('
@@ -904,7 +904,7 @@ class SQLiteStorage:
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_splits ('
             'id INTEGER PRIMARY KEY,'
-            'txn_id INTEGER NOT NULL,'
+            'transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
             'value TEXT,'
             'quantity TEXT,'
@@ -913,7 +913,7 @@ class SQLiteStorage:
             'action TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(txn_id) REFERENCES transactions(id),'
+            'FOREIGN KEY(transaction_id) REFERENCES transactions(id),'
             'FOREIGN KEY(account_id) REFERENCES accounts(id)) STRICT',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
@@ -1080,7 +1080,7 @@ class SQLiteStorage:
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE txn_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1127,12 +1127,12 @@ class SQLiteStorage:
                 (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
             txn.id = cur.lastrowid
         #update transaction splits
-        splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE txn_id = ?', (txn.id,)).fetchall()
+        splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn.id,)).fetchall()
         old_txn_split_account_ids = [r[0] for r in splits_db_info]
         new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
         split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
         for account_id in split_account_ids_to_delete:
-            cur.execute('DELETE FROM transaction_splits WHERE txn_id = ? AND account_id = ?', (txn.id, account_id))
+            cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn.id, account_id))
         for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
@@ -1142,14 +1142,14 @@ class SQLiteStorage:
             quantity = f'{quantity.numerator}/{quantity.denominator}'
             status = info.get('status', None)
             if account.id in old_txn_split_account_ids:
-                cur.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE txn_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
+                cur.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
             else:
-                cur.execute('INSERT INTO transaction_splits(txn_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
+                cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('DELETE FROM transaction_splits WHERE txn_id = ?', (txn_id,))
+        cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ?', (txn_id,))
         cur.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
         self._db_connection.commit()
 
@@ -1204,7 +1204,7 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.txn_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, start_date, end_date)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, start_date, end_date)).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0])
                 if amt < Fraction(0):
@@ -1249,41 +1249,41 @@ class SQLiteStorage:
 
         #update existing scheduled transaction
         if scheduled_txn.id:
-            cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, txn_type = ?, payee_id = ?, description = ? WHERE id = ?',
+            cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, type = ?, payee_id = ?, description = ? WHERE id = ?',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
             if cur.rowcount < 1:
                 raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
             #handle splits
-            splits_db_info = cur.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (scheduled_txn.id,)).fetchall()
+            splits_db_info = cur.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (scheduled_txn.id,)).fetchall()
             old_split_account_ids = [r[0] for r in splits_db_info]
             new_split_account_ids = [a.id for a in scheduled_txn.splits.keys()]
             split_account_ids_to_delete = set(old_split_account_ids) - set(new_split_account_ids)
             for account_id in split_account_ids_to_delete:
-                cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_txn_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
+                cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
                 amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
                 if account.id in old_split_account_ids:
-                    cur.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_txn_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
+                    cur.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
                 else:
-                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         #add new scheduled transaction
         else:
-            cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, txn_type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
+            cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
                 (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
             scheduled_txn.id = cur.lastrowid
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
                 amount = f'{amount.numerator}/{amount.denominator}'
                 status = info.get('status', None)
-                cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_txn_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_txn_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1291,7 +1291,7 @@ class SQLiteStorage:
                 splits[account] = {'amount': split_record[1]}
                 if split_record[2]:
                     splits[account]['status'] = split_record[2]
-        rows = cur.execute('SELECT name,frequency,next_due_date,txn_type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        rows = cur.execute('SELECT name,frequency,next_due_date,type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(id_=rows[0][4])
         st = ScheduledTransaction(
                 name=rows[0][0],
