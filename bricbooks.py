@@ -1467,6 +1467,9 @@ class Engine:
     def save_budget(self, budget):
         return self._storage.save_budget(budget)
 
+    def export(self, directory):
+        pass
+
 
 ### IMPORT ###
 

@@ -2606,6 +2606,16 @@ class TestLoadTestData(unittest.TestCase):
         accounts = storage.get_accounts()
 
 
+class TestExport(unittest.TestCase):
+
+    def test_export(self):
+        engine = bb.Engine(':memory:')
+        load_test_data._load_data(engine._storage, many_txns=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            engine.export(directory=tmp)
+
+
+
 class TestImport(unittest.TestCase):
 
     def test_kmymoney(self):
