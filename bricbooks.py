@@ -811,7 +811,7 @@ class SQLiteStorage:
             'trading_market TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id)) STRICT',
+            'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER commodity_updated UPDATE ON commodities BEGIN UPDATE commodities SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE institutions ('
             'id INTEGER PRIMARY KEY,'
@@ -833,9 +833,9 @@ class SQLiteStorage:
             'closed TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(parent_id) REFERENCES accounts(id),'
-            'FOREIGN KEY(commodity_id) REFERENCES commodities(id),'
-            'FOREIGN KEY(institution_id) REFERENCES institutions(id),'
+            'FOREIGN KEY(parent_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(institution_id) REFERENCES institutions(id) ON DELETE RESTRICT,'
             'UNIQUE(name, parent_id)) STRICT',
         'CREATE TRIGGER account_updated UPDATE ON accounts BEGIN UPDATE accounts SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE budgets ('
@@ -855,8 +855,8 @@ class SQLiteStorage:
             'notes TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(budget_id) REFERENCES budgets(id),'
-            'FOREIGN KEY(account_id) REFERENCES accounts(id)) STRICT',
+            'FOREIGN KEY(budget_id) REFERENCES budgets(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER budget_value_updated UPDATE ON budget_values BEGIN UPDATE budget_values SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE payees ('
             'id INTEGER PRIMARY KEY,'
@@ -875,7 +875,7 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id)) STRICT',
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
             'id INTEGER PRIMARY KEY,'
@@ -887,8 +887,8 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id),'
-            'FOREIGN KEY(account_id) REFERENCES accounts(id)) STRICT',
+            'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
@@ -899,8 +899,8 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(currency_id) REFERENCES commodities(id),'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id)) STRICT',
+            'FOREIGN KEY(currency_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_splits ('
             'id INTEGER PRIMARY KEY,'
@@ -913,8 +913,8 @@ class SQLiteStorage:
             'action TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(transaction_id) REFERENCES transactions(id),'
-            'FOREIGN KEY(account_id) REFERENCES accounts(id)) STRICT',
+            'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
             'key TEXT UNIQUE NOT NULL,'
