@@ -1468,7 +1468,18 @@ class Engine:
         return self._storage.save_budget(budget)
 
     def export(self, directory):
-        pass
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        export_dir = f'bricbooks_export_{timestamp}'
+        if not os.path.exists(directory):
+            print(f'creating {directory} for export')
+            os.mkdir(directory)
+        export_dir = os.path.join(directory, export_dir)
+        os.mkdir(export_dir)
+        accounts = self.get_accounts()
+        accounts_file = os.path.join(export_dir, 'accounts.tsv')
+        with open(accounts_file, 'wb') as f:
+            for account in accounts:
+                f.write(f'{account.name}\n'.encode('utf8'))
 
 
 ### IMPORT ###

@@ -2613,7 +2613,12 @@ class TestExport(unittest.TestCase):
         load_test_data._load_data(engine._storage, many_txns=False)
         with tempfile.TemporaryDirectory() as tmp:
             engine.export(directory=tmp)
-
+            export_dir = os.listdir(tmp)[0]
+            export_dir = os.path.join(tmp, export_dir)
+            export_files = sorted(os.listdir(export_dir))
+            with open(os.path.join(export_dir, 'accounts.tsv'), 'rb') as f:
+                data = f.read().decode('utf8')
+            self.assertTrue(data.startswith('Checking\nSaving\n'))
 
 
 class TestImport(unittest.TestCase):
