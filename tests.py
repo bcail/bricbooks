@@ -2616,9 +2616,16 @@ class TestExport(unittest.TestCase):
             export_dir = os.listdir(tmp)[0]
             export_dir = os.path.join(tmp, export_dir)
             export_files = sorted(os.listdir(export_dir))
+
             with open(os.path.join(export_dir, 'accounts.tsv'), 'rb') as f:
                 data = f.read().decode('utf8')
-            self.assertTrue(data.startswith('Checking\nSaving\n'))
+            lines = data.split('\n')
+            self.assertEqual(lines[1], 'asset\t\tChecking')
+
+            with open(os.path.join(export_dir, 'acc_checking.tsv'), 'rb') as f:
+                data = f.read().decode('utf8')
+            lines = data.split('\n')
+            self.assertEqual(lines[1], '2018-01-01\t\t1,000.00')
 
 
 class TestImport(unittest.TestCase):

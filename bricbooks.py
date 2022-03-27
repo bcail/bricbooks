@@ -1478,8 +1478,26 @@ class Engine:
         accounts = self.get_accounts()
         accounts_file = os.path.join(export_dir, 'accounts.tsv')
         with open(accounts_file, 'wb') as f:
-            for account in accounts:
-                f.write(f'{account.name}\n'.encode('utf8'))
+            f.write('type\tnumber\tname\n'.encode('utf8'))
+            for acc in accounts:
+                data = [acc.type.value, acc.number or '', acc.name]
+                line = '\t'.join(data)
+                f.write(f'{line}\n'.encode('utf8'))
+        for acc in accounts:
+            if acc.type != AccountType.ASSET:
+                continue
+            txns = self.get_transactions(accounts=[acc])
+            acc_file = os.path.join(export_dir, f'acc_{acc.name.lower()}.tsv')
+            with open(acc_file, 'wb') as f:
+                f.write('date\tpayee\tamount\n'.encode('utf8'))
+                for txn in txns:
+                    if txn.payee:
+                        payee = txn.payee.name
+                    else:
+                        payee = ''
+                    data = [str(txn.txn_date), payee, amount_display(txn.splits[acc]['amount'])]
+                    line = '\t'.join(data)
+                    f.write(f'{line}\n'.encode('utf8'))
 
 
 ### IMPORT ###
