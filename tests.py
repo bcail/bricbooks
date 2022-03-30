@@ -2625,7 +2625,7 @@ class TestExport(unittest.TestCase):
             with open(os.path.join(export_dir, 'acc_checking.tsv'), 'rb') as f:
                 data = f.read().decode('utf8')
             lines = data.split('\n')
-            self.assertEqual(lines[1], '2018-01-01\t\t1,000.00')
+            self.assertEqual(lines[1], '2018-01-01\t\t\t\t1,000.00\tOpening Balances')
 
 
 class TestImport(unittest.TestCase):

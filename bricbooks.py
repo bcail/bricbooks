@@ -1489,13 +1489,18 @@ class Engine:
             txns = self.get_transactions(accounts=[acc])
             acc_file = os.path.join(export_dir, f'acc_{acc.name.lower()}.tsv')
             with open(acc_file, 'wb') as f:
-                f.write('date\tpayee\tamount\n'.encode('utf8'))
+                f.write('date\ttype\tpayee\tdescription\tamount\ttransfer_account\n'.encode('utf8'))
                 for txn in txns:
                     if txn.payee:
                         payee = txn.payee.name
                     else:
                         payee = ''
-                    data = [str(txn.txn_date), payee, amount_display(txn.splits[acc]['amount'])]
+                    if len(txn.splits.keys()) == 2:
+                        transfer_account = [str(a) for a in txn.splits.keys() if a != acc][0]
+                    else:
+                        transfer_account = 'multiple'
+                    data = [str(txn.txn_date), txn.txn_type or '', payee, txn.description or '',
+                            amount_display(txn.splits[acc]['amount']), transfer_account]
                     line = '\t'.join(data)
                     f.write(f'{line}\n'.encode('utf8'))
 
