@@ -1467,6 +1467,9 @@ class Engine:
     def save_budget(self, budget):
         return self._storage.save_budget(budget)
 
+    def _create_export_line(self, fields):
+        return '\t'.join([f.replace('\t', '\\t') for f in fields])
+
     def export(self, directory):
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         export_dir = f'bricbooks_export_{timestamp}'
@@ -1481,7 +1484,7 @@ class Engine:
             f.write('type\tnumber\tname\n'.encode('utf8'))
             for acc in accounts:
                 data = [acc.type.value, acc.number or '', acc.name]
-                line = '\t'.join(data)
+                line = self._create_export_line(data)
                 f.write(f'{line}\n'.encode('utf8'))
         for acc in accounts:
             if acc.type != AccountType.ASSET:
@@ -1501,7 +1504,7 @@ class Engine:
                         transfer_account = 'multiple'
                     data = [str(txn.txn_date), txn.txn_type or '', payee, txn.description or '',
                             amount_display(txn.splits[acc]['amount']), transfer_account]
-                    line = '\t'.join(data)
+                    line = self._create_export_line(data)
                     f.write(f'{line}\n'.encode('utf8'))
 
 
