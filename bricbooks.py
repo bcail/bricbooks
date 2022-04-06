@@ -1507,6 +1507,11 @@ class Engine:
                     line = self._create_export_line(data)
                     f.write(f'{line}\n'.encode('utf8'))
 
+        for budget in self.get_budgets():
+            file_name = os.path.join(export_dir, f'budget_{budget.start_date}_{budget.end_date}.tsv')
+            with open(file_name, 'wb') as f:
+                f.write('account\n'.encode('utf8'))
+
 
 ### IMPORT ###
 
