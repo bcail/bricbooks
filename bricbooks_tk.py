@@ -5,49 +5,31 @@ import os
 import bricbooks as bb
 
 
-class AccountsDisplayWidget(ttk.Frame):
+class AccountsDisplay:
 
     def __init__(self, master, accounts, storage, show_accounts):
-        super().__init__(master=master)
+        self._master = master
         self._storage = storage
         self._show_accounts = show_accounts
-        ttk.Label(self, text='Name').grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        ttk.Label(self, text='Starting Balance').grid(row=0, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-        row = 1
-        self.data = {}
-        for account in accounts:
-            def _edit(acc_id=account.id):
-                def _save(acc_id=acc_id):
-                    a = Account(id_=acc_id,
-                                name=self.data[acc_id]['entries']['name'].get(),
-                                starting_balance=self.data[acc_id]['entries']['starting_balance'].get())
-                    self._storage.save_account(a)
-                    self._show_accounts()
-                name_entry = ttk.Entry(self)
-                name_entry.insert(0, self.data[acc_id]['account'].name)
-                name_entry.grid(row=self.data[acc_id]['row'], column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-                starting_balance_entry = ttk.Entry(self)
-                starting_balance_entry.insert(0, str(self.data[acc_id]['account'].starting_balance))
-                starting_balance_entry.grid(row=self.data[acc_id]['row'], column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-                self.data[acc_id]['entries'] = {'name': name_entry, 'starting_balance': starting_balance_entry}
-                save_button = ttk.Button(self, text='Save', command=_save)
-                save_button.grid(row=self.data[acc_id]['row'], column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
-                self.data[acc_id]['save_button'] = save_button
-            ttk.Label(self, text=account.name).grid(row=row, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-            ttk.Label(self, text=str('account.starting_balance')).grid(row=row, column=1, sticky=(tk.N, tk.S, tk.E, tk.W))
-            edit_button = ttk.Button(self, text='Edit', command=_edit)
-            edit_button.grid(row=row, column=2, sticky=(tk.N, tk.S, tk.E, tk.W))
-            self.data[account.id] = {'row': row, 'account': account, 'edit_button': edit_button}
-            row += 1
-        self.add_account_name_entry = ttk.Entry(self)
-        self.add_account_name_entry.grid(row=row, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.add_account_starting_balance_entry = ttk.Entry(self)
-        self.add_account_starting_balance_entry.grid(row=row, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
-        self.add_account_button = ttk.Button(self, text='Add New', command=self._add)
-        self.add_account_button.grid(row=row, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self._accounts = accounts
 
-    def _add(self):
-        pass
+    def get_widget(self):
+        columns = ('type', 'number', 'name', 'parent')
+
+        tree = ttk.Treeview(self._master, columns=columns, show='headings')
+        tree.heading('type', text='Type')
+        tree.heading('number', text='Number')
+        tree.heading('name', text='Name')
+        tree.heading('parent', text='Parent')
+
+        for account in self._accounts:
+            if account.parent:
+                parent = account.parent.name
+            else:
+                parent = ''
+            tree.insert('', tk.END, values=(account.type.name, account.number or '', account.name, parent))
+
+        return tree
 
 
 class GUI_TK:
@@ -87,7 +69,8 @@ class GUI_TK:
             self.main_frame.destroy()
         accounts = self._engine.get_accounts()
         #self._update_action_buttons(display='accounts')
-        self.main_frame = self.adw = AccountsDisplayWidget(master=self.content_frame, accounts=accounts, storage=self._engine._storage, show_accounts=self._show_accounts)
+        self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, storage=self._engine._storage, show_accounts=self._show_accounts)
+        self.main_frame = self.accounts_display.get_widget()
         self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
