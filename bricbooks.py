@@ -17,6 +17,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+import unicodedata
 try:
     import readline
 except ImportError:
@@ -180,6 +181,10 @@ def increment_quarter(date_obj):
 
 def increment_year(date_obj):
     return date(date_obj.year+1, date_obj.month, date_obj.day)
+
+
+def to_ascii(s):
+    return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
 
 
 class Commodity:
@@ -1493,7 +1498,7 @@ class Engine:
             if acc.type != AccountType.ASSET:
                 continue
             txns = self.get_transactions(accounts=[acc])
-            acc_file = os.path.join(export_dir, f'acc_{acc.name.lower()}.tsv')
+            acc_file = os.path.join(export_dir, f'acc_{to_ascii(acc.name.lower())}.tsv')
             with open(acc_file, 'wb') as f:
                 f.write('date\ttype\tpayee\tdescription\tamount\ttransfer_account\n'.encode('utf8'))
                 for txn in txns:

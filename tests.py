@@ -14,7 +14,10 @@ import bricbooks as bb
 import load_test_data
 
 
-def get_test_account(id_=None, name='Checking', type_=bb.AccountType.ASSET, number=None, parent=None):
+CHECKING = load_test_data.CHECKING
+
+
+def get_test_account(id_=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None):
     commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
     return bb.Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
 
@@ -321,7 +324,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
                     'status': '',
-                    'categories': 'Checking',
+                    'categories': CHECKING,
                     'balance': '5.00',
                 }
             )
@@ -1625,7 +1628,7 @@ class TestCLI(unittest.TestCase):
         txn1_output = ' 1    | 2017-01-01 | ACH    | description                    | some payee                     | Savings                        |            | 5.00       | 5.00      \n'
         txn2_output = ' 2    | 2017-01-02 |        |                                | payee 2                        | Savings                        |            | 5.00       | 10.00     \n'
         printed_output = self.memory_buffer.getvalue()
-        self.assertTrue('Account ID (or search string): Checking (Current balance: 10.00; Cleared: 0.00)' in printed_output)
+        self.assertTrue(f'Account ID (or search string): {CHECKING} (Current balance: 10.00; Cleared: 0.00)' in printed_output)
         self.assertTrue('scheduled txn' in printed_output)
         self.assertTrue(bb.CLI.TXN_LIST_HEADER in printed_output)
         self.assertTrue(txn1_output in printed_output)
@@ -1782,7 +1785,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(edited_txn.splits[another_account], {'amount': 40, 'quantity': 40})
         self.assertEqual(edited_txn.description, 'new description')
         buffer_value = self.memory_buffer.getvalue()
-        self.assertTrue('Checking amount' in buffer_value)
+        self.assertTrue(f'{CHECKING} amount' in buffer_value)
         self.assertTrue('Savings amount' in buffer_value)
 
     @patch('builtins.input')
@@ -2078,7 +2081,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(accounts[1].type.name, 'ASSET')
         self.assertEqual(accounts[1].number, '400')
         self.assertEqual(accounts[1].name, 'Savings')
-        self.assertEqual(accounts[1].parent.name, 'Checking')
+        self.assertEqual(accounts[1].parent.name, CHECKING)
 
     def test_account_edit(self):
         gui = bb.GUI_QT(':memory:')
@@ -2620,9 +2623,9 @@ class TestExport(unittest.TestCase):
             with open(os.path.join(export_dir, 'accounts.tsv'), 'rb') as f:
                 data = f.read().decode('utf8')
             lines = data.split('\n')
-            self.assertEqual(lines[1], 'asset\t\tChecking')
+            self.assertEqual(lines[1], f'asset\t\t{CHECKING}')
 
-            with open(os.path.join(export_dir, 'acc_checking.tsv'), 'rb') as f:
+            with open(os.path.join(export_dir, 'acc_chcing.tsv'), 'rb') as f:
                 data = f.read().decode('utf8')
             lines = data.split('\n')
             self.assertEqual(lines[1], '2018-01-01\t\t\t\t1,000.00\tOpening Balances')

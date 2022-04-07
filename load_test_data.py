@@ -4,6 +4,7 @@ import bricbooks as bb
 
 
 DEFAULT_DATA_FILENAME = 'data.sqlite3'
+CHECKING = 'Ch€c₭ing'
 
 
 def _load_data(storage, many_txns):
@@ -14,23 +15,23 @@ def _load_data(storage, many_txns):
     opening_balances = bb.Account(type_=bb.AccountType.EQUITY, commodity=usd, name='Opening Balances')
     storage.save_account(opening_balances)
 
-    checking = bb.Account(type_=bb.AccountType.ASSET, commodity=usd, name='Checking')
+    checking = bb.Account(type_=bb.AccountType.ASSET, commodity=usd, name=CHECKING)
     storage.save_account(checking)
 
     savings = bb.Account(type_=bb.AccountType.ASSET, commodity=usd, name='Saving')
     storage.save_account(savings)
 
-    mortgage = bb.Account(type_=bb.AccountType.LIABILITY, commodity=usd, name='Mortgage')
+    mortgage = bb.Account(type_=bb.AccountType.LIABILITY, commodity=usd, name='Mortgagé')
     storage.save_account(mortgage)
     credit_card = bb.Account(type_=bb.AccountType.LIABILITY, commodity=usd, name='Credit Card')
     storage.save_account(credit_card)
 
-    wages = bb.Account(type_=bb.AccountType.INCOME, commodity=usd, number='200', name='Wages')
+    wages = bb.Account(type_=bb.AccountType.INCOME, commodity=usd, number='200', name='Wagès')
     storage.save_account(wages)
 
     food = bb.Account(type_=bb.AccountType.EXPENSE, commodity=usd, number='300', name='Food')
     storage.save_account(food)
-    restaurants = bb.Account(type_=bb.AccountType.EXPENSE, commodity=usd, number='310', name='Restaurants', parent=food)
+    restaurants = bb.Account(type_=bb.AccountType.EXPENSE, commodity=usd, number='310', name='Restaurànts', parent=food)
     storage.save_account(restaurants)
     transportation = bb.Account(type_=bb.AccountType.EXPENSE, commodity=usd, number='400', name='Transportation')
     storage.save_account(transportation)
