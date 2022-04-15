@@ -6,7 +6,7 @@ import bricbooks as bb
 DEFAULT_DATA_FILENAME = 'data.sqlite3'
 # add a char from unicode SMP, outside of BMP
 #CHECKING = 'Ch€c₭ing 𝚫 𝄠' # b'Ch\xe2\x82\xacc\xe2\x82\xading \xf0\x9d\x9a\xab \xf0\x9d\x84\xa0'
-CHECKING = 'Ch€c₭ing' # b'Ch\xe2\x82\xacc\xe2\x82\xading \xf0\x9d\x9a\xab \xf0\x9d\x84\xa0'
+CHECKING = 'Checking' # b'Ch\xe2\x82\xacc\xe2\x82\xading \xf0\x9d\x9a\xab \xf0\x9d\x84\xa0'
 
 
 def _load_data(storage, many_txns):
