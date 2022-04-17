@@ -1,6 +1,6 @@
+import os
 import tkinter as tk
 from tkinter import ttk
-import os
 
 import bricbooks as bb
 
@@ -78,63 +78,60 @@ class GUI_TK:
 
         self.root = tk.Tk()
         self.root.title(bb.TITLE)
+
+        w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        self.root.geometry("%dx%d+0+0" % (w, h))
+
         #make sure root container is set to resize properly
-        self.root.grid_columnconfigure(0, weight=1)
-        self.root.grid_rowconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
         #this frame will contain everything the user sees
-        self.content_frame = self._init_content_frame(self.root)
-        self._show_action_buttons(self.content_frame)
-        self.main_frame = None
-        self.ledger_display_widget = None
-
-        accounts = self._engine.get_accounts()
-        #if accounts:
-        #    self._show_ledger()
-        #else:
-        self._show_accounts()
-
+        self.content_frame = ttk.Frame(master=self.root)
+        self.content_frame.columnconfigure(0, weight=1)
+        self.content_frame.rowconfigure(1, weight=1)
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _init_content_frame(self, root):
-        content_frame = ttk.Frame(master=root)
-        content_frame.grid_columnconfigure(4, weight=1)
-        content_frame.grid_rowconfigure(1, weight=1)
-        return content_frame
+        self._action_buttons_frame = self._init_action_buttons_frame(self.content_frame)
+        self._action_buttons_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _show_action_buttons(self, master):
-        self.accounts_button = ttk.Button(master=master, text='Accounts', command=self._show_accounts)
+        self.main_frame = None
+
+        accounts = self._engine.get_accounts()
+        if accounts:
+            self._show_ledger()
+        else:
+            self._show_accounts()
+
+    def _init_action_buttons_frame(self, master):
+        frame = ttk.Frame(master=master)
+        self.accounts_button = ttk.Button(master=frame, text='Accounts', command=self._show_accounts)
         self.accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
-        self.ledger_button = ttk.Button(master=master, text='Ledger', command=self._show_ledger)
+        self.ledger_button = ttk.Button(master=frame, text='Ledger', command=self._show_ledger)
         self.ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
-        self.budget_button = ttk.Button(master=master, text='Budget', command=self._show_budget)
+        self.budget_button = ttk.Button(master=frame, text='Budget', command=self._show_budget)
         self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
+        return frame
 
     def _show_accounts(self):
-        if self.main_frame and (self.main_frame == self.ledger_display_widget):
-            self.ledger_display_widget.grid_forget()
-        elif self.main_frame:
+        if self.main_frame:
             self.main_frame.destroy()
         accounts = self._engine.get_accounts()
         #self._update_action_buttons(display='accounts')
         self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, storage=self._engine._storage, show_accounts=self._show_accounts)
         self.main_frame = self.accounts_display.get_widget()
-        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self, current_account=None):
+        if self.main_frame:
+            self.main_frame.destroy()
         accounts = self._engine.get_accounts()
         if not current_account:
             current_account = accounts[0]
         # self._update_action_buttons(display='ledger')
-        if self.ledger_display_widget:
-            if self.main_frame != self.ledger_display_widget:
-                self.main_frame.destroy()
-            self.main_frame = self.ledger_display_widget
-        else:
-            if self.main_frame:
-                self.main_frame.destroy()
-            self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, engine=self._engine)
-            self.main_frame = self.ledger_display_widget = self.ledger_display.get_widget()
-        self.main_frame.grid(row=1, column=0, columnspan=5, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, engine=self._engine)
+        self.main_frame = self.ledger_display.get_widget()
+        self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_budget(self):
         pass
