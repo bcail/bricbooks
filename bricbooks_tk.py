@@ -53,14 +53,23 @@ class LedgerDisplay:
 
         tree = ttk.Treeview(self._master, columns=columns, show='headings')
         tree.heading('type', text='Type')
+        tree.column('type', width=100, anchor='center')
         tree.heading('date', text='Date')
+        tree.column('date', width=100, anchor='center')
         tree.heading('payee', text='Payee')
+        tree.column('payee', width=100, anchor='center')
         tree.heading('description', text='Description')
+        tree.column('description', width=100, anchor='center')
         tree.heading('status', text='Status')
+        tree.column('status', width=100, anchor='center')
         tree.heading('withdrawal', text='Withdrawal')
+        tree.column('withdrawal', width=100, anchor='center')
         tree.heading('deposit', text='Deposit')
+        tree.column('deposit', width=100, anchor='center')
         tree.heading('balance', text='Balance')
+        tree.column('balance', width=100, anchor='center')
         tree.heading('transfer account', text='Transfer Account')
+        tree.column('transfer account', width=100, anchor='center')
 
         for txn in self._get_txns():
             tds = bb.get_display_strings_for_ledger(self.account, txn)
