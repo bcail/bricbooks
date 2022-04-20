@@ -55,6 +55,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
+        #switch to ledger, then back to accounts to pick up the new accounts
+        gui.ledger_button.invoke()
         gui.accounts_button.invoke()
         child_items = gui.main_frame.get_children()
         first_account_name = gui.main_frame.item(child_items[0])['values'][2]

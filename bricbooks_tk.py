@@ -122,11 +122,22 @@ class GUI_TK:
         self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
         return frame
 
+    def _update_action_buttons(self, display):
+        self.accounts_button['state'] = tk.NORMAL
+        self.ledger_button['state'] = tk.NORMAL
+        self.budget_button['state'] = tk.NORMAL
+        if display == 'accounts':
+            self.accounts_button['state'] = tk.DISABLED
+        elif display == 'budget':
+            self.budget_button['state'] = tk.DISABLED
+        else:
+            self.ledger_button['state'] = tk.DISABLED
+
     def _show_accounts(self):
         if self.main_frame:
             self.main_frame.destroy()
         accounts = self._engine.get_accounts()
-        #self._update_action_buttons(display='accounts')
+        self._update_action_buttons(display='accounts')
         self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, storage=self._engine._storage, show_accounts=self._show_accounts)
         self.main_frame = self.accounts_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -137,7 +148,7 @@ class GUI_TK:
         accounts = self._engine.get_accounts()
         if not current_account:
             current_account = accounts[0]
-        # self._update_action_buttons(display='ledger')
+        self._update_action_buttons(display='ledger')
         self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, engine=self._engine)
         self.main_frame = self.ledger_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
