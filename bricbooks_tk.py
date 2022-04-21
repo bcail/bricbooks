@@ -80,6 +80,39 @@ class LedgerDisplay:
         return tree
 
 
+class BudgetDisplay:
+
+    def __init__(self, master, engine, current_budget):
+        self._master = master
+        self._engine = engine
+        self._current_budget = current_budget
+
+    def get_widget(self):
+        columns = ('account', 'amount', 'income', 'carryover', 'total budget', 'spent', 'remaining', 'remaining percent', 'current status')
+
+        tree = ttk.Treeview(self._master, columns=columns, show='headings')
+        tree.heading('account', text='Account')
+        tree.column('account', width=100, anchor='center')
+        tree.heading('amount', text='Amount')
+        tree.column('amount', width=100, anchor='center')
+        tree.heading('income', text='Income')
+        tree.column('income', width=100, anchor='center')
+        tree.heading('carryover', text='Carryover')
+        tree.column('carryover', width=100, anchor='center')
+        tree.heading('total budget', text='Total Budget')
+        tree.column('total budget', width=100, anchor='center')
+        tree.heading('spent', text='Spent')
+        tree.column('spent', width=100, anchor='center')
+        tree.heading('remaining', text='Remaining')
+        tree.column('remaining', width=100, anchor='center')
+        tree.heading('remaining percent', text='Remaining Percent')
+        tree.column('remaining percent', width=100, anchor='center')
+        tree.heading('current status', text='Current Status')
+        tree.column('current status', width=100, anchor='center')
+
+        return tree
+
+
 class GUI_TK:
 
     def __init__(self, file_name):
@@ -153,8 +186,13 @@ class GUI_TK:
         self.main_frame = self.ledger_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _show_budget(self):
-        pass
+    def _show_budget(self, current_budget=None):
+        if self.main_frame:
+            self.main_frame.destroy()
+        self._update_action_buttons(display='budget')
+        self.budget_display = BudgetDisplay(master=self.content_frame, engine=self._engine, current_budget=current_budget)
+        self.main_frame = self.budget_display.get_widget()
+        self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
 if __name__ == '__main__':
