@@ -549,6 +549,13 @@ class TestBudget(unittest.TestCase):
                     rent: {},
                 })
 
+    def test_display(self):
+        b = bb.Budget(id_=1, year=2018)
+        self.assertEqual(b.display(), '1: 2018-01-01 - 2018-12-31')
+        self.assertEqual(b.display(show_id=False), '2018-01-01 - 2018-12-31')
+        b = bb.Budget(id_=1, name='2018', year=2018)
+        self.assertEqual(b.display(), '1: 2018 (2018-01-01 - 2018-12-31)')
+
     def test_sparse_init(self):
         b = bb.Budget(year=2018)
         self.assertEqual(b.start_date, date(2018, 1, 1))
