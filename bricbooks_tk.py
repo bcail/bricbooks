@@ -1,3 +1,4 @@
+from datetime import date
 import os
 import tkinter as tk
 from tkinter import ttk
@@ -85,7 +86,17 @@ class BudgetDisplay:
     def __init__(self, master, engine, current_budget):
         self._master = master
         self._engine = engine
+        if not current_budget:
+            budgets = self._engine.get_budgets()
+            if budgets:
+                current_budget = budgets[0]
         self._current_budget = current_budget
+        self._budget_report = self._current_budget.get_report_display(current_date=date.today())
+        self._report_data = []
+        for info in self._budget_report['income']:
+            self._report_data.append(info)
+        for info in self._budget_report['expense']:
+            self._report_data.append(info)
 
     def get_widget(self):
         columns = ('account', 'amount', 'income', 'carryover', 'total budget', 'spent', 'remaining', 'remaining percent', 'current status')
@@ -109,6 +120,10 @@ class BudgetDisplay:
         tree.column('remaining percent', width=100, anchor='center')
         tree.heading('current status', text='Current Status')
         tree.column('current status', width=100, anchor='center')
+
+        for row in self._report_data:
+            values = row.get('name', ''), row.get('amount', ''), row.get('income', ''), row.get('carryover', ''), row.get('total_budget', ''), row.get('spent', ''), row.get('remaining', ''), row.get('remaining_percent', ''), row.get('current_status', '')
+            tree.insert('', tk.END, values=values)
 
         return tree
 
