@@ -139,10 +139,24 @@ class ScheduledTransactionsDisplay:
 
         tree = ttk.Treeview(self._master, columns=columns, show='headings')
         tree.heading('name', text='Name')
+        tree.column('name', width=50, anchor='center')
         tree.heading('frequency', text='Frequency')
+        tree.column('frequency', width=50, anchor='center')
         tree.heading('next_due_date', text='Next Due Date')
+        tree.column('next_due_date', width=50, anchor='center')
         tree.heading('payee', text='Payee')
+        tree.column('payee', width=50, anchor='center')
         tree.heading('splits', text='Splits')
+        tree.column('splits', width=250, anchor='center')
+
+        scheduled_txns = self._engine.get_scheduled_transactions()
+        for scheduled_txn in scheduled_txns:
+            if scheduled_txn.payee:
+                payee = scheduled_txn.payee.name
+            else:
+                payee = ''
+            values = (scheduled_txn.name, scheduled_txn.frequency.value, str(scheduled_txn.next_due_date), payee, bb.splits_display(scheduled_txn.splits))
+            tree.insert('', tk.END, values=values)
 
         return tree
 
