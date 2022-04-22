@@ -128,6 +128,25 @@ class BudgetDisplay:
         return tree
 
 
+class ScheduledTransactionsDisplay:
+
+    def __init__(self, master, engine):
+        self._master = master
+        self._engine = engine
+
+    def get_widget(self):
+        columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
+
+        tree = ttk.Treeview(self._master, columns=columns, show='headings')
+        tree.heading('name', text='Name')
+        tree.heading('frequency', text='Frequency')
+        tree.heading('next_due_date', text='Next Due Date')
+        tree.heading('payee', text='Payee')
+        tree.heading('splits', text='Splits')
+
+        return tree
+
+
 class GUI_TK:
 
     def __init__(self, file_name):
@@ -168,16 +187,21 @@ class GUI_TK:
         self.ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
         self.budget_button = ttk.Button(master=frame, text='Budget', command=self._show_budget)
         self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
+        self.scheduled_transactions_button = ttk.Button(master=frame, text='Scheduled Transactions', command=self._show_scheduled_transactions)
+        self.scheduled_transactions_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S))
         return frame
 
     def _update_action_buttons(self, display):
         self.accounts_button['state'] = tk.NORMAL
         self.ledger_button['state'] = tk.NORMAL
         self.budget_button['state'] = tk.NORMAL
+        self.scheduled_transactions_button['state'] = tk.NORMAL
         if display == 'accounts':
             self.accounts_button['state'] = tk.DISABLED
         elif display == 'budget':
             self.budget_button['state'] = tk.DISABLED
+        elif display == 'scheduled_transactions':
+            self.scheduled_transactions_button['state'] = tk.DISABLED
         else:
             self.ledger_button['state'] = tk.DISABLED
 
@@ -207,6 +231,14 @@ class GUI_TK:
         self._update_action_buttons(display='budget')
         self.budget_display = BudgetDisplay(master=self.content_frame, engine=self._engine, current_budget=current_budget)
         self.main_frame = self.budget_display.get_widget()
+        self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def _show_scheduled_transactions(self):
+        if self.main_frame:
+            self.main_frame.destroy()
+        self._update_action_buttons(display='scheduled_transactions')
+        self.scheduled_transactions_display = ScheduledTransactionsDisplay(master=self.content_frame, engine=self._engine)
+        self.main_frame = self.scheduled_transactions_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
