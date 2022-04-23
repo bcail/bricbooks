@@ -6,6 +6,10 @@ from tkinter import ttk
 import bricbooks as bb
 
 
+class AccountForm:
+    pass
+
+
 class AccountsDisplay:
 
     def __init__(self, master, accounts, storage, show_accounts):
@@ -15,22 +19,38 @@ class AccountsDisplay:
         self._accounts = accounts
 
     def get_widget(self):
+        frame = ttk.Frame(master=self._master)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(1, weight=1)
+
+        self.add_button = ttk.Button(master=frame, text='New Account', command=self._open_new_account_form)
+        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+
         columns = ('type', 'number', 'name', 'parent')
 
-        tree = ttk.Treeview(self._master, columns=columns, show='headings')
-        tree.heading('type', text='Type')
-        tree.heading('number', text='Number')
-        tree.heading('name', text='Name')
-        tree.heading('parent', text='Parent')
+        self.tree = ttk.Treeview(master=frame, columns=columns, show='headings')
+        self.tree.heading('type', text='Type')
+        self.tree.heading('number', text='Number')
+        self.tree.heading('name', text='Name')
+        self.tree.heading('parent', text='Parent')
 
         for account in self._accounts:
             if account.parent:
                 parent = account.parent.name
             else:
                 parent = ''
-            tree.insert('', tk.END, values=(account.type.name, account.number or '', account.name, parent))
+            self.tree.insert('', tk.END, values=(account.type.name, account.number or '', account.name, parent))
 
-        return tree
+        self.tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+        return frame
+
+    def _open_new_account_form(self):
+        self.add_account_display = AccountForm(self._accounts, save_account=self._handle_new_account)
+        self.add_account_display.show_form()
+
+    def _handle_new_account(self):
+        pass
 
 
 class LedgerDisplay:

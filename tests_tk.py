@@ -58,8 +58,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         #switch to ledger, then back to accounts to pick up the new accounts
         gui.ledger_button.invoke()
         gui.accounts_button.invoke()
-        child_items = gui.main_frame.get_children()
-        first_account_name = gui.main_frame.item(child_items[0])['values'][2]
+        child_items = gui.accounts_display.tree.get_children()
+        first_account_name = gui.accounts_display.tree.item(child_items[0])['values'][2]
         self.assertEqual(first_account_name, CHECKING)
 
 
