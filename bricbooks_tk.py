@@ -7,7 +7,32 @@ import bricbooks as bb
 
 
 class AccountForm:
-    pass
+
+    def __init__(self, accounts, save_account):
+        self._accounts = accounts
+        self._save_account = save_account
+        #keep map of account types for display
+        self._account_types = {}
+        for type_ in bb.AccountType:
+            self._account_types[type_.name] = type_
+
+    def get_widget(self):
+        form = tk.Toplevel()
+        for col, label in [(0, 'Type'), (1, 'Number'), (2, 'Name'), (3, 'Parent')]:
+            ttk.Label(master=form, text=label).grid(row=0, column=col)
+        account_type = ttk.Combobox(master=form)
+        account_type_values = []
+        for index, type_ in enumerate(bb.AccountType):
+            account_type_values.append(type_.name)
+            #account_type.addItem(type_.name, type_)
+            #if self._account and self._account.type == type_:
+            #    account_type.setCurrentIndex(index)
+        account_type['values'] = list(self._account_types.keys())
+        #layout.addWidget(account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
+        account_type.grid(row=1, column=0)
+        self.save_button = ttk.Button(master=form, text='Save', command=self._save_account)
+        self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
+        return form
 
 
 class AccountsDisplay:
@@ -47,7 +72,8 @@ class AccountsDisplay:
 
     def _open_new_account_form(self):
         self.add_account_display = AccountForm(self._accounts, save_account=self._handle_new_account)
-        self.add_account_display.show_form()
+        widget = self.add_account_display.get_widget()
+        widget.grid()
 
     def _handle_new_account(self):
         pass
