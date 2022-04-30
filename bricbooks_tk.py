@@ -8,9 +8,10 @@ import bricbooks as bb
 
 class AccountForm:
 
-    def __init__(self, accounts, save_account):
+    def __init__(self, accounts, save_account, update_display):
         self._accounts = accounts
         self._save_account = save_account
+        self._update_display = update_display
         #keep map of account types for display
         self._account_types = {}
         for type_ in bb.AccountType:
@@ -41,8 +42,9 @@ class AccountForm:
         type_ = self._account_types[self.account_type_combo.get()]
         number = self.number_entry.get()
         name = self.name_entry.get()
-        self._save_account(type_=type_, number=number, name=name)
+        account = self._save_account(type_=type_, number=number, name=name)
         self.form.destroy()
+        self._update_display()
 
 
 class AccountsDisplay:
@@ -81,7 +83,7 @@ class AccountsDisplay:
         return frame
 
     def _open_new_account_form(self):
-        self.add_account_display = AccountForm(self._accounts, save_account=self._engine.save_account)
+        self.add_account_display = AccountForm(self._accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
         widget = self.add_account_display.get_widget()
         widget.grid()
 
