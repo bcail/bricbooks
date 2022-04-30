@@ -1364,22 +1364,20 @@ class Engine:
         return self.get_accounts(types=[AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY])
 
     def save_account(self, account=None, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
-        if account:
-            self._storage.save_account(account)
-            return
-        parent = None
-        if parent_id:
-            parent = self._storage.get_account(id_=parent_id)
-        if commodity_id:
-            commodity = self._storage.get_commodity(id_=commodity_id)
-        else:
-            if id_:
-                commodity = self._storage.get_account(id_).commodity
+        if not account:
+            parent = None
+            if parent_id:
+                parent = self._storage.get_account(id_=parent_id)
+            if commodity_id:
+                commodity = self._storage.get_commodity(id_=commodity_id)
             else:
-                commodity = self.get_currencies()[0]
-        self._storage.save_account(
-                Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
-            )
+                if id_:
+                    commodity = self._storage.get_account(id_).commodity
+                else:
+                    commodity = self.get_currencies()[0]
+            account = Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
+        self._storage.save_account(account)
+        return account
 
     @staticmethod
     def sort_txns(txns, key='date'):
