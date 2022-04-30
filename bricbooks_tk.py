@@ -17,29 +17,39 @@ class AccountForm:
             self._account_types[type_.name] = type_
 
     def get_widget(self):
-        form = tk.Toplevel()
+        self.form = tk.Toplevel()
         for col, label in [(0, 'Type'), (1, 'Number'), (2, 'Name'), (3, 'Parent')]:
-            ttk.Label(master=form, text=label).grid(row=0, column=col)
-        account_type = ttk.Combobox(master=form)
+            ttk.Label(master=self.form, text=label).grid(row=0, column=col)
+        self.account_type_combo = ttk.Combobox(master=self.form)
         account_type_values = []
         for index, type_ in enumerate(bb.AccountType):
             account_type_values.append(type_.name)
             #account_type.addItem(type_.name, type_)
             #if self._account and self._account.type == type_:
             #    account_type.setCurrentIndex(index)
-        account_type['values'] = list(self._account_types.keys())
-        #layout.addWidget(account_type, row, ACCOUNTS_GUI_FIELDS['type']['column_number'])
-        account_type.grid(row=1, column=0)
-        self.save_button = ttk.Button(master=form, text='Save', command=self._save_account)
+        self.account_type_combo['values'] = list(self._account_types.keys())
+        self.account_type_combo.grid(row=1, column=0)
+        self.number_entry = ttk.Entry(master=self.form)
+        self.number_entry.grid(row=1, column=1)
+        self.name_entry = ttk.Entry(master=self.form)
+        self.name_entry.grid(row=1, column=2)
+        self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
-        return form
+        return self.form
+
+    def _handle_save(self):
+        type_ = self._account_types[self.account_type_combo.get()]
+        number = self.number_entry.get()
+        name = self.name_entry.get()
+        self._save_account(type_=type_, number=number, name=name)
+        self.form.destroy()
 
 
 class AccountsDisplay:
 
-    def __init__(self, master, accounts, storage, show_accounts):
+    def __init__(self, master, accounts, engine, show_accounts):
         self._master = master
-        self._storage = storage
+        self._engine = engine
         self._show_accounts = show_accounts
         self._accounts = accounts
 
@@ -71,12 +81,9 @@ class AccountsDisplay:
         return frame
 
     def _open_new_account_form(self):
-        self.add_account_display = AccountForm(self._accounts, save_account=self._handle_new_account)
+        self.add_account_display = AccountForm(self._accounts, save_account=self._engine.save_account)
         widget = self.add_account_display.get_widget()
         widget.grid()
-
-    def _handle_new_account(self):
-        pass
 
 
 class LedgerDisplay:
@@ -270,7 +277,7 @@ class GUI_TK:
             self.main_frame.destroy()
         accounts = self._engine.get_accounts()
         self._update_action_buttons(display='accounts')
-        self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, storage=self._engine._storage, show_accounts=self._show_accounts)
+        self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, engine=self._engine, show_accounts=self._show_accounts)
         self.main_frame = self.accounts_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
