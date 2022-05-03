@@ -49,29 +49,26 @@ class AccountForm:
 
 class AccountsDisplay:
 
-    def __init__(self, master, accounts, engine, show_accounts):
+    def __init__(self, master, engine):
         self._master = master
         self._engine = engine
-        self._show_accounts = show_accounts
-        self._accounts = accounts
+        self.tree = None
+        self.frame = None
 
-    def get_widget(self):
-        frame = ttk.Frame(master=self._master)
-        frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(1, weight=1)
-
-        self.add_button = ttk.Button(master=frame, text='New Account', command=self._open_new_account_form)
-        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+    def _show_accounts(self):
+        if self.tree:
+            self.tree.destroy()
 
         columns = ('type', 'number', 'name', 'parent')
 
-        self.tree = ttk.Treeview(master=frame, columns=columns, show='headings')
+        self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
         self.tree.heading('type', text='Type')
         self.tree.heading('number', text='Number')
         self.tree.heading('name', text='Name')
         self.tree.heading('parent', text='Parent')
 
-        for account in self._accounts:
+        accounts = self._engine.get_accounts()
+        for account in accounts:
             if account.parent:
                 parent = account.parent.name
             else:
@@ -80,10 +77,21 @@ class AccountsDisplay:
 
         self.tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        return frame
+    def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.add_button = ttk.Button(master=self.frame, text='New Account', command=self._open_new_account_form)
+        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+
+        self._show_accounts()
+
+        return self.frame
 
     def _open_new_account_form(self):
-        self.add_account_display = AccountForm(self._accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
+        accounts = self._engine.get_accounts()
+        self.add_account_display = AccountForm(accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
         widget = self.add_account_display.get_widget()
         widget.grid()
 
@@ -277,9 +285,8 @@ class GUI_TK:
     def _show_accounts(self):
         if self.main_frame:
             self.main_frame.destroy()
-        accounts = self._engine.get_accounts()
         self._update_action_buttons(display='accounts')
-        self.accounts_display = AccountsDisplay(master=self.content_frame, accounts=accounts, engine=self._engine, show_accounts=self._show_accounts)
+        self.accounts_display = AccountsDisplay(master=self.content_frame, engine=self._engine)
         self.main_frame = self.accounts_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
