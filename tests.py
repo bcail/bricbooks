@@ -2124,26 +2124,4 @@ if __name__ == '__main__':
     print(sys.version)
     print(f'sqlite3: {sqlite3.sqlite_version_info}')
 
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--no-gui', dest='no_gui', action='store_true')
-    args = parser.parse_args()
-    if args.no_gui:
-        suite = unittest.TestSuite()
-        suite.addTest(unittest.makeSuite(TestAccount, 'test'))
-        suite.addTest(unittest.makeSuite(TestTransaction, 'test'))
-        suite.addTest(unittest.makeSuite(TestScheduledTransaction, 'test'))
-        suite.addTest(unittest.makeSuite(TestBudget, 'test'))
-        suite.addTest(unittest.makeSuite(TestSQLiteStorage, 'test'))
-        suite.addTest(unittest.makeSuite(TestEngine, 'test'))
-        suite.addTest(unittest.makeSuite(TestCLI, 'test'))
-        suite.addTest(unittest.makeSuite(TestLoadTestData, 'test'))
-        suite.addTest(unittest.makeSuite(TestImport, 'test'))
-        runner = unittest.TextTestRunner()
-        runner.run(suite)
-    else:
-        try:
-            from PySide2 import QtWidgets, QtTest, QtCore
-        except ImportError:
-            from PySide6 import QtWidgets, QtTest, QtCore
-        unittest.main()
+    unittest.main()
