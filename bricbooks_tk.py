@@ -8,10 +8,11 @@ import bricbooks as bb
 
 class AccountForm:
 
-    def __init__(self, accounts, save_account, update_display):
+    def __init__(self, accounts, save_account, update_display, account=None):
         self._accounts = accounts
         self._save_account = save_account
         self._update_display = update_display
+        self._account = account
         #keep map of account types for display
         self._account_types = {}
         for type_ in bb.AccountType:
@@ -31,8 +32,11 @@ class AccountForm:
         self.account_type_combo['values'] = list(self._account_types.keys())
         self.account_type_combo.grid(row=1, column=0)
         self.number_entry = ttk.Entry(master=self.form)
-        self.number_entry.grid(row=1, column=1)
         self.name_entry = ttk.Entry(master=self.form)
+        if self._account:
+            self.number_entry.insert(0, self._account.number or '')
+            self.name_entry.insert(0, self._account.name)
+        self.number_entry.grid(row=1, column=1)
         self.name_entry.grid(row=1, column=2)
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
@@ -73,8 +77,10 @@ class AccountsDisplay:
                 parent = account.parent.name
             else:
                 parent = ''
-            self.tree.insert('', tk.END, values=(account.type.name, account.number or '', account.name, parent))
+            values = (account.type.name, account.number or '', account.name, parent)
+            self.tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
+        self.tree.bind('<<TreeviewSelect>>', self._item_selected)
         self.tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
@@ -92,6 +98,15 @@ class AccountsDisplay:
     def _open_new_account_form(self):
         accounts = self._engine.get_accounts()
         self.add_account_display = AccountForm(accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
+        widget = self.add_account_display.get_widget()
+        widget.grid()
+
+    def _item_selected(self, event):
+        accounts = self._engine.get_accounts()
+        account_id = self.tree.focus()
+        account = self._engine.get_account(id_=account_id)
+        self.add_account_display = AccountForm(accounts, save_account=self._engine.save_account,
+                update_display=self._show_accounts, account=account)
         widget = self.add_account_display.get_widget()
         widget.grid()
 
