@@ -63,23 +63,32 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
 
     def test_edit_account(self):
         gui = bb_tk.GUI_TK(':memory:')
-        checking = get_test_account()
+        assets = get_test_account(name='All Assets')
+        gui._engine.save_account(account=assets)
+        checking = get_test_account(parent=assets)
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         #switch to ledger, then back to accounts to pick up the new accounts
         gui.ledger_button.invoke()
         gui.accounts_button.invoke()
-        gui.accounts_display.tree.event_generate('<Button-1>', x=1, y=5)
-        self.assertEqual(gui.accounts_display.edit_account_form.name_entry.get(), CHECKING)
-        gui.accounts_display.edit_account_form.name_entry.delete(0, tkinter.END)
+        #click on a the checking account item, so it opens for editing
+        gui.accounts_display.tree.event_generate('<Button-1>', x=1, y=25)
+        edit_account_form = gui.accounts_display.edit_account_form
+        self.assertEqual(edit_account_form.name_entry.get(), CHECKING)
+        self.assertEqual(edit_account_form.parent_combo.get(), 'All Assets')
+        #update some data and save
         new_name = f'{CHECKING} updated'
-        gui.accounts_display.edit_account_form.name_entry.insert(0, new_name)
-        gui.accounts_display.edit_account_form.save_button.invoke()
+        edit_account_form.name_entry.delete(0, tkinter.END)
+        edit_account_form.name_entry.insert(0, new_name)
+        edit_account_form.parent_combo.current(2)
+        edit_account_form.save_button.invoke()
+        #verify changes
         accounts = gui._engine.get_accounts()
-        self.assertEqual(len(accounts), 2)
+        self.assertEqual(len(accounts), 3)
         account = gui._engine.get_account(id_=checking.id)
         self.assertEqual(account.name, new_name)
+        self.assertEqual(account.parent, savings)
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ import bricbooks as bb
 class AccountForm:
 
     def __init__(self, accounts, save_account, update_display, account=None):
-        self._accounts = accounts
+        self._accounts = [a for a in accounts if a != account]
         self._save_account = save_account
         self._update_display = update_display
         self._account = account
@@ -29,14 +29,13 @@ class AccountForm:
                 selected = index
         self.account_type_combo['values'] = list(self._account_types.keys())
         self.account_type_combo.current(selected)
-        self.account_type_combo.grid(row=1, column=0)
         self.number_entry = ttk.Entry(master=self.form)
         self.name_entry = ttk.Entry(master=self.form)
         self.parent_combo = ttk.Combobox(master=self.form)
-        account_values = ['------']
+        account_values = ['']
         selected = 0
         for index, account in enumerate(self._accounts):
-            account_values.append(account.name)
+            account_values.append(str(account))
             if self._account and self._account.parent == account:
                 selected = index + 1
         self.parent_combo['values'] = account_values
@@ -44,9 +43,10 @@ class AccountForm:
         if self._account:
             self.number_entry.insert(0, self._account.number or '')
             self.name_entry.insert(0, self._account.name)
-        self.number_entry.grid(row=1, column=1)
-        self.name_entry.grid(row=1, column=2)
-        self.parent_combo.grid(row=1, column=3)
+        self.account_type_combo.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S))
+        self.number_entry.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.S))
+        self.name_entry.grid(row=1, column=2, sticky=(tk.N, tk.W, tk.S))
+        self.parent_combo.grid(row=1, column=3, sticky=(tk.N, tk.W, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
         return self.form
@@ -58,7 +58,14 @@ class AccountForm:
         type_ = self._account_types[self.account_type_combo.get()]
         number = self.number_entry.get()
         name = self.name_entry.get()
-        account = self._save_account(id_=id_, type_=type_, number=number, name=name)
+        parent_index = self.parent_combo.current()
+        parent_id=None
+        if parent_index != 0:
+            parent = self._accounts[parent_index-1]
+            if self._account != parent:
+                parent_id = parent.id
+        account = self._save_account(id_=id_, type_=type_, number=number, name=name,
+                parent_id=parent_id)
         self.form.destroy()
         self._update_display()
 
