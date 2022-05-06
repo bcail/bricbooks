@@ -20,8 +20,9 @@ jobs:
           architecture: x64
       - run: sudo apt-get update
       - run: sudo apt-get install -y xvfb libxkbcommon-x11-0 libopengl0 libegl1 '^libxcb.*'
+      - run: python tests.py
       - run: python bricbooks.py --install_qt
-      - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests.py
+      - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests_qt.py
       - run: xvfb-run python tests_tk.py
 
   windows:
@@ -39,6 +40,7 @@ jobs:
           architecture: x64
       - run: python bricbooks.py --install_qt
       - run: python tests.py
+      - run: python tests_qt.py
       - run: python tests_tk.py
 
   mac:
@@ -56,4 +58,5 @@ jobs:
           architecture: x64
       - run: python bricbooks.py --install_qt
       - run: python tests.py
+      - run: python tests_qt.py
       - run: python tests_tk.py
