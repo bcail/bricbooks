@@ -133,49 +133,79 @@ class AccountsDisplay:
 class LedgerDisplay:
 
     def __init__(self, master, accounts, current_account, show_ledger, engine):
+        if not current_account:
+            raise Exception('must pass current_account into LedgerDisplay')
         self._master = master
         self.show_ledger = show_ledger
-        self.accounts = accounts
-        self.account = current_account
+        self._accounts = accounts
+        self._account = current_account
         self.engine = engine
+        self.txns_widget = None
 
     def _get_txns(self):
-        accounts = [self.account]
+        accounts = [self._account]
         # if self._filter_account_id:
         #     accounts.append(self.engine.get_account(id_=self._filter_account_id))
         # return self.engine.get_transactions(accounts=accounts, status=self._status.strip(), query=self._filter_text.strip())
         return self.engine.get_transactions(accounts=accounts)
 
-    def get_widget(self):
+    def _show_txns(self, master, account):
         columns = ('type', 'date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
 
-        tree = ttk.Treeview(self._master, columns=columns, show='headings')
-        tree.heading('type', text='Type')
-        tree.column('type', width=100, anchor='center')
-        tree.heading('date', text='Date')
-        tree.column('date', width=100, anchor='center')
-        tree.heading('payee', text='Payee')
-        tree.column('payee', width=100, anchor='center')
-        tree.heading('description', text='Description')
-        tree.column('description', width=100, anchor='center')
-        tree.heading('status', text='Status')
-        tree.column('status', width=100, anchor='center')
-        tree.heading('withdrawal', text='Withdrawal')
-        tree.column('withdrawal', width=100, anchor='center')
-        tree.heading('deposit', text='Deposit')
-        tree.column('deposit', width=100, anchor='center')
-        tree.heading('balance', text='Balance')
-        tree.column('balance', width=100, anchor='center')
-        tree.heading('transfer account', text='Transfer Account')
-        tree.column('transfer account', width=100, anchor='center')
+        if self.txns_widget:
+            self.txns_widget.destroy()
+
+        self.txns_widget = ttk.Treeview(master=master, columns=columns, show='headings')
+        self.txns_widget.heading('type', text='Type')
+        self.txns_widget.column('type', width=50, anchor='center')
+        self.txns_widget.heading('date', text='Date')
+        self.txns_widget.column('date', width=100, anchor='center')
+        self.txns_widget.heading('payee', text='Payee')
+        self.txns_widget.column('payee', width=100, anchor='center')
+        self.txns_widget.heading('description', text='Description')
+        self.txns_widget.column('description', width=100, anchor='center')
+        self.txns_widget.heading('status', text='Status')
+        self.txns_widget.column('status', width=100, anchor='center')
+        self.txns_widget.heading('withdrawal', text='Withdrawal')
+        self.txns_widget.column('withdrawal', width=100, anchor='center')
+        self.txns_widget.heading('deposit', text='Deposit')
+        self.txns_widget.column('deposit', width=100, anchor='center')
+        self.txns_widget.heading('balance', text='Balance')
+        self.txns_widget.column('balance', width=100, anchor='center')
+        self.txns_widget.heading('transfer account', text='Transfer Account')
+        self.txns_widget.column('transfer account', width=100, anchor='center')
 
         for txn in self._get_txns():
-            tds = bb.get_display_strings_for_ledger(self.account, txn)
+            tds = bb.get_display_strings_for_ledger(account, txn)
             values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            tree.insert('', tk.END, values=values)
+            self.txns_widget.insert('', tk.END, values=values)
 
-        return tree
+        self.txns_widget.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.account_select_combo = ttk.Combobox(master=self.frame)
+        selected = -1
+        account_values = []
+        for index, account in enumerate(self._accounts):
+            account_values.append(str(account))
+            if account == self._account:
+                selected = index
+        self.account_select_combo['values'] = account_values
+        self.account_select_combo.current(selected)
+        self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
+        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        self._show_txns(master=self.frame, account=self._account)
+        return self.frame
+
+    def _update_account(self, event):
+        current_account_index = self.account_select_combo.current()
+        self._account = self._accounts[current_account_index]
+        self._show_txns(master=self.frame, account=self._account)
 
 
 class BudgetDisplay:
