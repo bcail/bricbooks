@@ -23,30 +23,42 @@ class AccountForm:
         for col, label in [(0, 'Type'), (1, 'Number'), (2, 'Name'), (3, 'Parent')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         self.account_type_combo = ttk.Combobox(master=self.form)
-        account_type_values = []
+        selected = 0
         for index, type_ in enumerate(bb.AccountType):
-            account_type_values.append(type_.name)
-            #account_type.addItem(type_.name, type_)
-            #if self._account and self._account.type == type_:
-            #    account_type.setCurrentIndex(index)
+            if self._account and self._account.type == type_:
+                selected = index
         self.account_type_combo['values'] = list(self._account_types.keys())
+        self.account_type_combo.current(selected)
         self.account_type_combo.grid(row=1, column=0)
         self.number_entry = ttk.Entry(master=self.form)
         self.name_entry = ttk.Entry(master=self.form)
+        self.parent_combo = ttk.Combobox(master=self.form)
+        account_values = ['------']
+        selected = 0
+        for index, account in enumerate(self._accounts):
+            account_values.append(account.name)
+            if self._account and self._account.parent == account:
+                selected = index + 1
+        self.parent_combo['values'] = account_values
+        self.parent_combo.current(selected)
         if self._account:
             self.number_entry.insert(0, self._account.number or '')
             self.name_entry.insert(0, self._account.name)
         self.number_entry.grid(row=1, column=1)
         self.name_entry.grid(row=1, column=2)
+        self.parent_combo.grid(row=1, column=3)
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
         return self.form
 
     def _handle_save(self):
+        id_ = None
+        if self._account:
+            id_ = self._account.id
         type_ = self._account_types[self.account_type_combo.get()]
         number = self.number_entry.get()
         name = self.name_entry.get()
-        account = self._save_account(type_=type_, number=number, name=name)
+        account = self._save_account(id_=id_, type_=type_, number=number, name=name)
         self.form.destroy()
         self._update_display()
 
@@ -80,7 +92,7 @@ class AccountsDisplay:
             values = (account.type.name, account.number or '', account.name, parent)
             self.tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
-        self.tree.bind('<<TreeviewSelect>>', self._item_selected)
+        self.tree.bind('<Button-1>', self._item_selected)
         self.tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
@@ -97,17 +109,17 @@ class AccountsDisplay:
 
     def _open_new_account_form(self):
         accounts = self._engine.get_accounts()
-        self.add_account_display = AccountForm(accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
-        widget = self.add_account_display.get_widget()
+        self.add_account_form = AccountForm(accounts, save_account=self._engine.save_account, update_display=self._show_accounts)
+        widget = self.add_account_form.get_widget()
         widget.grid()
 
     def _item_selected(self, event):
         accounts = self._engine.get_accounts()
-        account_id = self.tree.focus()
+        account_id = int(self.tree.identify_row(event.y))
         account = self._engine.get_account(id_=account_id)
-        self.add_account_display = AccountForm(accounts, save_account=self._engine.save_account,
+        self.edit_account_form = AccountForm(accounts, save_account=self._engine.save_account,
                 update_display=self._show_accounts, account=account)
-        widget = self.add_account_display.get_widget()
+        widget = self.edit_account_form.get_widget()
         widget.grid()
 
 
