@@ -296,7 +296,9 @@ class LedgerDisplay:
         # return self.engine.get_transactions(accounts=accounts, status=self._status.strip(), query=self._filter_text.strip())
         return self._engine.get_transactions(accounts=accounts)
 
-    def _show_transactions(self, master, account):
+    def _show_transactions(self):
+        master = self.frame
+        account = self._account
         columns = ('type', 'date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
 
         if self.txns_widget:
@@ -350,13 +352,13 @@ class LedgerDisplay:
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
 
-        self._show_transactions(master=self.frame, account=self._account)
+        self._show_transactions()
         return self.frame
 
     def _update_account(self, event):
         current_account_index = self.account_select_combo.current()
         self._account = self._accounts[current_account_index]
-        self._show_transactions(master=self.frame, account=self._account)
+        self._show_transactions()
 
     def _open_new_transaction_form(self):
         accounts = self._engine.get_accounts()
