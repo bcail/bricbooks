@@ -64,8 +64,7 @@ class AccountForm:
             parent = self._accounts[parent_index-1]
             if self._account != parent:
                 parent_id = parent.id
-        account = self._save_account(id_=id_, type_=type_, number=number, name=name,
-                parent_id=parent_id)
+        self._save_account(id_=id_, type_=type_, number=number, name=name, parent_id=parent_id)
         self.form.destroy()
         self._update_display()
 
@@ -130,6 +129,154 @@ class AccountsDisplay:
         widget.grid()
 
 
+class TransferAccountsDisplay:
+
+    def __init__(self, master, accounts=None, main_account=None, transaction=None):
+        self._master = master
+        self._accounts = accounts
+        self._main_account = main_account
+        self._transaction = transaction
+        self._widget = ttk.Frame(master=self._master)
+        self.transfer_accounts_combo = ttk.Combobox(master=self._widget)
+        self._transfer_accounts_display_list = ['----------']
+        self._transfer_accounts_list = [None]
+        # current_index = 0
+        # index = 0
+        for account in self._accounts:
+            if account != self._main_account:
+                #find correct account in the list if txn has just two splits
+                # if txn and len(txn.splits.keys()) == 2:
+                #     if account in txn.splits:
+                #         current_index = index + 1
+                self._transfer_accounts_display_list.append(str(account))
+                self._transfer_accounts_list.append(account)
+                # index += 1
+        self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
+        self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
+        # self._multiple_entry_index = index + 1
+        # current_categories = []
+        # if txn and len(txn.splits.keys()) > 2:
+        #     current_categories = txn.splits
+        #     current_index = self._multiple_entry_index
+        # self._categories_combo.addItem('multiple', current_categories)
+        # self._categories_combo.setCurrentIndex(current_index)
+        # layout.addWidget(self._categories_combo, 0, 0)
+        # self.split_button = QtWidgets.QPushButton('Split')
+        # txn_id = None
+        # if txn:
+        #     txn_id = txn.id
+        # self.split_button.clicked.connect(self._split_transactions)
+        # layout.addWidget(self.split_button)
+        # self._widget = QtWidgets.QWidget()
+        # self._widget.setLayout(layout)
+
+    def _split_transactions(self):
+        initial_txn_splits = {}
+        if self._txn:
+            initial_txn_splits = self._txn.splits
+        new_txn_splits = get_new_txn_splits(self._accounts, initial_txn_splits)
+        if new_txn_splits and new_txn_splits != initial_txn_splits:
+            self._categories_combo.setCurrentIndex(self._multiple_entry_index)
+            self._categories_combo.setItemData(self._multiple_entry_index, new_txn_splits)
+
+    def get_transfer_accounts(self):
+        transfer_account_index = self.transfer_accounts_combo.current()
+        splits = self._transfer_accounts_list[transfer_account_index]
+        #remove main account split (if present), because that comes from withdrawal/deposit fields
+        if isinstance(splits, dict):
+            splits.pop(self._main_account, None)
+        return splits
+
+    def get_widget(self):
+        return self._widget
+
+
+class TransactionForm:
+
+    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None):
+        self._accounts = accounts
+        self._account = account
+        self._payees = payees
+        self._save_transaction = save_transaction
+        self._update_display = update_display
+        self._transaction = transaction
+
+    def get_widget(self):
+        self.form = tk.Toplevel()
+        self.form.columnconfigure(0, weight=1)
+        self.form.columnconfigure(1, weight=1)
+        self.form.columnconfigure(2, weight=2)
+        self.form.columnconfigure(3, weight=3)
+        self.form.columnconfigure(4, weight=1)
+        self.form.columnconfigure(5, weight=1)
+        self.form.columnconfigure(6, weight=1)
+        self.form.columnconfigure(7, weight=2)
+        self.form.columnconfigure(8, weight=1)
+        for col, label in [(0, 'Type'), (1, 'Date'), (2, 'Payee'), (3, 'Description'), (4, 'Status')]:
+            ttk.Label(master=self.form, text=label).grid(row=0, column=col)
+        for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
+            ttk.Label(master=self.form, text=label).grid(row=2, column=col)
+        tds = {}
+        if self._transaction:
+            tds = get_display_strings_for_ledger(self_account, self._transaction)
+        self.type_entry = ttk.Entry(master=self.form)
+        self.date_entry = ttk.Entry(master=self.form)
+        self.payee_combo = ttk.Combobox(master=self.form)
+        payee_values = ['']
+        payee_index = 0
+        for index, payee in enumerate(self._payees):
+            payee_values.append(payee.name)
+            if self._transaction and payee.name == tds['payee']:
+                payee_index = index + 1 #because of first empty item
+        if self._transaction:
+            payee_combo.current(payee_index)
+        self.payee_combo['values'] = payee_values
+        self.description_entry = ttk.Entry(master=self.form)
+        self.status_combo = ttk.Combobox(master=self.form)
+        status_values = ['', bb.Transaction.CLEARED, bb.Transaction.RECONCILED]
+        self.status_combo['values'] = status_values
+        self.withdrawal_entry = ttk.Entry(master=self.form)
+        self.deposit_entry = ttk.Entry(master=self.form)
+        self.transfer_accounts_display = TransferAccountsDisplay(
+                master=self.form,
+                accounts=self._accounts,
+                main_account=self._account,
+                transaction=self._transaction
+            )
+        self.transfer_accounts_widget = self.transfer_accounts_display.get_widget()
+        self.type_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
+        self.date_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
+        self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
+        self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
+        self.withdrawal_entry.grid(row=3, column=0, sticky=(tk.N, tk.S))
+        self.deposit_entry.grid(row=3, column=1, sticky=(tk.N, tk.S))
+        self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
+        self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
+        self.save_button.grid(row=3, column=4, sticky=(tk.N, tk.S))
+        return self.form
+
+    def _handle_save(self):
+        id_ = None
+        if self._transaction:
+            id_ = self._transaction.id
+        kwargs = {
+            'account': self._account,
+            'txn_type': self.type_entry.get(),
+            'deposit': self.deposit_entry.get(),
+            'withdrawal': self.withdrawal_entry.get(),
+            'txn_date': self.date_entry.get(),
+            'payee': self.payee_combo.get(),
+            'description': self.description_entry.get(),
+            'status': self.status_combo.get(),
+            'categories': self.transfer_accounts_display.get_transfer_accounts(),
+        }
+        transaction = bb.Transaction.from_user_info(**kwargs)
+        self._save_transaction(transaction)
+        self.form.destroy()
+        self._update_display()
+
+
 class LedgerDisplay:
 
     def __init__(self, master, accounts, current_account, show_ledger, engine):
@@ -139,7 +286,7 @@ class LedgerDisplay:
         self.show_ledger = show_ledger
         self._accounts = accounts
         self._account = current_account
-        self.engine = engine
+        self._engine = engine
         self.txns_widget = None
 
     def _get_txns(self):
@@ -147,9 +294,9 @@ class LedgerDisplay:
         # if self._filter_account_id:
         #     accounts.append(self.engine.get_account(id_=self._filter_account_id))
         # return self.engine.get_transactions(accounts=accounts, status=self._status.strip(), query=self._filter_text.strip())
-        return self.engine.get_transactions(accounts=accounts)
+        return self._engine.get_transactions(accounts=accounts)
 
-    def _show_txns(self, master, account):
+    def _show_transactions(self, master, account):
         columns = ('type', 'date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
 
         if self.txns_widget:
@@ -199,13 +346,24 @@ class LedgerDisplay:
         self.account_select_combo.current(selected)
         self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
         self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
-        self._show_txns(master=self.frame, account=self._account)
+
+        self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
+        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+
+        self._show_transactions(master=self.frame, account=self._account)
         return self.frame
 
     def _update_account(self, event):
         current_account_index = self.account_select_combo.current()
         self._account = self._accounts[current_account_index]
-        self._show_txns(master=self.frame, account=self._account)
+        self._show_transactions(master=self.frame, account=self._account)
+
+    def _open_new_transaction_form(self):
+        accounts = self._engine.get_accounts()
+        payees = self._engine.get_payees()
+        self.add_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
+        widget = self.add_transaction_form.get_widget()
+        widget.grid()
 
 
 class BudgetDisplay:
