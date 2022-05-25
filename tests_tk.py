@@ -134,6 +134,29 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
 
+    def test_ledger_update_transaction(self):
+        gui = bb_tk.GUI_TK(':memory:')
+        checking = get_test_account()
+        food = get_test_account(name='Food')
+        restaurants = get_test_account(name='Restaurants')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=food)
+        gui._engine.save_account(account=restaurants)
+        txn = bb_tk.bb.Transaction(splits={checking: {'amount': -5}, food: {'amount': 5}}, txn_date=date(2017, 1, 3))
+        txn2 = bb_tk.bb.Transaction(splits={checking: {'amount': -17}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2))
+        gui._engine.save_transaction(txn)
+        gui._engine.save_transaction(txn2)
+        gui.ledger_button.invoke()
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
+
+        #verify that data is loaded into form
+        self.assertEqual(gui.ledger_display.edit_transaction_form.withdrawal_entry.get(), '17.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
+
+        #update values & save
+
+        #verify transaction updates saved
+
 if __name__ == '__main__':
     import sys
     print(f'TkVersion: {tkinter.TkVersion}; TclVersion: {tkinter.TclVersion}')

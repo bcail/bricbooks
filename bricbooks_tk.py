@@ -179,20 +179,22 @@ class TransferAccountsDisplay:
         self.transfer_accounts_combo = ttk.Combobox(master=self._widget)
         self._transfer_accounts_display_list = ['----------']
         self._transfer_accounts_list = [None]
-        # current_index = 0
-        # index = 0
+        current_index = 0
+        index = 0
         for account in self._accounts:
             if account != self._main_account:
                 #find correct account in the list if txn has just two splits
-                # if txn and len(txn.splits.keys()) == 2:
-                #     if account in txn.splits:
-                #         current_index = index + 1
+                if self._transaction and len(self._transaction.splits.keys()) == 2:
+                    if account in self._transaction.splits:
+                         current_index = index + 1
                 self._transfer_accounts_display_list.append(str(account))
                 self._transfer_accounts_list.append(account)
-                # index += 1
+                index += 1
         self._transfer_accounts_display_list.append('multiple')
         self._transfer_accounts_list.append({})
         self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
+        if self._transaction:
+            self.transfer_accounts_combo.current(current_index)
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         # self._multiple_entry_index = index + 1
         # current_categories = []
@@ -265,7 +267,7 @@ class TransactionForm:
             ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         tds = {}
         if self._transaction:
-            tds = get_display_strings_for_ledger(self_account, self._transaction)
+            tds = bb.get_display_strings_for_ledger(self._account, self._transaction)
         self.type_entry = ttk.Entry(master=self.form)
         self.date_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
@@ -275,15 +277,18 @@ class TransactionForm:
             payee_values.append(payee.name)
             if self._transaction and payee.name == tds['payee']:
                 payee_index = index + 1 #because of first empty item
-        if self._transaction:
-            payee_combo.current(payee_index)
         self.payee_combo['values'] = payee_values
+        if self._transaction:
+            self.payee_combo.current(payee_index)
         self.description_entry = ttk.Entry(master=self.form)
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', bb.Transaction.CLEARED, bb.Transaction.RECONCILED]
         self.status_combo['values'] = status_values
         self.withdrawal_entry = ttk.Entry(master=self.form)
         self.deposit_entry = ttk.Entry(master=self.form)
+        if self._transaction:
+            self.withdrawal_entry.insert(0, tds['withdrawal'])
+            self.deposit_entry.insert(0, tds['deposit'])
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.form,
                 accounts=self._accounts,
@@ -375,8 +380,9 @@ class LedgerDisplay:
             tds = bb.get_display_strings_for_ledger(account, txn)
             values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            self.txns_widget.insert('', tk.END, values=values)
+            self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
 
+        self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
@@ -412,6 +418,15 @@ class LedgerDisplay:
         payees = self._engine.get_payees()
         self.add_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
         widget = self.add_transaction_form.get_widget()
+        widget.grid()
+
+    def _item_selected(self, event):
+        txn_id = int(self.txns_widget.identify_row(event.y))
+        transaction = self._engine.get_transaction(id_=txn_id)
+        accounts = self._engine.get_accounts()
+        payees = self._engine.get_payees()
+        self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions, transaction=transaction)
+        widget = self.edit_transaction_form.get_widget()
         widget.grid()
 
 
