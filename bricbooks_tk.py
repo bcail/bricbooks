@@ -129,6 +129,45 @@ class AccountsDisplay:
         widget.grid()
 
 
+class SplitTransactionEditor:
+
+    def __init__(self, all_accounts, initial_txn_splits, save_splits):
+        self._all_accounts = all_accounts
+        self._initial_txn_splits = initial_txn_splits
+        self._save_splits = save_splits
+        self._final_txn_splits = {}
+        self._entries = {}
+        self._show_split_editor()
+
+    def _get_txn_splits(self):
+        for entry, account in self._entries.values():
+            text = entry.get()
+            if text:
+                self._final_txn_splits[account] = {'amount': text}
+        self._save_splits(self._final_txn_splits)
+        self.form.destroy()
+
+    def _show_split_editor(self):
+        self.form = tk.Toplevel()
+        row = 0
+        for account in self._all_accounts:
+            ttk.Label(master=self.form, text=str(account)).grid(row=row, column=0)
+            amount_entry = ttk.Entry(master=self.form)
+            amount_entry.grid(row=row, column=1)
+            #for acc, split_info in self._initial_txn_splits.items():
+            #    amt = split_info['amount']
+            #    if acc == account:
+            #        amount_entry.setText(amount_display(amt))
+            self._entries[account.id] = (amount_entry, account)
+            #layout.addWidget(amount_entry, row, 1)
+            row += 1
+        self.ok_button = ttk.Button(master=self.form, text='Done', command=self._get_txn_splits)
+        self.ok_button.grid(row=row, column=0)
+        self.cancel_button = ttk.Button(master=self.form, text='Cancel', command=self.form.destroy)
+        self.cancel_button.grid(row=row, column=1)
+        self.form.grid()
+
+
 class TransferAccountsDisplay:
 
     def __init__(self, master, accounts=None, main_account=None, transaction=None):
@@ -151,6 +190,8 @@ class TransferAccountsDisplay:
                 self._transfer_accounts_display_list.append(str(account))
                 self._transfer_accounts_list.append(account)
                 # index += 1
+        self._transfer_accounts_display_list.append('multiple')
+        self._transfer_accounts_list.append({})
         self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         # self._multiple_entry_index = index + 1
@@ -161,7 +202,8 @@ class TransferAccountsDisplay:
         # self._categories_combo.addItem('multiple', current_categories)
         # self._categories_combo.setCurrentIndex(current_index)
         # layout.addWidget(self._categories_combo, 0, 0)
-        # self.split_button = QtWidgets.QPushButton('Split')
+        self.split_button = ttk.Button(master=self._widget, text='Split', command=self._show_splits_editor)
+        self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))
         # txn_id = None
         # if txn:
         #     txn_id = txn.id
@@ -170,18 +212,23 @@ class TransferAccountsDisplay:
         # self._widget = QtWidgets.QWidget()
         # self._widget.setLayout(layout)
 
-    def _split_transactions(self):
+    def _show_splits_editor(self):
         initial_txn_splits = {}
-        if self._txn:
-            initial_txn_splits = self._txn.splits
-        new_txn_splits = get_new_txn_splits(self._accounts, initial_txn_splits)
-        if new_txn_splits and new_txn_splits != initial_txn_splits:
-            self._categories_combo.setCurrentIndex(self._multiple_entry_index)
-            self._categories_combo.setItemData(self._multiple_entry_index, new_txn_splits)
+        # if self._txn:
+        #     initial_txn_splits = self._txn.splits
+        self.splits_editor = SplitTransactionEditor(self._accounts, initial_txn_splits, save_splits=self._save_splits)
+
+    def _save_splits(self, txn_splits):
+        if txn_splits:
+            self.transfer_accounts_combo.current(len(self._transfer_accounts_display_list)-1)
+            self._multiple_splits = txn_splits
 
     def get_transfer_accounts(self):
         transfer_account_index = self.transfer_accounts_combo.current()
-        splits = self._transfer_accounts_list[transfer_account_index]
+        if transfer_account_index == (len(self._transfer_accounts_display_list) - 1):
+            splits = self._multiple_splits
+        else:
+            splits = self._transfer_accounts_list[transfer_account_index]
         #remove main account split (if present), because that comes from withdrawal/deposit fields
         if isinstance(splits, dict):
             splits.pop(self._main_account, None)
