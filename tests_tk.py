@@ -154,8 +154,16 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
 
         #update values & save
+        gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '21')
+        gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
+        txns = gui._engine.get_transactions(accounts=[checking])
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
+        self.assertEqual(txns[1].txn_date, date(2017, 5, 2))
+        self.assertEqual(txns[1].splits[checking]['amount'], -21)
 
 if __name__ == '__main__':
     import sys

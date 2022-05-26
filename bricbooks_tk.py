@@ -279,6 +279,8 @@ class TransactionForm:
                 payee_index = index + 1 #because of first empty item
         self.payee_combo['values'] = payee_values
         if self._transaction:
+            self.type_entry.insert(0, tds['txn_type'])
+            self.date_entry.insert(0, tds['txn_date'])
             self.payee_combo.current(payee_index)
         self.description_entry = ttk.Entry(master=self.form)
         self.status_combo = ttk.Combobox(master=self.form)
@@ -313,6 +315,7 @@ class TransactionForm:
         if self._transaction:
             id_ = self._transaction.id
         kwargs = {
+            'id_': id_,
             'account': self._account,
             'txn_type': self.type_entry.get(),
             'deposit': self.deposit_entry.get(),
