@@ -142,8 +142,10 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
+        payee = bb_tk.bb.Payee('some payee')
+        gui._engine.save_payee(payee)
         txn = bb_tk.bb.Transaction(splits={checking: {'amount': -5}, food: {'amount': 5}}, txn_date=date(2017, 1, 3))
-        txn2 = bb_tk.bb.Transaction(splits={checking: {'amount': -17}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2))
+        txn2 = bb_tk.bb.Transaction(splits={checking: {'amount': -17, 'status': bb_tk.bb.Transaction.CLEARED}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2), payee=payee, description='description')
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
@@ -164,6 +166,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
         self.assertEqual(txns[1].txn_date, date(2017, 5, 2))
         self.assertEqual(txns[1].splits[checking]['amount'], -21)
+        self.assertEqual(txns[1].splits[checking]['status'], bb_tk.bb.Transaction.CLEARED)
+        self.assertEqual(txns[1].payee.name, 'some payee')
+        self.assertEqual(txns[1].description, 'description')
 
 if __name__ == '__main__':
     import sys

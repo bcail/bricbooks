@@ -278,17 +278,24 @@ class TransactionForm:
             if self._transaction and payee.name == tds['payee']:
                 payee_index = index + 1 #because of first empty item
         self.payee_combo['values'] = payee_values
+        self.description_entry = ttk.Entry(master=self.form)
         if self._transaction:
             self.type_entry.insert(0, tds['txn_type'])
             self.date_entry.insert(0, tds['txn_date'])
             self.payee_combo.current(payee_index)
-        self.description_entry = ttk.Entry(master=self.form)
+            self.description_entry.insert(0, tds['description'])
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', bb.Transaction.CLEARED, bb.Transaction.RECONCILED]
         self.status_combo['values'] = status_values
         self.withdrawal_entry = ttk.Entry(master=self.form)
         self.deposit_entry = ttk.Entry(master=self.form)
         if self._transaction:
+            for index, status in enumerate(status_values):
+                try:
+                    if self._transaction.splits[self._account].get('status') == status:
+                        self.status_combo.current(index)
+                except AttributeError: #ScheduledTxn doesn't have a status
+                    pass
             self.withdrawal_entry.insert(0, tds['withdrawal'])
             self.deposit_entry.insert(0, tds['deposit'])
         self.transfer_accounts_display = TransferAccountsDisplay(
