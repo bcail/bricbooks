@@ -2,6 +2,7 @@ from datetime import date
 import os
 import tkinter as tk
 from tkinter import ttk
+import sys
 
 import bricbooks as bb
 
@@ -524,8 +525,6 @@ class ScheduledTransactionsDisplay:
 class GUI_TK:
 
     def __init__(self, file_name):
-        self._engine = bb.Engine(file_name)
-
         self.root = tk.Tk()
         self.root.title(bb.TITLE)
 
@@ -541,6 +540,23 @@ class GUI_TK:
         self.content_frame.columnconfigure(0, weight=1)
         self.content_frame.rowconfigure(1, weight=1)
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+        if file_name:
+            self._load_db(file_name)
+        else:
+            self._show_splash()
+
+    def _show_splash(self):
+        raise Exception('file selector not implemented yet')
+
+    def _load_db(self, file_name):
+        try:
+            self._engine = bb.Engine(file_name)
+        except bb.InvalidStorageFile as e:
+            if 'file is not a database' in str(e):
+                print(msg='File %s is not a database' % file_name)
+                sys.exit(1)
+            raise
 
         self._action_buttons_frame = self._init_action_buttons_frame(self.content_frame)
         self._action_buttons_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
