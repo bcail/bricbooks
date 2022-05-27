@@ -153,13 +153,12 @@ class SplitTransactionEditor:
         for account in self._all_accounts:
             ttk.Label(master=self.form, text=str(account)).grid(row=row, column=0)
             amount_entry = ttk.Entry(master=self.form)
-            amount_entry.grid(row=row, column=1)
-            #for acc, split_info in self._initial_txn_splits.items():
-            #    amt = split_info['amount']
-            #    if acc == account:
-            #        amount_entry.setText(amount_display(amt))
+            for acc, split_info in self._initial_txn_splits.items():
+                amt = split_info['amount']
+                if acc == account:
+                    amount_entry.insert(0, bb.amount_display(amt))
             self._entries[account.id] = (amount_entry, account)
-            #layout.addWidget(amount_entry, row, 1)
+            amount_entry.grid(row=row, column=1)
             row += 1
         self.ok_button = ttk.Button(master=self.form, text='Done', command=self._get_txn_splits)
         self.ok_button.grid(row=row, column=0)
@@ -194,6 +193,8 @@ class TransferAccountsDisplay:
         self._transfer_accounts_list.append({})
         self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
         if self._transaction:
+            if len(self._transaction.splits.keys()) > 2:
+                current_index = len(self._transfer_accounts_display_list) - 1
             self.transfer_accounts_combo.current(current_index)
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         # self._multiple_entry_index = index + 1
@@ -216,8 +217,8 @@ class TransferAccountsDisplay:
 
     def _show_splits_editor(self):
         initial_txn_splits = {}
-        # if self._txn:
-        #     initial_txn_splits = self._txn.splits
+        if self._transaction:
+            initial_txn_splits = self._transaction.splits
         self.splits_editor = SplitTransactionEditor(self._accounts, initial_txn_splits, save_splits=self._save_splits)
 
     def _save_splits(self, txn_splits):
