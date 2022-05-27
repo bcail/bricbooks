@@ -1,4 +1,5 @@
 from datetime import date
+from functools import partial
 import os
 import tkinter as tk
 from tkinter import ttk
@@ -547,7 +548,16 @@ class GUI_TK:
             self._show_splash()
 
     def _show_splash(self):
-        raise Exception('file selector not implemented yet')
+        content = ttk.Frame(master=self.content_frame)
+        content.grid()
+        files = bb.get_files(bb.CUR_DIR)
+        for index, f in enumerate(files):
+            button = ttk.Button(master=content, text=f.name, command=partial(self._handle_splash_selection, file_name=str(f), splash_screen=content))
+            button.grid(row=index, column=0)
+
+    def _handle_splash_selection(self, file_name, splash_screen):
+        splash_screen.destroy()
+        self._load_db(file_name)
 
     def _load_db(self, file_name):
         try:
