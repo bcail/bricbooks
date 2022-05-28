@@ -550,10 +550,27 @@ class GUI_TK:
     def _show_splash(self):
         content = ttk.Frame(master=self.content_frame)
         content.grid()
+        new_button = ttk.Button(master=content, text='New...', command=partial(self._new_file, splash_screen=content))
+        new_button.grid(row=0, column=0)
+        open_button = ttk.Button(master=content, text='Open...', command=partial(self._open_file, splash_screen=content))
+        open_button.grid(row=1, column=0)
         files = bb.get_files(bb.CUR_DIR)
-        for index, f in enumerate(files):
+        for index, f in enumerate(files, start=2):
             button = ttk.Button(master=content, text=f.name, command=partial(self._handle_splash_selection, file_name=str(f), splash_screen=content))
             button.grid(row=index, column=0)
+
+    def _new_file(self, splash_screen):
+        from tkinter import filedialog as fd
+        d = fd.FileDialog(master=splash_screen)
+        file_name = d.go()
+        if file_name:
+            self._handle_splash_selection(file_name=file_name, splash_screen=splash_screen)
+
+    def _open_file(self, splash_screen):
+        from tkinter import filedialog as fd
+        file_names = fd.askopenfilenames()
+        if file_names:
+            self._handle_splash_selection(file_name=file_names[0], splash_screen=splash_screen)
 
     def _handle_splash_selection(self, file_name, splash_screen):
         splash_screen.destroy()
