@@ -33,6 +33,11 @@ LOG_FILENAME = 'bricbooks.log'
 SQLITE_VERSION = sqlite3.sqlite_version_info
 
 
+if SQLITE_VERSION < (3, 37, 0):
+    print(f'SQLite version {SQLITE_VERSION} is too old: need at least 3.37.0')
+    sys.exit(1)
+
+
 def log(msg):
     log_filepath = CUR_DIR / LOG_FILENAME
     with open(log_filepath, 'ab') as f:
@@ -963,8 +968,6 @@ class SQLiteStorage:
         '''
         cur = self._db_connection.cursor()
         for statement in self.DB_INIT_STATEMENTS:
-            if SQLITE_VERSION < (3, 37, 0) and statement.startswith('CREATE TABLE'):
-                statement = statement.replace(' STRICT', '')
             cur.execute(statement)
         self._db_connection.commit()
 

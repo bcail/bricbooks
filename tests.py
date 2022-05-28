@@ -782,10 +782,6 @@ class TestSQLiteStorage(unittest.TestCase):
         account_records = storage._db_connection.execute('SELECT * FROM accounts').fetchall()
         self.assertEqual(account_records, [])
 
-    @unittest.skipIf(bb.SQLITE_VERSION < (3, 37, 0), 'sqlite is too old')
-    def test_save_account_invalid_name_type(self):
-        self.assertEqual(1, 1)
-
     def test_save_account_parent_not_in_db(self):
         storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
