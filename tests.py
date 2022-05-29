@@ -680,7 +680,7 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         misc_table_records = storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
-        self.assertEqual(misc_table_records, [('schema_version', 0)])
+        self.assertEqual(misc_table_records, [('schema_version', 1)])
         commodities_table_records = storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
         self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
 

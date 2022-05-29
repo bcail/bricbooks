@@ -940,7 +940,7 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
         'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
-        'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', 0),
+        'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', 1),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
     ]
