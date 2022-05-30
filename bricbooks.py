@@ -33,15 +33,17 @@ LOG_FILENAME = 'bricbooks.log'
 SQLITE_VERSION = sqlite3.sqlite_version_info
 
 
-if SQLITE_VERSION < (3, 37, 0):
-    print(f'SQLite version {SQLITE_VERSION} is too old: need at least 3.37.0')
-    sys.exit(1)
-
-
 def log(msg):
     log_filepath = CUR_DIR / LOG_FILENAME
     with open(log_filepath, 'ab') as f:
         f.write(msg.encode('utf8'))
+
+
+if SQLITE_VERSION < (3, 37, 0):
+    msg = f'SQLite version {SQLITE_VERSION} is too old: need at least 3.37.0'
+    log(msg)
+    print(msg)
+    sys.exit(1)
 
 
 class CommodityType(Enum):
@@ -816,6 +818,8 @@ class Budget:
 
 class SQLiteStorage:
 
+    SCHEMA_VERSION = 1
+
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodities ('
             'id INTEGER PRIMARY KEY,'
@@ -940,27 +944,32 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
         'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
-        'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', 1),
+        'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
     ]
 
     def __init__(self, conn_name):
         if not conn_name:
-            raise SQLiteStorageError('invalid SQLite connection name: %s' % conn_name)
+            raise SQLiteStorageError(f'invalid SQLite connection name: {conn_name}')
         #conn_name is either ':memory:' or the name of the data file
-        if conn_name == ':memory:':
-            self._db_connection = sqlite3.connect(conn_name)
-        else:
-            file_path = os.path.join(CUR_DIR, conn_name)
-            self._db_connection = sqlite3.connect(file_path)
+        if not conn_name == ':memory:':
+            conn_name = os.path.join(CUR_DIR, conn_name)
+        self._db_connection = sqlite3.connect(conn_name)
         self._db_connection.execute('PRAGMA foreign_keys = ON;')
         result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
         if result[0][0] != 1:
-            print('WARNING: can\'t enable sqlite3 foreign_keys')
+            msg = 'WARNING: can\'t enable sqlite3 foreign_keys'
+            log(msg)
+            print(msg)
         tables = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         if not tables:
             self._setup_db()
+        schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
+        if schema_version != SQLiteStorage.SCHEMA_VERSION:
+            msg = f'ERROR: wrong schema version: {schema_version}'
+            log(msg)
+            print(msg)
 
     def _setup_db(self):
         '''
