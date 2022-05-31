@@ -498,7 +498,6 @@ class ScheduledTransactionForm:
         self._payees = payees
         self._scheduled_transaction = scheduled_transaction
         self._save_scheduled_txn = save_scheduled_transaction
-        #self._widgets = {}
 
     def get_widget(self):
         self._form = tk.Toplevel()
@@ -601,6 +600,8 @@ class ScheduledTransactionForm:
         #self._widgets['save_btn'] = save_button
         self.save_button.grid(row=8, column=0)
 
+        self.content.grid()
+
         return self._form
 
     def _save(self):
@@ -644,7 +645,7 @@ class ScheduledTransactionsDisplay:
         self.frame.rowconfigure(1, weight=1)
 
         self.add_button = ttk.Button(master=self.frame, text='New Scheduled Transaction', command=self._open_new_form)
-        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
 
         columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
 
@@ -671,7 +672,7 @@ class ScheduledTransactionsDisplay:
 
         self.tree.bind('<Button-1>', self._item_selected)
 
-        self.tree.grid(row=1, column=0)
+        self.tree.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W))
 
         return self.frame
 
