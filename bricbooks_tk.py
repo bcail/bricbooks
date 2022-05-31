@@ -639,9 +639,16 @@ class ScheduledTransactionsDisplay:
         self._engine = engine
 
     def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.add_button = ttk.Button(master=self.frame, text='New Scheduled Transaction', command=self._open_new_form)
+        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+
         columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
 
-        self.tree = ttk.Treeview(self._master, columns=columns, show='headings')
+        self.tree = ttk.Treeview(self.frame, columns=columns, show='headings')
         self.tree.heading('name', text='Name')
         self.tree.column('name', width=50, anchor='center')
         self.tree.heading('frequency', text='Frequency')
@@ -664,7 +671,17 @@ class ScheduledTransactionsDisplay:
 
         self.tree.bind('<Button-1>', self._item_selected)
 
-        return self.tree
+        self.tree.grid(row=1, column=0)
+
+        return self.frame
+
+    def _open_new_form(self):
+        accounts = self._engine.get_accounts()
+        payees = self._engine.get_payees()
+        self.new_form = ScheduledTransactionForm(accounts, payees=payees,
+                save_scheduled_transaction=self._engine.save_scheduled_transaction)
+        widget = self.new_form.get_widget()
+        widget.grid()
 
     def _item_selected(self, event):
         scheduled_transaction_id = int(self.tree.identify_row(event.y))

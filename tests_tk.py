@@ -216,6 +216,28 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[food]['amount'], 17)
         self.assertEqual(txns[0].splits[restaurants]['amount'], 23)
 
+    def test_scheduled_transaction_add(self):
+        gui = bb_tk.GUI_TK(':memory:')
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=savings)
+        gui._engine.save_account(account=housing)
+        gui.scheduled_transactions_button.invoke()
+        gui.scheduled_transactions_display.add_button.invoke()
+        gui.scheduled_transactions_display.new_form.name_entry.insert(0, 'test 1')
+        gui.scheduled_transactions_display.new_form.next_due_date_entry.insert(0, '2020-01-16')
+        gui.scheduled_transactions_display.new_form.withdrawal_entry.insert(0, '100')
+        gui.scheduled_transactions_display.new_form.account_combo.current(0)
+        gui.scheduled_transactions_display.new_form.transfer_accounts_display.transfer_accounts_combo.current(2)
+        gui.scheduled_transactions_display.new_form.save_button.invoke()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].name, 'test 1')
+        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -100, 'quantity': -100})
+        self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 100, 'quantity': 100})
+
     def test_scheduled_transaction_update(self):
         gui = bb_tk.GUI_TK(':memory:')
         checking = get_test_account()
