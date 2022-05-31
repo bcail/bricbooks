@@ -498,17 +498,17 @@ class ScheduledTransactionForm:
         self._payees = payees
         self._scheduled_transaction = scheduled_transaction
         self._save_scheduled_txn = save_scheduled_transaction
-        self._widgets = {}
+        #self._widgets = {}
 
     def get_widget(self):
         self._form = tk.Toplevel()
         self.content = ttk.Frame(master=self._form)
 
         ttk.Label(master=self.content, text='Name').grid(row=0, column=0)
-        name_entry = ttk.Entry(master=self.content)
+        self.name_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
-            name_entry.insert(0, self._scheduled_transaction.name)
-        name_entry.grid(row=0, column=1)
+            self.name_entry.insert(0, self._scheduled_transaction.name)
+        self.name_entry.grid(row=0, column=1)
         # self._widgets['name'] = name_entry
         #layout.addWidget(name_entry, 0, 1)
         ttk.Label(master=self.content, text='Frequency').grid(row=1, column=0)
@@ -604,33 +604,32 @@ class ScheduledTransactionForm:
         return self._form
 
     def _save(self):
-        payee = self._widgets['payee'].currentData()
-        if not payee:
-            payee = self._widgets['payee'].currentText()
-        account = self._widgets['account'].currentData()
-        deposit = self._widgets['deposit'].text()
-        withdrawal = self._widgets['withdrawal'].text()
-        categories = self._widgets['accounts_display'].get_categories()
-        splits = Transaction.splits_from_user_info(
+        payee = self.payee_combo.get()
+        account_index = self.account_combo.current()
+        account = self._accounts[account_index]
+        deposit = self.deposit_entry.get()
+        withdrawal = self.withdrawal_entry.get()
+        categories = self.transfer_accounts_display.get_transfer_accounts()
+        splits = bb.Transaction.splits_from_user_info(
                 account=account,
                 deposit=deposit,
                 withdrawal=withdrawal,
                 input_categories=categories
             )
-        if self._scheduled_txn:
-            id_ = self._scheduled_txn.id
+        if self._scheduled_transaction:
+            id_ = self._scheduled_transaction.id
         else:
             id_ = None
-        st = ScheduledTransaction(
-                name=self._widgets['name'].text(),
-                frequency=self._widgets['frequency'].currentData(),
-                next_due_date=self._widgets['next_due_date'].text(),
+        st = bb.ScheduledTransaction(
+                name=self.name_entry.get(),
+                frequency=self.frequencies[self.frequency_combo.current()],
+                next_due_date=self.next_due_date_entry.get(),
                 splits=splits,
                 payee=payee,
                 id_=id_,
             )
         self._save_scheduled_txn(scheduled_txn=st)
-        self._display.accept()
+        self._form.destroy()
 
 
 class ScheduledTransactionsDisplay:

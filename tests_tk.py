@@ -237,14 +237,19 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.scheduled_transactions_display.tree.event_generate('<Button-1>', x=1, y=10)
 
         self.assertEqual(gui.scheduled_transactions_display.edit_form.withdrawal_entry.get(), '100.00')
-        #gui.scheduled_txns_display.data_display.edit_form._widgets['withdrawal'].setText('15')
+
+        gui.scheduled_transactions_display.edit_form.name_entry.delete(0, tkinter.END)
+        gui.scheduled_transactions_display.edit_form.name_entry.insert(0, 'weekly updated')
+        gui.scheduled_transactions_display.edit_form.withdrawal_entry.delete(0, tkinter.END)
+        gui.scheduled_transactions_display.edit_form.withdrawal_entry.insert(0, '15')
         #self.assertEqual(gui.scheduled_txns_display.data_display.edit_form._widgets['accounts_display']._categories_combo.currentData(), housing)
         #QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.edit_form._widgets['save_btn'], QtCore.Qt.LeftButton)
-        #scheduled_txns = gui._engine.get_scheduled_transactions()
-        #self.assertEqual(len(scheduled_txns), 1)
-        #self.assertEqual(scheduled_txns[0].name, 'updated')
-        #self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
-        #self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15, 'quantity': 15})
+        gui.scheduled_transactions_display.edit_form.save_button.invoke()
+        scheduled_txns = gui._engine.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].name, 'weekly updated')
+        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
+        self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15, 'quantity': 15})
 
 if __name__ == '__main__':
     import sys
