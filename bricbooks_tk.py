@@ -1,4 +1,5 @@
 from datetime import date
+from fractions import Fraction
 from functools import partial
 import os
 import tkinter as tk
@@ -490,6 +491,148 @@ class BudgetDisplay:
         return tree
 
 
+class ScheduledTransactionForm:
+
+    def __init__(self, accounts, payees, save_scheduled_transaction, scheduled_transaction=None):
+        self._accounts = accounts
+        self._payees = payees
+        self._scheduled_transaction = scheduled_transaction
+        self._save_scheduled_txn = save_scheduled_transaction
+        self._widgets = {}
+
+    def get_widget(self):
+        self._form = tk.Toplevel()
+        self.content = ttk.Frame(master=self._form)
+
+        ttk.Label(master=self.content, text='Name').grid(row=0, column=0)
+        name_entry = ttk.Entry(master=self.content)
+        if self._scheduled_transaction:
+            name_entry.insert(0, self._scheduled_transaction.name)
+        name_entry.grid(row=0, column=1)
+        # self._widgets['name'] = name_entry
+        #layout.addWidget(name_entry, 0, 1)
+        ttk.Label(master=self.content, text='Frequency').grid(row=1, column=0)
+        self.frequency_combo = ttk.Combobox(master=self.content)
+        # frequency_entry = QtWidgets.QComboBox()
+        frequency_index = 0
+        self.frequency_values = []
+        self.frequencies = []
+        for index, frequency in enumerate(bb.ScheduledTransactionFrequency):
+            self.frequency_values.append(frequency.name)
+            self.frequencies.append(frequency)
+            #frequency_entry.addItem(frequency.name, frequency)
+            if self._scheduled_transaction and frequency == self._scheduled_transaction.frequency:
+                frequency_index = index
+        self.frequency_combo['values'] = self.frequency_values
+        if self._scheduled_transaction:
+            self.frequency_combo.current(frequency_index)
+        #self._widgets['frequency'] = frequency_entry
+        #layout.addWidget(frequency_entry, 1, 1)
+        self.frequency_combo.grid(row=1, column=1)
+        ttk.Label(master=self.content, text='Next Due Date').grid(row=2, column=0)
+        self.next_due_date_entry = ttk.Entry(master=self.content)
+        if self._scheduled_transaction:
+            self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
+        #self._widgets['next_due_date'] = next_due_date_entry
+        self.next_due_date_entry.grid(row=2, column=1)
+
+        ttk.Label(master=self.content, text='Payee').grid(row=3, column=0)
+        self.payee_combo = ttk.Combobox(master=self.content)
+        #payee_entry.setEditable(True)
+        #self.payee_combo.addItem('')
+        payee_values = [p.name for p in self._payees]
+        payee_values.insert(0, '')
+        payee_index = 0
+        for index, payee in enumerate(self._payees):
+            #payee_entry.addItem(payee.name, payee)
+            if self._scheduled_transaction and self._scheduled_transaction.payee and self._scheduled_transaction.payee.name == payee.name:
+                payee_index = index + 1 #because of first empty item
+        self.payee_combo['values'] = payee_values
+        if self._scheduled_transaction:
+            self.payee_combo.current(payee_index)
+        #self._widgets['payee'] = payee_entry
+        self.payee_combo.grid(row=3, column=1)
+
+        account = deposit = withdrawal = None
+        if self._scheduled_transaction:
+            account = list(self._scheduled_transaction.splits.keys())[0]
+            amount = self._scheduled_transaction.splits[account]['amount']
+            if amount > 0:
+                deposit = bb.amount_display(amount)
+            else:
+                withdrawal = bb.amount_display(amount * Fraction(-1))
+
+        ttk.Label(master=self.content, text='Account').grid(row=4, column=0)
+        self.account_combo = ttk.Combobox(master=self.content)
+        account_values = [a.name for a in self._accounts]
+        self.account_combo['values'] = account_values
+        account_index = -1
+        for index, acct in enumerate(self._accounts):
+            #account_entry.addItem(acct.name, acct)
+            if account and account == acct:
+                account_index = index
+        if account:
+            self.account_combo.current(account_index)
+        #self._widgets['account'] = account_entry
+        self.account_combo.grid(row=4, column=1)
+        ttk.Label(master=self.content, text='Withdrawal').grid(row=5, column=0)
+        self.withdrawal_entry = ttk.Entry(master=self.content)
+        if withdrawal:
+            self.withdrawal_entry.insert(0, withdrawal)
+        #self._widgets['withdrawal'] = withdrawal_entry
+        self.withdrawal_entry.grid(row=5, column=1)
+        ttk.Label(master=self.content, text='Deposit').grid(row=6, column=0)
+        self.deposit_entry = ttk.Entry(master=self.content)
+        if deposit:
+            self.deposit_entry.insert(0, deposit)
+        #self._widgets['deposit'] = deposit_entry
+        self.deposit_entry.grid(row=6, column=1)
+        ttk.Label(master=self.content, text='Categories').grid(row=7, column=0)
+        self.transfer_accounts_display = TransferAccountsDisplay(
+                master=self.content,
+                accounts=self._accounts,
+                transaction=self._scheduled_transaction,
+                main_account=account
+            )
+        #self._widgets['accounts_display'] = txn_accounts_display
+        self.transfer_accounts_display.get_widget().grid(row=7, column=1)
+        self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
+        #save_button.clicked.connect(self._save)
+        #self._widgets['save_btn'] = save_button
+        self.save_button.grid(row=8, column=0)
+
+        return self._form
+
+    def _save(self):
+        payee = self._widgets['payee'].currentData()
+        if not payee:
+            payee = self._widgets['payee'].currentText()
+        account = self._widgets['account'].currentData()
+        deposit = self._widgets['deposit'].text()
+        withdrawal = self._widgets['withdrawal'].text()
+        categories = self._widgets['accounts_display'].get_categories()
+        splits = Transaction.splits_from_user_info(
+                account=account,
+                deposit=deposit,
+                withdrawal=withdrawal,
+                input_categories=categories
+            )
+        if self._scheduled_txn:
+            id_ = self._scheduled_txn.id
+        else:
+            id_ = None
+        st = ScheduledTransaction(
+                name=self._widgets['name'].text(),
+                frequency=self._widgets['frequency'].currentData(),
+                next_due_date=self._widgets['next_due_date'].text(),
+                splits=splits,
+                payee=payee,
+                id_=id_,
+            )
+        self._save_scheduled_txn(scheduled_txn=st)
+        self._display.accept()
+
+
 class ScheduledTransactionsDisplay:
 
     def __init__(self, master, engine):
@@ -499,17 +642,17 @@ class ScheduledTransactionsDisplay:
     def get_widget(self):
         columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
 
-        tree = ttk.Treeview(self._master, columns=columns, show='headings')
-        tree.heading('name', text='Name')
-        tree.column('name', width=50, anchor='center')
-        tree.heading('frequency', text='Frequency')
-        tree.column('frequency', width=50, anchor='center')
-        tree.heading('next_due_date', text='Next Due Date')
-        tree.column('next_due_date', width=50, anchor='center')
-        tree.heading('payee', text='Payee')
-        tree.column('payee', width=50, anchor='center')
-        tree.heading('splits', text='Splits')
-        tree.column('splits', width=250, anchor='center')
+        self.tree = ttk.Treeview(self._master, columns=columns, show='headings')
+        self.tree.heading('name', text='Name')
+        self.tree.column('name', width=50, anchor='center')
+        self.tree.heading('frequency', text='Frequency')
+        self.tree.column('frequency', width=50, anchor='center')
+        self.tree.heading('next_due_date', text='Next Due Date')
+        self.tree.column('next_due_date', width=50, anchor='center')
+        self.tree.heading('payee', text='Payee')
+        self.tree.column('payee', width=50, anchor='center')
+        self.tree.heading('splits', text='Splits')
+        self.tree.column('splits', width=250, anchor='center')
 
         scheduled_txns = self._engine.get_scheduled_transactions()
         for scheduled_txn in scheduled_txns:
@@ -518,9 +661,22 @@ class ScheduledTransactionsDisplay:
             else:
                 payee = ''
             values = (scheduled_txn.name, scheduled_txn.frequency.value, str(scheduled_txn.next_due_date), payee, bb.splits_display(scheduled_txn.splits))
-            tree.insert('', tk.END, values=values)
+            self.tree.insert('', tk.END, iid=scheduled_txn.id, values=values)
 
-        return tree
+        self.tree.bind('<Button-1>', self._item_selected)
+
+        return self.tree
+
+    def _item_selected(self, event):
+        scheduled_transaction_id = int(self.tree.identify_row(event.y))
+        scheduled_transaction = self._engine.get_scheduled_transaction(id_=scheduled_transaction_id)
+        accounts = self._engine.get_accounts()
+        payees = self._engine.get_payees()
+        self.edit_form = ScheduledTransactionForm(accounts, payees=payees,
+                save_scheduled_transaction=self._engine.save_scheduled_transaction,
+                scheduled_transaction=scheduled_transaction)
+        widget = self.edit_form.get_widget()
+        widget.grid()
 
 
 class GUI_TK:
