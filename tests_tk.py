@@ -264,14 +264,25 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.scheduled_transactions_display.edit_form.name_entry.insert(0, 'weekly updated')
         gui.scheduled_transactions_display.edit_form.withdrawal_entry.delete(0, tkinter.END)
         gui.scheduled_transactions_display.edit_form.withdrawal_entry.insert(0, '15')
-        #self.assertEqual(gui.scheduled_txns_display.data_display.edit_form._widgets['accounts_display']._categories_combo.currentData(), housing)
-        #QtTest.QTest.mouseClick(gui.scheduled_txns_display.data_display.edit_form._widgets['save_btn'], QtCore.Qt.LeftButton)
         gui.scheduled_transactions_display.edit_form.save_button.invoke()
         scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'weekly updated')
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
         self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15, 'quantity': 15})
+
+    def test_new_budget(self):
+        gui = bb_tk.GUI_TK(':memory:')
+        checking = get_test_account()
+        food = get_test_account(name='Food', type_=bb_tk.bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=food)
+        gui._engine.save_account(account=housing)
+        gui.budget_button.invoke()
+        gui.budget_display.add_button.invoke()
+        gui.budget_display.budget_form.start_date_entry.insert(0, '2020-01-01')
+        gui.budget_display.budget_form.end_date_entry.insert(0, '2020-12-31')
 
 if __name__ == '__main__':
     import sys

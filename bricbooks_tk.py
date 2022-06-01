@@ -444,6 +444,37 @@ class LedgerDisplay:
         widget.grid()
 
 
+class BudgetForm:
+    '''Handle editing an existing budget or creating a new one'''
+
+    def __init__(self, budget=None, accounts=None, save_budget=None):
+        if budget and accounts:
+            raise BudgetError('pass budget or accounts, not both')
+        self._budget = budget
+        self._widgets = {'budget_data': {}}
+        self._save_budget = save_budget
+        self._accounts = accounts
+        if self._budget:
+            self._budget_data = self._budget.get_budget_data()
+        else:
+            self._budget_data = {}
+            for account in self._accounts:
+                self._budget_data[account] = {}
+
+    def get_widget(self):
+        self._form = tk.Toplevel()
+        self.content = ttk.Frame(master=self._form)
+
+        ttk.Label(master=self.content, text='Start Date').grid(row=0, column=0)
+        ttk.Label(master=self.content, text='End Date').grid(row=0, column=1)
+        self.start_date_entry = ttk.Entry(master=self.content)
+        self.start_date_entry.grid(row=1, column=0)
+        self.end_date_entry = ttk.Entry(master=self.content)
+        self.end_date_entry.grid(row=1, column=1)
+
+        return self._form
+
+
 class BudgetDisplay:
 
     def __init__(self, master, engine, current_budget):
@@ -454,41 +485,65 @@ class BudgetDisplay:
             if budgets:
                 current_budget = budgets[0]
         self._current_budget = current_budget
-        self._budget_report = self._current_budget.get_report_display(current_date=date.today())
         self._report_data = []
-        for info in self._budget_report['income']:
-            self._report_data.append(info)
-        for info in self._budget_report['expense']:
-            self._report_data.append(info)
+        if self._current_budget:
+            self._budget_report = self._current_budget.get_report_display(current_date=date.today())
+            for info in self._budget_report['income']:
+                self._report_data.append(info)
+            for info in self._budget_report['expense']:
+                self._report_data.append(info)
+        else:
+            self._budget_report = {}
 
     def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.add_button = ttk.Button(master=self.frame, text='New Budget', command=partial(self._open_form, budget=None))
+        self.add_button.grid(row=0, column=0, sticky=(tk.W,))
+
         columns = ('account', 'amount', 'income', 'carryover', 'total budget', 'spent', 'remaining', 'remaining percent', 'current status')
 
-        tree = ttk.Treeview(self._master, columns=columns, show='headings')
-        tree.heading('account', text='Account')
-        tree.column('account', width=100, anchor='center')
-        tree.heading('amount', text='Amount')
-        tree.column('amount', width=100, anchor='center')
-        tree.heading('income', text='Income')
-        tree.column('income', width=100, anchor='center')
-        tree.heading('carryover', text='Carryover')
-        tree.column('carryover', width=100, anchor='center')
-        tree.heading('total budget', text='Total Budget')
-        tree.column('total budget', width=100, anchor='center')
-        tree.heading('spent', text='Spent')
-        tree.column('spent', width=100, anchor='center')
-        tree.heading('remaining', text='Remaining')
-        tree.column('remaining', width=100, anchor='center')
-        tree.heading('remaining percent', text='Remaining Percent')
-        tree.column('remaining percent', width=100, anchor='center')
-        tree.heading('current status', text='Current Status')
-        tree.column('current status', width=100, anchor='center')
+        self.tree = ttk.Treeview(self.frame, columns=columns, show='headings')
+        self.tree.heading('account', text='Account')
+        self.tree.column('account', width=100, anchor='center')
+        self.tree.heading('amount', text='Amount')
+        self.tree.column('amount', width=100, anchor='center')
+        self.tree.heading('income', text='Income')
+        self.tree.column('income', width=100, anchor='center')
+        self.tree.heading('carryover', text='Carryover')
+        self.tree.column('carryover', width=100, anchor='center')
+        self.tree.heading('total budget', text='Total Budget')
+        self.tree.column('total budget', width=100, anchor='center')
+        self.tree.heading('spent', text='Spent')
+        self.tree.column('spent', width=100, anchor='center')
+        self.tree.heading('remaining', text='Remaining')
+        self.tree.column('remaining', width=100, anchor='center')
+        self.tree.heading('remaining percent', text='Remaining Percent')
+        self.tree.column('remaining percent', width=100, anchor='center')
+        self.tree.heading('current status', text='Current Status')
+        self.tree.column('current status', width=100, anchor='center')
 
         for row in self._report_data:
             values = row.get('name', ''), row.get('amount', ''), row.get('income', ''), row.get('carryover', ''), row.get('total_budget', ''), row.get('spent', ''), row.get('remaining', ''), row.get('remaining_percent', ''), row.get('current_status', '')
-            tree.insert('', tk.END, values=values)
+            self.tree.insert('', tk.END, values=values)
 
-        return tree
+        self.tree.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+
+        return self.frame
+
+    def _open_form(self, budget):
+        if budget:
+            self.budget_form = BudgetForm(budget=budget, save_budget=self._save_budget_and_reload)
+        else:
+            income_and_expense_accounts = self._engine.get_accounts(types=[bb.AccountType.INCOME, bb.AccountType.EXPENSE])
+            self.budget_form = BudgetForm(accounts=income_and_expense_accounts, save_budget=partial(self._save_budget_and_reload, new_budget=True))
+        widget = self.budget_form.get_widget()
+        widget.grid()
+
+    def _save_budget_and_reload(self, budget, new_budget=False):
+        pass
 
 
 class ScheduledTransactionForm:
