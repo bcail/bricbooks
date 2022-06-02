@@ -281,8 +281,14 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=housing)
         gui.budget_button.invoke()
         gui.budget_display.add_button.invoke()
-        gui.budget_display.budget_form.start_date_entry.insert(0, '2020-01-01')
-        gui.budget_display.budget_form.end_date_entry.insert(0, '2020-12-31')
+        budget_form = gui.budget_display.budget_form
+        budget_form.start_date_entry.insert(0, '2020-01-01')
+        budget_form.end_date_entry.insert(0, '2020-12-31')
+        budget_form._widgets['budget_data'][food]['amount'].insert(0, '20')
+        budget_form.save_button.invoke()
+        budget = gui._engine.get_budgets()[0]
+        self.assertEqual(budget.start_date, date(2020, 1, 1))
+        self.assertEqual(budget.get_budget_data()[food]['amount'], 20)
 
 if __name__ == '__main__':
     import sys

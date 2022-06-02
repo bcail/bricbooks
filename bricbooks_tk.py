@@ -472,7 +472,41 @@ class BudgetForm:
         self.end_date_entry = ttk.Entry(master=self.content)
         self.end_date_entry.grid(row=1, column=1)
 
+        ttk.Label(master=self.content, text='Amount').grid(row=2, column=1)
+        ttk.Label(master=self.content, text='Carryover').grid(row=2, column=2)
+        row = 3
+        for account, info in self._budget_data.items():
+            ttk.Label(master=self.content, text=str(account)).grid(row=row, column=0)
+            amount_entry = ttk.Entry(master=self.content)
+            carryover_entry = ttk.Entry(master=self.content)
+            amount_entry.insert(0, str(info.get('amount', '')))
+            carryover_entry.insert(0, str(info.get('carryover', '')))
+            self._widgets['budget_data'][account] = {
+                    'amount': amount_entry,
+                    'carryover': carryover_entry,
+                }
+            amount_entry.grid(row=row, column=1)
+            carryover_entry.grid(row=row, column=2)
+            row += 1
+        self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
+        self.save_button.grid(row=row, column=0)
+
+        self.content.grid()
+
         return self._form
+
+    def _save(self):
+        start_date = self.start_date_entry.get()
+        end_date = self.end_date_entry.get()
+        account_budget_info = {}
+        for account, widgets in self._widgets['budget_data'].items():
+            account_budget_info[account] = {'amount': widgets['amount'].get(), 'carryover': widgets['carryover'].get()}
+        if self._budget:
+            b = bb.Budget(start_date=start_date, end_date=end_date, id_=self._budget.id, account_budget_info=account_budget_info)
+        else:
+            b = bb.Budget(start_date=start_date, end_date=end_date, account_budget_info=account_budget_info)
+        self._save_budget(b)
+        self._form.destroy()
 
 
 class BudgetDisplay:
@@ -485,27 +519,49 @@ class BudgetDisplay:
             if budgets:
                 current_budget = budgets[0]
         self._current_budget = current_budget
-        self._report_data = []
-        if self._current_budget:
-            self._budget_report = self._current_budget.get_report_display(current_date=date.today())
-            for info in self._budget_report['income']:
-                self._report_data.append(info)
-            for info in self._budget_report['expense']:
-                self._report_data.append(info)
-        else:
-            self._budget_report = {}
+        self.tree = None
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
+        self.budget_select_combo = ttk.Combobox(master=self.frame)
+        current_index = 0
+        budgets = self._engine.get_budgets()
+        budget_values = []
+        for index, budget in enumerate(budgets):
+            if budget == self._current_budget:
+                current_index = index
+            budget_values.append(budget.display(show_id=False))
+        self.budget_select_combo['values'] = budget_values
+        if budgets:
+            self.budget_select_combo.current(current_index)
+        self.budget_select_combo.bind('<<ComboboxSelected>>', self._update_budget)
+        self.budget_select_combo.grid(row=0, column=0, sticky=(tk.W,))
+
         self.add_button = ttk.Button(master=self.frame, text='New Budget', command=partial(self._open_form, budget=None))
-        self.add_button.grid(row=0, column=0, sticky=(tk.W,))
+        self.add_button.grid(row=0, column=1, sticky=(tk.W,))
+
+        self._display_budget()
+
+        return self.frame
+
+    def _display_budget(self):
+        if self.tree:
+            self.tree.destroy()
 
         columns = ('account', 'amount', 'income', 'carryover', 'total budget', 'spent', 'remaining', 'remaining percent', 'current status')
 
-        self.tree = ttk.Treeview(self.frame, columns=columns, show='headings')
+        report_data = []
+        if self._current_budget:
+            budget_report = self._current_budget.get_report_display(current_date=date.today())
+            for info in budget_report['income']:
+                report_data.append(info)
+            for info in budget_report['expense']:
+                report_data.append(info)
+
+        self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
         self.tree.heading('account', text='Account')
         self.tree.column('account', width=100, anchor='center')
         self.tree.heading('amount', text='Amount')
@@ -525,13 +581,17 @@ class BudgetDisplay:
         self.tree.heading('current status', text='Current Status')
         self.tree.column('current status', width=100, anchor='center')
 
-        for row in self._report_data:
+        for row in report_data:
             values = row.get('name', ''), row.get('amount', ''), row.get('income', ''), row.get('carryover', ''), row.get('total_budget', ''), row.get('spent', ''), row.get('remaining', ''), row.get('remaining_percent', ''), row.get('current_status', '')
             self.tree.insert('', tk.END, values=values)
 
-        self.tree.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.tree.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.W, tk.E))
 
-        return self.frame
+    def _update_budget(self, event):
+        budget_index = self.budget_select_combo.current()
+        budgets = self._engine.get_budgets()
+        self._current_budget = budgets[budget_index]
+        self._display_budget()
 
     def _open_form(self, budget):
         if budget:
@@ -543,7 +603,9 @@ class BudgetDisplay:
         widget.grid()
 
     def _save_budget_and_reload(self, budget, new_budget=False):
-        pass
+        self._engine.save_budget(budget)
+        self._current_budget = self._engine.get_budget(id_=budget.id)
+        self._display_budget()
 
 
 class ScheduledTransactionForm:

@@ -34,7 +34,7 @@ SQLITE_VERSION = sqlite3.sqlite_version_info
 
 
 def log(msg):
-    log_filepath = CUR_DIR / LOG_FILENAME
+    log_filepath = os.path.join(CUR_DIR, LOG_FILENAME)
     with open(log_filepath, 'ab') as f:
         f.write(msg.encode('utf8'))
 
@@ -969,7 +969,7 @@ class SQLiteStorage:
         if schema_version != SQLiteStorage.SCHEMA_VERSION:
             msg = f'ERROR: wrong schema version: {schema_version}'
             log(msg)
-            print(msg)
+            raise SQLiteStorageError(msg)
 
     def _setup_db(self):
         '''
