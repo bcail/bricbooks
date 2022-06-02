@@ -290,6 +290,39 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(budget.start_date, date(2020, 1, 1))
         self.assertEqual(budget.get_budget_data()[food]['amount'], 20)
 
+    def test_edit_budget(self):
+        gui = bb_tk.GUI_TK(':memory:')
+        housing = get_test_account(type_=bb_tk.bb.AccountType.EXPENSE, name='Housing')
+        gui._engine.save_account(account=housing)
+        food = get_test_account(type_=bb_tk.bb.AccountType.EXPENSE, name='Food')
+        gui._engine.save_account(account=food)
+        wages = get_test_account(type_=bb_tk.bb.AccountType.INCOME, name='Wages')
+        gui._engine.save_account(account=wages)
+        b = bb_tk.bb.Budget(year=2018, account_budget_info={
+            housing: {'amount': 15, 'carryover': 0},
+            food: {'amount': 25, 'carryover': 0},
+            wages: {'amount': 100},
+        })
+        gui._engine.save_budget(b)
+
+        gui.budget_button.invoke()
+        gui.budget_display.edit_button.invoke()
+        budget_form = gui.budget_display.budget_form
+        self.assertEqual(budget_form.start_date_entry.get(), '2018-01-01')
+        self.assertEqual(budget_form.end_date_entry.get(), '2018-12-31')
+        budget_form.start_date_entry.delete(0, tkinter.END)
+        budget_form.end_date_entry.delete(0, tkinter.END)
+        budget_form.start_date_entry.insert(0, '2020-01-01')
+        budget_form.end_date_entry.insert(0, '2020-06-30')
+        budget_form._widgets['budget_data'][food]['amount'].delete(0, tkinter.END)
+        budget_form._widgets['budget_data'][food]['amount'].insert(0, '20')
+        budget_form.save_button.invoke()
+
+        budget = gui._engine.get_budgets()[0]
+        self.assertEqual(budget.start_date, date(2020, 1, 1))
+        self.assertEqual(budget.end_date, date(2020, 6, 30))
+        self.assertEqual(budget.get_budget_data()[food]['amount'], 20)
+
 if __name__ == '__main__':
     import sys
     print(f'TkVersion: {tkinter.TkVersion}; TclVersion: {tkinter.TclVersion}')

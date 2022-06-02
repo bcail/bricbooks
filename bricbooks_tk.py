@@ -468,8 +468,11 @@ class BudgetForm:
         ttk.Label(master=self.content, text='Start Date').grid(row=0, column=0)
         ttk.Label(master=self.content, text='End Date').grid(row=0, column=1)
         self.start_date_entry = ttk.Entry(master=self.content)
-        self.start_date_entry.grid(row=1, column=0)
         self.end_date_entry = ttk.Entry(master=self.content)
+        if self._budget:
+            self.start_date_entry.insert(0, str(self._budget.start_date))
+            self.end_date_entry.insert(0, str(self._budget.end_date))
+        self.start_date_entry.grid(row=1, column=0)
         self.end_date_entry.grid(row=1, column=1)
 
         ttk.Label(master=self.content, text='Amount').grid(row=2, column=1)
@@ -523,7 +526,7 @@ class BudgetDisplay:
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(2, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
         self.budget_select_combo = ttk.Combobox(master=self.frame)
@@ -561,6 +564,10 @@ class BudgetDisplay:
             for info in budget_report['expense']:
                 report_data.append(info)
 
+            self.edit_button = ttk.Button(master=self.frame, text='Edit Budget', command=partial(self._open_form, budget=self._current_budget))
+            self.edit_button.grid(row=0, column=2, sticky=(tk.W,))
+
+
         self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
         self.tree.heading('account', text='Account')
         self.tree.column('account', width=100, anchor='center')
@@ -585,7 +592,7 @@ class BudgetDisplay:
             values = row.get('name', ''), row.get('amount', ''), row.get('income', ''), row.get('carryover', ''), row.get('total_budget', ''), row.get('spent', ''), row.get('remaining', ''), row.get('remaining_percent', ''), row.get('current_status', '')
             self.tree.insert('', tk.END, values=values)
 
-        self.tree.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.tree.grid(row=1, column=0, columnspan=3, sticky=(tk.N, tk.S, tk.W, tk.E))
 
     def _update_budget(self, event):
         budget_index = self.budget_select_combo.current()
