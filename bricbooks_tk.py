@@ -246,7 +246,7 @@ class TransferAccountsDisplay:
 
 class TransactionForm:
 
-    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None):
+    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None, skip_transaction=None):
         self._accounts = accounts
         self._account = account
         self._payees = payees
@@ -396,6 +396,13 @@ class LedgerDisplay:
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
             self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
 
+        for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
+            tds = bb.get_display_strings_for_ledger(account, st)
+            values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
+                      tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+            iid = f'st{st.id}'
+            self.txns_widget.insert('', tk.END, iid=iid, values=values)
+
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
 
@@ -435,13 +442,40 @@ class LedgerDisplay:
         widget.grid()
 
     def _item_selected(self, event):
-        txn_id = int(self.txns_widget.identify_row(event.y))
-        transaction = self._engine.get_transaction(id_=txn_id)
-        accounts = self._engine.get_accounts()
-        payees = self._engine.get_payees()
-        self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions, transaction=transaction)
-        widget = self.edit_transaction_form.get_widget()
-        widget.grid()
+        txn_id = self.txns_widget.identify_row(event.y)
+        if isinstance(txn_id, str) and txn_id.startswith('st'):
+            st_id = int(txn_id.replace('st', ''))
+            scheduled_transaction = self._engine.get_scheduled_transaction(id_=st_id)
+            accounts = self._engine.get_accounts(types=[bb.AccountType.EXPENSE, bb.AccountType.INCOME, bb.AccountType.ASSET, bb.AccountType.LIABILITY, bb.AccountType.EQUITY])
+            payees = self._engine.get_payees()
+            save_txn = partial(self._enter_scheduled_transaction, scheduled_transaction=scheduled_transaction)
+            skip_txn = partial(self._skip_scheduled_transaction, scheduled_transaction_id=scheduled_transaction.id)
+            self.edit_scheduled_transaction_form = TransactionForm(
+                    accounts=accounts,
+                    payees=payees,
+                    save_transaction=save_txn,
+                    account=self._account,
+                    transaction=scheduled_transaction,
+                    update_display=self._show_transactions,
+                    skip_transaction=skip_txn,
+                )
+            widget = self.edit_scheduled_transaction_form.get_widget()
+            widget.grid()
+        else:
+            transaction = self._engine.get_transaction(id_=int(txn_id))
+            accounts = self._engine.get_accounts()
+            payees = self._engine.get_payees()
+            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions, transaction=transaction)
+            widget = self.edit_transaction_form.get_widget()
+            widget.grid()
+
+    def _enter_scheduled_transaction(self, scheduled_transaction, new_txn):
+        self._engine.save_transaction(new_txn)
+        scheduled_txn.advance_to_next_due_date()
+        self._engine.save_scheduled_transaction(scheduled_txn)
+
+    def _skip_scheduled_transaction(self, scheduled_transaction_id):
+        self._engine.skip_scheduled_transaction(scheduled_txn_id)
 
 
 class BudgetForm:
