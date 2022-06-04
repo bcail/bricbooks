@@ -323,7 +323,7 @@ class TransactionForm:
 
     def _handle_save(self):
         id_ = None
-        if self._transaction:
+        if self._transaction and not isinstance(self._transaction, bb.ScheduledTransaction):
             id_ = self._transaction.id
         kwargs = {
             'id_': id_,
@@ -338,7 +338,7 @@ class TransactionForm:
             'categories': self.transfer_accounts_display.get_transfer_accounts(),
         }
         transaction = bb.Transaction.from_user_info(**kwargs)
-        self._save_transaction(transaction)
+        self._save_transaction(transaction=transaction)
         self.form.destroy()
         self._update_display()
 
@@ -469,10 +469,10 @@ class LedgerDisplay:
             widget = self.edit_transaction_form.get_widget()
             widget.grid()
 
-    def _enter_scheduled_transaction(self, scheduled_transaction, new_txn):
-        self._engine.save_transaction(new_txn)
-        scheduled_txn.advance_to_next_due_date()
-        self._engine.save_scheduled_transaction(scheduled_txn)
+    def _enter_scheduled_transaction(self, scheduled_transaction, transaction):
+        self._engine.save_transaction(transaction=transaction)
+        scheduled_transaction.advance_to_next_due_date()
+        self._engine.save_scheduled_transaction(scheduled_transaction)
 
     def _skip_scheduled_transaction(self, scheduled_transaction_id):
         self._engine.skip_scheduled_transaction(scheduled_txn_id)

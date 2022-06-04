@@ -231,12 +231,22 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
             name='weekly',
             frequency=bb_tk.bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
-            next_due_date=date.today()
+            next_due_date=date(2020, 1, 15)
         )
         gui._engine.save_scheduled_transaction(scheduled_txn)
 
         gui.ledger_button.invoke()
-        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=20)
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
+        gui.ledger_display.edit_scheduled_transaction_form.save_button.invoke()
+
+        scheduled_txns = gui._engine.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].next_due_date, date(2020, 1, 22))
+
+        txns = gui._engine.get_transactions(accounts=[checking])
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[1].txn_date, date(2020, 1, 15))
+        self.assertEqual(txns[1].splits[checking]['amount'], -100)
 
     def test_scheduled_transaction_add(self):
         gui = bb_tk.GUI_TK(':memory:')

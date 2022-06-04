@@ -1445,8 +1445,8 @@ class Engine:
                 current_cleared=amount_display(current_cleared),
             )
 
-    def save_transaction(self, txn):
-        self._storage.save_txn(txn)
+    def save_transaction(self, transaction):
+        self._storage.save_txn(transaction)
 
     def delete_transaction(self, txn_id):
         self._storage.delete_txn(txn_id)
