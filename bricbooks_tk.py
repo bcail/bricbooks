@@ -253,6 +253,7 @@ class TransactionForm:
         self._save_transaction = save_transaction
         self._update_display = update_display
         self._transaction = transaction
+        self._skip_transaction = skip_transaction
 
     def get_widget(self):
         self.form = tk.Toplevel()
@@ -318,7 +319,10 @@ class TransactionForm:
         self.deposit_entry.grid(row=3, column=1, sticky=(tk.N, tk.S))
         self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
-        self.save_button.grid(row=3, column=4, sticky=(tk.N, tk.S))
+        self.save_button.grid(row=3, column=3, sticky=(tk.N, tk.S))
+        if self._transaction and isinstance(self._transaction, bb.ScheduledTransaction):
+            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
+            self.skip_button.grid(row=3, column=4, sticky=(tk.N, tk.S))
         return self.form
 
     def _handle_save(self):
@@ -473,9 +477,11 @@ class LedgerDisplay:
         self._engine.save_transaction(transaction=transaction)
         scheduled_transaction.advance_to_next_due_date()
         self._engine.save_scheduled_transaction(scheduled_transaction)
+        self._show_transactions()
 
     def _skip_scheduled_transaction(self, scheduled_transaction_id):
-        self._engine.skip_scheduled_transaction(scheduled_txn_id)
+        self._engine.skip_scheduled_transaction(scheduled_transaction_id)
+        self._show_transactions()
 
 
 class BudgetForm:
