@@ -358,15 +358,15 @@ class LedgerDisplay:
         self._account = current_account
         self._engine = engine
         self.txns_widget = None
+        self.filter_account_items = []
 
-    def _get_txns(self):
+    def _get_txns(self, status=None, filter_text='', filter_account=None):
         accounts = [self._account]
-        # if self._filter_account_id:
-        #     accounts.append(self.engine.get_account(id_=self._filter_account_id))
-        # return self.engine.get_transactions(accounts=accounts, status=self._status.strip(), query=self._filter_text.strip())
-        return self._engine.get_transactions(accounts=accounts)
+        if filter_account:
+            accounts.append(filter_account)
+        return self._engine.get_transactions(accounts=accounts, status=status, query=filter_text)
 
-    def _show_transactions(self):
+    def _show_transactions(self, status=None, filter_text='', filter_account=None):
         master = self.frame
         account = self._account
         columns = ('type', 'date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
@@ -394,21 +394,22 @@ class LedgerDisplay:
         self.txns_widget.heading('transfer account', text='Transfer Account')
         self.txns_widget.column('transfer account', width=100, anchor='center')
 
-        for txn in self._get_txns():
+        for txn in self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account):
             tds = bb.get_display_strings_for_ledger(account, txn)
             values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
             self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
 
-        for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
-            tds = bb.get_display_strings_for_ledger(account, st)
-            values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
-                      tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            iid = f'st{st.id}'
-            self.txns_widget.insert('', tk.END, iid=iid, values=values)
+        if not any([status, filter_text, filter_account]):
+            for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
+                tds = bb.get_display_strings_for_ledger(account, st)
+                values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+                iid = f'st{st.id}'
+                self.txns_widget.insert('', tk.END, iid=iid, values=values)
 
         self.txns_widget.bind('<Button-1>', self._item_selected)
-        self.txns_widget.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
@@ -429,6 +430,24 @@ class LedgerDisplay:
 
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+
+        self.filter_entry = ttk.Entry(master=self.frame)
+        self.filter_entry.grid(row=0, column=2)
+        self.filter_account_combo = ttk.Combobox(master=self.frame)
+        filter_account_values = ['All Transfer Accounts']
+        self.filter_account_items.append(None)
+        accounts = self._engine.get_accounts(types=[bb.AccountType.EXPENSE, bb.AccountType.INCOME, bb.AccountType.ASSET, bb.AccountType.LIABILITY, bb.AccountType.EQUITY, bb.AccountType.SECURITY])
+        for a in accounts:
+            if a != self._account:
+                filter_account_values.append(a.name)
+                self.filter_account_items.append(a)
+        self.filter_account_combo['values'] = filter_account_values
+        self.filter_account_combo.current(0)
+        self.filter_account_combo.grid(row=0, column=3)
+        self.filter_button = ttk.Button(master=self.frame, text='Filter', command=self._filter_transactions)
+        self.filter_button.grid(row=0, column=4)
+        self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
+        self.show_all_button.grid(row=0, column=5)
 
         self._show_transactions()
         return self.frame
@@ -481,6 +500,25 @@ class LedgerDisplay:
 
     def _skip_scheduled_transaction(self, scheduled_transaction_id):
         self._engine.skip_scheduled_transaction(scheduled_transaction_id)
+        self._show_transactions()
+
+    def _filter_transactions(self):
+        filter_account_index = self.filter_account_combo.current()
+        filter_account = self.filter_account_items[filter_account_index]
+        filter_entry_value = self.filter_entry.get().strip()
+        filter_parts = filter_entry_value.split()
+        filter_text = ''
+        for fp in filter_parts:
+            if fp.startswith('status:'):
+                status = fp.replace('status:', '')
+            else:
+                filter_text += f' {fp}'
+        status = status or None
+        self._show_transactions(status=status, filter_text=filter_text.strip(), filter_account=filter_account)
+
+    def _show_all_transactions(self):
+        self.filter_entry.delete(0, tk.END)
+        self.filter_account_combo.current(0)
         self._show_transactions()
 
 
