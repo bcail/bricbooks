@@ -3,7 +3,7 @@ from fractions import Fraction
 import tkinter
 import unittest
 
-import bricbooks_tk as bb_tk
+import bricbooks as bb
 from tests import get_test_account
 from load_test_data import CHECKING
 
@@ -51,7 +51,7 @@ class AbstractTkTest:
 class TestTkGUI(AbstractTkTest, unittest.TestCase):
 
     def test_accounts_display(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
@@ -64,7 +64,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(first_account_name, CHECKING)
 
     def test_edit_account(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         assets = get_test_account(name='All Assets')
         gui._engine.save_account(account=assets)
         checking = get_test_account(parent=assets)
@@ -93,7 +93,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(account.parent, savings)
 
     def test_ledger_new_transaction(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
@@ -111,7 +111,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
 
     def test_ledger_new_transaction_multiple_transfer(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         food = get_test_account(name='Food')
         restaurants = get_test_account(name='Restaurants')
@@ -135,17 +135,17 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
 
     def test_ledger_update_transaction(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         food = get_test_account(name='Food')
         restaurants = get_test_account(name='Restaurants')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
-        payee = bb_tk.bb.Payee('some payee')
+        payee = bb.Payee('some payee')
         gui._engine.save_payee(payee)
-        txn = bb_tk.bb.Transaction(splits={checking: {'amount': -5}, food: {'amount': 5}}, txn_date=date(2017, 1, 3))
-        txn2 = bb_tk.bb.Transaction(splits={checking: {'amount': -17, 'status': bb_tk.bb.Transaction.CLEARED}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2), payee=payee, description='description')
+        txn = bb.Transaction(splits={checking: {'amount': -5}, food: {'amount': 5}}, txn_date=date(2017, 1, 3))
+        txn2 = bb.Transaction(splits={checking: {'amount': -17, 'status': bb.Transaction.CLEARED}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2), payee=payee, description='description')
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
@@ -166,23 +166,23 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
         self.assertEqual(txns[1].txn_date, date(2017, 5, 2))
         self.assertEqual(txns[1].splits[checking]['amount'], -21)
-        self.assertEqual(txns[1].splits[checking]['status'], bb_tk.bb.Transaction.CLEARED)
+        self.assertEqual(txns[1].splits[checking]['status'], bb.Transaction.CLEARED)
         self.assertEqual(txns[1].splits[restaurants]['amount'], 21)
         self.assertEqual(txns[1].payee.name, 'some payee')
         self.assertEqual(txns[1].description, 'description')
 
     def test_ledger_update_transaction_multiple_transfer(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         food = get_test_account(name='Food')
         restaurants = get_test_account(name='Restaurants')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
-        payee = bb_tk.bb.Payee('some payee')
+        payee = bb.Payee('some payee')
         gui._engine.save_payee(payee)
         splits = {checking: {'amount': -20}, food: {'amount': 5}, restaurants: {'amount': 15}}
-        txn = bb_tk.bb.Transaction(splits=splits, txn_date=date(2017, 1, 3))
+        txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
         gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=10)
@@ -217,19 +217,19 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[restaurants]['amount'], 23)
 
     def test_ledger_enter_next_scheduled_transaction(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
-        txn = bb_tk.bb.Transaction(splits={checking: {'amount': -5}, savings: {'amount': 5}}, txn_date=date(2017, 1, 3))
+        txn = bb.Transaction(splits={checking: {'amount': -5}, savings: {'amount': 5}}, txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
         splits = {checking: {'amount': -100}, housing: {'amount': 100}}
-        scheduled_txn = bb_tk.bb.ScheduledTransaction(
+        scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
-            frequency=bb_tk.bb.ScheduledTransactionFrequency.WEEKLY,
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
             next_due_date=date(2020, 1, 15)
         )
@@ -249,19 +249,19 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[1].splits[checking]['amount'], -100)
 
     def test_ledger_skip_scheduled_transaction(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
-        txn = bb_tk.bb.Transaction(splits={checking: {'amount': -5}, savings: {'amount': 5}}, txn_date=date(2017, 1, 3))
+        txn = bb.Transaction(splits={checking: {'amount': -5}, savings: {'amount': 5}}, txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
         splits = {checking: {'amount': -100}, housing: {'amount': 100}}
-        scheduled_txn = bb_tk.bb.ScheduledTransaction(
+        scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
-            frequency=bb_tk.bb.ScheduledTransactionFrequency.WEEKLY,
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
             next_due_date=date(2020, 1, 15)
         )
@@ -280,10 +280,10 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
 
     def test_scheduled_transaction_add(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
@@ -302,17 +302,17 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 100, 'quantity': 100})
 
     def test_scheduled_transaction_update(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
         splits = {checking: {'amount': -100}, housing: {'amount': 100}}
-        scheduled_txn = bb_tk.bb.ScheduledTransaction(
+        scheduled_txn = bb.ScheduledTransaction(
             name='weekly',
-            frequency=bb_tk.bb.ScheduledTransactionFrequency.WEEKLY,
+            frequency=bb.ScheduledTransactionFrequency.WEEKLY,
             splits=splits,
             next_due_date=date.today()
         )
@@ -335,10 +335,10 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(scheduled_txns[0].splits[housing], {'amount': 15, 'quantity': 15})
 
     def test_new_budget(self):
-        gui = bb_tk.GUI_TK(':memory:')
+        gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
-        food = get_test_account(name='Food', type_=bb_tk.bb.AccountType.EXPENSE)
-        housing = get_test_account(name='Housing', type_=bb_tk.bb.AccountType.EXPENSE)
+        food = get_test_account(name='Food', type_=bb.AccountType.EXPENSE)
+        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=housing)
@@ -354,14 +354,14 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(budget.get_budget_data()[food]['amount'], 20)
 
     def test_edit_budget(self):
-        gui = bb_tk.GUI_TK(':memory:')
-        housing = get_test_account(type_=bb_tk.bb.AccountType.EXPENSE, name='Housing')
+        gui = bb.GUI_TK(':memory:')
+        housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         gui._engine.save_account(account=housing)
-        food = get_test_account(type_=bb_tk.bb.AccountType.EXPENSE, name='Food')
+        food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
         gui._engine.save_account(account=food)
-        wages = get_test_account(type_=bb_tk.bb.AccountType.INCOME, name='Wages')
+        wages = get_test_account(type_=bb.AccountType.INCOME, name='Wages')
         gui._engine.save_account(account=wages)
-        b = bb_tk.bb.Budget(year=2018, account_budget_info={
+        b = bb.Budget(year=2018, account_budget_info={
             housing: {'amount': 15, 'carryover': 0},
             food: {'amount': 25, 'carryover': 0},
             wages: {'amount': 100},
