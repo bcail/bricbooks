@@ -2,6 +2,7 @@ from datetime import date
 import unittest
 from unittest.mock import patch, MagicMock
 import bricbooks as bb
+import bricbooks_qt as bb_qt
 from tests import get_test_account
 from load_test_data import CHECKING
 
@@ -13,10 +14,10 @@ class TestQtGUI(unittest.TestCase):
         cls.app = QtWidgets.QApplication([])
 
     def test_bb_qt_gui(self):
-        bb_qt_gui = bb.GUI_QT(':memory:')
+        bb_qt_gui = bb_qt.GUI_QT(':memory:')
 
     def test_account(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         a = get_test_account()
         engine.save_account(account=a)
@@ -37,7 +38,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(accounts[1].parent.name, CHECKING)
 
     def test_account_edit(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         engine.save_account(account=checking)
@@ -60,7 +61,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(engine.get_accounts()[1].parent.name, 'Checking')
 
     def test_expense_account_edit(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         engine.save_account(account=checking)
@@ -79,9 +80,9 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(engine.get_accounts()), 2)
         self.assertEqual(engine.get_accounts()[1].name, 'New Food')
 
-    @patch('bricbooks.show_error')
+    @patch('bricbooks_qt.show_error')
     def test_account_exception(self, mock_method):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         accounts_display = gui.accounts_display
         QtTest.QTest.mouseClick(accounts_display.add_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(accounts_display.add_account_display._widgets['save_btn'], QtCore.Qt.LeftButton)
@@ -89,10 +90,10 @@ class TestQtGUI(unittest.TestCase):
 
     def test_empty_ledger(self):
         engine = bb.Engine(':memory:')
-        ledger_display = bb.LedgerDisplay(engine, txns_model_class=bb.get_txns_model_class())
+        ledger_display = bb_qt.LedgerDisplay(engine, txns_model_class=bb_qt.get_txns_model_class())
 
     def test_ledger_add(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account()
         engine.save_account(account=checking)
@@ -120,9 +121,9 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].splits[checking], {'amount': -18, 'quantity': -18})
         self.assertEqual(txns[1].payee.name, 'Burgers')
 
-    @patch('bricbooks.show_error')
+    @patch('bricbooks_qt.show_error')
     def test_ledger_add_txn_error(self, mock_method):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         checking = get_test_account()
         gui._engine.save_account(account=checking)
         savings = get_test_account(name='Savings')
@@ -138,7 +139,7 @@ class TestQtGUI(unittest.TestCase):
 
     def test_ledger_add_not_first_account(self):
         #test that correct accounts are set for the new txn (not just first account in the list)
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account()
         engine.save_account(account=checking)
@@ -165,7 +166,7 @@ class TestQtGUI(unittest.TestCase):
             )
 
     def test_add_txn_multiple_splits(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account()
         engine.save_account(account=checking)
@@ -179,7 +180,7 @@ class TestQtGUI(unittest.TestCase):
         txn_accounts_display_splits = {rent: {'amount': 3}, housing: {'amount': 7}}
         ledger_display.add_txn_display._widgets['txn_date'].setText('2017-01-05')
         ledger_display.add_txn_display._widgets['withdrawal'].setText('10')
-        bb.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
+        bb_qt.get_new_txn_splits = MagicMock(return_value=txn_accounts_display_splits)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(ledger_display.add_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         #make sure new txn was saved
@@ -188,7 +189,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking], {'amount': -10, 'quantity': -10})
 
     def test_ledger_switch_account(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
@@ -222,7 +223,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(ledger_display.action_combo.currentText(), 'Savings')
 
     def test_ledger_filter(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
@@ -240,7 +241,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(len(gui.ledger_display.txns_display._txns_model._txns), 1)
 
     def test_ledger_status(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
@@ -259,7 +260,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(gui.ledger_display.txns_display._txns_model._txns[0].txn_date, date(2017, 1, 2))
 
     def test_ledger_txn_edit(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account()
         engine.save_account(account=checking)
@@ -297,7 +298,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[2].splits[savings], {'amount': -20, 'quantity': -20})
 
     def test_ledger_txn_edit_expense_account(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         checking = get_test_account()
         gui._engine.save_account(account=checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
@@ -325,7 +326,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].splits[restaurants], {'amount': -17, 'quantity': -17})
 
     def test_ledger_txn_edit_multiple_splits(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         checking = get_test_account()
         gui._engine.save_account(account=checking)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
@@ -347,14 +348,14 @@ class TestQtGUI(unittest.TestCase):
         QtTest.QTest.mouseClick(viewport, QtCore.Qt.LeftButton, QtCore.Qt.KeyboardModifiers(), QtCore.QPoint(firstRowXPos, firstRowYPos))
         self.assertEqual(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentText(), 'multiple')
         self.assertEqual(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display']._categories_combo.currentData(), initial_splits)
-        bb.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
+        bb_qt.get_new_txn_splits = MagicMock(return_value=txn_account_display_splits)
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['accounts_display'].split_button, QtCore.Qt.LeftButton)
         QtTest.QTest.mouseClick(gui.ledger_display.txns_display.edit_txn_display._widgets['save_btn'], QtCore.Qt.LeftButton)
         updated_txn = gui._engine.get_transaction(txn.id)
         self.assertDictEqual(updated_txn.splits, final_splits)
 
     def test_ledger_txn_delete(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -377,7 +378,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking], {'amount': 23, 'quantity': 23})
 
     def test_ledger_enter_scheduled_txn(self):
-        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        gui = bb_qt.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
@@ -414,7 +415,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[1].splits[checking]['amount'], -100)
 
     def test_ledger_skip_scheduled_txn(self):
-        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        gui = bb_qt.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
@@ -440,7 +441,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].next_due_date, date(2018, 1, 20))
 
     def test_ledger_update_reconciled_state(self):
-        gui = bb.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
+        gui = bb_qt.GUI_QT(':memory:') #goes to accounts page, b/c no accounts yet
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
@@ -456,7 +457,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(txns[0].splits[checking]['status'], bb.Transaction.CLEARED)
 
     def test_budget_display(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         engine.save_account(account=housing)
@@ -476,7 +477,7 @@ class TestQtGUI(unittest.TestCase):
         widget = budget_display.get_widget()
 
     def test_budget_create(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         engine = gui._engine
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         engine.save_account(account=housing)
@@ -501,7 +502,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(gui.budget_display._budget_select_combo.currentData(), budget)
 
     def test_add_scheduled_txn(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         gui._engine.save_account(account=checking)
@@ -522,7 +523,7 @@ class TestQtGUI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].payee.name, 'Someone')
 
     def test_edit_scheduled_txn(self):
-        gui = bb.GUI_QT(':memory:')
+        gui = bb_qt.GUI_QT(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
