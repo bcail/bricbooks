@@ -3066,12 +3066,17 @@ def parse_args():
     parser.add_argument('-f', '--file_name', dest='file_name')
     parser.add_argument('--cli', dest='cli', action='store_true')
     parser.add_argument('-i', '--import', dest='file_to_import')
+    parser.add_argument('-v', dest='version', action='store_true')
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
     args = parse_args()
+
+    if args.version:
+        print(TITLE)
+        sys.exit(0)
 
     if args.file_to_import:
         import_file(args.file_to_import)
