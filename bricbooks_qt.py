@@ -1540,8 +1540,23 @@ class GUI_QT:
         self.content_layout.addWidget(self.main_widget, 0, 0)
 
 
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--install_qt', dest='install_qt', action='store_true')
+    parser.add_argument('-f', '--file_name', dest='file_name')
+    parser.add_argument('--cli', dest='cli', action='store_true')
+    parser.add_argument('-i', '--import', dest='file_to_import')
+    args = parser.parse_args()
+    return args
+
+
 if __name__ == '__main__':
-    args = bb.parse_args()
+    args = parse_args()
+
+    if args.install_qt:
+        _do_qt_install()
+        sys.exit(0)
 
     if args.file_name and not os.path.exists(args.file_name):
         raise Exception('no such file: "%s"' % args.file_name)

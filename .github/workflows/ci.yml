@@ -21,9 +21,9 @@ jobs:
       - run: sudo apt-get update
       - run: sudo apt-get install -y xvfb libxkbcommon-x11-0 libopengl0 libegl1 '^libxcb.*'
       - run: python tests.py
-      - run: python bricbooks.py --install_qt
-      - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests_qt.py
       - run: xvfb-run python tests_tk.py
+      - run: python bricbooks_qt.py --install_qt
+      - run: QT_DEBUG_PLUGINS=1 xvfb-run python tests_qt.py
 
   linux-py-next:
     runs-on: ubuntu-22.04
@@ -56,10 +56,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - run: python bricbooks.py --install_qt
       - run: python tests.py
-      - run: python tests_qt.py
       - run: python tests_tk.py
+      - run: python bricbooks_qt.py --install_qt
+      - run: python tests_qt.py
 
   mac:
     runs-on: macos-latest
@@ -74,7 +74,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - run: python bricbooks.py --install_qt
       - run: python tests.py
-      - run: python tests_qt.py
       - run: python tests_tk.py
+      - run: python bricbooks_qt.py --install_qt
+      - run: python tests_qt.py

@@ -3063,7 +3063,6 @@ def import_file(file_to_import):
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--install_qt', dest='install_qt', action='store_true')
     parser.add_argument('-f', '--file_name', dest='file_name')
     parser.add_argument('--cli', dest='cli', action='store_true')
     parser.add_argument('-i', '--import', dest='file_to_import')
@@ -3073,9 +3072,6 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    if args.install_qt:
-        _do_qt_install()
-        sys.exit(0)
 
     if args.file_to_import:
         import_file(args.file_to_import)
@@ -3105,3 +3101,4 @@ if __name__ == '__main__':
         msg = "tkinter missing - please make sure it's installed"
         log(f'ERROR: {msg}')
         print(msg)
+        sys.exit(1)
