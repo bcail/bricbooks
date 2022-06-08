@@ -26,7 +26,7 @@ try:
     import tkinter as tk
     from tkinter import ttk
 except ImportError:
-    tkinter = None
+    tk = None
 
 
 __version__ = '0.5.dev'
@@ -3094,7 +3094,7 @@ if __name__ == '__main__':
             log(traceback.format_exc())
             raise
 
-    if tkinter:
+    if tk:
         app = GUI_TK(args.file_name)
         app.root.mainloop()
     else:
