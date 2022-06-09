@@ -1412,8 +1412,8 @@ class Engine:
     def save_transaction(self, transaction):
         self._storage.save_txn(transaction)
 
-    def delete_transaction(self, txn_id):
-        self._storage.delete_txn(txn_id)
+    def delete_transaction(self, transaction_id):
+        self._storage.delete_txn(transaction_id)
 
     def get_payee(self, id_=None, name=None):
         return self._storage.get_payee(id_=id_, name=name)
@@ -2260,7 +2260,7 @@ class TransferAccountsDisplay:
 
 class TransactionForm:
 
-    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None, skip_transaction=None):
+    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None, skip_transaction=None, delete_transaction=None):
         self._accounts = accounts
         self._account = account
         self._payees = payees
@@ -2268,6 +2268,7 @@ class TransactionForm:
         self._update_display = update_display
         self._transaction = transaction
         self._skip_transaction = skip_transaction
+        self._delete_transaction = delete_transaction
 
     def get_widget(self):
         self.form = tk.Toplevel()
@@ -2329,14 +2330,18 @@ class TransactionForm:
         self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
-        self.withdrawal_entry.grid(row=3, column=0, sticky=(tk.N, tk.S))
-        self.deposit_entry.grid(row=3, column=1, sticky=(tk.N, tk.S))
+        self.withdrawal_entry.grid(row=3, column=0)
+        self.deposit_entry.grid(row=3, column=1)
         self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
-        self.save_button.grid(row=3, column=3, sticky=(tk.N, tk.S))
-        if self._transaction and isinstance(self._transaction, ScheduledTransaction):
-            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
-            self.skip_button.grid(row=3, column=4, sticky=(tk.N, tk.S))
+        self.save_button.grid(row=3, column=3)
+        if self._transaction:
+            if isinstance(self._transaction, ScheduledTransaction):
+                self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
+                self.skip_button.grid(row=3, column=4)
+            else:
+                self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
+                self.delete_button.grid(row=3, column=4)
         return self.form
 
     def _handle_save(self):
@@ -2359,6 +2364,10 @@ class TransactionForm:
         self._save_transaction(transaction=transaction)
         self.form.destroy()
         self._update_display()
+
+    def _handle_delete(self):
+        self.form.destroy()
+        self._delete_transaction()
 
 
 class LedgerDisplay:
@@ -2502,9 +2511,15 @@ class LedgerDisplay:
             transaction = self._engine.get_transaction(id_=int(txn_id))
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
-            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions, transaction=transaction)
+            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
+                    save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
+                    transaction=transaction, delete_transaction=partial(self._delete, transaction_id=txn_id))
             widget = self.edit_transaction_form.get_widget()
             widget.grid()
+
+    def _delete(self, transaction_id):
+        self._engine.delete_transaction(transaction_id=transaction_id)
+        self._show_transactions()
 
     def _enter_scheduled_transaction(self, scheduled_transaction, transaction):
         self._engine.save_transaction(transaction=transaction)
