@@ -2337,6 +2337,7 @@ class TransactionForm:
         self.save_button.grid(row=3, column=3)
         if self._transaction:
             if isinstance(self._transaction, ScheduledTransaction):
+                self.save_button['text'] = 'Enter New'
                 self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
                 self.skip_button.grid(row=3, column=4)
             else:
@@ -2382,6 +2383,7 @@ class LedgerDisplay:
         self._engine = engine
         self.txns_widget = None
         self.filter_account_items = []
+        self.balances_frame = None
 
     def _get_txns(self, status=None, filter_text='', filter_account=None):
         accounts = [self._account]
@@ -2398,6 +2400,7 @@ class LedgerDisplay:
             self.txns_widget.destroy()
 
         self.txns_widget = ttk.Treeview(master=master, columns=columns, show='headings')
+        self.txns_widget.tag_configure("scheduled", background="gray")
         self.txns_widget.heading('type', text='Type')
         self.txns_widget.column('type', width=50, anchor='center')
         self.txns_widget.heading('date', text='Date')
@@ -2429,7 +2432,7 @@ class LedgerDisplay:
                 values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
                 iid = f'st{st.id}'
-                self.txns_widget.insert('', tk.END, iid=iid, values=values)
+                self.txns_widget.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E))
@@ -2473,7 +2476,23 @@ class LedgerDisplay:
         self.show_all_button.grid(row=0, column=5)
 
         self._show_transactions()
+        self._show_balances_frame()
         return self.frame
+
+    def _show_balances_frame(self):
+        #this is a row below the list of txns
+        if self.balances_frame:
+            self.balances_frame.destroy()
+
+        self.balances_frame = ttk.Frame(master=self.frame)
+        self.balances_frame.columnconfigure(0, weight=1)
+        self.balances_frame.columnconfigure(1, weight=1)
+        balances = self._engine.get_current_balances_for_display(account=self._account)
+        balance_text = f'Current Balance: {balances.current}'
+        cleared_text = f'Cleared: {balances.current_cleared}'
+        ttk.Label(master=self.balances_frame, text=cleared_text).grid(row=0, column=0, sticky=(tk.W, tk.E))
+        ttk.Label(master=self.balances_frame, text=balance_text).grid(row=0, column=1, sticky=(tk.W, tk.E))
+        self.balances_frame.grid(row=2, column=1, columnspan=6, sticky=(tk.W, tk.E))
 
     def _update_account(self, event):
         current_account_index = self.account_select_combo.current()
