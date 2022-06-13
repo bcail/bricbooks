@@ -9,7 +9,25 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10', '3.11.0-beta.3']
+        python-version: ['3.7', '3.8', '3.9', '3.10', '3.11.0-beta.3']
+    name: Python ${{ matrix.python-version }} Linux tests
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup python
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y xvfb
+      - run: python tests.py
+      - run: xvfb-run python tests_tk.py
+
+  older-linux:
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version: ['3.6']
     name: Python ${{ matrix.python-version }} Linux tests
     steps:
       - uses: actions/checkout@v3
