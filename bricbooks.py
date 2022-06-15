@@ -2589,6 +2589,7 @@ class BudgetForm:
 
     def get_widget(self):
         self._form = tk.Toplevel()
+        self._form.geometry("800x600+0+0")
         self._form.rowconfigure(0, weight=1)
         self._form.columnconfigure(0, weight=1)
 
