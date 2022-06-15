@@ -2589,25 +2589,29 @@ class BudgetForm:
 
     def get_widget(self):
         self._form = tk.Toplevel()
-        self.content = ttk.Frame(master=self._form)
+        self._form.rowconfigure(0, weight=1)
+        self._form.columnconfigure(0, weight=1)
 
-        ttk.Label(master=self.content, text='Start Date').grid(row=0, column=0)
-        ttk.Label(master=self.content, text='End Date').grid(row=0, column=1)
-        self.start_date_entry = ttk.Entry(master=self.content)
-        self.end_date_entry = ttk.Entry(master=self.content)
+        from idlelib.configdialog import VerticalScrolledFrame
+        self.content = VerticalScrolledFrame(parent=self._form)
+
+        ttk.Label(master=self.content.interior, text='Start Date').grid(row=0, column=0)
+        ttk.Label(master=self.content.interior, text='End Date').grid(row=0, column=1)
+        self.start_date_entry = ttk.Entry(master=self.content.interior)
+        self.end_date_entry = ttk.Entry(master=self.content.interior)
         if self._budget:
             self.start_date_entry.insert(0, str(self._budget.start_date))
             self.end_date_entry.insert(0, str(self._budget.end_date))
         self.start_date_entry.grid(row=1, column=0)
         self.end_date_entry.grid(row=1, column=1)
 
-        ttk.Label(master=self.content, text='Amount').grid(row=2, column=1)
-        ttk.Label(master=self.content, text='Carryover').grid(row=2, column=2)
+        ttk.Label(master=self.content.interior, text='Amount').grid(row=2, column=1)
+        ttk.Label(master=self.content.interior, text='Carryover').grid(row=2, column=2)
         row = 3
         for account, info in self._budget_data.items():
-            ttk.Label(master=self.content, text=str(account)).grid(row=row, column=0)
-            amount_entry = ttk.Entry(master=self.content)
-            carryover_entry = ttk.Entry(master=self.content)
+            ttk.Label(master=self.content.interior, text=str(account)).grid(row=row, column=0)
+            amount_entry = ttk.Entry(master=self.content.interior)
+            carryover_entry = ttk.Entry(master=self.content.interior)
             amount_entry.insert(0, str(info.get('amount', '')))
             carryover_entry.insert(0, str(info.get('carryover', '')))
             self._widgets['budget_data'][account] = {
@@ -2617,11 +2621,10 @@ class BudgetForm:
             amount_entry.grid(row=row, column=1)
             carryover_entry.grid(row=row, column=2)
             row += 1
-        self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
+        self.save_button = ttk.Button(master=self.content.interior, text='Save', command=self._save)
         self.save_button.grid(row=row, column=0)
 
-        self.content.grid()
-
+        self.content.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         return self._form
 
     def _save(self):
@@ -2960,7 +2963,7 @@ class GUI_TK:
         self.root.rowconfigure(0, weight=1)
 
         #this frame will contain everything the user sees
-        self.content_frame = ttk.Frame(master=self.root)
+        self.content_frame = ttk.Frame(master=self.root, padding=(1, 1, 1, 1))
         self.content_frame.columnconfigure(0, weight=1)
         self.content_frame.rowconfigure(1, weight=1)
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
