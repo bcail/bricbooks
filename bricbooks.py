@@ -2892,14 +2892,11 @@ class ScheduledTransactionsDisplay:
     def __init__(self, master, engine):
         self._master = master
         self._engine = engine
+        self.tree = None
 
-    def get_widget(self):
-        self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(1, weight=1)
-        self.frame.rowconfigure(1, weight=1)
-
-        self.add_button = ttk.Button(master=self.frame, text='New Scheduled Transaction', command=self._open_new_form)
-        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+    def _show_scheduled_transactions(self):
+        if self.tree:
+            self.tree.destroy()
 
         columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
 
@@ -2928,13 +2925,23 @@ class ScheduledTransactionsDisplay:
 
         self.tree.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W))
 
+    def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.add_button = ttk.Button(master=self.frame, text='New Scheduled Transaction', command=self._open_new_form)
+        self.add_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+
+        self._show_scheduled_transactions()
+
         return self.frame
 
     def _open_new_form(self):
         accounts = self._engine.get_accounts()
         payees = self._engine.get_payees()
         self.new_form = ScheduledTransactionForm(accounts, payees=payees,
-                save_scheduled_transaction=self._engine.save_scheduled_transaction)
+                save_scheduled_transaction=self._save_and_reload)
         widget = self.new_form.get_widget()
         widget.grid()
 
@@ -2944,10 +2951,14 @@ class ScheduledTransactionsDisplay:
         accounts = self._engine.get_accounts()
         payees = self._engine.get_payees()
         self.edit_form = ScheduledTransactionForm(accounts, payees=payees,
-                save_scheduled_transaction=self._engine.save_scheduled_transaction,
+                save_scheduled_transaction=self._save_and_reload,
                 scheduled_transaction=scheduled_transaction)
         widget = self.edit_form.get_widget()
         widget.grid()
+
+    def _save_and_reload(self, scheduled_txn):
+        self._engine.save_scheduled_transaction(scheduled_txn=scheduled_txn)
+        self._show_scheduled_transactions()
 
 
 class GUI_TK:
