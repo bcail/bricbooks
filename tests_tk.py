@@ -2,6 +2,7 @@ from datetime import date
 from fractions import Fraction
 import tkinter
 import unittest
+from unittest.mock import patch
 
 import bricbooks as bb
 from tests import get_test_account
@@ -91,6 +92,13 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         account = gui._engine.get_account(id_=checking.id)
         self.assertEqual(account.name, new_name)
         self.assertEqual(account.parent, savings)
+
+    @patch('bricbooks.show_error')
+    def test_account_exception(self, mock_method):
+        gui = bb.GUI_TK(':memory:')
+        gui.accounts_display.add_button.invoke()
+        gui.accounts_display.add_account_form.save_button.invoke()
+        mock_method.assert_called_once_with(msg='Account must have a name')
 
     def test_ledger_new_transaction(self):
         gui = bb.GUI_TK(':memory:')

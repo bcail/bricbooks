@@ -2023,6 +2023,25 @@ class CLI:
             sys.exit(1)
 
 
+class ErrorForm:
+
+    def __init__(self, msg):
+        self.form = tk.Toplevel()
+        self.content = ttk.Frame(master=self.form)
+        ttk.Label(master=self.content, text=msg).grid(row=0, column=0)
+        self.ok_button = ttk.Button(master=self.content, text='OK', command=self.close)
+        self.ok_button.grid(row=1, column=0)
+        self.content.grid()
+        self.form.grid()
+
+    def close(self):
+        self.form.destroy()
+
+
+def show_error(msg):
+    ErrorForm(msg=msg)
+
+
 class AccountForm:
 
     def __init__(self, accounts, save_account, update_display, account=None):
@@ -2081,7 +2100,11 @@ class AccountForm:
             parent = self._accounts[parent_index-1]
             if self._account != parent:
                 parent_id = parent.id
-        self._save_account(id_=id_, type_=type_, number=number, name=name, parent_id=parent_id)
+        try:
+            self._save_account(id_=id_, type_=type_, number=number, name=name, parent_id=parent_id)
+        except InvalidAccountError as e:
+            show_error(msg=str(e))
+            return
         self.form.destroy()
         self._update_display()
 
