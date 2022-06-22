@@ -38,6 +38,7 @@ SQLITE_VERSION = sqlite3.sqlite_version_info
 
 def log(msg):
     log_filepath = os.path.join(CUR_DIR, LOG_FILENAME)
+    msg = f'{datetime.now()} {msg}'
     with open(log_filepath, 'ab') as f:
         f.write(msg.encode('utf8'))
 
@@ -2042,6 +2043,12 @@ def show_error(msg):
     ErrorForm(msg=msg)
 
 
+def handle_error(exc):
+    import traceback
+    log(traceback.format_exc())
+    show_error(msg=str(exc))
+
+
 class AccountForm:
 
     def __init__(self, accounts, save_account, update_display, account=None):
@@ -2102,8 +2109,8 @@ class AccountForm:
                 parent_id = parent.id
         try:
             self._save_account(id_=id_, type_=type_, number=number, name=name, parent_id=parent_id)
-        except InvalidAccountError as e:
-            show_error(msg=str(e))
+        except Exception as e:
+            handle_error(e)
             return
         self.form.destroy()
         self._update_display()
@@ -2384,8 +2391,12 @@ class TransactionForm:
             'status': self.status_combo.get(),
             'categories': self.transfer_accounts_display.get_transfer_accounts(),
         }
-        transaction = Transaction.from_user_info(**kwargs)
-        self._save_transaction(transaction=transaction)
+        try:
+            transaction = Transaction.from_user_info(**kwargs)
+            self._save_transaction(transaction=transaction)
+        except Exception as e:
+            handle_error(e)
+            return
         self.form.destroy()
         self._update_display()
 

@@ -93,12 +93,12 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(account.name, new_name)
         self.assertEqual(account.parent, savings)
 
-    @patch('bricbooks.show_error')
+    @patch('bricbooks.handle_error')
     def test_account_exception(self, mock_method):
         gui = bb.GUI_TK(':memory:')
         gui.accounts_display.add_button.invoke()
         gui.accounts_display.add_account_form.save_button.invoke()
-        mock_method.assert_called_once_with(msg='Account must have a name')
+        mock_method.assert_called_once()
 
     def test_ledger_new_transaction(self):
         gui = bb.GUI_TK(':memory:')
@@ -117,6 +117,16 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
+
+    @patch('bricbooks.handle_error')
+    def test_transaction_exception(self, mock_method):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        gui._engine.save_account(account=checking)
+        gui.ledger_button.invoke()
+        gui.ledger_display.add_button.invoke()
+        gui.ledger_display.add_transaction_form.save_button.invoke()
+        mock_method.assert_called_once()
 
     def test_ledger_new_transaction_multiple_transfer(self):
         gui = bb.GUI_TK(':memory:')
