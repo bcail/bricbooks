@@ -2301,16 +2301,8 @@ class TransactionForm:
         self._delete_transaction = delete_transaction
 
     def get_widget(self):
-        self.form = tk.Toplevel()
-        self.form.columnconfigure(0, weight=1)
-        self.form.columnconfigure(1, weight=1)
-        self.form.columnconfigure(2, weight=2)
-        self.form.columnconfigure(3, weight=3)
-        self.form.columnconfigure(4, weight=1)
-        self.form.columnconfigure(5, weight=1)
-        self.form.columnconfigure(6, weight=1)
-        self.form.columnconfigure(7, weight=2)
-        self.form.columnconfigure(8, weight=1)
+        self.top_level = tk.Toplevel()
+        self.form = ttk.Frame(master=self.top_level)
         for col, label in [(0, 'Type'), (1, 'Date'), (2, 'Payee'), (3, 'Description'), (4, 'Status')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
@@ -2373,7 +2365,9 @@ class TransactionForm:
             else:
                 self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
                 self.delete_button.grid(row=3, column=4)
-        return self.form
+
+        self.form.grid()
+        return self.top_level
 
     def _handle_save(self):
         id_ = None
