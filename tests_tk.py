@@ -64,6 +64,15 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         first_account_name = gui.accounts_display.tree.item(child_items[0])['values'][2]
         self.assertEqual(first_account_name, CHECKING)
 
+    def test_add_account(self):
+        gui = bb.GUI_TK(':memory:')
+        gui.accounts_display.add_button.invoke()
+        gui.accounts_display.add_account_form.name_entry.insert(0, CHECKING)
+        gui.accounts_display.add_account_form.save_button.invoke()
+        accounts = gui._engine.get_accounts()
+        self.assertEqual(len(accounts), 1)
+        self.assertEqual(accounts[0].name, CHECKING)
+
     def test_edit_account(self):
         gui = bb.GUI_TK(':memory:')
         assets = get_test_account(name='All Assets')

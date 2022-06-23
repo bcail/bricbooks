@@ -38,7 +38,7 @@ SQLITE_VERSION = sqlite3.sqlite_version_info
 
 def log(msg):
     log_filepath = os.path.join(CUR_DIR, LOG_FILENAME)
-    msg = f'{datetime.now()} {msg}'
+    msg = f'{datetime.now()} {msg}\n'
     with open(log_filepath, 'ab') as f:
         f.write(msg.encode('utf8'))
 
@@ -2062,7 +2062,8 @@ class AccountForm:
             self._account_types[type_.name] = type_
 
     def get_widget(self):
-        self.form = tk.Toplevel()
+        self.toplevel = tk.Toplevel()
+        self.form = ttk.Frame(master=self.toplevel)
         for col, label in [(0, 'Type'), (1, 'Number'), (2, 'Name'), (3, 'Parent')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         self.account_type_combo = ttk.Combobox(master=self.form)
@@ -2092,7 +2093,8 @@ class AccountForm:
         self.parent_combo.grid(row=1, column=3, sticky=(tk.N, tk.W, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
-        return self.form
+        self.form.grid()
+        return self.toplevel
 
     def _handle_save(self):
         id_ = None
