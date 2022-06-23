@@ -319,6 +319,16 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -100, 'quantity': -100})
         self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 100, 'quantity': 100})
 
+    @patch('bricbooks.handle_error')
+    def test_scheduled_transaction_error(self, mock_method):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        gui._engine.save_account(account=checking)
+        gui.scheduled_transactions_button.invoke()
+        gui.scheduled_transactions_display.add_button.invoke()
+        gui.scheduled_transactions_display.new_form.save_button.invoke()
+        mock_method.assert_called_once()
+
     def test_scheduled_transaction_update(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()

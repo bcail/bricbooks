@@ -2899,25 +2899,29 @@ class ScheduledTransactionForm:
         deposit = self.deposit_entry.get()
         withdrawal = self.withdrawal_entry.get()
         categories = self.transfer_accounts_display.get_transfer_accounts()
-        splits = Transaction.splits_from_user_info(
-                account=account,
-                deposit=deposit,
-                withdrawal=withdrawal,
-                input_categories=categories
-            )
         if self._scheduled_transaction:
             id_ = self._scheduled_transaction.id
         else:
             id_ = None
-        st = ScheduledTransaction(
-                name=self.name_entry.get(),
-                frequency=self.frequencies[self.frequency_combo.current()],
-                next_due_date=self.next_due_date_entry.get(),
-                splits=splits,
-                payee=payee,
-                id_=id_,
-            )
-        self._save_scheduled_txn(scheduled_txn=st)
+        try:
+            splits = Transaction.splits_from_user_info(
+                    account=account,
+                    deposit=deposit,
+                    withdrawal=withdrawal,
+                    input_categories=categories
+                )
+            st = ScheduledTransaction(
+                    name=self.name_entry.get(),
+                    frequency=self.frequencies[self.frequency_combo.current()],
+                    next_due_date=self.next_due_date_entry.get(),
+                    splits=splits,
+                    payee=payee,
+                    id_=id_,
+                )
+            self._save_scheduled_txn(scheduled_txn=st)
+        except Exception as e:
+            handle_error(e)
+            return
         self._form.destroy()
 
 
