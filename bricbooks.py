@@ -2194,10 +2194,11 @@ class SplitTransactionEditor:
             if text:
                 self._final_txn_splits[account] = {'amount': text}
         self._save_splits(self._final_txn_splits)
-        self.form.destroy()
+        self.toplevel.destroy()
 
     def _show_split_editor(self):
-        self.form = tk.Toplevel()
+        self.toplevel = tk.Toplevel()
+        self.form = ttk.Frame(master=self.toplevel)
         row = 0
         for account in self._all_accounts:
             ttk.Label(master=self.form, text=str(account)).grid(row=row, column=0)
@@ -2214,6 +2215,7 @@ class SplitTransactionEditor:
         self.cancel_button = ttk.Button(master=self.form, text='Cancel', command=self.form.destroy)
         self.cancel_button.grid(row=row, column=1)
         self.form.grid()
+        self.toplevel.grid()
 
 
 class TransferAccountsDisplay:
