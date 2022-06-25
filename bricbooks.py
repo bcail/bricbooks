@@ -2116,7 +2116,7 @@ class AccountForm:
         except Exception as e:
             handle_error(e)
             return
-        self.form.destroy()
+        self.toplevel.destroy()
         self._update_display()
 
 
@@ -2382,11 +2382,11 @@ class TransactionForm:
         except Exception as e:
             handle_error(e)
             return
-        self.form.destroy()
+        self.top_level.destroy()
         self._update_display()
 
     def _handle_delete(self):
-        self.form.destroy()
+        self.top_level.destroy()
         self._delete_transaction()
 
 
