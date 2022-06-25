@@ -2666,11 +2666,15 @@ class BudgetForm:
         account_budget_info = {}
         for account, widgets in self._widgets['budget_data'].items():
             account_budget_info[account] = {'amount': widgets['amount'].get(), 'carryover': widgets['carryover'].get()}
-        if self._budget:
-            b = Budget(start_date=start_date, end_date=end_date, id_=self._budget.id, account_budget_info=account_budget_info)
-        else:
-            b = Budget(start_date=start_date, end_date=end_date, account_budget_info=account_budget_info)
-        self._save_budget(b)
+        try:
+            if self._budget:
+                b = Budget(start_date=start_date, end_date=end_date, id_=self._budget.id, account_budget_info=account_budget_info)
+            else:
+                b = Budget(start_date=start_date, end_date=end_date, account_budget_info=account_budget_info)
+            self._save_budget(b)
+        except Exception as e:
+            handle_error(e)
+            return
         self._form.destroy()
 
 
