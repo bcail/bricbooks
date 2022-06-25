@@ -2248,23 +2248,8 @@ class TransferAccountsDisplay:
                 current_index = len(self._transfer_accounts_display_list) - 1
             self.transfer_accounts_combo.current(current_index)
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
-        # self._multiple_entry_index = index + 1
-        # current_categories = []
-        # if txn and len(txn.splits.keys()) > 2:
-        #     current_categories = txn.splits
-        #     current_index = self._multiple_entry_index
-        # self._categories_combo.addItem('multiple', current_categories)
-        # self._categories_combo.setCurrentIndex(current_index)
-        # layout.addWidget(self._categories_combo, 0, 0)
         self.split_button = ttk.Button(master=self._widget, text='Split', command=self._show_splits_editor)
         self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))
-        # txn_id = None
-        # if txn:
-        #     txn_id = txn.id
-        # self.split_button.clicked.connect(self._split_transactions)
-        # layout.addWidget(self.split_button)
-        # self._widget = QtWidgets.QWidget()
-        # self._widget.setLayout(layout)
 
     def _show_splits_editor(self):
         initial_txn_splits = {}
@@ -2798,48 +2783,37 @@ class ScheduledTransactionForm:
         if self._scheduled_transaction:
             self.name_entry.insert(0, self._scheduled_transaction.name)
         self.name_entry.grid(row=0, column=1)
-        # self._widgets['name'] = name_entry
-        #layout.addWidget(name_entry, 0, 1)
         ttk.Label(master=self.content, text='Frequency').grid(row=1, column=0)
         self.frequency_combo = ttk.Combobox(master=self.content)
-        # frequency_entry = QtWidgets.QComboBox()
         frequency_index = 0
         self.frequency_values = []
         self.frequencies = []
         for index, frequency in enumerate(ScheduledTransactionFrequency):
             self.frequency_values.append(frequency.name)
             self.frequencies.append(frequency)
-            #frequency_entry.addItem(frequency.name, frequency)
             if self._scheduled_transaction and frequency == self._scheduled_transaction.frequency:
                 frequency_index = index
         self.frequency_combo['values'] = self.frequency_values
         if self._scheduled_transaction:
             self.frequency_combo.current(frequency_index)
-        #self._widgets['frequency'] = frequency_entry
-        #layout.addWidget(frequency_entry, 1, 1)
         self.frequency_combo.grid(row=1, column=1)
         ttk.Label(master=self.content, text='Next Due Date').grid(row=2, column=0)
         self.next_due_date_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
-        #self._widgets['next_due_date'] = next_due_date_entry
         self.next_due_date_entry.grid(row=2, column=1)
 
         ttk.Label(master=self.content, text='Payee').grid(row=3, column=0)
         self.payee_combo = ttk.Combobox(master=self.content)
-        #payee_entry.setEditable(True)
-        #self.payee_combo.addItem('')
         payee_values = [p.name for p in self._payees]
         payee_values.insert(0, '')
         payee_index = 0
         for index, payee in enumerate(self._payees):
-            #payee_entry.addItem(payee.name, payee)
             if self._scheduled_transaction and self._scheduled_transaction.payee and self._scheduled_transaction.payee.name == payee.name:
                 payee_index = index + 1 #because of first empty item
         self.payee_combo['values'] = payee_values
         if self._scheduled_transaction:
             self.payee_combo.current(payee_index)
-        #self._widgets['payee'] = payee_entry
         self.payee_combo.grid(row=3, column=1)
 
         account = deposit = withdrawal = None
@@ -2857,24 +2831,20 @@ class ScheduledTransactionForm:
         self.account_combo['values'] = account_values
         account_index = -1
         for index, acct in enumerate(self._accounts):
-            #account_entry.addItem(acct.name, acct)
             if account and account == acct:
                 account_index = index
         if account:
             self.account_combo.current(account_index)
-        #self._widgets['account'] = account_entry
         self.account_combo.grid(row=4, column=1)
         ttk.Label(master=self.content, text='Withdrawal').grid(row=5, column=0)
         self.withdrawal_entry = ttk.Entry(master=self.content)
         if withdrawal:
             self.withdrawal_entry.insert(0, withdrawal)
-        #self._widgets['withdrawal'] = withdrawal_entry
         self.withdrawal_entry.grid(row=5, column=1)
         ttk.Label(master=self.content, text='Deposit').grid(row=6, column=0)
         self.deposit_entry = ttk.Entry(master=self.content)
         if deposit:
             self.deposit_entry.insert(0, deposit)
-        #self._widgets['deposit'] = deposit_entry
         self.deposit_entry.grid(row=6, column=1)
         ttk.Label(master=self.content, text='Categories').grid(row=7, column=0)
         self.transfer_accounts_display = TransferAccountsDisplay(
@@ -2883,11 +2853,8 @@ class ScheduledTransactionForm:
                 transaction=self._scheduled_transaction,
                 main_account=account
             )
-        #self._widgets['accounts_display'] = txn_accounts_display
         self.transfer_accounts_display.get_widget().grid(row=7, column=1)
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
-        #save_button.clicked.connect(self._save)
-        #self._widgets['save_btn'] = save_button
         self.save_button.grid(row=8, column=0)
 
         self.content.grid()
