@@ -3,7 +3,7 @@ Architecture:
     Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
     Storage - SQLiteStorage (or another storage class). Handles saving & retrieving business objects from storage.
     Engine - has a storage object, and implements application logic.
-    Outer Layer - UI (Qt, console). Has an engine object, and handles displaying data to the user and sending user actions to the engine.
+    Outer Layer - UI (GUI, console). Has an engine object, and handles displaying data to the user and sending user actions to the engine.
     No objects should use private/hidden members of other objects.
 '''
 from collections import namedtuple
@@ -259,8 +259,8 @@ def get_validated_amount(value):
     if isinstance(value, (int, str, Fraction)):
         try:
             amount = Fraction(value)
-        except InvalidOperation:
-            raise InvalidAmount('error generating Fraction from "{value}"')
+        except Exception:
+            raise InvalidAmount('invalid value "{value}"')
     else:
         raise InvalidAmount(f'invalid value type: {type(value)} {value}')
     if (100 % amount.denominator) != 0:
@@ -343,6 +343,8 @@ class Transaction:
     def splits_from_user_info(account, deposit, withdrawal, input_categories, status=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
+        if not deposit and not withdrawal:
+            raise InvalidTransactionError('must enter deposit or withdrawal')
         try:
             amount = get_validated_amount(deposit or withdrawal)
         except InvalidAmount as e:

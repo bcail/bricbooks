@@ -264,6 +264,22 @@ class TestTransaction(unittest.TestCase):
                 }
             )
 
+    def test_txn_from_user_info_no_withdrawal_deposit(self):
+        with self.assertRaises(Exception) as cm:
+            bb.Transaction.from_user_info(
+                    txn_date='2017-10-15',
+                    account=self.checking,
+                    deposit='',
+                    withdrawal='',
+                    categories={},
+                    txn_type='',
+                    description='',
+                    payee='',
+                    status='',
+                )
+
+        self.assertIn('deposit or withdrawal', str(cm.exception).lower())
+
     def test_txn_status(self):
         t = bb.Transaction(
                 splits={
