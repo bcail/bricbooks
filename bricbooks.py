@@ -2454,7 +2454,7 @@ class LedgerDisplay:
                 self.txns_widget.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
         self.txns_widget.bind('<Button-1>', self._item_selected)
-        self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
@@ -2471,13 +2471,13 @@ class LedgerDisplay:
         self.account_select_combo['values'] = account_values
         self.account_select_combo.current(selected)
         self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
-        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
 
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
-        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
 
         self.filter_entry = ttk.Entry(master=self.frame)
-        self.filter_entry.grid(row=0, column=2)
+        self.filter_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_account_combo = ttk.Combobox(master=self.frame)
         filter_account_values = ['All Transfer Accounts']
         self.filter_account_items.append(None)
@@ -2488,11 +2488,11 @@ class LedgerDisplay:
                 self.filter_account_items.append(a)
         self.filter_account_combo['values'] = filter_account_values
         self.filter_account_combo.current(0)
-        self.filter_account_combo.grid(row=0, column=3)
+        self.filter_account_combo.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_button = ttk.Button(master=self.frame, text='Filter', command=self._filter_transactions)
-        self.filter_button.grid(row=0, column=4)
+        self.filter_button.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
-        self.show_all_button.grid(row=0, column=5)
+        self.show_all_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
 
         self._show_transactions()
         self._show_balances_frame()
@@ -3046,13 +3046,13 @@ class GUI_TK:
     def _init_action_buttons_frame(self, master):
         frame = ttk.Frame(master=master)
         self.accounts_button = ttk.Button(master=frame, text='Accounts', command=self._show_accounts)
-        self.accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+        self.accounts_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         self.ledger_button = ttk.Button(master=frame, text='Ledger', command=self._show_ledger)
-        self.ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S))
+        self.ledger_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         self.budget_button = ttk.Button(master=frame, text='Budget', command=self._show_budget)
-        self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S))
+        self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         self.scheduled_transactions_button = ttk.Button(master=frame, text='Scheduled Transactions', command=self._show_scheduled_transactions)
-        self.scheduled_transactions_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S))
+        self.scheduled_transactions_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         return frame
 
     def _update_action_buttons(self, display):
