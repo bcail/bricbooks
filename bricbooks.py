@@ -2577,6 +2577,7 @@ class LedgerDisplay:
         filter_entry_value = self.filter_entry.get().strip()
         filter_parts = filter_entry_value.split()
         filter_text = ''
+        status = ''
         for fp in filter_parts:
             if fp.startswith('status:'):
                 status = fp.replace('status:', '')
