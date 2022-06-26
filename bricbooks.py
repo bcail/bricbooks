@@ -2317,6 +2317,8 @@ class TransactionForm:
             self.date_entry.insert(0, tds['txn_date'])
             self.payee_combo.current(payee_index)
             self.description_entry.insert(0, tds['description'])
+        else:
+            self.date_entry.insert(0, str(date.today()))
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values

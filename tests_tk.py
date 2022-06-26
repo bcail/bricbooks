@@ -118,6 +118,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_button.invoke()
         gui.ledger_display.add_button.invoke()
         add_form = gui.ledger_display.add_transaction_form
+        self.assertEqual(add_form.date_entry.get(), str(date.today()))
+        add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
@@ -148,6 +150,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_button.invoke()
         gui.ledger_display.add_button.invoke()
         add_form = gui.ledger_display.add_transaction_form
+        add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.split_button.invoke()
