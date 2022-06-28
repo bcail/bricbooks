@@ -116,6 +116,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui.ledger_button.invoke()
+        self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: 0.00')
         gui.ledger_display.add_button.invoke()
         add_form = gui.ledger_display.add_transaction_form
         self.assertEqual(add_form.date_entry.get(), str(date.today()))
@@ -128,6 +129,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
+        self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: -20.05')
 
     @patch('bricbooks.handle_error')
     def test_transaction_exception(self, mock_method):

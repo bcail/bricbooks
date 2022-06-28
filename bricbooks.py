@@ -2404,7 +2404,8 @@ class LedgerDisplay:
         self._engine = engine
         self.txns_widget = None
         self.filter_account_items = []
-        self.balances_frame = None
+        self.cleared_var = tk.StringVar()
+        self.balance_var = tk.StringVar()
 
     def _get_txns(self, status=None, filter_text='', filter_account=None):
         accounts = [self._account]
@@ -2458,6 +2459,10 @@ class LedgerDisplay:
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)
 
+        balances = self._engine.get_current_balances_for_display(account=self._account)
+        self.balance_var.set(f'Current Balance: {balances.current}')
+        self.cleared_var.set(f'Cleared: {balances.current_cleared}')
+
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
         self.frame.columnconfigure(1, weight=1)
@@ -2496,24 +2501,16 @@ class LedgerDisplay:
         self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
         self.show_all_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
 
+        balances_frame = ttk.Frame(master=self.frame)
+        balances_frame.columnconfigure(0, weight=1)
+        balances_frame.columnconfigure(1, weight=1)
+        ttk.Label(master=balances_frame, textvariable=self.cleared_var).grid(row=0, column=0, sticky=(tk.W, tk.E))
+        ttk.Label(master=balances_frame, textvariable=self.balance_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
+        balances_frame.grid(row=2, column=1, columnspan=6, sticky=(tk.W, tk.E))
+
         self._show_transactions()
-        self._show_balances_frame()
+
         return self.frame
-
-    def _show_balances_frame(self):
-        #this is a row below the list of txns
-        if self.balances_frame:
-            self.balances_frame.destroy()
-
-        self.balances_frame = ttk.Frame(master=self.frame)
-        self.balances_frame.columnconfigure(0, weight=1)
-        self.balances_frame.columnconfigure(1, weight=1)
-        balances = self._engine.get_current_balances_for_display(account=self._account)
-        balance_text = f'Current Balance: {balances.current}'
-        cleared_text = f'Cleared: {balances.current_cleared}'
-        ttk.Label(master=self.balances_frame, text=cleared_text).grid(row=0, column=0, sticky=(tk.W, tk.E))
-        ttk.Label(master=self.balances_frame, text=balance_text).grid(row=0, column=1, sticky=(tk.W, tk.E))
-        self.balances_frame.grid(row=2, column=1, columnspan=6, sticky=(tk.W, tk.E))
 
     def _update_account(self, event):
         current_account_index = self.account_select_combo.current()
