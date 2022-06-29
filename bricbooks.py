@@ -2249,6 +2249,7 @@ class TransferAccountsDisplay:
             if len(self._transaction.splits.keys()) > 2:
                 current_index = len(self._transfer_accounts_display_list) - 1
             self.transfer_accounts_combo.current(current_index)
+            self._multiple_splits = self._transaction.splits.copy()
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         self.split_button = ttk.Button(master=self._widget, text='Split', command=self._show_splits_editor)
         self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))

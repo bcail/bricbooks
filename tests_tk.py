@@ -248,6 +248,35 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[food]['amount'], 17)
         self.assertEqual(txns[0].splits[restaurants]['amount'], 23)
 
+    def test_ledger_update_transaction_multiple_transfer_no_changing_transfer(self):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        food = get_test_account(name='Food')
+        restaurants = get_test_account(name='Restaurants')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=food)
+        gui._engine.save_account(account=restaurants)
+        payee = bb.Payee('some payee')
+        gui._engine.save_payee(payee)
+        splits = {checking: {'amount': -20}, food: {'amount': 5}, restaurants: {'amount': 15}}
+        txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3))
+        gui._engine.save_transaction(txn)
+        gui.ledger_button.invoke()
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=10)
+
+        #update values & save
+        gui.ledger_display.edit_transaction_form.date_entry.delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.date_entry.insert(0, '2018-12-20')
+        gui.ledger_display.edit_transaction_form.save_button.invoke()
+
+        #verify transaction updates saved
+        txns = gui._engine.get_transactions(accounts=[checking])
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].txn_date, date(2018, 12, 20))
+        self.assertEqual(txns[0].splits[checking]['amount'], -20)
+        self.assertEqual(txns[0].splits[food]['amount'], 5)
+        self.assertEqual(txns[0].splits[restaurants]['amount'], 15)
+
     def test_ledger_enter_next_scheduled_transaction(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
