@@ -2171,8 +2171,11 @@ class AccountsDisplay:
         widget.grid()
 
     def _item_selected(self, event):
+        row_id = self.tree.identify_row(event.y)
+        if not row_id:
+            return
+        account_id = int(row_id)
         accounts = self._engine.get_accounts()
-        account_id = int(self.tree.identify_row(event.y))
         account = self._engine.get_account(id_=account_id)
         self.edit_account_form = AccountForm(accounts, save_account=self._engine.save_account,
                 update_display=self._show_accounts, account=account)
@@ -2545,7 +2548,7 @@ class LedgerDisplay:
                 )
             widget = self.edit_scheduled_transaction_form.get_widget()
             widget.grid()
-        else:
+        elif txn_id:
             transaction = self._engine.get_transaction(id_=int(txn_id))
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
@@ -2806,7 +2809,12 @@ class ScheduledTransactionForm:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
         self.next_due_date_entry.grid(row=2, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
 
-        ttk.Label(master=self.content, text='Payee').grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Type').grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.type_entry = ttk.Entry(master=self.content)
+        if self._scheduled_transaction and self._scheduled_transaction.txn_type:
+            self.type_entry.insert(0, self._scheduled_transaction.txn_type)
+        self.type_entry.grid(row=3, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Payee').grid(row=4, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.payee_combo = ttk.Combobox(master=self.content)
         payee_values = [p.name for p in self._payees]
         payee_values.insert(0, '')
@@ -2817,7 +2825,7 @@ class ScheduledTransactionForm:
         self.payee_combo['values'] = payee_values
         if self._scheduled_transaction:
             self.payee_combo.current(payee_index)
-        self.payee_combo.grid(row=3, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.payee_combo.grid(row=4, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
 
         account = deposit = withdrawal = None
         if self._scheduled_transaction:
@@ -2828,7 +2836,7 @@ class ScheduledTransactionForm:
             else:
                 withdrawal = amount_display(amount * Fraction(-1))
 
-        ttk.Label(master=self.content, text='Account').grid(row=4, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Account').grid(row=5, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.account_combo = ttk.Combobox(master=self.content)
         account_values = [a.name for a in self._accounts]
         self.account_combo['values'] = account_values
@@ -2838,27 +2846,27 @@ class ScheduledTransactionForm:
                 account_index = index
         if account:
             self.account_combo.current(account_index)
-        self.account_combo.grid(row=4, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
-        ttk.Label(master=self.content, text='Withdrawal').grid(row=5, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.account_combo.grid(row=5, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Withdrawal').grid(row=6, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.withdrawal_entry = ttk.Entry(master=self.content)
         if withdrawal:
             self.withdrawal_entry.insert(0, withdrawal)
-        self.withdrawal_entry.grid(row=5, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
-        ttk.Label(master=self.content, text='Deposit').grid(row=6, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.withdrawal_entry.grid(row=6, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Deposit').grid(row=7, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.deposit_entry = ttk.Entry(master=self.content)
         if deposit:
             self.deposit_entry.insert(0, deposit)
-        self.deposit_entry.grid(row=6, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
-        ttk.Label(master=self.content, text='Categories').grid(row=7, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.deposit_entry.grid(row=7, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Categories').grid(row=8, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.content,
                 accounts=self._accounts,
                 transaction=self._scheduled_transaction,
                 main_account=account
             )
-        self.transfer_accounts_display.get_widget().grid(row=7, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.transfer_accounts_display.get_widget().grid(row=8, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
-        self.save_button.grid(row=8, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.save_button.grid(row=9, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
 
         self.content.grid(sticky=(tk.N, tk.S, tk.W, tk.E))
 
@@ -2888,6 +2896,7 @@ class ScheduledTransactionForm:
                     next_due_date=self.next_due_date_entry.get(),
                     splits=splits,
                     payee=payee,
+                    txn_type=self.type_entry.get(),
                     id_=id_,
                 )
             self._save_scheduled_txn(scheduled_txn=st)
@@ -2956,7 +2965,10 @@ class ScheduledTransactionsDisplay:
         widget.grid()
 
     def _item_selected(self, event):
-        scheduled_transaction_id = int(self.tree.identify_row(event.y))
+        row_id = self.tree.identify_row(event.y)
+        if not row_id:
+            return
+        scheduled_transaction_id = int(row_id)
         scheduled_transaction = self._engine.get_scheduled_transaction(id_=scheduled_transaction_id)
         accounts = self._engine.get_accounts()
         payees = self._engine.get_payees()
