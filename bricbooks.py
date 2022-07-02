@@ -2781,12 +2781,12 @@ class ScheduledTransactionForm:
         self._form = tk.Toplevel()
         self.content = ttk.Frame(master=self._form)
 
-        ttk.Label(master=self.content, text='Name').grid(row=0, column=0)
+        ttk.Label(master=self.content, text='Name').grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.name_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.name_entry.insert(0, self._scheduled_transaction.name)
-        self.name_entry.grid(row=0, column=1)
-        ttk.Label(master=self.content, text='Frequency').grid(row=1, column=0)
+        self.name_entry.grid(row=0, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Frequency').grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.frequency_combo = ttk.Combobox(master=self.content)
         frequency_index = 0
         self.frequency_values = []
@@ -2799,14 +2799,14 @@ class ScheduledTransactionForm:
         self.frequency_combo['values'] = self.frequency_values
         if self._scheduled_transaction:
             self.frequency_combo.current(frequency_index)
-        self.frequency_combo.grid(row=1, column=1)
-        ttk.Label(master=self.content, text='Next Due Date').grid(row=2, column=0)
+        self.frequency_combo.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Next Due Date').grid(row=2, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.next_due_date_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
-        self.next_due_date_entry.grid(row=2, column=1)
+        self.next_due_date_entry.grid(row=2, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
 
-        ttk.Label(master=self.content, text='Payee').grid(row=3, column=0)
+        ttk.Label(master=self.content, text='Payee').grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.payee_combo = ttk.Combobox(master=self.content)
         payee_values = [p.name for p in self._payees]
         payee_values.insert(0, '')
@@ -2817,7 +2817,7 @@ class ScheduledTransactionForm:
         self.payee_combo['values'] = payee_values
         if self._scheduled_transaction:
             self.payee_combo.current(payee_index)
-        self.payee_combo.grid(row=3, column=1)
+        self.payee_combo.grid(row=3, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
 
         account = deposit = withdrawal = None
         if self._scheduled_transaction:
@@ -2828,7 +2828,7 @@ class ScheduledTransactionForm:
             else:
                 withdrawal = amount_display(amount * Fraction(-1))
 
-        ttk.Label(master=self.content, text='Account').grid(row=4, column=0)
+        ttk.Label(master=self.content, text='Account').grid(row=4, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.account_combo = ttk.Combobox(master=self.content)
         account_values = [a.name for a in self._accounts]
         self.account_combo['values'] = account_values
@@ -2838,29 +2838,29 @@ class ScheduledTransactionForm:
                 account_index = index
         if account:
             self.account_combo.current(account_index)
-        self.account_combo.grid(row=4, column=1)
-        ttk.Label(master=self.content, text='Withdrawal').grid(row=5, column=0)
+        self.account_combo.grid(row=4, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Withdrawal').grid(row=5, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.withdrawal_entry = ttk.Entry(master=self.content)
         if withdrawal:
             self.withdrawal_entry.insert(0, withdrawal)
-        self.withdrawal_entry.grid(row=5, column=1)
-        ttk.Label(master=self.content, text='Deposit').grid(row=6, column=0)
+        self.withdrawal_entry.grid(row=5, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Deposit').grid(row=6, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.deposit_entry = ttk.Entry(master=self.content)
         if deposit:
             self.deposit_entry.insert(0, deposit)
-        self.deposit_entry.grid(row=6, column=1)
-        ttk.Label(master=self.content, text='Categories').grid(row=7, column=0)
+        self.deposit_entry.grid(row=6, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Categories').grid(row=7, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.content,
                 accounts=self._accounts,
                 transaction=self._scheduled_transaction,
                 main_account=account
             )
-        self.transfer_accounts_display.get_widget().grid(row=7, column=1)
+        self.transfer_accounts_display.get_widget().grid(row=7, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
-        self.save_button.grid(row=8, column=0)
+        self.save_button.grid(row=8, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
 
-        self.content.grid()
+        self.content.grid(sticky=(tk.N, tk.S, tk.W, tk.E))
 
         return self._form
 
