@@ -1528,6 +1528,16 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(accounts[1].name, 'Savings')
         self.assertEqual(accounts[2].name, 'Retirement 401k')
 
+    def test_payees(self):
+        engine = bb.Engine(':memory:')
+        engine.save_payee(bb.Payee('New Payee'))
+        engine.save_payee(bb.Payee('A Payee obj'))
+        engine.save_payee(bb.Payee('A New Payee'))
+        payees = engine.get_payees()
+        self.assertEqual(len(payees), 3)
+        self.assertEqual(payees[0].name, 'A New Payee')
+        self.assertEqual(payees[2].name, 'New Payee')
+
     def test_get_ledger_accounts(self):
         engine = bb.Engine(':memory:')
         create_test_accounts(engine)

@@ -1422,7 +1422,7 @@ class Engine:
         return self._storage.get_payee(id_=id_, name=name)
 
     def get_payees(self):
-        return self._storage.get_payees()
+        return sorted(self._storage.get_payees(), key=lambda p: p.name)
 
     def save_payee(self, payee):
         return self._storage.save_payee(payee)

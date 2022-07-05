@@ -188,6 +188,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
 
         #update values & save
+        gui.ledger_display.edit_transaction_form.payee_combo.delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.payee_combo.insert(0, 'New Payee')
         gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '21')
         gui.ledger_display.edit_transaction_form.save_button.invoke()
@@ -200,7 +202,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[1].splits[checking]['amount'], -21)
         self.assertEqual(txns[1].splits[checking]['status'], bb.Transaction.CLEARED)
         self.assertEqual(txns[1].splits[restaurants]['amount'], 21)
-        self.assertEqual(txns[1].payee.name, 'some payee')
+        self.assertEqual(txns[1].payee.name, 'New Payee')
         self.assertEqual(txns[1].description, 'description')
 
     def test_ledger_update_transaction_multiple_transfer(self):
@@ -211,8 +213,6 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
-        payee = bb.Payee('some payee')
-        gui._engine.save_payee(payee)
         splits = {checking: {'amount': -20}, food: {'amount': 5}, restaurants: {'amount': 15}}
         txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
@@ -256,8 +256,6 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
-        payee = bb.Payee('some payee')
-        gui._engine.save_payee(payee)
         splits = {checking: {'amount': -20}, food: {'amount': 5}, restaurants: {'amount': 15}}
         txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
@@ -354,6 +352,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.scheduled_transactions_display.new_form.type_entry.insert(0, 'ACH')
         gui.scheduled_transactions_display.new_form.next_due_date_entry.insert(0, '2020-01-16')
         gui.scheduled_transactions_display.new_form.withdrawal_entry.insert(0, '100')
+        gui.scheduled_transactions_display.new_form.payee_combo.insert(0, 'New Payee')
         gui.scheduled_transactions_display.new_form.account_combo.current(0)
         gui.scheduled_transactions_display.new_form.transfer_accounts_display.transfer_accounts_combo.current(2)
         gui.scheduled_transactions_display.new_form.save_button.invoke()
@@ -361,6 +360,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'test 1')
         self.assertEqual(scheduled_txns[0].txn_type, 'ACH')
+        self.assertEqual(scheduled_txns[0].payee.name, 'New Payee')
         self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -100, 'quantity': -100})
         self.assertEqual(scheduled_txns[0].splits[savings], {'amount': 100, 'quantity': 100})
 
