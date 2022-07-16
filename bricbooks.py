@@ -2209,9 +2209,8 @@ class SplitTransactionEditor:
             ttk.Label(master=self.form, text=str(account)).grid(row=row, column=0)
             amount_entry = ttk.Entry(master=self.form)
             for acc, split_info in self._initial_txn_splits.items():
-                amt = split_info['amount']
                 if acc == account:
-                    amount_entry.insert(0, amount_display(amt))
+                    amount_entry.insert(0, split_info['amount'])
             self._entries[account.id] = (amount_entry, account)
             amount_entry.grid(row=row, column=1)
             row += 1
@@ -2225,11 +2224,13 @@ class SplitTransactionEditor:
 
 class TransferAccountsDisplay:
 
-    def __init__(self, master, accounts=None, main_account=None, transaction=None):
+    def __init__(self, master, accounts=None, main_account=None, transaction=None, withdrawal_var=None, deposit_var=None):
         self._master = master
         self._accounts = accounts
         self._main_account = main_account
         self._transaction = transaction
+        self._withdrawal_var = withdrawal_var
+        self._deposit_var = deposit_var
         self._widget = ttk.Frame(master=self._master)
         self.transfer_accounts_combo = ttk.Combobox(master=self._widget)
         self._transfer_accounts_display_list = ['----------']
@@ -2258,15 +2259,36 @@ class TransferAccountsDisplay:
         self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))
 
     def _show_splits_editor(self):
+        #make sure amounts are converted to text for passing to splits editor
         initial_txn_splits = {}
         if self._transaction:
-            initial_txn_splits = self._transaction.splits
+            for acc, info in self._transaction.splits.items():
+                initial_txn_splits[acc] = {'amount': amount_display(info['amount'])}
+        withdrawal = self._withdrawal_var.get()
+        deposit = self._withdrawal_var.get()
+        if withdrawal or deposit:
+            if self._main_account not in initial_txn_splits:
+                initial_txn_splits[self._main_account] = {}
+            if withdrawal:
+                initial_txn_splits[self._main_account]['amount'] = f'-{withdrawal}'
+            elif deposit:
+                initial_txn_splits[self._main_account]['amount'] = deposit
         self.splits_editor = SplitTransactionEditor(self._accounts, initial_txn_splits, save_splits=self._save_splits)
 
     def _save_splits(self, txn_splits):
+        #make sure amounts are converted back to Fraction from splits editor
+        #update the withdrawal/deposit fields here, when splits editor closes
         if txn_splits:
             self.transfer_accounts_combo.current(len(self._transfer_accounts_display_list)-1)
-            self._multiple_splits = txn_splits
+            self._multiple_splits = {}
+            for acc, info in txn_splits.items():
+                if acc == self._main_account and info.get('amount'):
+                    if info['amount'].startswith('-'):
+                        self._withdrawal_var.set(info['amount'].replace('-', ''))
+                    else:
+                        self._deposit_var.set(info['amount'])
+                else:
+                    self._multiple_splits[acc] = {'amount': get_validated_amount(info['amount'])}
 
     def get_transfer_accounts(self):
         transfer_account_index = self.transfer_accounts_combo.current()
@@ -2274,9 +2296,6 @@ class TransferAccountsDisplay:
             splits = self._multiple_splits
         else:
             splits = self._transfer_accounts_list[transfer_account_index]
-        #remove main account split (if present), because that comes from withdrawal/deposit fields
-        if isinstance(splits, dict):
-            splits.pop(self._main_account, None)
         return splits
 
     def get_widget(self):
@@ -2294,6 +2313,8 @@ class TransactionForm:
         self._transaction = transaction
         self._skip_transaction = skip_transaction
         self._delete_transaction = delete_transaction
+        self.withdrawal_var = tk.StringVar()
+        self.deposit_var = tk.StringVar()
 
     def get_widget(self):
         self.top_level = tk.Toplevel()
@@ -2326,8 +2347,8 @@ class TransactionForm:
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values
-        self.withdrawal_entry = ttk.Entry(master=self.form)
-        self.deposit_entry = ttk.Entry(master=self.form)
+        self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
+        self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
         if self._transaction:
             for index, status in enumerate(status_values):
                 try:
@@ -2335,13 +2356,15 @@ class TransactionForm:
                         self.status_combo.current(index)
                 except AttributeError: #ScheduledTxn doesn't have a status
                     pass
-            self.withdrawal_entry.insert(0, tds['withdrawal'])
-            self.deposit_entry.insert(0, tds['deposit'])
+            self.withdrawal_var.set(tds['withdrawal'])
+            self.deposit_var.set(tds['deposit'])
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.form,
                 accounts=self._accounts,
                 main_account=self._account,
-                transaction=self._transaction
+                transaction=self._transaction,
+                withdrawal_var=self.withdrawal_var,
+                deposit_var=self.deposit_var,
             )
         self.transfer_accounts_widget = self.transfer_accounts_display.get_widget()
         self.type_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
@@ -2374,8 +2397,8 @@ class TransactionForm:
             'id_': id_,
             'account': self._account,
             'txn_type': self.type_entry.get(),
-            'deposit': self.deposit_entry.get(),
-            'withdrawal': self.withdrawal_entry.get(),
+            'deposit': self.deposit_var.get(),
+            'withdrawal': self.withdrawal_var.get(),
             'txn_date': self.date_entry.get(),
             'payee': self.payee_combo.get(),
             'description': self.description_entry.get(),

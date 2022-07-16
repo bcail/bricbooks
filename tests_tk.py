@@ -156,15 +156,48 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         add_form.date_entry.insert(0, '2021-01-13')
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.split_button.invoke()
-        add_form.transfer_accounts_display.splits_editor._entries[checking.id][0].insert(0, '-20.05')
-        add_form.transfer_accounts_display.splits_editor._entries[food.id][0].insert(0, '10.05')
-        add_form.transfer_accounts_display.splits_editor._entries[restaurants.id][0].insert(0, '10')
-        add_form.transfer_accounts_display.splits_editor.ok_button.invoke()
+
+        splits_editor = add_form.transfer_accounts_display.splits_editor
+        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-20.05')
+
+        splits_editor._entries[food.id][0].insert(0, '10.05')
+        splits_editor._entries[restaurants.id][0].insert(0, '10')
+        splits_editor.ok_button.invoke()
         add_form.save_button.invoke()
         txns = gui._engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
+
+    def test_ledger_new_transaction_multiple_transfer_modify_main_amount(self):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        food = get_test_account(name='Food')
+        restaurants = get_test_account(name='Restaurants')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=food)
+        gui._engine.save_account(account=restaurants)
+        gui.ledger_button.invoke()
+        gui.ledger_display.add_button.invoke()
+        add_form = gui.ledger_display.add_transaction_form
+        add_form.date_entry.delete(0, tkinter.END)
+        add_form.date_entry.insert(0, '2021-01-13')
+        add_form.withdrawal_entry.insert(0, '20.05')
+        add_form.transfer_accounts_display.split_button.invoke()
+
+        splits_editor = add_form.transfer_accounts_display.splits_editor
+        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-20.05')
+
+        splits_editor._entries[checking.id][0].delete(0, tkinter.END)
+        splits_editor._entries[checking.id][0].insert(0, '-30')
+        splits_editor._entries[food.id][0].insert(0, '21.05')
+        splits_editor._entries[restaurants.id][0].insert(0, '8.95')
+        splits_editor.ok_button.invoke()
+        add_form.save_button.invoke()
+        txns = gui._engine.get_transactions(accounts=[checking])
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
+        self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-30, 1))
 
     def test_ledger_update_transaction(self):
         gui = bb.GUI_TK(':memory:')
@@ -227,16 +260,17 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '40')
         gui.ledger_display.edit_transaction_form.transfer_accounts_display.split_button.invoke()
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[checking.id][0].get(), '-20.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[food.id][0].get(), '5.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[restaurants.id][0].get(), '15.00')
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[checking.id][0].delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[checking.id][0].insert(0, '-40')
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[food.id][0].delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[food.id][0].insert(0, '17')
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[restaurants.id][0].delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor._entries[restaurants.id][0].insert(0, '23')
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor.ok_button.invoke()
+
+        splits_editor = gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor
+        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-40') #withdrawal entry already updated
+        self.assertEqual(splits_editor._entries[food.id][0].get(), '5.00')
+        self.assertEqual(splits_editor._entries[restaurants.id][0].get(), '15.00')
+
+        splits_editor._entries[food.id][0].delete(0, tkinter.END)
+        splits_editor._entries[food.id][0].insert(0, '17')
+        splits_editor._entries[restaurants.id][0].delete(0, tkinter.END)
+        splits_editor._entries[restaurants.id][0].insert(0, '23')
+        splits_editor.ok_button.invoke()
 
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
