@@ -2199,27 +2199,32 @@ class SplitTransactionEditor:
             if text:
                 self._final_txn_splits[account] = {'amount': text}
         self._save_splits(self._final_txn_splits)
-        self.toplevel.destroy()
+        self._form.destroy()
 
     def _show_split_editor(self):
-        self.toplevel = tk.Toplevel()
-        self.form = ttk.Frame(master=self.toplevel)
+        self._form = tk.Toplevel()
+        self._form.rowconfigure(0, weight=1)
+        self._form.columnconfigure(0, weight=1)
+
+        from idlelib.configdialog import VerticalScrolledFrame
+        self.content = VerticalScrolledFrame(parent=self._form)
+
         row = 0
         for account in self._all_accounts:
-            ttk.Label(master=self.form, text=str(account)).grid(row=row, column=0)
-            amount_entry = ttk.Entry(master=self.form)
+            ttk.Label(master=self.content.interior, text=str(account)).grid(row=row, column=0)
+            amount_entry = ttk.Entry(master=self.content.interior)
             for acc, split_info in self._initial_txn_splits.items():
                 if acc == account:
                     amount_entry.insert(0, split_info['amount'])
             self._entries[account.id] = (amount_entry, account)
             amount_entry.grid(row=row, column=1)
             row += 1
-        self.ok_button = ttk.Button(master=self.form, text='Done', command=self._get_txn_splits)
+        self.ok_button = ttk.Button(master=self.content.interior, text='Done', command=self._get_txn_splits)
         self.ok_button.grid(row=row, column=0)
-        self.cancel_button = ttk.Button(master=self.form, text='Cancel', command=self.form.destroy)
+        self.cancel_button = ttk.Button(master=self.content.interior, text='Cancel', command=self._form.destroy)
         self.cancel_button.grid(row=row, column=1)
-        self.form.grid()
-        self.toplevel.grid()
+        self.content.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self._form.grid()
 
 
 class TransferAccountsDisplay:
