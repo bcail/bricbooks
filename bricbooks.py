@@ -29,7 +29,7 @@ except ImportError:
     tk = None
 
 
-__version__ = '0.5.2.dev'
+__version__ = '0.5.2'
 TITLE = f'bricbooks {__version__}'
 CUR_DIR = os.getcwd()
 LOG_FILENAME = 'bricbooks.log'
