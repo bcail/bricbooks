@@ -571,12 +571,18 @@ class Budget:
         return percent.quantize(Decimal('1.'), rounding=ROUND_HALF_UP)
 
     @staticmethod
+    def remaining_time_period(current_date, start_date, end_date):
+        '''How much of the Budget time period is left'''
+        days_in_budget = (end_date - start_date).days + 1
+        days_passed = (current_date - start_date).days
+        return Fraction(100) - (Fraction(days_passed, days_in_budget) * Fraction(100))
+
+    @staticmethod
     def get_current_status(current_date, start_date, end_date, remaining_percent):
+        '''Compare budget amount remaining to budget time period remaining'''
         if current_date and current_date < end_date and current_date > start_date:
-            days_in_budget = (end_date - start_date).days
-            days_passed = (current_date - start_date).days
-            days_percent_remaining = Fraction(100) - (Fraction(days_passed, days_in_budget) * Fraction(100))
-            difference = days_percent_remaining - remaining_percent
+            remaining_time_period = Budget.remaining_time_period(current_date, start_date, end_date)
+            difference = remaining_time_period - remaining_percent
             difference = Budget.round_percent_available(fraction_to_decimal(difference))
             if difference > 0:
                 return f'+{difference}%'

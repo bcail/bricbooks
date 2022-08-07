@@ -582,6 +582,12 @@ class TestBudget(unittest.TestCase):
         self.assertEqual(bb.Budget.round_percent_available(Decimal('1.5')), 2)
         self.assertEqual(bb.Budget.round_percent_available(Decimal('2.5')), 3)
 
+    def test_get_current_status(self):
+        status = bb.Budget.get_current_status(current_date=date(2018, 7, 1), start_date=date(2018, 1, 1), end_date=date(2018, 12, 31), remaining_percent=Fraction(60))
+        self.assertEqual(status, '-10%')
+        status = bb.Budget.get_current_status(current_date=date(2018, 1, 1), start_date=date(2017, 7, 1), end_date=date(2018, 6, 30), remaining_percent=Fraction(60))
+        self.assertEqual(status, '-10%')
+
     def test_get_report_display(self):
         self.maxDiff = None
         housing = get_test_account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing', number='400')
@@ -1266,7 +1272,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(incomes[0]['amount'], '70.00')
         self.assertEqual(incomes[0]['income'], '100.00')
         self.assertEqual(incomes[0]['remaining'], '-30.00')
-        self.assertEqual(incomes[0]['current_status'], '+93%')
+        self.assertEqual(incomes[0]['current_status'], '+94%')
 
 
     def test_get_budgets(self):
