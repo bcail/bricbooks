@@ -129,6 +129,33 @@ def increment_month(date_obj):
     return date(date_obj.year, date_obj.month+1, date_obj.day)
 
 
+def increment_half_month(date_obj):
+    if date_obj.month == 12 and date_obj.day > 15:
+        year = date_obj.year + 1
+    else:
+        year = date_obj.year
+    if date_obj.month == 2:
+        if date_obj.day > 27:
+            return date(year, 3, 15)
+        elif date_obj.day > 14:
+            return date(year, 3, date_obj.day%14)
+        else:
+            return date(year, 2, date_obj.day+14)
+    if date_obj.day > 15:
+        month = date_obj.month+1
+        if month == 13:
+            month = 1
+    else:
+        month = date_obj.month
+    if date_obj.day in [30, 31]:
+        if date_obj.month == 1:
+            return date(year, month, 14)
+        return date(year, month, 15)
+    if date_obj.day > 15:
+        return date(year, month, date_obj.day%15)
+    return date(year, month, date_obj.day+15)
+
+
 def increment_quarter(date_obj):
     if date_obj.day == 31 and date_obj.month in [1, 3, 8]:
         day = 30
@@ -487,6 +514,7 @@ def splits_display(splits):
 class ScheduledTransactionFrequency(Enum):
     WEEKLY = 'weekly'
     MONTHLY = 'monthly'
+    SEMI_MONTHLY = 'semi_monthly'
     QUARTERLY = 'quarterly'
     YEARLY = 'yearly'
 
@@ -552,6 +580,8 @@ class ScheduledTransaction:
             self.next_due_date = self.next_due_date + timedelta(days=7)
         elif self.frequency == ScheduledTransactionFrequency.MONTHLY:
             self.next_due_date = increment_month(self.next_due_date)
+        elif self.frequency == ScheduledTransactionFrequency.SEMI_MONTHLY:
+            self.next_due_date = increment_half_month(self.next_due_date)
         elif self.frequency == ScheduledTransactionFrequency.QUARTERLY:
             self.next_due_date = increment_quarter(self.next_due_date)
         elif self.frequency == ScheduledTransactionFrequency.YEARLY:

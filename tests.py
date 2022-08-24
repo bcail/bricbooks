@@ -40,6 +40,28 @@ class TestUtils(unittest.TestCase):
         new_date = bb.increment_month(date(2018, 3, 31))
         self.assertEqual(new_date, date(2018, 4, 30))
 
+    def test_increment_half_month(self):
+        new_date = bb.increment_half_month(date(2018, 1, 1))
+        self.assertEqual(new_date, date(2018, 1, 16))
+        new_date = bb.increment_half_month(date(2018, 1, 16))
+        self.assertEqual(new_date, date(2018, 2, 1))
+        new_date = bb.increment_half_month(date(2018, 1, 30))
+        self.assertEqual(new_date, date(2018, 2, 14))
+        new_date = bb.increment_half_month(date(2018, 1, 31))
+        self.assertEqual(new_date, date(2018, 2, 14))
+        new_date = bb.increment_half_month(date(2018, 2, 1))
+        self.assertEqual(new_date, date(2018, 2, 15))
+        new_date = bb.increment_half_month(date(2018, 2, 15))
+        self.assertEqual(new_date, date(2018, 3, 1))
+        new_date = bb.increment_half_month(date(2018, 2, 28))
+        self.assertEqual(new_date, date(2018, 3, 15))
+        new_date = bb.increment_half_month(date(2020, 2, 29))
+        self.assertEqual(new_date, date(2020, 3, 15))
+        new_date = bb.increment_half_month(date(2018, 12, 16))
+        self.assertEqual(new_date, date(2019, 1, 1))
+        new_date = bb.increment_half_month(date(2018, 12, 31))
+        self.assertEqual(new_date, date(2019, 1, 15))
+
     def test_increment_quarter(self):
         new_date = bb.increment_quarter(date(2018, 1, 31))
         self.assertEqual(new_date, date(2018, 4, 30))
