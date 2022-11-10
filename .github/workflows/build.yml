@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-      - run: pip install pyinstaller
+      - run: pip install pyinstaller==5.6.2
       - run: pyinstaller --onefile bricbooks.py
       - name: 'Upload Artifact'
         uses: actions/upload-artifact@v2
