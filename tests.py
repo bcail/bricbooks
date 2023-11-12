@@ -1178,6 +1178,7 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT * FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0][2], '2018-01-01')
+        self.assertEqual(records[0][3], '2018-12-31')
         records = cursor.execute('SELECT * FROM budget_values').fetchall()
         self.assertEqual(records, [])
 

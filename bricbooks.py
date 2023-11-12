@@ -1205,7 +1205,7 @@ class SQLiteStorage:
                         values = (budget.id, account.id, str(info['amount']), carryover, notes)
                         cur.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
         else:
-            cur.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (budget.start_date, budget.end_date))
+            cur.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (str(budget.start_date), str(budget.end_date)))
             budget.id = cur.lastrowid
             budget_data = budget.get_budget_data()
             for account, info in budget_data.items():
@@ -1232,7 +1232,7 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, start_date, end_date)).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, str(start_date), str(end_date))).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0])
                 if amt < Fraction(0):
