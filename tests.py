@@ -2089,6 +2089,7 @@ class TestLoadTestData(unittest.TestCase):
         storage = bb.SQLiteStorage(':memory:')
         load_test_data._load_data(storage, many_txns=False)
         accounts = storage.get_accounts()
+        storage._db_connection.close()
 
 
 class TestExport(unittest.TestCase):
@@ -2111,6 +2112,7 @@ class TestExport(unittest.TestCase):
                 data = f.read().decode('utf8')
             lines = data.split('\n')
             self.assertEqual(lines[1], '2018-01-01\t\t\t\t1,000.00\tOpening Balances')
+        engine._storage._db_connection.close()
 
 
 class TestImport(unittest.TestCase):
@@ -2144,6 +2146,7 @@ class TestImport(unittest.TestCase):
         balances = engine.get_current_balances_for_display(account=checking)
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
         self.assertEqual(balances, expected_balances)
+        engine._storage._db_connection.close()
 
 
 if __name__ == '__main__':
