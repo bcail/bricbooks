@@ -719,13 +719,18 @@ TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('bu
 
 class TestSQLiteStorage(unittest.TestCase):
 
+    def setUp(self):
+        self.storage = bb.SQLiteStorage(':memory:')
+
+    def tearDown(self):
+        self.storage._db_connection.close()
+
     def test_init(self):
-        storage = bb.SQLiteStorage(':memory:')
-        tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        tables = self.storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
-        misc_table_records = storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
+        misc_table_records = self.storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
         self.assertEqual(misc_table_records, [('schema_version', 1)])
-        commodities_table_records = storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
+        commodities_table_records = self.storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
         self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
 
     def test_init_no_filename(self):
@@ -767,8 +772,7 @@ class TestSQLiteStorage(unittest.TestCase):
             self.assertEqual(tables, TABLES)
 
     def test_commodity(self):
-        storage = bb.SQLiteStorage(':memory:')
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 20))
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
@@ -776,15 +780,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
 
     def test_save_account(self):
-        storage = bb.SQLiteStorage(':memory:')
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
-        storage.save_account(assets)
+        self.storage.save_account(assets)
         checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name='Checking', parent=assets)
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
         self.assertEqual(checking.id, 2)
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,created,updated'
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
@@ -798,7 +801,7 @@ class TestSQLiteStorage(unittest.TestCase):
         time.sleep(1)
 
         checking.name = 'checking updated'
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
@@ -809,118 +812,108 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(new_updated > updated)
 
         savings = get_test_account(id_=checking.id, type_=bb.AccountType.ASSET, name='Savings')
-        storage.save_account(savings)
+        self.storage.save_account(savings)
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:len(db_info[0])-2],
                 (savings.id, 'asset', 1, None, None, 'Savings', None, None))
 
     def test_save_account_error_invalid_id(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
         #checking has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception) as cm:
-            storage.save_account(checking)
+            self.storage.save_account(checking)
         self.assertEqual(str(cm.exception), 'no account with id 1 to update')
-        account_records = storage._db_connection.execute('SELECT * FROM accounts').fetchall()
+        account_records = self.storage._db_connection.execute('SELECT * FROM accounts').fetchall()
         self.assertEqual(account_records, [])
 
     def test_save_account_parent_not_in_db(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_account(checking_child)
+            self.storage.save_account(checking_child)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_parent_account(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
-        storage.save_account(checking)
-        storage.save_account(checking_child)
+        self.storage.save_account(checking)
+        self.storage.save_account(checking_child)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage._db_connection.execute(f'DELETE FROM accounts WHERE id={checking.id}')
+            self.storage._db_connection.execute(f'DELETE FROM accounts WHERE id={checking.id}')
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_account_with_txns(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         txn = bb.Transaction(txn_date=date(2020,10,15), splits={checking: {'amount': 10}, savings: {'amount': -10}})
-        storage.save_txn(txn)
+        self.storage.save_txn(txn)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
+            self.storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_account_number_must_be_unique(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
         checking2 = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_account(checking2)
+            self.storage.save_account(checking2)
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.number')
         #make sure saving works once number is updated
         checking2 = get_test_account(type_=bb.AccountType.INCOME, number='5-1', name='Checking')
-        storage.save_account(checking2)
+        self.storage.save_account(checking2)
 
     def test_account_name_and_parent_must_be_unique(self):
-        storage = bb.SQLiteStorage(':memory:')
         bank_accounts = get_test_account(type_=bb.AccountType.ASSET, name='Bank Accounts')
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
-        storage.save_account(bank_accounts)
-        storage.save_account(checking)
+        self.storage.save_account(bank_accounts)
+        self.storage.save_account(checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_account(
+            self.storage.save_account(
                     get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
                 )
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
 
     def test_account_institution_id_foreign_key(self):
-        storage = bb.SQLiteStorage(':memory:')
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO accounts(type, commodity_id, institution_id, number, name) VALUES (?, ?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 1, '4010', 'Checking'))
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_get_account(self):
-        storage = bb.SQLiteStorage(':memory:')
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', 'Checking'))
         account_id = c.lastrowid
         c.execute('INSERT INTO accounts(type, commodity_id, name, parent_id) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
-        account = storage.get_account(account_id)
+        account = self.storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
         self.assertEqual(account.type, bb.AccountType.EXPENSE)
         self.assertEqual(account.number, '4010')
         self.assertEqual(account.name, 'Checking')
         self.assertEqual(account.parent, None)
-        sub_checking = storage.get_account(sub_checking_id)
+        sub_checking = self.storage.get_account(sub_checking_id)
         self.assertEqual(sub_checking.parent, account)
-        account = storage.get_account(number='4010')
+        account = self.storage.get_account(number='4010')
         self.assertEqual(account.name, 'Checking')
 
     def test_payee_unique(self):
-        storage = bb.SQLiteStorage(':memory:')
         payee = bb.Payee('payee')
-        storage.save_payee(payee)
+        self.storage.save_payee(payee)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_payee(bb.Payee('payee'))
+            self.storage.save_payee(bb.Payee('payee'))
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: payees.name')
 
     def test_save_txn(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         chickfila = bb.Payee('Chick-fil-A')
-        storage.save_payee(chickfila)
+        self.storage.save_payee(chickfila)
         t = bb.Transaction(
                 splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED}, savings: {'amount': 101}},
                 txn_date=date.today(),
@@ -928,9 +921,9 @@ class TestSQLiteStorage(unittest.TestCase):
                 payee=chickfila,
                 description='chicken sandwich',
             )
-        storage.save_txn(t)
+        self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         c.execute('SELECT id,currency_id,type,date,payee_id,description,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
@@ -944,26 +937,24 @@ class TestSQLiteStorage(unittest.TestCase):
                                              (2, 1, 2, '101/1', '101/1', None, None)])
 
     def test_save_txn_payee_string(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         t = bb.Transaction(
                 splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
                 txn_date=date.today(),
                 payee='someone',
             )
-        storage.save_txn(t)
-        txn_from_db = storage.get_txn(t.id)
+        self.storage.save_txn(t)
+        txn_from_db = self.storage.get_txn(t.id)
         self.assertEqual(txn_from_db.payee.name, 'someone')
 
     def test_save_transaction_error(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         t = bb.Transaction(
                 splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
                 txn_date=date.today(),
@@ -972,8 +963,8 @@ class TestSQLiteStorage(unittest.TestCase):
         #t has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception):
-            storage.save_txn(t)
-        c = storage._db_connection.cursor()
+            self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
         c.execute('SELECT * FROM transactions')
         transaction_records = c.fetchall()
         self.assertEqual(transaction_records, [])
@@ -982,11 +973,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(txn_split_records, [])
 
     def test_save_transaction_payee_foreignkey_error(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         payee = bb.Payee('payee', id_=1)
         t = bb.Transaction(
                 splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
@@ -994,21 +984,20 @@ class TestSQLiteStorage(unittest.TestCase):
                 payee=payee,
             )
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_txn(t)
+            self.storage.save_txn(t)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_save_sparse_txn(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         t = bb.Transaction(
                 splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
                 txn_date=date.today(),
             )
-        storage.save_txn(t)
-        c = storage._db_connection.cursor()
+        self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
         c.execute('SELECT id,currency_id,type,date,payee_id,description FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
@@ -1019,15 +1008,14 @@ class TestSQLiteStorage(unittest.TestCase):
                                              (2, 1, 2, '-101/1', '-101/1')])
 
     def test_round_trip(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        self.storage.save_account(savings)
         another_acct = get_test_account(name='Another')
-        storage.save_account(another_acct)
+        self.storage.save_account(another_acct)
         payee = bb.Payee('Some restaurant')
-        storage.save_payee(payee)
+        self.storage.save_payee(payee)
         #create txn & save it
         t = bb.Transaction(
                 splits={checking: {'amount': '-101', 'status': 'C'}, savings: {'amount': 101}},
@@ -1035,10 +1023,10 @@ class TestSQLiteStorage(unittest.TestCase):
                 txn_type='123',
                 payee=payee,
             )
-        storage.save_txn(t)
+        self.storage.save_txn(t)
         txn_id = t.id
         #verify db
-        c = storage._db_connection.cursor()
+        c = self.storage._db_connection.cursor()
         txn_fields = 'id,currency_id,type,date,payee_id,description'
         txn_db_info = c.execute(f'SELECT {txn_fields} FROM transactions').fetchall()
         self.assertEqual(txn_db_info,
@@ -1050,13 +1038,13 @@ class TestSQLiteStorage(unittest.TestCase):
                  (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
         #update a db field that the Transaction object isn't aware of
         c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
-        storage._db_connection.commit()
+        self.storage._db_connection.commit()
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, '-101/1', '-101/1', 'C', None, 'buy'),
                  (2, txn_id, savings.id, '101/1', '101/1', None, None, None)])
         #read it back from the db
-        txn_from_db = storage.get_txn(txn_id)
+        txn_from_db = self.storage.get_txn(txn_id)
         self.assertEqual(txn_from_db.txn_type, '123')
         self.assertEqual(txn_from_db.payee, payee)
         self.assertEqual(txn_from_db.splits[checking], {'amount': -101, 'quantity': -101, 'status': 'C'})
@@ -1071,8 +1059,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 id_=txn_id,
             )
         time.sleep(1)
-        storage.save_txn(updated_txn)
-        c = storage._db_connection.cursor()
+        self.storage.save_txn(updated_txn)
+        c = self.storage._db_connection.cursor()
         c.execute(f'SELECT {txn_fields},created,updated FROM transactions')
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:-2],
@@ -1086,23 +1074,22 @@ class TestSQLiteStorage(unittest.TestCase):
                  (2, txn_id, another_acct.id, '101/1', '101/1', None, None, None)])
 
     def test_delete_txn_from_db(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        self.storage.save_account(savings)
         payee = bb.Payee('Waffle House')
         subway_payee = bb.Payee('Subway')
-        storage.save_payee(payee)
-        storage.save_payee(subway_payee)
+        self.storage.save_payee(payee)
+        self.storage.save_payee(subway_payee)
         txn = bb.Transaction(txn_type='BP', txn_date=date(2017, 1, 25), payee=payee,
                 splits={checking: {'amount': '101'}, savings: {'amount': '-101'}})
-        storage.save_txn(txn)
+        self.storage.save_txn(txn)
         txn2 = bb.Transaction(txn_date=date(2017, 1, 28), payee=subway_payee,
                 splits={checking: {'amount': '46.23'}, savings: {'amount': '-46.23'}})
-        storage.save_txn(txn2)
-        storage.delete_txn(txn.id)
-        c = storage._db_connection.cursor()
+        self.storage.save_txn(txn2)
+        self.storage.delete_txn(txn.id)
+        c = self.storage._db_connection.cursor()
         c.execute('SELECT date FROM transactions')
         txn_records = c.fetchall()
         self.assertEqual(len(txn_records), 1)
@@ -1112,18 +1099,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual([r[0] for r in txn_splits_records], [txn2.id, txn2.id])
 
     def test_save_budget(self):
-        storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        self.storage.save_account(food)
         account_budget_info = {
                 housing: {'amount': '15.34', 'carryover': '0.34', 'notes': 'hello'},
                 food: {'amount': 25, 'carryover': 0}
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
-        storage.save_budget(b)
-        cursor = storage._db_connection.cursor()
+        self.storage.save_budget(b)
+        cursor = self.storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets WHERE start_date = "2018-01-01"').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(b.id, 1)
@@ -1143,7 +1129,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 housing: {'amount': 35, 'carryover': 0},
                 food: {'amount': 45, 'carryover': 0},
             }, id_=b.id)
-        storage.save_budget(b)
+        self.storage.save_budget(b)
         records = cursor.execute('SELECT id,name,start_date,end_date FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], (1, None, '2018-01-01', '2018-12-24'))
@@ -1152,18 +1138,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], '35')
 
     def test_save_budget_empty_category_info(self):
-        storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        self.storage.save_account(food)
         account_budget_info = {
                 housing: {'amount': 15, 'carryover': 0},
                 food: {},
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
-        storage.save_budget(b)
-        cursor = storage._db_connection.cursor()
+        self.storage.save_budget(b)
+        cursor = self.storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
@@ -1171,10 +1156,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], '15')
 
     def test_save_budget_sparse(self):
-        storage = bb.SQLiteStorage(':memory:')
         b = bb.Budget(year=2018)
-        storage.save_budget(b)
-        cursor = storage._db_connection.cursor()
+        self.storage.save_budget(b)
+        cursor = self.storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0][2], '2018-01-01')
@@ -1204,9 +1188,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 1)
 
     def test_save_budget_account_foreignkey_error(self):
-        storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food', id_=5)
         account_budget_info = {
                 housing: {'amount': '15.34', 'carryover': '0.34', 'notes': 'hello'},
@@ -1214,36 +1197,34 @@ class TestSQLiteStorage(unittest.TestCase):
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_budget(b)
+            self.storage.save_budget(b)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_save_budget_update_add_account_info(self):
-        storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         b = bb.Budget(year=2018)
-        storage.save_budget(b)
+        self.storage.save_budget(b)
         account_budget_info = {housing: {'amount': '25'}}
         updated_budget = bb.Budget(id_=b.id, year=2018, account_budget_info=account_budget_info)
-        storage.save_budget(updated_budget)
-        cursor = storage._db_connection.cursor()
+        self.storage.save_budget(updated_budget)
+        cursor = self.storage._db_connection.cursor()
         records = cursor.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (b.id,)).fetchall()
         self.assertEqual(records, [(1,)])
 
     def test_get_budget(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         savings = get_test_account(name='Savings')
-        storage.save_account(savings)
+        self.storage.save_account(savings)
         wages = get_test_account(name='Wages', type_=bb.AccountType.INCOME)
-        storage.save_account(wages)
+        self.storage.save_account(wages)
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
+        self.storage.save_account(food)
         transportation = get_test_account(type_=bb.AccountType.EXPENSE, name='Transportation')
-        storage.save_account(transportation)
+        self.storage.save_account(transportation)
         txn1 = bb.Transaction(txn_date=date(2018, 1, 25),
                 splits={checking: {'amount': '-101'}, housing: {'amount': '101'}})
         txn2 = bb.Transaction(txn_date=date(2018, 2, 28),
@@ -1259,14 +1240,14 @@ class TestSQLiteStorage(unittest.TestCase):
         txn7 = bb.Transaction(txn_date=date(2018, 2, 5),
                 splits={checking: {'amount': '100'}, wages: {'amount': '-100'}})
         for t in [txn1, txn2, txn3, txn4, txn5, txn6, txn7]:
-            storage.save_txn(t)
-        cursor = storage._db_connection.cursor()
+            self.storage.save_txn(t)
+        cursor = self.storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135/1', 'hello'))
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70/1', '15'))
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, wages.id, '70/1', None))
-        budget = storage.get_budget(budget_id)
+        budget = self.storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.start_date, date(2018, 1, 1))
         self.assertEqual(budget.end_date, date(2018, 12, 31))
@@ -1299,40 +1280,37 @@ class TestSQLiteStorage(unittest.TestCase):
 
 
     def test_get_budgets(self):
-        storage = bb.SQLiteStorage(':memory:')
         b = bb.Budget(year=2018)
-        storage.save_budget(b)
+        self.storage.save_budget(b)
         b2 = bb.Budget(year=2019)
-        storage.save_budget(b2)
-        budgets = storage.get_budgets()
+        self.storage.save_budget(b2)
+        budgets = self.storage.get_budgets()
         self.assertEqual(budgets[0].start_date, date(2019, 1, 1))
         self.assertEqual(budgets[1].start_date, date(2018, 1, 1))
 
     def test_get_budget_reports(self):
-        storage = bb.SQLiteStorage(':memory:')
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
-        storage.save_account(housing)
+        self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
-        storage.save_account(food)
-        cursor = storage._db_connection.cursor()
+        self.storage.save_account(food)
+        cursor = self.storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount) VALUES (?, ?, ?)', (budget_id, housing.id, '35'))
         cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount) VALUES (?, ?, ?)', (budget_id, food.id, '70'))
-        budgets = storage.get_budgets()
+        budgets = self.storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].start_date, date(2018, 1, 1))
         self.assertEqual(budgets[0].end_date, date(2018, 12, 31))
         self.assertEqual(budgets[0].get_report_display()['expense'][0]['name'], 'Housing')
 
     def test_save_scheduled_txn(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         wendys = bb.Payee('Wendys')
-        storage.save_payee(wendys)
+        self.storage.save_payee(wendys)
         valid_splits={
                 checking: {'amount': -101, 'status': 'R'},
                 savings: {'amount': 101},
@@ -1346,23 +1324,22 @@ class TestSQLiteStorage(unittest.TestCase):
                 payee=wendys,
                 description='something',
             )
-        storage.save_scheduled_transaction(st)
+        self.storage.save_scheduled_transaction(st)
         self.assertEqual(st.id, 1)
-        st_records = storage._db_connection.execute('SELECT id,name,frequency,next_due_date,type,payee_id,description FROM scheduled_transactions').fetchall()
+        st_records = self.storage._db_connection.execute('SELECT id,name,frequency,next_due_date,type,payee_id,description FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
                 (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'a', 1, 'something'))
-        st_split_records = storage._db_connection.execute('SELECT scheduled_transaction_id,account_id,value,quantity,reconciled_state FROM scheduled_transaction_splits').fetchall()
+        st_split_records = self.storage._db_connection.execute('SELECT scheduled_transaction_id,account_id,value,quantity,reconciled_state FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
         self.assertEqual(st_split_records[0], (st.id, checking.id, '-101/1', '-101/1', 'R'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, '101/1', '101/1', None))
 
     def test_save_scheduled_transaction_error(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1377,8 +1354,8 @@ class TestSQLiteStorage(unittest.TestCase):
         #st has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception):
-            storage.save_scheduled_transaction(st)
-        c = storage._db_connection.cursor()
+            self.storage.save_scheduled_transaction(st)
+        c = self.storage._db_connection.cursor()
         c.execute('SELECT * FROM scheduled_transactions')
         scheduled_transaction_records = c.fetchall()
         self.assertEqual(scheduled_transaction_records, [])
@@ -1387,10 +1364,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn_split_records, [])
 
     def test_save_scheduled_txn_account_foreignkey_error(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings', id_=2)
-        storage.save_account(checking)
+        self.storage.save_account(checking)
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1401,19 +1377,18 @@ class TestSQLiteStorage(unittest.TestCase):
                 }
             )
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            storage.save_scheduled_transaction(st)
+            self.storage.save_scheduled_transaction(st)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_update_scheduled_txn(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         another_acct = get_test_account(name='Another')
-        storage.save_account(checking)
-        storage.save_account(savings)
-        storage.save_account(another_acct)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        self.storage.save_account(another_acct)
         wendys = bb.Payee('Wendys')
-        storage.save_payee(wendys)
+        self.storage.save_payee(wendys)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1427,14 +1402,14 @@ class TestSQLiteStorage(unittest.TestCase):
                 payee=wendys,
                 description='something',
             )
-        storage.save_scheduled_transaction(st)
+        self.storage.save_scheduled_transaction(st)
         st_id = st.id
         #update due date & save
         st.next_due_date = date(2019, 1, 9)
-        storage.save_scheduled_transaction(st)
-        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        self.storage.save_scheduled_transaction(st)
+        st_records = self.storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
-        retrieved_scheduled_txn = storage.get_scheduled_transaction(st_id)
+        retrieved_scheduled_txn = self.storage.get_scheduled_transaction(st_id)
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 9))
         #now create a ScheduledTransaction object for the same record
         new_st = bb.ScheduledTransaction(
@@ -1447,24 +1422,23 @@ class TestSQLiteStorage(unittest.TestCase):
                 },
                 id_=st_id
             )
-        storage.save_scheduled_transaction(new_st)
-        st_records = storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
+        self.storage.save_scheduled_transaction(new_st)
+        st_records = self.storage._db_connection.execute('SELECT * FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
-        retrieved_scheduled_txn = storage.get_scheduled_transaction(st_id)
+        retrieved_scheduled_txn = self.storage.get_scheduled_transaction(st_id)
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 16))
-        split_records = storage._db_connection.execute('SELECT id,scheduled_transaction_id,account_id,value,quantity,reconciled_state,description FROM scheduled_transaction_splits').fetchall()
+        split_records = self.storage._db_connection.execute('SELECT id,scheduled_transaction_id,account_id,value,quantity,reconciled_state,description FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(split_records,
                 [(1, st_id, checking.id, '-101/1', '-101/1', None, None),
                  (2, st_id, another_acct.id, '101/1', '101/1', None, None)])
 
     def test_get_scheduled_transaction(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         wendys = bb.Payee('Wendys')
-        storage.save_payee(wendys)
+        self.storage.save_payee(wendys)
         valid_splits={
                 checking: {'amount': -101, 'status': bb.Transaction.CLEARED},
                 savings: {'amount': 101},
@@ -1479,8 +1453,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 description='something',
                 status='C',
             )
-        storage.save_scheduled_transaction(st)
-        scheduled_txn = storage.get_scheduled_transaction(st.id)
+        self.storage.save_scheduled_transaction(st)
+        scheduled_txn = self.storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.name, 'weekly 1')
         self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
@@ -1490,11 +1464,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.splits, valid_splits)
 
     def test_get_scheduled_transaction_sparse(self):
-        storage = bb.SQLiteStorage(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        storage.save_account(checking)
-        storage.save_account(savings)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
         valid_splits={
                 checking: {'amount': -101},
                 savings: {'amount': 101},
@@ -1505,8 +1478,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 next_due_date='2019-01-02',
                 splits=valid_splits,
             )
-        storage.save_scheduled_transaction(st)
-        scheduled_txn = storage.get_scheduled_transaction(st.id)
+        self.storage.save_scheduled_transaction(st)
+        scheduled_txn = self.storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
 
@@ -1529,81 +1502,81 @@ def create_test_accounts(engine):
 
 class TestEngine(unittest.TestCase):
 
+    def setUp(self):
+        self.engine = bb.Engine(':memory:')
+
+    def tearDown(self):
+        self.engine._storage._db_connection.close()
+
     def test_get_currencies(self):
-        engine = bb.Engine(':memory:')
-        create_test_accounts(engine)
-        currencies = engine.get_currencies()
+        create_test_accounts(self.engine)
+        currencies = self.engine.get_currencies()
         self.assertEqual(len(currencies), 1)
         self.assertEqual(currencies[0].type, bb.CommodityType.CURRENCY)
         self.assertEqual(currencies[0].code, 'USD')
 
     def test_save_commodity(self):
-        engine = bb.Engine(':memory:')
-        engine.save_commodity(
+        self.engine.save_commodity(
                 bb.Commodity(type_=bb.CommodityType.CURRENCY, code='ABC', name='Some Currency')
             )
-        currencies = engine.get_currencies()
+        currencies = self.engine.get_currencies()
         self.assertEqual(len(currencies), 2)
         self.assertEqual(currencies[1].type, bb.CommodityType.CURRENCY)
         self.assertEqual(currencies[1].code, 'ABC')
         self.assertEqual(currencies[1].name, 'Some Currency')
 
     def test_get_accounts(self):
-        engine = bb.Engine(':memory:')
-        create_test_accounts(engine)
-        accounts = engine.get_accounts()
+        create_test_accounts(self.engine)
+        accounts = self.engine.get_accounts()
         self.assertEqual(len(accounts), 9)
         self.assertEqual(accounts[0].name, 'Checking')
         self.assertEqual(accounts[1].name, 'Savings')
         self.assertEqual(accounts[2].name, 'Retirement 401k')
 
     def test_payees(self):
-        engine = bb.Engine(':memory:')
-        engine.save_payee(bb.Payee('New Payee'))
-        engine.save_payee(bb.Payee('A Payee obj'))
-        engine.save_payee(bb.Payee('A New Payee'))
-        payees = engine.get_payees()
+        self.engine.save_payee(bb.Payee('New Payee'))
+        self.engine.save_payee(bb.Payee('A Payee obj'))
+        self.engine.save_payee(bb.Payee('A New Payee'))
+        payees = self.engine.get_payees()
         self.assertEqual(len(payees), 3)
         self.assertEqual(payees[0].name, 'A New Payee')
         self.assertEqual(payees[2].name, 'New Payee')
 
     def test_get_ledger_accounts(self):
-        engine = bb.Engine(':memory:')
-        create_test_accounts(engine)
-        accounts = engine.get_ledger_accounts()
+        create_test_accounts(self.engine)
+        accounts = self.engine.get_ledger_accounts()
         self.assertEqual(len(accounts), 6)
         self.assertEqual(accounts[0].name, 'Checking')
 
     def test_get_transactions(self):
-        engine = bb.Engine(':memory:')
-        create_test_accounts(engine)
-        checking = engine.get_account(name='Checking')
-        savings = engine.get_account(name='Savings')
-        wages = engine.get_account(name='Wages')
-        food = engine.get_account(name='Food')
+        create_test_accounts(self.engine)
+        checking = self.engine.get_account(name='Checking')
+        savings = self.engine.get_account(name='Savings')
+        wages = self.engine.get_account(name='Wages')
+        food = self.engine.get_account(name='Food')
         txn = bb.Transaction(splits={checking: {'amount': -5, 'status': bb.Transaction.CLEARED}, food: {'amount': 5}}, txn_date=date(2017, 1, 15), txn_type='ACH', payee='Some payee', description='description')
         txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
         txn3 = bb.Transaction(splits={wages: {'amount': -100}, savings: {'amount': 100}}, txn_date=date(2017, 1, 31))
-        engine.save_transaction(txn)
-        engine.save_transaction(txn2)
-        engine.save_transaction(txn3)
+        self.engine.save_transaction(txn)
+        self.engine.save_transaction(txn2)
+        self.engine.save_transaction(txn3)
         #all txns
-        txns = engine.get_transactions()
+        txns = self.engine.get_transactions()
         self.assertEqual(len(txns), 3)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 2))
         #get txns for an account, with balance
-        txns = engine.get_transactions(accounts=[checking])
+        txns = self.engine.get_transactions(accounts=[checking])
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].balance, Fraction(5))
         #get txns matching multiple accounts
-        txns = engine.get_transactions(accounts=[checking, food])
+        txns = self.engine.get_transactions(accounts=[checking, food])
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 15))
         #get txns with a status
-        txns = engine.get_transactions(accounts=[checking], status=bb.Transaction.CLEARED)
+        txns = self.engine.get_transactions(accounts=[checking], status=bb.Transaction.CLEARED)
         self.assertEqual(len(txns), 1)
         #search txns
-        txns = engine.get_transactions(query='some payee')
+        txns = self.engine.get_transactions(query='some payee')
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].payee.name, 'Some payee')
 
@@ -1616,6 +1589,9 @@ class TestCLI(unittest.TestCase):
         #https://realpython.com/python-print/#mocking-python-print-in-unit-tests
         self.memory_buffer = io.StringIO()
         self.cli = bb.CLI(':memory:', print_file=self.memory_buffer)
+
+    def tearDown(self):
+        self.cli._engine._storage._db_connection.close()
 
     @patch('builtins.input')
     def test_run(self, input_mock):
