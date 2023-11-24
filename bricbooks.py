@@ -821,7 +821,7 @@ class Budget:
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 0
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodities ('
@@ -903,8 +903,10 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'scheduled_transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
-            'value TEXT,'
-            'quantity TEXT,'
+            'value_numerator INTEGER,'
+            'value_denominator INTEGER,'
+            'quantity_numerator INTEGER,'
+            'quantity_denominator INTEGER,'
             'reconciled_state TEXT,'
             'description TEXT,'
             'action TEXT,'
@@ -929,8 +931,10 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
-            'value TEXT,'
-            'quantity TEXT,'
+            'value_numerator INTEGER,'
+            'value_denominator INTEGER,'
+            'quantity_numerator INTEGER,'
+            'quantity_denominator INTEGER,'
             'reconciled_state TEXT,'
             'description TEXT,'
             'action TEXT,'
@@ -1108,14 +1112,14 @@ class SQLiteStorage:
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, value, quantity, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = {'amount': split_record[1], 'quantity': split_record[2]}
-                if split_record[3]:
-                    splits[account]['status'] = split_record[3]
+                splits[account] = {'amount': Fraction(split_record[1], split_record[2]), 'quantity': Fraction(split_record[3], split_record[4])}
+                if split_record[5]:
+                    splits[account]['status'] = split_record[5]
         return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, id_=id_)
 
     def get_txn(self, txn_id):
@@ -1165,14 +1169,12 @@ class SQLiteStorage:
             if not account.id:
                 self.save_account(account)
             amount = info['amount']
-            amount = f'{amount.numerator}/{amount.denominator}'
             quantity = info['quantity']
-            quantity = f'{quantity.numerator}/{quantity.denominator}'
             status = info.get('status', None)
             if account.id in old_txn_split_account_ids:
-                cur.execute('UPDATE transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount, quantity, status, txn.id, account.id))
+                cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn.id, account.id))
             else:
-                cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value, quantity, reconciled_state) VALUES(?, ?, ?, ?, ?)', (txn.id, account.id, amount, quantity, status))
+                cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES(?, ?, ?, ?, ?, ?, ?)', (txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
         self._db_connection.commit()
 
     def delete_txn(self, txn_id):
@@ -1232,9 +1234,9 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, str(start_date), str(end_date))).fetchall()
+            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value_numerator, transaction_splits.value_denominator FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, str(start_date), str(end_date))).fetchall()
             for record in txn_splits_records:
-                amt = Fraction(record[0])
+                amt = Fraction(record[0], record[1])
                 if amt < Fraction(0):
                     income += amt * Fraction(-1)
                 else:
@@ -1290,12 +1292,12 @@ class SQLiteStorage:
                 cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
-                amount = f'{amount.numerator}/{amount.denominator}'
+                quantity = amount
                 status = info.get('status', None)
                 if account.id in old_split_account_ids:
-                    cur.execute('UPDATE scheduled_transaction_splits SET value = ?, quantity = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount, amount, status, scheduled_txn.id, account.id))
+                    cur.execute('UPDATE scheduled_transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, scheduled_txn.id, account.id))
                 else:
-                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
         #add new scheduled transaction
         else:
             cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
@@ -1303,22 +1305,22 @@ class SQLiteStorage:
             scheduled_txn.id = cur.lastrowid
             for account, info in scheduled_txn.splits.items():
                 amount = info['amount']
-                amount = f'{amount.numerator}/{amount.denominator}'
+                quantity = amount
                 status = info.get('status', None)
-                cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value, quantity, reconciled_state) VALUES (?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount, amount, status))
+                cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
         self._db_connection.commit()
 
     def get_scheduled_transaction(self, id_):
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, value, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value_numerator, value_denominator, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = {'amount': split_record[1]}
-                if split_record[2]:
-                    splits[account]['status'] = split_record[2]
+                splits[account] = {'amount': Fraction(split_record[1], split_record[2])}
+                if split_record[3]:
+                    splits[account]['status'] = split_record[3]
         rows = cur.execute('SELECT name,frequency,next_due_date,type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(id_=rows[0][4])
         st = ScheduledTransaction(
