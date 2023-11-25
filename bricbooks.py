@@ -919,10 +919,10 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'currency_id INTEGER NOT NULL,'
             'type TEXT,'
-            'date TEXT,'
+            'date TEXT,' # date the transaction took place
             'payee_id INTEGER,'
             'description TEXT,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' # date the transaction was entered
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(currency_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT) STRICT',
