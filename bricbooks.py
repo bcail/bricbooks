@@ -913,7 +913,9 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE RESTRICT,'
-            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'CHECK (value_denominator != 0),'
+            'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
@@ -943,7 +945,9 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
-            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'CHECK (value_denominator != 0),'
+            'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
             'key TEXT UNIQUE NOT NULL,'

@@ -972,6 +972,46 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [])
 
+    def test_cant_save_zero_denominator(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        t = bb.Transaction(
+                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                txn_date=date.today(),
+            )
+        self.storage.save_txn(t)
+
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE transaction_splits SET value_denominator = 0 WHERE transaction_id = ? AND account_id = ?', (t.id, checking.id))
+        self.assertIn('value_denominator != 0', str(cm.exception))
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE transaction_splits SET quantity_denominator = 0 WHERE transaction_id = ? AND account_id = ?', (t.id, checking.id))
+        self.assertIn('quantity_denominator != 0', str(cm.exception))
+
+        # check scheduled txns as well
+        wendys = bb.Payee('Wendys')
+        self.storage.save_payee(wendys)
+        valid_splits={
+                checking: {'amount': -101},
+                savings: {'amount': 101},
+            }
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        self.storage.save_scheduled_transaction(st)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE scheduled_transaction_splits SET value_denominator = 0 WHERE scheduled_transaction_id = ? AND account_id = ?', (t.id, checking.id))
+        self.assertIn('value_denominator != 0', str(cm.exception))
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE scheduled_transaction_splits SET quantity_denominator = 0 WHERE scheduled_transaction_id = ? AND account_id = ?', (t.id, checking.id))
+        self.assertIn('quantity_denominator != 0', str(cm.exception))
+
     def test_save_transaction_payee_foreignkey_error(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
