@@ -1012,6 +1012,46 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('UPDATE scheduled_transaction_splits SET quantity_denominator = 0 WHERE scheduled_transaction_id = ? AND account_id = ?', (t.id, checking.id))
         self.assertIn('quantity_denominator != 0', str(cm.exception))
 
+    def test_save_transaction_db_transaction(self):
+        # make invalid txns that will error when saving, and verify that no data was saved
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+
+        # first have the splits error
+        t = bb.Transaction(
+                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                txn_date=date.today(),
+            )
+        t.splits[checking].pop('amount')
+        try:
+            self.storage.save_txn(t)
+        except KeyError:
+            pass
+
+        c = self.storage._db_connection.cursor()
+        results = c.execute('SELECT * FROM transaction_splits').fetchall()
+        self.assertEqual(results, [])
+        results = c.execute('SELECT * FROM transactions').fetchall()
+        self.assertEqual(results, [])
+
+        # now have the transaction record error
+        t = bb.Transaction(
+                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                txn_date=date.today(),
+            )
+        t.txn_date = 'asdf'
+        try:
+            self.storage.save_txn(t)
+        except AttributeError:
+            pass
+        c = self.storage._db_connection.cursor()
+        results = c.execute('SELECT * FROM transaction_splits').fetchall()
+        self.assertEqual(results, [])
+        results = c.execute('SELECT * FROM transactions').fetchall()
+        self.assertEqual(results, [])
+
     def test_save_transaction_payee_foreignkey_error(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')

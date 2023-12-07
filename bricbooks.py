@@ -966,7 +966,7 @@ class SQLiteStorage:
         #conn_name is either ':memory:' or the name of the data file
         if not conn_name == ':memory:':
             conn_name = os.path.join(CUR_DIR, conn_name)
-        self._db_connection = sqlite3.connect(conn_name)
+        self._db_connection = sqlite3.connect(conn_name, isolation_level=None)
         self._db_connection.execute('PRAGMA foreign_keys = ON;')
         result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
         if result[0][0] != 1:
@@ -1142,7 +1142,6 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
-        cur = self._db_connection.cursor()
         if txn.payee:
             if not txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=txn.payee.name)
@@ -1153,33 +1152,40 @@ class SQLiteStorage:
             payee = txn.payee.id
         else:
             payee = None
-        if txn.id:
-            cur.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
-                (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
-            if cur.rowcount < 1:
-                raise Exception('no txn with id %s to update' % txn.id)
-        else:
-            cur.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
-                (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
-            txn.id = cur.lastrowid
-        #update transaction splits
-        splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn.id,)).fetchall()
-        old_txn_split_account_ids = [r[0] for r in splits_db_info]
-        new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
-        split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
-        for account_id in split_account_ids_to_delete:
-            cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn.id, account_id))
         for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
-            amount = info['amount']
-            quantity = info['quantity']
-            status = info.get('status', None)
-            if account.id in old_txn_split_account_ids:
-                cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn.id, account.id))
+        cur = self._db_connection.cursor()
+        cur.execute('BEGIN')
+        try:
+            if txn.id:
+                cur.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
+                    (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
+                if cur.rowcount < 1:
+                    raise Exception('no txn with id %s to update' % txn.id)
             else:
-                cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES(?, ?, ?, ?, ?, ?, ?)', (txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
-        self._db_connection.commit()
+                cur.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
+                    (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
+                txn.id = cur.lastrowid
+            #update transaction splits
+            splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn.id,)).fetchall()
+            old_txn_split_account_ids = [r[0] for r in splits_db_info]
+            new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
+            split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
+            for account_id in split_account_ids_to_delete:
+                cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn.id, account_id))
+            for account, info in txn.splits.items():
+                amount = info['amount']
+                quantity = info['quantity']
+                status = info.get('status', None)
+                if account.id in old_txn_split_account_ids:
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn.id, account.id))
+                else:
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES(?, ?, ?, ?, ?, ?, ?)', (txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
+            cur.execute('COMMIT')
+        except: # we always want to rollback, regardless of the exception
+            cur.execute('ROLLBACK')
+            raise
 
     def delete_txn(self, txn_id):
         cur = self._db_connection.cursor()
