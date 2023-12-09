@@ -1642,9 +1642,10 @@ def import_kmymoney(kmy_file, engine):
     print(f'{datetime.now()} migrating transactions...')
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
+        splits = {}
+        account = None
         try:
             splits_el = transaction.find('SPLITS')
-            splits = {}
             for split in splits_el.iter('SPLIT'):
                 account_orig_id = split.attrib['account']
                 account = engine.get_account(account_mapping_info[account_orig_id])
@@ -1665,7 +1666,7 @@ def import_kmymoney(kmy_file, engine):
                     )
                 )
         except Exception as e:
-            print(f'{datetime.now()} error migrating transaction: {e}\n  {transaction.attrib}')
+            print(f'{datetime.now()} error migrating transaction: {e}\n  {account=}\n  {transaction.attrib}')
     for top_level_el in root:
         if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
             print(f"{datetime.now()} didn't migrate {top_level_el.tag} data")
