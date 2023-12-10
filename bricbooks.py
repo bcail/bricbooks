@@ -946,6 +946,9 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'CHECK (reconciled_state IS NULL OR reconciled_state = "C" OR reconciled_state = "R"),'
+            'CHECK (date_posted IS NULL OR reconciled_state IS NOT NULL),'
+            'CHECK (date_reconciled IS NULL OR reconciled_state = "R"),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -1168,26 +1171,28 @@ class SQLiteStorage:
                     (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no txn with id %s to update' % txn.id)
+                txn_id = txn.id
             else:
                 cur.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
                     (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
-                txn.id = cur.lastrowid
+                txn_id = cur.lastrowid
             #update transaction splits
-            splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn.id,)).fetchall()
+            splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
             old_txn_split_account_ids = [r[0] for r in splits_db_info]
             new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
             split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
             for account_id in split_account_ids_to_delete:
-                cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn.id, account_id))
+                cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, account_id))
             for account, info in txn.splits.items():
                 amount = info['amount']
                 quantity = info['quantity']
                 status = info.get('status', None)
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn.id, account.id))
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn_id, account.id))
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES(?, ?, ?, ?, ?, ?, ?)', (txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES(?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             cur.execute('COMMIT')
+            txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
             cur.execute('ROLLBACK')
             raise

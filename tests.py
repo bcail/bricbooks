@@ -1067,6 +1067,32 @@ class TestSQLiteStorage(unittest.TestCase):
             self.storage.save_txn(t)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
+    def test_cant_save_invalid_reconciled_state(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                txn_date=date.today(),
+            )
+        t.splits[checking]['status'] = '123'
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            self.storage.save_txn(t)
+        self.assertIn('reconciled_state', str(cm.exception))
+
+        t.splits[checking].pop('status')
+        self.storage.save_txn(t)
+
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE transaction_splits SET reconciled_state = "C", date_reconciled = "2010-01-31" WHERE account_id = ?', (checking.id,))
+        self.assertIn('OR reconciled_state = "R"', str(cm.exception))
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE transaction_splits SET reconciled_state = NULL, date_posted = "2010-01-31" WHERE account_id = ?', (checking.id,))
+        self.assertIn('date_posted IS NULL OR reconciled_state IS NOT NULL', str(cm.exception))
+
     def test_save_sparse_txn(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
