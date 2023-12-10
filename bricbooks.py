@@ -1671,7 +1671,7 @@ def import_kmymoney(kmy_file, engine):
                     )
                 )
         except Exception as e:
-            print(f'{datetime.now()} error migrating transaction: {e}\n  {account=}\n  {transaction.attrib}')
+            print(f'{datetime.now()} error migrating transaction: {e}\n  account: {account}\n  {transaction.attrib}')
     for top_level_el in root:
         if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
             print(f"{datetime.now()} didn't migrate {top_level_el.tag} data")
