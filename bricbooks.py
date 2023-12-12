@@ -448,7 +448,7 @@ class Transaction:
 
     def update_reconciled_state(self, account):
         #this updates the txn, instead of creating a new one - might want to change it
-        cur_status = self.splits[account].get('status', None)
+        cur_status = self.splits[account].get('status', '')
         if cur_status == Transaction.CLEARED:
             self.splits[account]['status'] = Transaction.RECONCILED
         elif cur_status == Transaction.RECONCILED:
@@ -907,13 +907,14 @@ class SQLiteStorage:
             'value_denominator INTEGER,'
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
-            'reconciled_state TEXT,'
+            'reconciled_state TEXT NOT NULL DEFAULT "",'
             'description TEXT,'
             'action TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -1324,7 +1325,7 @@ class SQLiteStorage:
                 for account, info in scheduled_txn.splits.items():
                     amount = info['amount']
                     quantity = amount
-                    status = info.get('status', None)
+                    status = info.get('status', '')
                     if account.id in old_split_account_ids:
                         cur.execute('UPDATE scheduled_transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, scheduled_txn.id, account.id))
                     else:
@@ -1337,7 +1338,7 @@ class SQLiteStorage:
                 for account, info in scheduled_txn.splits.items():
                     amount = info['amount']
                     quantity = amount
-                    status = info.get('status', None)
+                    status = info.get('status', '')
                     cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             cur.execute('COMMIT')
         except:
