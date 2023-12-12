@@ -934,7 +934,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None),
-                                             (2, 1, 2, 101, 1, 101, 1, None, None)])
+                                             (2, 1, 2, 101, 1, 101, 1, '', None)])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
@@ -1090,8 +1090,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertIn('OR reconciled_state = "R"', str(cm.exception))
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE transaction_splits SET reconciled_state = NULL, date_posted = "2010-01-31" WHERE account_id = ?', (checking.id,))
-        self.assertIn('date_posted IS NULL OR reconciled_state IS NOT NULL', str(cm.exception))
+            c.execute('UPDATE transaction_splits SET reconciled_state = "", date_posted = "2010-01-31" WHERE account_id = ?', (checking.id,))
+        self.assertIn('date_posted IS NULL OR reconciled_state != ""', str(cm.exception))
 
     def test_save_sparse_txn(self):
         checking = get_test_account()
@@ -1141,14 +1141,14 @@ class TestSQLiteStorage(unittest.TestCase):
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', None, None),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, None, None, None)])
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', None, None)])
         #update a db field that the Transaction object isn't aware of
         c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
         self.storage._db_connection.commit()
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', None, 'buy'),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, None, None, None)])
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', None, None)])
         #read it back from the db
         txn_from_db = self.storage.get_txn(txn_id)
         self.assertEqual(txn_from_db.txn_type, '123')
@@ -1176,8 +1176,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, None, None, 'buy'),
-                 (2, txn_id, another_acct.id, 101, 1, 101, 1, None, None, None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, '', None, 'buy'),
+                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', None, None)])
 
     def test_delete_txn_from_db(self):
         checking = get_test_account()

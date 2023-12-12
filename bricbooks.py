@@ -364,7 +364,7 @@ class Transaction:
             else:
                 raise InvalidTransactionError('invalid status "%s"' % status)
         else:
-            return None
+            return ''
 
     @staticmethod
     def splits_from_user_info(account, deposit, withdrawal, input_categories, status=None):
@@ -937,7 +937,7 @@ class SQLiteStorage:
             'value_denominator INTEGER,'
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
-            'reconciled_state TEXT,'
+            'reconciled_state TEXT NOT NULL DEFAULT "",'
             'description TEXT,'
             'action TEXT,'
             'date_posted TEXT,'
@@ -946,8 +946,8 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
-            'CHECK (reconciled_state IS NULL OR reconciled_state = "C" OR reconciled_state = "R"),'
-            'CHECK (date_posted IS NULL OR reconciled_state IS NOT NULL),'
+            'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
+            'CHECK (date_posted IS NULL OR reconciled_state != ""),'
             'CHECK (date_reconciled IS NULL OR reconciled_state = "R"),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
@@ -1186,7 +1186,7 @@ class SQLiteStorage:
             for account, info in txn.splits.items():
                 amount = info['amount']
                 quantity = info['quantity']
-                status = info.get('status', None)
+                status = info.get('status', '')
                 if account.id in old_txn_split_account_ids:
                     cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, txn_id, account.id))
                 else:
