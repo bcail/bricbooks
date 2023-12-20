@@ -928,7 +928,8 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' # date the transaction was entered
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(currency_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT) STRICT',
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
+            'CHECK (date IS NULL OR date IS strftime("%Y-%m-%d", date))) STRICT',
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_splits ('
             'id INTEGER PRIMARY KEY,'
@@ -948,8 +949,8 @@ class SQLiteStorage:
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
-            'CHECK (date_posted IS NULL OR reconciled_state != ""),'
-            'CHECK (date_reconciled IS NULL OR reconciled_state = "R"),'
+            'CHECK (date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime("%Y-%m-%d", date_posted))),'
+            'CHECK (date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime("%Y-%m-%d", date_reconciled))),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
