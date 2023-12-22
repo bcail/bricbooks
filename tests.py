@@ -714,7 +714,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('commodities',), ('institutions',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
+TABLES = [('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -778,6 +778,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
         #now insert with correct currency id of 1 (USD)
         c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
+
+    def test_account_type_cant_be_empty(self):
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO account_types(type) VALUES(?)', ('',))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: type != ""')
 
     def test_save_account(self):
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
@@ -881,6 +887,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO accounts(type, commodity_id, institution_id, number, name) VALUES (?, ?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 1, '4010', 'Checking'))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_type_must_be_valid(self):
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        self.storage.save_account(checking)
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE accounts SET type = ? WHERE id = ?', ('invalid', checking.id))
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_get_account(self):

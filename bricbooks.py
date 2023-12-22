@@ -844,6 +844,10 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
         'CREATE TRIGGER institution_updated UPDATE ON institutions BEGIN UPDATE institutions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
+        'CREATE TABLE account_types ('
+            'type TEXT NOT NULL PRIMARY KEY,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (type != "")) STRICT',
         'CREATE TABLE accounts ('
             'id INTEGER PRIMARY KEY,'
             'type TEXT NOT NULL,'
@@ -855,6 +859,7 @@ class SQLiteStorage:
             'closed TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(type) REFERENCES account_types(type) ON DELETE RESTRICT,'
             'FOREIGN KEY(parent_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(institution_id) REFERENCES institutions(id) ON DELETE RESTRICT,'
@@ -964,7 +969,7 @@ class SQLiteStorage:
         'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
-    ]
+    ] + [f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType]
 
     def __init__(self, conn_name):
         if not conn_name:
