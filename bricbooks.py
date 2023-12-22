@@ -833,6 +833,9 @@ class SQLiteStorage:
             'trading_market TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (type != ""),'
+            'CHECK (code != ""),'
+            'CHECK (name != ""),'
             'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER commodity_updated UPDATE ON commodities BEGIN UPDATE commodities SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE institutions ('
@@ -842,7 +845,8 @@ class SQLiteStorage:
             'routing_number TEXT,'
             'bic TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (name != "")) STRICT',
         'CREATE TRIGGER institution_updated UPDATE ON institutions BEGIN UPDATE institutions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE account_types ('
             'type TEXT NOT NULL PRIMARY KEY,'
@@ -859,6 +863,8 @@ class SQLiteStorage:
             'closed TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (number != ""),'
+            'CHECK (name != ""),'
             'FOREIGN KEY(type) REFERENCES account_types(type) ON DELETE RESTRICT,'
             'FOREIGN KEY(parent_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
@@ -890,7 +896,8 @@ class SQLiteStorage:
             'name TEXT UNIQUE NOT NULL,'
             'notes TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (name != "")) STRICT',
         'CREATE TRIGGER payee_updated UPDATE ON payees BEGIN UPDATE payees SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transactions ('
             'id INTEGER PRIMARY KEY,'
@@ -903,6 +910,7 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
+            'CHECK (name != ""),'
             'CHECK (next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
@@ -964,7 +972,8 @@ class SQLiteStorage:
             'key TEXT UNIQUE NOT NULL,'
             'value ANY NOT NULL,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (key != "")) STRICT',
         'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %

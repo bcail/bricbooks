@@ -776,8 +776,28 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 20))
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', ('', 'ABC', 'A Big Co'))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: type != ""')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (bb.CommodityType.SECURITY.value, '', 'A Big Co'))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: code != ""')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', ''))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
+
         #now insert with correct currency id of 1 (USD)
         c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
+
+    def test_institution_name_cant_be_empty(self):
+        c = self.storage._db_connection.cursor()
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO institutions(name) VALUES(?)', ('',))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
     def test_account_type_cant_be_empty(self):
         c = self.storage._db_connection.cursor()
@@ -897,6 +917,16 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('UPDATE accounts SET type = ? WHERE id = ?', ('invalid', checking.id))
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
+    def test_account_number_and_name_not_empty(self):
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '', 'Checking'))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: number != ""')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', ''))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
+
     def test_get_account(self):
         c = self.storage._db_connection.cursor()
         c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', 'Checking'))
@@ -920,6 +950,11 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_payee(bb.Payee('payee'))
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: payees.name')
+
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE payees SET name = ? WHERE id = ?', ('', payee.id))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
     def test_save_txn(self):
         checking = get_test_account()
@@ -1486,6 +1521,10 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('UPDATE scheduled_transactions SET next_due_date = ? WHERE id = ?', ('asdf', st.id))
         self.assertIn('next_due_date IS strftime', str(cm.exception))
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE scheduled_transactions SET name = ? WHERE id = ?', ('', st.id))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
     def test_save_scheduled_transaction_error(self):
         checking = get_test_account()
