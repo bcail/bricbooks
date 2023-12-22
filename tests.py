@@ -1467,6 +1467,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(st_split_records[0], (st.id, checking.id, -101, 1, -101, 1, 'R'))
         self.assertEqual(st_split_records[1], (st.id, savings.id, 101, 1, 101, 1, ''))
 
+        # make sure next_due_date has to be valid date
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE scheduled_transactions SET next_due_date = ? WHERE id = ?', ('asdf', st.id))
+        self.assertIn('next_due_date IS strftime', str(cm.exception))
+
     def test_save_scheduled_transaction_error(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')

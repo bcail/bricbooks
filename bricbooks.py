@@ -827,7 +827,7 @@ class SQLiteStorage:
         'CREATE TABLE commodities ('
             'id INTEGER PRIMARY KEY,'
             'type TEXT NOT NULL,'
-            'code TEXT UNIQUE,'
+            'code TEXT NOT NULL UNIQUE,'
             'name TEXT NOT NULL,'
             'trading_currency_id INTEGER,'
             'trading_market TEXT,'
@@ -897,7 +897,8 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT) STRICT',
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
+            'CHECK (next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
             'id INTEGER PRIMARY KEY,'
