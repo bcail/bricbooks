@@ -1286,7 +1286,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(food)
         account_budget_info = {
                 housing: {'amount': '15.34', 'carryover': '0.34', 'notes': 'hello'},
-                food: {'amount': 25, 'carryover': 0}
+                food: {'amount': 25}
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
         self.storage.save_budget(b)
@@ -1298,13 +1298,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(records), 2)
         self.assertEqual(records[0][1], 1)
         self.assertEqual(records[0][2], 1)
-        self.assertEqual(records[0][3], '767/50')
-        self.assertEqual(records[0][4], '17/50')
-        self.assertEqual(records[0][5], 'hello')
+        self.assertEqual(records[0][3], 767)
+        self.assertEqual(records[0][4], 50)
+        self.assertEqual(records[0][5], 17)
+        self.assertEqual(records[0][6], 50)
+        self.assertEqual(records[0][7], 'hello')
         self.assertEqual(records[1][1], 1)
         self.assertEqual(records[1][2], 2)
-        self.assertEqual(records[1][3], '25')
-        self.assertEqual(records[1][4], '')
+        self.assertEqual(records[1][3], 25)
+        self.assertEqual(records[1][4], 1)
+        self.assertEqual(records[1][5], None)
+        self.assertEqual(records[1][6], None)
         #test that old budget values are deleted
         b = bb.Budget(start_date='2018-01-01', end_date='2018-12-24', account_budget_info={
                 housing: {'amount': 35, 'carryover': 0},
@@ -1314,9 +1318,10 @@ class TestSQLiteStorage(unittest.TestCase):
         records = cursor.execute('SELECT id,name,start_date,end_date FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
         self.assertEqual(records[0], (1, None, '2018-01-01', '2018-12-24'))
-        records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
+        records = cursor.execute('SELECT amount_numerator FROM budget_values ORDER BY amount_numerator').fetchall()
         self.assertEqual(len(records), 2)
-        self.assertEqual(records[0][0], '35')
+        self.assertEqual(records[0][0], 35)
+        self.assertEqual(records[1][0], 45)
 
     def test_save_budget_empty_category_info(self):
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
@@ -1332,9 +1337,9 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor = self.storage._db_connection.cursor()
         records = cursor.execute('SELECT * FROM budgets').fetchall()
         self.assertEqual(len(records), 1)
-        records = cursor.execute('SELECT amount FROM budget_values ORDER BY amount').fetchall()
+        records = cursor.execute('SELECT amount_numerator FROM budget_values').fetchall()
         self.assertEqual(len(records), 1)
-        self.assertEqual(records[0][0], '15')
+        self.assertEqual(records[0][0], 15)
 
     def test_save_budget_sparse(self):
         b = bb.Budget(year=2018)
@@ -1425,9 +1430,9 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor = self.storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, notes) VALUES (?, ?, ?, ?)', (budget_id, housing.id, '135/1', 'hello'))
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, food.id, '70/1', '15'))
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount, carryover) VALUES (?, ?, ?, ?)', (budget_id, wages.id, '70/1', None))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount_numerator, amount_denominator, notes) VALUES (?, ?, ?, ?, ?)', (budget_id, housing.id, 135, 1, 'hello'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator) VALUES (?, ?, ?, ?, ?, ?)', (budget_id, food.id, 70, 1, 15, 1))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount_numerator, amount_denominator) VALUES (?, ?, ?, ?)', (budget_id, wages.id, 70, 1))
         budget = self.storage.get_budget(budget_id)
         self.assertEqual(budget.id, budget_id)
         self.assertEqual(budget.start_date, date(2018, 1, 1))
@@ -1459,7 +1464,6 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(incomes[0]['remaining'], '-30.00')
         self.assertEqual(incomes[0]['current_status'], '+94%')
 
-
     def test_get_budgets(self):
         b = bb.Budget(year=2018)
         self.storage.save_budget(b)
@@ -1477,8 +1481,8 @@ class TestSQLiteStorage(unittest.TestCase):
         cursor = self.storage._db_connection.cursor()
         cursor.execute('INSERT INTO budgets (start_date, end_date) VALUES (?, ?)', ('2018-01-01', '2018-12-31'))
         budget_id = cursor.lastrowid
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount) VALUES (?, ?, ?)', (budget_id, housing.id, '35'))
-        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount) VALUES (?, ?, ?)', (budget_id, food.id, '70'))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount_numerator, amount_denominator) VALUES (?, ?, ?, ?)', (budget_id, housing.id, 35, 1))
+        cursor.execute('INSERT INTO budget_values (budget_id, account_id, amount_numerator, amount_denominator) VALUES (?, ?, ?, ?)', (budget_id, food.id, 70, 1))
         budgets = self.storage.get_budgets()
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].start_date, date(2018, 1, 1))

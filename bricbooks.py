@@ -883,11 +883,15 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'budget_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
-            'amount TEXT,'
-            'carryover TEXT,'
+            'amount_numerator INTEGER NOT NULL,'
+            'amount_denominator INTEGER NOT NULL,'
+            'carryover_numerator INTEGER,'
+            'carryover_denominator INTEGER,'
             'notes TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (amount_denominator != 0),'
+            'CHECK (carryover_denominator != 0),'
             'FOREIGN KEY(budget_id) REFERENCES budgets(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER budget_value_updated UPDATE ON budget_values BEGIN UPDATE budget_values SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -1242,24 +1246,38 @@ class SQLiteStorage:
                     cur.execute('DELETE FROM budget_values WHERE budget_id = ? AND account_id = ?', (budget.id, account_id))
                 for account, info in budget_data.items():
                     if info:
-                        carryover = str(info.get('carryover', ''))
-                        notes = info.get('notes', '')
-                        if account.id in old_account_ids:
-                            values = (str(info['amount']), carryover, notes, budget.id, account.id)
-                            cur.execute('UPDATE budget_values SET amount = ?, carryover = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
+                        if 'carryover' in info:
+                            carryover = info['carryover']
+                            carryover_numerator = carryover.numerator
+                            carryover_denominator = carryover.denominator
                         else:
-                            values = (budget.id, account.id, str(info['amount']), carryover, notes)
-                            cur.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+                            carryover_numerator = None
+                            carryover_denominator = None
+                        notes = info.get('notes', '')
+                        amount = info['amount']
+                        if account.id in old_account_ids:
+                            values = (amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes, budget.id, account.id)
+                            cur.execute('UPDATE budget_values SET amount_numerator = ?, amount_denominator = ?, carryover_numerator = ?, carryover_denominator = ?, notes = ? WHERE budget_id = ? AND account_id = ?', values)
+                        else:
+                            values = (budget.id, account.id, amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes)
+                            cur.execute('INSERT INTO budget_values(budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', values)
             else:
                 cur.execute('INSERT INTO budgets(start_date, end_date) VALUES(?, ?)', (str(budget.start_date), str(budget.end_date)))
                 budget.id = cur.lastrowid
                 budget_data = budget.get_budget_data()
                 for account, info in budget_data.items():
                     if info:
-                        carryover = str(info.get('carryover', ''))
+                        if 'carryover' in info:
+                            carryover = info['carryover']
+                            carryover_numerator = carryover.numerator
+                            carryover_denominator = carryover.denominator
+                        else:
+                            carryover_numerator = None
+                            carryover_denominator = None
                         notes = info.get('notes', '')
-                        values = (budget.id, account.id, str(info['amount']), carryover, notes)
-                        cur.execute('INSERT INTO budget_values(budget_id, account_id, amount, carryover, notes) VALUES (?, ?, ?, ?, ?)', values)
+                        amount = info['amount']
+                        values = (budget.id, account.id, amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes)
+                        cur.execute('INSERT INTO budget_values(budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', values)
             cur.execute('COMMIT')
         except:
             cur.execute('ROLLBACK')
@@ -1290,12 +1308,12 @@ class SQLiteStorage:
                     spent += amt
             all_income_spending_info[account]['spent'] = spent
             all_income_spending_info[account]['income'] = income
-            budget_records = cur.execute('SELECT amount, carryover, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (id_, account.id)).fetchall()
+            budget_records = cur.execute('SELECT amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes FROM budget_values WHERE budget_id = ? AND account_id = ?', (id_, account.id)).fetchall()
             if budget_records:
                 r = budget_records[0]
-                account_budget_info[account]['amount'] = r[0]
-                account_budget_info[account]['carryover'] = r[1]
-                account_budget_info[account]['notes'] = r[2]
+                account_budget_info[account]['amount'] = Fraction(r[0], r[1])
+                account_budget_info[account]['carryover'] = Fraction(r[2] or 0, r[3] or 1)
+                account_budget_info[account]['notes'] = r[4]
             else:
                 account_budget_info[account] = {}
         return Budget(id_=id_, start_date=start_date, end_date=end_date, account_budget_info=account_budget_info,
