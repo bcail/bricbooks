@@ -320,8 +320,6 @@ def amount_display(amount):
 
 
 def check_txn_splits(splits):
-    if not splits or len(splits.items()) < 2:
-        raise InvalidTransactionError('transaction must have at least 2 splits')
     total = Fraction(0)
     for account, info in splits.items():
         if not account:
@@ -921,8 +919,8 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'scheduled_transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
-            'value_numerator INTEGER,'
-            'value_denominator INTEGER,'
+            'value_numerator INTEGER NOT NULL,'
+            'value_denominator INTEGER NOT NULL,'
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'
@@ -953,8 +951,8 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'transaction_id INTEGER NOT NULL,'
             'account_id INTEGER NOT NULL,'
-            'value_numerator INTEGER,'
-            'value_denominator INTEGER,'
+            'value_numerator INTEGER NOT NULL,' # can be 0 (for eg. memo transactions for stock splits), but not null
+            'value_denominator INTEGER NOT NULL,'
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'

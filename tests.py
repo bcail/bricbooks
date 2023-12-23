@@ -138,12 +138,7 @@ class TestTransaction(unittest.TestCase):
         self.savings = get_test_account(id_=2, name='Savings')
         self.valid_splits = {self.checking: {'amount': '100'}, self.savings: {'amount': '-100'}}
 
-    def test_splits_required(self):
-        with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction()
-        self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
-
-    def test_splits_must_balance(self):
+    def test_splits_amounts_must_balance(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(splits={self.checking: {'amount': -100}, self.savings: {'amount': 90}})
         self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
@@ -434,9 +429,12 @@ class TestScheduledTransaction(unittest.TestCase):
                 name='w',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-01',
-                splits={},
+                splits={
+                    self.checking: {'amount': -101},
+                    self.savings: {'amount': 25},
+                }
             )
-        self.assertEqual(str(cm.exception), 'transaction must have at least 2 splits')
+        self.assertEqual(str(cm.exception), 'splits don\'t balance: -101.00, 25.00')
 
     def test_invalid_next_due_date(self):
         with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
