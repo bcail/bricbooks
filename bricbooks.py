@@ -1677,6 +1677,8 @@ def import_kmymoney(kmy_file, engine):
         engine.save_payee(payee_obj)
         payee_mapping_info[payee.attrib['id']] = payee_obj.id
     #migrate transactions
+    #   Dates: kmymoney uses the "postdate" attribute for the main txn date - there's no separate date
+    #       for when when the split clears the account.
     print(f'{datetime.now()} migrating transactions...')
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
@@ -1687,15 +1689,20 @@ def import_kmymoney(kmy_file, engine):
             for split in splits_el.iter('SPLIT'):
                 account_orig_id = split.attrib['account']
                 account = engine.get_account(account_mapping_info[account_orig_id])
-                #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
                 splits[account] = {'amount': split.attrib['value']}
+                #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
                 if split.attrib['reconcileflag'] == '2':
                     splits[account]['status'] = Transaction.RECONCILED
                 elif split.attrib['reconcileflag'] == '1':
                     splits[account]['status'] = Transaction.CLEARED
+                #TODO: handle split reconciledate
                 payee = None
                 if split.attrib['payee']:
                     payee = engine.get_payee(id_=payee_mapping_info[split.attrib['payee']])
+                #TODO: handle split memo
+                #TODO: handle split action
+                #TODO: handle split price
+            #TODO: handle txn memo
             engine.save_transaction(
                     Transaction(
                         splits=splits,
