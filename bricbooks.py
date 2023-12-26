@@ -1159,9 +1159,16 @@ class SQLiteStorage:
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
-    def get_transactions(self):
+    def get_transactions(self, account_ids):
         txns = []
-        db_txn_id_records = self._db_connection.execute('SELECT id FROM transactions').fetchall()
+        cur = self._db_connection.cursor()
+        if account_ids:
+            num_accounts = len(account_ids)
+            q_str = '?,' * num_accounts
+            q_str = q_str.rstrip(',')
+            db_txn_id_records = cur.execute('SELECT transaction_id FROM transaction_splits WHERE account_id IN (%s)' % q_str, account_ids).fetchall()
+        else:
+            db_txn_id_records = cur.execute('SELECT id FROM transactions').fetchall()
         txn_ids = set([r[0] for r in db_txn_id_records])
         for txn_id in txn_ids:
             txn = self.get_txn(txn_id)
@@ -1482,7 +1489,9 @@ class Engine:
         return self._storage.get_txn(id_)
 
     def get_transactions(self, accounts=None, query=None, status=None, sort='date', reverse=False):
-        results = self._storage.get_transactions()
+        if not accounts:
+            accounts = []
+        results = self._storage.get_transactions(account_ids=[a.id for a in accounts])
         if accounts:
             for acc in accounts:
                 if status:
