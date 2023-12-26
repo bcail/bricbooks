@@ -1501,8 +1501,9 @@ class Engine:
         else:
             return sorted_results
 
-    def get_current_balances_for_display(self, account, balance_field='amount'):
-        sorted_txns = self.get_transactions(account=account)
+    def get_current_balances_for_display(self, account, balance_field='amount', sorted_txns=None):
+        if not sorted_txns:
+            sorted_txns = self.get_transactions(account=account)
         current = Fraction(0)
         current_cleared = Fraction(0)
         today = date.today()
@@ -1811,8 +1812,11 @@ class CLI:
                     if filter_account:
                         raise Exception('only search for one account at a time')
                     filter_account = self._engine.get_account(id_=int(clause.replace('acc:', '')))
-        else:
-            ledger_balances = self._engine.get_current_balances_for_display(account=account)
+
+        txns = self._engine.get_transactions(account=account, status=status, filter_account=filter_account)
+
+        if not (len(user_input_parts) > 1):
+            ledger_balances = self._engine.get_current_balances_for_display(account=account, sorted_txns=txns)
             summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
             self.print(summary_line)
             scheduled_txns_due = self._engine.get_scheduled_transactions_due(accounts=[account])
@@ -1820,11 +1824,11 @@ class CLI:
                 self.print('Scheduled Transactions due:')
                 for st in scheduled_txns_due:
                     self.print(f'{st.id} {st.name} {st.next_due_date}')
+        reversed_txns = list(reversed(txns))
         self.print(self.TXN_LIST_HEADER)
-        txns = self._engine.get_transactions(account=account, status=status, filter_account=filter_account, reverse=True)
         page_index = 1
         while True:
-            paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
+            paged_txns, more_txns = pager(reversed_txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(account, t)
                 self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
@@ -2583,7 +2587,8 @@ class LedgerDisplay:
         self.txns_widget.heading('transfer account', text='Transfer Account')
         self.txns_widget.column('transfer account', width=100, anchor='center')
 
-        for txn in self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account):
+        sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
+        for txn in sorted_txns:
             tds = get_display_strings_for_ledger(account, txn)
             values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
@@ -2600,7 +2605,7 @@ class LedgerDisplay:
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)
 
-        balances = self._engine.get_current_balances_for_display(account=self._account)
+        balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
         self.balance_var.set(f'Current Balance: {balances.current}')
         self.cleared_var.set(f'Cleared: {balances.current_cleared}')
 
