@@ -1753,23 +1753,19 @@ class TestEngine(unittest.TestCase):
         self.engine.save_transaction(txn)
         self.engine.save_transaction(txn2)
         self.engine.save_transaction(txn3)
-        #all txns
-        txns = self.engine.get_transactions()
-        self.assertEqual(len(txns), 3)
-        self.assertEqual(txns[0].txn_date, date(2017, 1, 2))
         #get txns for an account, with balance
-        txns = self.engine.get_transactions(accounts=[checking])
+        txns = self.engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].balance, Fraction(5))
         #get txns matching multiple accounts
-        txns = self.engine.get_transactions(accounts=[checking, food])
+        txns = self.engine.get_transactions(account=checking, filter_account=food)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 15))
         #get txns with a status
-        txns = self.engine.get_transactions(accounts=[checking], status=bb.Transaction.CLEARED)
+        txns = self.engine.get_transactions(account=checking, status=bb.Transaction.CLEARED)
         self.assertEqual(len(txns), 1)
-        #search txns
-        txns = self.engine.get_transactions(query='some payee')
+        #search txns in an account
+        txns = self.engine.get_transactions(account=checking, query='some payee')
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].payee.name, 'Some payee')
 
@@ -1938,7 +1934,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', 'C', '2', '15', '', '',
                 'type 1', str(payee.id), 'description']
         self.cli._create_txn()
-        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
+        txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[checking], {'amount': -15, 'quantity': -15, 'status': 'C'})
         self.assertEqual(txn.splits[savings], {'amount': 15, 'quantity': 15})
@@ -1958,7 +1954,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
+        txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
@@ -1974,7 +1970,7 @@ class TestCLI(unittest.TestCase):
         input_mock.side_effect = ['2019-02-24', '1', '-15', '', '2', '15', '', '',
                 'type 1', "'payee 1", 'description']
         self.cli._create_txn()
-        txn = self.cli._engine.get_transactions(accounts=[checking])[0]
+        txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.payee.name, 'payee 1')
 
     @patch('builtins.input')
@@ -2085,7 +2081,7 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_scheduled_transaction(st)
         input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
         self.cli._list_scheduled_txns()
-        txns = self.cli._engine.get_transactions(accounts=[checking])
+        txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking]['amount'], 175)
         self.assertEqual(txns[1].splits, valid_splits)
@@ -2114,7 +2110,7 @@ class TestCLI(unittest.TestCase):
         self.cli._list_scheduled_txns()
         scheduled_txn = self.cli._engine._storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
-        txns = self.cli._engine.get_transactions(accounts=[checking])
+        txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(txns, [])
 
     @patch('builtins.input')
@@ -2333,7 +2329,7 @@ class TestImport(unittest.TestCase):
         payees = engine.get_payees()
         self.assertEqual(len(payees), 2)
         checking = engine.get_account(name='Checking')
-        txns = engine.get_transactions(accounts=[checking])
+        txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[1].payee.name, 'A restaurant')
         balances = engine.get_current_balances_for_display(account=checking)

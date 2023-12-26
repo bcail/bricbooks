@@ -1159,17 +1159,11 @@ class SQLiteStorage:
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
-    def get_transactions(self, account_ids):
+    def get_transactions(self, account_id):
         txns = []
         cur = self._db_connection.cursor()
-        if account_ids:
-            num_accounts = len(account_ids)
-            q_str = '?,' * num_accounts
-            q_str = q_str.rstrip(',')
-            db_txn_id_records = cur.execute('SELECT transaction_id FROM transaction_splits WHERE account_id IN (%s)' % q_str, account_ids).fetchall()
-        else:
-            db_txn_id_records = cur.execute('SELECT id FROM transactions').fetchall()
-        txn_ids = set([r[0] for r in db_txn_id_records])
+        db_txn_id_records = cur.execute('SELECT DISTINCT transaction_id FROM transaction_splits WHERE account_id = ?', (account_id,)).fetchall()
+        txn_ids = [r[0] for r in db_txn_id_records]
         for txn_id in txn_ids:
             txn = self.get_txn(txn_id)
             txns.append(txn)
@@ -1488,31 +1482,27 @@ class Engine:
     def get_transaction(self, id_):
         return self._storage.get_txn(id_)
 
-    def get_transactions(self, accounts=None, query=None, status=None, sort='date', reverse=False):
-        if not accounts:
-            accounts = []
-        results = self._storage.get_transactions(account_ids=[a.id for a in accounts])
-        if accounts:
-            for acc in accounts:
-                if status:
-                    results = [t for t in results if acc in t.splits and t.splits[acc].get('status') == status]
-                else:
-                    results = [t for t in results if acc in t.splits]
+    def get_transactions(self, account, filter_account=None, query=None, status=None, sort='date', reverse=False):
+        results = self._storage.get_transactions(account_id=account.id)
+        if filter_account:
+            results = [t for t in results if filter_account in t.splits]
+        if status:
+            results = [t for t in results if t.splits[account].get('status') == status]
         if query:
             query = query.lower()
             results = [t for t in results
                     if ((t.payee and query in t.payee.name.lower()) or (t.description and query in t.description.lower()))]
         sorted_results = Engine.sort_txns(results, key='date')
         #add balance if we have all the txns for a specific account, without limiting by another account, or a query, or a status, ...
-        if accounts and len(accounts) == 1 and not any([query, status]):
-            sorted_results = Engine.add_balance_to_txns(sorted_results, account=accounts[0])
+        if not any([filter_account, query, status]):
+            sorted_results = Engine.add_balance_to_txns(sorted_results, account=account)
         if reverse:
             return list(reversed(sorted_results))
         else:
             return sorted_results
 
     def get_current_balances_for_display(self, account, balance_field='amount'):
-        sorted_txns = self.get_transactions(accounts=[account])
+        sorted_txns = self.get_transactions(account=account)
         current = Fraction(0)
         current_cleared = Fraction(0)
         today = date.today()
@@ -1593,7 +1583,7 @@ class Engine:
         for acc in accounts:
             if acc.type != AccountType.ASSET:
                 continue
-            txns = self.get_transactions(accounts=[acc])
+            txns = self.get_transactions(account=acc)
             acc_file = os.path.join(export_dir, f'acc_{to_ascii(acc.name.lower())}.tsv')
             with open(acc_file, 'wb') as f:
                 f.write('date\ttype\tpayee\tdescription\tamount\ttransfer_account\n'.encode('utf8'))
@@ -1811,13 +1801,15 @@ class CLI:
         user_input_parts = user_input.split()
         account = self._engine.get_account(id_=int(user_input_parts[0]))
         status = None
-        account_ids = []
+        filter_account = None
         if len(user_input_parts) > 1:
             for clause in user_input_parts[1:]:
                 if clause.startswith('status:'):
                     status = clause.replace('status:', '')
                 elif clause.startswith('acc:'):
-                    account_ids.append(int(clause.replace('acc:', '')))
+                    if filter_account:
+                        raise Exception('only search for one account at a time')
+                    filter_account = self._engine.get_account(id_=int(clause.replace('acc:', '')))
         else:
             ledger_balances = self._engine.get_current_balances_for_display(account=account)
             summary_line = f'{account.name} (Current balance: {ledger_balances.current}; Cleared: {ledger_balances.current_cleared})'
@@ -1828,10 +1820,7 @@ class CLI:
                 for st in scheduled_txns_due:
                     self.print(f'{st.id} {st.name} {st.next_due_date}')
         self.print(self.TXN_LIST_HEADER)
-        accounts = [account]
-        if account_ids:
-            accounts.extend([self._engine.get_account(id_=id_) for id_ in account_ids])
-        txns = self._engine.get_transactions(accounts=accounts, status=status, reverse=True)
+        txns = self._engine.get_transactions(account=account, status=status, filter_account=filter_account, reverse=True)
         page_index = 1
         while True:
             paged_txns, more_txns = pager(txns, num_txns_in_page=num_txns_in_page, page=page_index)
@@ -2562,10 +2551,7 @@ class LedgerDisplay:
         self.balance_var = tk.StringVar()
 
     def _get_txns(self, status=None, filter_text='', filter_account=None):
-        accounts = [self._account]
-        if filter_account:
-            accounts.append(filter_account)
-        return self._engine.get_transactions(accounts=accounts, status=status, query=filter_text)
+        return self._engine.get_transactions(account=self._account, status=status, filter_account=filter_account, query=filter_text)
 
     def _show_transactions(self, status=None, filter_text='', filter_account=None):
         master = self.frame

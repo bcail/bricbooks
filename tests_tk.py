@@ -125,7 +125,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
         add_form.save_button.invoke()
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
@@ -164,7 +164,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         splits_editor._entries[restaurants.id][0].insert(0, '10')
         splits_editor.ok_button.invoke()
         add_form.save_button.invoke()
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
@@ -194,7 +194,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         splits_editor._entries[restaurants.id][0].insert(0, '8.95')
         splits_editor.ok_button.invoke()
         add_form.save_button.invoke()
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-30, 1))
@@ -228,7 +228,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
         self.assertEqual(txns[1].txn_date, date(2017, 5, 2))
@@ -275,7 +275,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
         self.assertEqual(txns[0].splits[checking]['amount'], -40)
@@ -302,7 +302,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2018, 12, 20))
         self.assertEqual(txns[0].splits[checking]['amount'], -20)
@@ -336,7 +336,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2020, 1, 22))
 
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[1].txn_date, date(2020, 1, 15))
         self.assertEqual(txns[1].splits[checking]['amount'], -100)
@@ -368,7 +368,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].next_due_date, date(2020, 1, 22))
 
-        txns = gui._engine.get_transactions(accounts=[checking])
+        txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
 
