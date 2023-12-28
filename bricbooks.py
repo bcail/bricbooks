@@ -901,6 +901,10 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (name != "")) STRICT',
         'CREATE TRIGGER payee_updated UPDATE ON payees BEGIN UPDATE payees SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
+        'CREATE TABLE scheduled_transaction_frequencies ('
+            'frequency TEXT NOT NULL PRIMARY KEY,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (frequency != "")) STRICT',
         'CREATE TABLE scheduled_transactions ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
@@ -911,6 +915,7 @@ class SQLiteStorage:
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(frequency) REFERENCES scheduled_transaction_frequencies(frequency) ON DELETE RESTRICT,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (name != ""),'
             'CHECK (next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
@@ -981,7 +986,7 @@ class SQLiteStorage:
         'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
-    ] + [f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType]
+    ] + [f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType] + [f'INSERT INTO scheduled_transaction_frequencies(frequency) VALUES("{frequency.value}")' for frequency in ScheduledTransactionFrequency]
 
     def __init__(self, conn_name):
         if not conn_name:
