@@ -822,6 +822,10 @@ class SQLiteStorage:
     SCHEMA_VERSION = 0
 
     DB_INIT_STATEMENTS = [
+        'CREATE TABLE commodity_types ('
+            'type TEXT NOT NULL PRIMARY KEY,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (type != "")) STRICT',
         'CREATE TABLE commodities ('
             'id INTEGER PRIMARY KEY,'
             'type TEXT NOT NULL,'
@@ -834,6 +838,7 @@ class SQLiteStorage:
             'CHECK (type != ""),'
             'CHECK (code != ""),'
             'CHECK (name != ""),'
+            'FOREIGN KEY(type) REFERENCES commodity_types(type) ON DELETE RESTRICT,'
             'FOREIGN KEY(trading_currency_id) REFERENCES commodities(id) ON DELETE RESTRICT) STRICT',
         'CREATE TRIGGER commodity_updated UPDATE ON commodities BEGIN UPDATE commodities SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE institutions ('
@@ -983,10 +988,17 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (key != "")) STRICT',
         'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
+    ] + [
+        f'INSERT INTO commodity_types(type) VALUES("{commodity_type.value}")' for commodity_type in CommodityType
+    ] + [
+        f'INSERT INTO scheduled_transaction_frequencies(frequency) VALUES("{frequency.value}")' for frequency in ScheduledTransactionFrequency
+    ] + [
+        f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType
+    ] + [
         'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
-    ] + [f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType] + [f'INSERT INTO scheduled_transaction_frequencies(frequency) VALUES("{frequency.value}")' for frequency in ScheduledTransactionFrequency]
+    ]
 
     def __init__(self, conn_name):
         if not conn_name:

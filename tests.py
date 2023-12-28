@@ -712,7 +712,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
+TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transactions',), ('transaction_splits',), ('misc',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
