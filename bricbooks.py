@@ -969,6 +969,7 @@ class SQLiteStorage:
             'CHECK (date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime("%Y-%m-%d", date_reconciled))),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
+        'CREATE INDEX transaction_split_txn_id_index ON transaction_splits(transaction_id)',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
             'key TEXT UNIQUE NOT NULL,'
