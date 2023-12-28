@@ -334,11 +334,7 @@ def check_txn_splits(splits):
         total += amount
         info['amount'] = amount
         if 'status' in info:
-            status = Transaction.handle_status(info['status'])
-            if status:
-                info['status'] = status
-            else:
-                info.pop('status')
+            info['status'] = info['status'].upper()
     if total != Fraction(0):
         amounts = []
         for account, info in splits.items():
@@ -353,19 +349,7 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
-    def handle_status(status):
-        if status:
-            if status.upper() == Transaction.CLEARED:
-                return Transaction.CLEARED
-            elif status.upper() == Transaction.RECONCILED:
-                return Transaction.RECONCILED
-            else:
-                raise InvalidTransactionError('invalid status "%s"' % status)
-        else:
-            return ''
-
-    @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories, status=None):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status=''):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
         if not deposit and not withdrawal:
@@ -392,9 +376,7 @@ class Transaction:
                     raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         else:
             raise InvalidTransactionError(f'invalid input categories: {input_categories}')
-        status = Transaction.handle_status(status)
-        if status:
-            splits[account]['status'] = status
+        splits[account]['status'] = status.upper()
         return splits
 
     @staticmethod
@@ -533,7 +515,7 @@ class ScheduledTransaction:
                 id_=id_
             )
 
-    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, status=None, id_=None):
+    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, status='', id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -555,7 +537,7 @@ class ScheduledTransaction:
         else:
             self.payee = None
         self.description = description
-        self.status = Transaction.handle_status(status)
+        self.status = status.upper()
         self.id = id_
 
     def __str__(self):

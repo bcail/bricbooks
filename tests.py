@@ -306,23 +306,6 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
             )
         self.assertEqual(t.splits[self.checking]['status'], 'C')
-        t = bb.Transaction(
-                splits={
-                    self.checking: {'amount': '-101', 'status': ''},
-                    self.savings: {'amount': '101'},
-                },
-                txn_date=date.today(),
-            )
-        self.assertEqual(t.splits[self.checking], {'amount': -101, 'quantity': -101})
-        with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(
-                    splits={
-                        self.checking: {'amount': '-101', 'status': 'd'},
-                        self.savings: {'amount': '101'},
-                    },
-                    txn_date=date.today(),
-                )
-        self.assertEqual(str(cm.exception), 'invalid status "d"')
 
     def test_get_display_strings(self):
         t = bb.Transaction(
@@ -1145,10 +1128,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits={checking: {'amount': '-101', 'status': 'd'}, savings: {'amount': 101}},
                 txn_date=date.today(),
             )
-        t.splits[checking]['status'] = '123'
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_txn(t)
         self.assertIn('reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"', str(cm.exception))
