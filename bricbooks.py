@@ -946,14 +946,14 @@ class SQLiteStorage:
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
-            'currency_id INTEGER NOT NULL,'
+            'commodity_id INTEGER NOT NULL,'
             'type TEXT,'
             'date TEXT,' # date the transaction took place
             'payee_id INTEGER,'
             'description TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' # date the transaction was entered
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'FOREIGN KEY(currency_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (date IS NULL OR date IS strftime("%Y-%m-%d", date))) STRICT',
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -1156,7 +1156,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, currency_id, txn_type, txn_date, payee_id, description = db_info
+        id_, commodity_id, txn_type, txn_date, payee_id, description = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -1173,7 +1173,7 @@ class SQLiteStorage:
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,currency_id,type,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,type,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1211,7 +1211,7 @@ class SQLiteStorage:
                     raise Exception('no txn with id %s to update' % txn.id)
                 txn_id = txn.id
             else:
-                cur.execute('INSERT INTO transactions(currency_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
+                cur.execute('INSERT INTO transactions(commodity_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
                     (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
                 txn_id = cur.lastrowid
             #update transaction splits

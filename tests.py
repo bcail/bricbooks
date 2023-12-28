@@ -972,7 +972,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,currency_id,type,date,payee_id,description,created FROM transactions')
+        c.execute('SELECT id,commodity_id,type,date,payee_id,description,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
                 (1, 1, '', today.strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
@@ -1177,7 +1177,7 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,currency_id,type,date,payee_id,description FROM transactions')
+        c.execute('SELECT id,commodity_id,type,date,payee_id,description FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
                 (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
@@ -1206,7 +1206,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_id = t.id
         #verify db
         c = self.storage._db_connection.cursor()
-        txn_fields = 'id,currency_id,type,date,payee_id,description'
+        txn_fields = 'id,commodity_id,type,date,payee_id,description'
         txn_db_info = c.execute(f'SELECT {txn_fields} FROM transactions').fetchall()
         self.assertEqual(txn_db_info,
                 [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, None)])
