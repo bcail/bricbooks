@@ -138,11 +138,6 @@ class TestTransaction(unittest.TestCase):
         self.savings = get_test_account(id_=2, name='Savings')
         self.valid_splits = {self.checking: {'amount': '100'}, self.savings: {'amount': '-100'}}
 
-    def test_splits_amounts_must_balance(self):
-        with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(splits={self.checking: {'amount': -100}, self.savings: {'amount': 90}})
-        self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
-
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             bb.Transaction(splits={self.checking: {'amount': 101.1}, self.savings: {'amount': '-101.1'}})
@@ -405,19 +400,6 @@ class TestScheduledTransaction(unittest.TestCase):
                 splits=self.valid_splits,
             )
         self.assertEqual(str(cm.exception), 'invalid frequency "1"')
-
-    def test_invalid_splits(self):
-        with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.ScheduledTransaction(
-                name='w',
-                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-                next_due_date='2019-01-01',
-                splits={
-                    self.checking: {'amount': -101},
-                    self.savings: {'amount': 25},
-                }
-            )
-        self.assertEqual(str(cm.exception), 'splits don\'t balance: -101.00, 25.00')
 
     def test_invalid_next_due_date(self):
         with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
@@ -1003,6 +985,16 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [])
 
+    def test_splits_amounts_must_balance(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        txn = bb.Transaction(splits={checking: {'amount': -100}, savings: {'amount': 90}}, txn_date=date.today())
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            self.storage.save_txn(txn)
+        self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
+
     def test_cant_save_zero_denominator(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -1537,6 +1529,24 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT * FROM scheduled_transaction_splits')
         scheduled_txn_split_records = c.fetchall()
         self.assertEqual(scheduled_txn_split_records, [])
+
+    def test_save_scheduled_txn_split_amounts_dont_balance(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        st = bb.ScheduledTransaction(
+                name='w',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-01',
+                splits={
+                    checking: {'amount': -101},
+                    savings: {'amount': 25},
+                }
+            )
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            self.storage.save_scheduled_transaction(st)
+        self.assertEqual(str(cm.exception), 'splits don\'t balance: -101.00, 25.00')
 
     def test_save_scheduled_txn_account_foreignkey_error(self):
         checking = get_test_account()

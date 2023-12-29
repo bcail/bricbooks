@@ -319,8 +319,18 @@ def amount_display(amount):
     return '{0:,.2f}'.format(fraction_to_decimal(amount))
 
 
-def check_txn_splits(splits):
+def check_txn_split_amounts(splits):
     total = Fraction(0)
+    for account, info in splits.items():
+        total += info['amount']
+    if total != Fraction(0):
+        amounts = []
+        for account, info in splits.items():
+            amounts.append(amount_display(info['amount']))
+        raise InvalidTransactionError("splits don't balance: %s" % ', '.join(amounts))
+
+
+def handle_txn_splits(splits):
     for account, info in splits.items():
         if not account:
             raise InvalidTransactionError('must have a valid account in splits')
@@ -331,15 +341,9 @@ def check_txn_splits(splits):
         if 'quantity' not in info:
             info['quantity'] = amount
         info['quantity'] = get_validated_quantity(info['quantity'])
-        total += amount
         info['amount'] = amount
         if 'status' in info:
             info['status'] = info['status'].upper()
-    if total != Fraction(0):
-        amounts = []
-        for account, info in splits.items():
-            amounts.append(amount_display(info['amount']))
-        raise InvalidTransactionError("splits don't balance: %s" % ', '.join(amounts))
     return splits
 
 
@@ -392,7 +396,7 @@ class Transaction:
             )
 
     def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, id_=None):
-        self.splits = check_txn_splits(splits)
+        self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
         if payee:
@@ -525,7 +529,7 @@ class ScheduledTransaction:
             except ValueError:
                 raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
-        self.splits = check_txn_splits(splits)
+        self.splits = handle_txn_splits(splits)
         self.txn_type = txn_type
         if payee:
             if isinstance(payee, str):
@@ -1170,6 +1174,7 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
+        check_txn_split_amounts(txn.splits)
         if txn.payee:
             if not txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=txn.payee.name)
@@ -1328,6 +1333,7 @@ class SQLiteStorage:
         return budgets
 
     def save_scheduled_transaction(self, scheduled_txn):
+        check_txn_split_amounts(scheduled_txn.splits)
         if scheduled_txn.payee:
             if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=scheduled_txn.payee.name)
