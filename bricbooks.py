@@ -1667,11 +1667,15 @@ def import_kmymoney(kmy_file, engine):
         currency_id = commodity_mapping_info[account.attrib['currency']]
         commodity = engine.get_commodity(id_=currency_id)
         print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
-        #TODO: migrate parent account
+        if account.attrib.get('parentaccount'):
+            parent_account = engine.get_account(account_mapping_info[account.attrib['parentaccount']])
+        else:
+            parent_account = None
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
                     name=account.attrib['name'],
+                    parent=parent_account,
                 )
         engine.save_account(acc_obj)
         account_mapping_info[account.attrib['id']] = acc_obj.id

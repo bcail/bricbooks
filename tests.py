@@ -2321,6 +2321,7 @@ class TestImport(unittest.TestCase):
         payees = engine.get_payees()
         self.assertEqual(len(payees), 2)
         checking = engine.get_account(name='Checking')
+        self.assertEqual(checking.parent.name, 'Asset')
         txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[1].payee.name, 'A restaurant')
