@@ -782,6 +782,7 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
                 (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
+        #check created/updated default timestamp fields (which are in UTC time)
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))

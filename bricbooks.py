@@ -810,7 +810,7 @@ class SQLiteStorage:
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
             'type TEXT NOT NULL PRIMARY KEY,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' #UTC
             'CHECK (type != "")) STRICT',
         'CREATE TABLE commodities ('
             'id INTEGER PRIMARY KEY,'
