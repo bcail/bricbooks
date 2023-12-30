@@ -189,9 +189,9 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
             )
         self.assertEqual(t.id, None)
-        self.assertEqual(t.txn_type, None)
+        self.assertEqual(t.txn_type, '')
         self.assertEqual(t.payee, None)
-        self.assertEqual(t.description, None)
+        self.assertEqual(t.description, '')
 
     def test_splits(self):
         t = bb.Transaction(
@@ -947,8 +947,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None),
-                                             (2, 1, 2, 101, 1, 101, 1, '', None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', ''),
+                                             (2, 1, 2, 101, 1, 101, 1, '', '')])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
@@ -1155,7 +1155,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT id,commodity_id,type,date,payee_id,description FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
+                (1, 1, '', date.today().strftime('%Y-%m-%d'), None, ''))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1),
@@ -1184,19 +1184,19 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_fields = 'id,commodity_id,type,date,payee_id,description'
         txn_db_info = c.execute(f'SELECT {txn_fields} FROM transactions').fetchall()
         self.assertEqual(txn_db_info,
-                [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, None)])
+                [(txn_id, 1, '123', date.today().strftime('%Y-%m-%d'), 1, '')])
         txn_split_fields = 'id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description,action'
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', None, None),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', None, None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', None),
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', None)])
         #update a db field that the Transaction object isn't aware of
         c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
         self.storage._db_connection.commit()
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', None, 'buy'),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', None, None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', 'buy'),
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', None)])
         #read it back from the db
         txn_from_db = self.storage.get_txn(txn_id)
         self.assertEqual(txn_from_db.txn_type, '123')
@@ -1218,14 +1218,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {txn_fields},created,updated FROM transactions')
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:-2],
-                (txn_id, 1, None, date.today().strftime('%Y-%m-%d'), None, None))
+                (txn_id, 1, '', date.today().strftime('%Y-%m-%d'), None, ''))
         created = datetime.fromisoformat(f'{db_info[0][-2]}+00:00')
         updated = datetime.fromisoformat(f'{db_info[0][-1]}+00:00')
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, '', None, 'buy'),
-                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', None, None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', 'buy'),
+                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', None)])
 
     def test_delete_txn_from_db(self):
         checking = get_test_account()
@@ -1282,6 +1282,13 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[1][4], 1)
         self.assertEqual(records[1][5], None)
         self.assertEqual(records[1][6], None)
+        #test that start_date/end_date have to be valid dates
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            cursor.execute('UPDATE budgets SET start_date = ?', ('asdf',))
+        self.assertIn('start_date IS strftime', str(cm.exception))
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            cursor.execute('UPDATE budgets SET end_date = ?', ('asdf',))
+        self.assertIn('end_date IS strftime', str(cm.exception))
         #test that old budget values are deleted
         b = bb.Budget(start_date='2018-01-01', end_date='2018-12-24', account_budget_info={
                 housing: {'amount': 35, 'carryover': 0},
@@ -1615,8 +1622,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(retrieved_scheduled_txn.next_due_date, date(2019, 1, 16))
         split_records = self.storage._db_connection.execute('SELECT id,scheduled_transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(split_records,
-                [(1, st_id, checking.id, -101, 1, -101, 1, '', None),
-                 (2, st_id, another_acct.id, 101, 1, 101, 1, '', None)])
+                [(1, st_id, checking.id, -101, 1, -101, 1, '', ''),
+                 (2, st_id, another_acct.id, 101, 1, 101, 1, '', '')])
 
     def test_get_scheduled_transaction(self):
         checking = get_test_account()

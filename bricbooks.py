@@ -258,7 +258,7 @@ class Account:
 
 class Payee:
 
-    def __init__(self, name, notes=None, id_=None):
+    def __init__(self, name, notes='', id_=None):
         if not name:
             raise Exception('must pass in a payee name')
         self.name = name
@@ -395,7 +395,7 @@ class Transaction:
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, txn_type=None, splits=None, payee=None, description=None, id_=None):
+    def __init__(self, txn_date=None, txn_type='', splits=None, payee=None, description='', id_=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.txn_type = txn_type
@@ -519,7 +519,7 @@ class ScheduledTransaction:
                 id_=id_
             )
 
-    def __init__(self, name, frequency, next_due_date, splits, txn_type=None, payee=None, description=None, status='', id_=None):
+    def __init__(self, name, frequency, next_due_date, splits, txn_type='', payee=None, description='', status='', id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -818,7 +818,7 @@ class SQLiteStorage:
             'code TEXT NOT NULL UNIQUE,'
             'name TEXT NOT NULL,'
             'trading_currency_id INTEGER,'
-            'trading_market TEXT,'
+            'trading_market TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (type != ""),'
@@ -830,9 +830,9 @@ class SQLiteStorage:
         'CREATE TABLE institutions ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
-            'address TEXT,'
-            'routing_number TEXT,'
-            'bic TEXT,'
+            'address TEXT NOT NULL DEFAULT "",'
+            'routing_number TEXT NOT NULL DEFAULT "",'
+            'bic TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (name != "")) STRICT',
@@ -866,7 +866,9 @@ class SQLiteStorage:
             'start_date TEXT NOT NULL,'
             'end_date TEXT NOT NULL,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
+            'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (start_date IS strftime("%Y-%m-%d", start_date)),'
+            'CHECK (end_date IS strftime("%Y-%m-%d", end_date))) STRICT',
         'CREATE TRIGGER budget_updated UPDATE ON budgets BEGIN UPDATE budgets SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE budget_values ('
             'id INTEGER PRIMARY KEY,'
@@ -876,7 +878,7 @@ class SQLiteStorage:
             'amount_denominator INTEGER NOT NULL,'
             'carryover_numerator INTEGER,'
             'carryover_denominator INTEGER,'
-            'notes TEXT,'
+            'notes TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (amount_denominator != 0),'
@@ -887,7 +889,7 @@ class SQLiteStorage:
         'CREATE TABLE payees ('
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
-            'notes TEXT,'
+            'notes TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (name != "")) STRICT',
@@ -903,7 +905,7 @@ class SQLiteStorage:
             'next_due_date TEXT NOT NULL,'
             'type TEXT,'
             'payee_id INTEGER,'
-            'description TEXT,'
+            'description TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(frequency) REFERENCES scheduled_transaction_frequencies(frequency) ON DELETE RESTRICT,'
@@ -920,7 +922,7 @@ class SQLiteStorage:
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'
-            'description TEXT,'
+            'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -933,10 +935,10 @@ class SQLiteStorage:
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
             'commodity_id INTEGER NOT NULL,'
-            'type TEXT,'
+            'type TEXT NOT NULL DEFAULT "",'
             'date TEXT,' # date the transaction took place
             'payee_id INTEGER,'
-            'description TEXT,'
+            'description TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' # date the transaction was entered
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
@@ -952,7 +954,7 @@ class SQLiteStorage:
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'
-            'description TEXT,'
+            'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,'
             'date_posted TEXT,'
             'date_reconciled TEXT,'
