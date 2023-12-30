@@ -309,6 +309,26 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[food]['amount'], 5)
         self.assertEqual(txns[0].splits[restaurants]['amount'], 15)
 
+    def test_ledger_filter(self):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        food = get_test_account(name='Food')
+        restaurants = get_test_account(name='Restaurants')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=food)
+        gui._engine.save_account(account=restaurants)
+        splits = {checking: {'amount': -20}, food: {'amount': 5}, restaurants: {'amount': 15}}
+        txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3), description='eat out')
+        gui._engine.save_transaction(txn)
+        gui.ledger_button.invoke()
+        gui.ledger_display.filter_entry.insert(0, 'eat')
+        gui.ledger_display.filter_button.invoke()
+        child_ids = gui.ledger_display.txns_widget.get_children()
+        self.assertEqual(child_ids, ('1',))
+        child_item = gui.ledger_display.txns_widget.item(child_ids[0])
+        self.assertEqual(child_item['values'][1], '2017-01-03')
+        self.assertEqual(gui.ledger_display.balance_var.get(), '')
+
     def test_ledger_enter_next_scheduled_transaction(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()

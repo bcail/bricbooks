@@ -1713,19 +1713,20 @@ def import_kmymoney(kmy_file, engine):
                     splits[account]['status'] = Transaction.RECONCILED
                 elif split.attrib['reconcileflag'] == '1':
                     splits[account]['status'] = Transaction.CLEARED
-                #TODO: handle split reconciledate
+                if split.attrib.get('reconciledate'):
+                    splits[account]['date_reconciled'] = get_date(split.attrib['reconciledate'])
                 payee = None
                 if split.attrib['payee']:
                     payee = engine.get_payee(id_=payee_mapping_info[split.attrib['payee']])
-                #TODO: handle split memo
+                splits[account]['description'] = split.attrib['memo']
                 #TODO: handle split action
                 #TODO: handle split price
-            #TODO: handle txn memo
             engine.save_transaction(
                     Transaction(
                         splits=splits,
                         txn_date=transaction.attrib['postdate'],
                         payee=payee,
+                        description=transaction.attrib['memo'],
                     )
                 )
         except Exception as e:
@@ -2619,12 +2620,15 @@ class LedgerDisplay:
                 iid = f'st{st.id}'
                 self.txns_widget.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
+            balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
+            self.balance_var.set(f'Current Balance: {balances.current}')
+            self.cleared_var.set(f'Cleared: {balances.current_cleared}')
+        else:
+            self.balance_var.set('')
+            self.cleared_var.set('')
+
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)
-
-        balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
-        self.balance_var.set(f'Current Balance: {balances.current}')
-        self.cleared_var.set(f'Cleared: {balances.current_cleared}')
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
