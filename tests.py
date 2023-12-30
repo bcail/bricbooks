@@ -928,8 +928,10 @@ class TestSQLiteStorage(unittest.TestCase):
         chickfila = bb.Payee('Chick-fil-A')
         self.storage.save_payee(chickfila)
         today = date.today()
+        today_str = today.strftime('%Y-%m-%d')
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED}, savings: {'amount': 101}},
+                splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED},
+                        savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'date_reconciled': today}},
                 txn_date=today,
                 txn_type='',
                 payee=chickfila,
@@ -941,14 +943,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute('SELECT id,commodity_id,type,date,payee_id,description,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
-                (1, 1, '', today.strftime('%Y-%m-%d'), 1, 'chicken sandwich'))
+                (1, 1, '', today_str, 1, 'chicken sandwich'))
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
-        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description FROM transaction_splits')
+        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,date_reconciled,description FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', ''),
-                                             (2, 1, 2, 101, 1, 101, 1, '', '')])
+        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None, ''),
+                                             (2, 1, 2, 101, 1, 101, 1, 'R', today_str, 'some description')])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
