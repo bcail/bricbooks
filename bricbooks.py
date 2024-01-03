@@ -82,6 +82,9 @@ class InvalidAmount(RuntimeError):
 class InvalidQuantity(RuntimeError):
     pass
 
+class InvalidPrice(RuntimeError):
+    pass
+
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -311,6 +314,21 @@ def get_validated_quantity(value):
     return quantity
 
 
+def get_validated_price(value):
+    price = None
+    #a string could contain ',', so remove those
+    if isinstance(value, str):
+        value = value.replace(',', '')
+    #try to only allow exact values (eg. no floats)
+    if isinstance(value, (int, str, Fraction)):
+        try:
+            return Fraction(value)
+        except InvalidOperation:
+            raise InvalidPrice('error generating Fraction from "{value}"')
+    else:
+        raise InvalidPrice(f'invalid value type: {type(value)} {value}')
+
+
 def fraction_to_decimal(f):
     return Decimal(f.numerator) / Decimal(f.denominator)
 
@@ -341,6 +359,8 @@ def handle_txn_splits(splits):
         if 'quantity' not in info:
             info['quantity'] = amount
         info['quantity'] = get_validated_quantity(info['quantity'])
+        if 'price' in info:
+            info['price'] = get_validated_price(info['price'])
         info['amount'] = amount
         if 'status' in info:
             info['status'] = info['status'].upper()
@@ -956,6 +976,8 @@ class SQLiteStorage:
             'reconciled_state TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,'
+            'price_numerator INTEGER,'
+            'price_denominator INTEGER,'
             'date_posted TEXT,'
             'date_reconciled TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -966,7 +988,8 @@ class SQLiteStorage:
             'CHECK (date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime("%Y-%m-%d", date_posted))),'
             'CHECK (date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime("%Y-%m-%d", date_reconciled))),'
             'CHECK (value_denominator != 0),'
-            'CHECK (quantity_denominator != 0)) STRICT',
+            'CHECK (quantity_denominator != 0),'
+            'CHECK (price_denominator != 0)) STRICT',
         'CREATE INDEX transaction_split_txn_id_index ON transaction_splits(transaction_id)',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
@@ -1219,10 +1242,18 @@ class SQLiteStorage:
                 else:
                     date_reconciled = None
                 description = info.get('description', '')
-                if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, date_reconciled = ?, description = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description, txn_id, account.id))
+                action = info.get('action')
+                if info.get('price'):
+                    price = info['price']
+                    price_numerator = price.numerator
+                    price_denominator = price.denominator
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, date_reconciled, description) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description))
+                    price_numerator = None
+                    price_denominator = None
+                if account.id in old_txn_split_account_ids:
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, date_reconciled = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description, action, price_numerator, price_denominator, txn_id, account.id))
+                else:
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, date_reconciled, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description, action, price_numerator, price_denominator))
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
@@ -1707,7 +1738,8 @@ def import_kmymoney(kmy_file, engine):
             for split in splits_el.iter('SPLIT'):
                 account_orig_id = split.attrib['account']
                 account = engine.get_account(account_mapping_info[account_orig_id])
-                splits[account] = {'amount': split.attrib['value']}
+                splits[account] = {'amount': split.attrib['value'],
+                                   'quantity': split.attrib['shares']}
                 #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
                 if split.attrib['reconcileflag'] == '2':
                     splits[account]['status'] = Transaction.RECONCILED
@@ -1719,8 +1751,10 @@ def import_kmymoney(kmy_file, engine):
                 if split.attrib['payee']:
                     payee = engine.get_payee(id_=payee_mapping_info[split.attrib['payee']])
                 splits[account]['description'] = split.attrib['memo']
-                #TODO: handle split action
-                #TODO: handle split price
+                if split.attrib['action']:
+                    splits[account]['action'] = split.attrib['action'].lower()
+                if split.attrib['price'] != "1/1":
+                    splits[account]['price'] = split.attrib['price']
             engine.save_transaction(
                     Transaction(
                         splits=splits,

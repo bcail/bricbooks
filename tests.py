@@ -1192,18 +1192,6 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(splits_db_info,
                 [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', None),
                  (2, txn_id, savings.id, 101, 1, 101, 1, '', '', None)])
-        #update a db field that the Transaction object isn't aware of
-        c.execute('UPDATE transaction_splits SET action = ? WHERE account_id = ?', ('buy', checking.id))
-        self.storage._db_connection.commit()
-        splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
-        self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', 'buy'),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', None)])
-        #read it back from the db
-        txn_from_db = self.storage.get_txn(txn_id)
-        self.assertEqual(txn_from_db.txn_type, '123')
-        self.assertEqual(txn_from_db.payee, payee)
-        self.assertEqual(txn_from_db.splits[checking], {'amount': -101, 'quantity': -101, 'status': 'C'})
         #update it & save again
         splits = {
                 checking: {'amount': '-101'},
@@ -1226,7 +1214,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', 'buy'),
+                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', None),
                  (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', None)])
 
     def test_delete_txn_from_db(self):
