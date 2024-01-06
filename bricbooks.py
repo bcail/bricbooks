@@ -977,6 +977,7 @@ class SQLiteStorage:
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'
+            'number TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,'
             'price_numerator INTEGER,'
@@ -1244,6 +1245,7 @@ class SQLiteStorage:
                     date_reconciled = str(info['date_reconciled'])
                 else:
                     date_reconciled = None
+                number = info.get('number', '')
                 description = info.get('description', '')
                 action = info.get('action')
                 if info.get('price'):
@@ -1254,9 +1256,9 @@ class SQLiteStorage:
                     price_numerator = None
                     price_denominator = None
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, date_reconciled = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description, action, price_numerator, price_denominator, txn_id, account.id))
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, date_reconciled = ?, number = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, number, description, action, price_numerator, price_denominator, txn_id, account.id))
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, date_reconciled, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, description, action, price_numerator, price_denominator))
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, date_reconciled, number, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, number, description, action, price_numerator, price_denominator))
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
@@ -1765,6 +1767,8 @@ def import_kmymoney(kmy_file, engine):
                     elif key == 'payee':
                         if value:
                             payee = engine.get_payee(id_=payee_mapping_info[value])
+                    elif key == 'number':
+                        split['number'] = value
                     elif key == 'memo':
                         split['description'] = value
                     elif key == 'action':

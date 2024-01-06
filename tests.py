@@ -930,7 +930,7 @@ class TestSQLiteStorage(unittest.TestCase):
         today = date.today()
         today_str = today.strftime('%Y-%m-%d')
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED},
+                splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED, 'number': '100'},
                         savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'date_reconciled': today}},
                 txn_date=today,
                 txn_type='',
@@ -947,10 +947,10 @@ class TestSQLiteStorage(unittest.TestCase):
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
-        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,date_reconciled,description FROM transaction_splits')
+        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,date_reconciled,number,description FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None, ''),
-                                             (2, 1, 2, 101, 1, 101, 1, 'R', today_str, 'some description')])
+        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None, '100', ''),
+                                             (2, 1, 2, 101, 1, 101, 1, 'R', today_str, '', 'some description')])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
