@@ -407,21 +407,19 @@ class Transaction:
         return splits
 
     @staticmethod
-    def from_user_info(account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, status, id_=None):
+    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, id_=None):
         splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status)
         return Transaction(
                 splits=splits,
                 txn_date=txn_date,
-                txn_type=txn_type,
                 payee=payee,
                 description=description,
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, txn_type='', splits=None, payee=None, description='', id_=None):
+    def __init__(self, txn_date=None, splits=None, payee=None, description='', id_=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
-        self.txn_type = txn_type
         if payee:
             if isinstance(payee, str):
                 self.payee = Payee(name=payee)
@@ -487,7 +485,6 @@ def get_display_strings_for_ledger(account, txn):
     else:
         payee = ''
     display_strings = {
-            'txn_type': txn.txn_type or '',
             'withdrawal': withdrawal,
             'deposit': deposit,
             'description': txn.description or '',
@@ -529,20 +526,19 @@ class ScheduledTransactionFrequency(Enum):
 class ScheduledTransaction:
 
     @staticmethod
-    def from_user_info(name, frequency, next_due_date, account, deposit, withdrawal, txn_date, txn_type, categories, payee, description, id_=None):
+    def from_user_info(name, frequency, next_due_date, account, deposit, withdrawal, txn_date, categories, payee, description, id_=None):
         splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories)
         return ScheduledTransaction(
                 name=name,
                 frequency=frequency,
                 next_due_date=next_due_date,
                 splits=splits,
-                txn_type=txn_type,
                 payee=payee,
                 description=description,
                 id_=id_
             )
 
-    def __init__(self, name, frequency, next_due_date, splits, txn_type='', payee=None, description='', status='', id_=None):
+    def __init__(self, name, frequency, next_due_date, splits, payee=None, description='', status='', id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -553,7 +549,6 @@ class ScheduledTransaction:
                 raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
         self.splits = handle_txn_splits(splits)
-        self.txn_type = txn_type
         if payee:
             if isinstance(payee, str):
                 self.payee = Payee(name=payee)
@@ -1171,7 +1166,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_type, txn_date, payee_id, description = db_info
+        id_, commodity_id, txn_date, payee_id, description = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -1184,11 +1179,11 @@ class SQLiteStorage:
                 splits[account] = {'amount': Fraction(split_record[1], split_record[2]), 'quantity': Fraction(split_record[3], split_record[4])}
                 if split_record[5]:
                     splits[account]['status'] = split_record[5]
-        return Transaction(splits=splits, txn_date=txn_date, txn_type=txn_type, payee=payee, description=description, id_=id_)
+        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_)
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,type,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1221,14 +1216,14 @@ class SQLiteStorage:
         cur.execute('BEGIN')
         try:
             if txn.id:
-                cur.execute('UPDATE transactions SET type = ?, date = ?, payee_id = ?, description = ? WHERE id = ?',
-                    (txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
+                cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ? WHERE id = ?',
+                    (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no txn with id %s to update' % txn.id)
                 txn_id = txn.id
             else:
-                cur.execute('INSERT INTO transactions(commodity_id, type, date, payee_id, description) VALUES(?, ?, ?, ?, ?)',
-                    (1, txn.txn_type, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
+                cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description) VALUES(?, ?, ?, ?)',
+                    (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
                 txn_id = cur.lastrowid
             #update transaction splits
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
@@ -1393,8 +1388,8 @@ class SQLiteStorage:
         try:
             #update existing scheduled transaction
             if scheduled_txn.id:
-                cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, type = ?, payee_id = ?, description = ? WHERE id = ?',
-                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description, scheduled_txn.id))
+                cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, payee_id = ?, description = ? WHERE id = ?',
+                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, scheduled_txn.description, scheduled_txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
                 #handle splits
@@ -1414,8 +1409,8 @@ class SQLiteStorage:
                         cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             #add new scheduled transaction
             else:
-                cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, type, payee_id, description) VALUES (?, ?, ?, ?, ?, ?)',
-                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), scheduled_txn.txn_type, payee, scheduled_txn.description))
+                cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, payee_id, description) VALUES (?, ?, ?, ?, ?)',
+                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, scheduled_txn.description))
                 scheduled_txn.id = cur.lastrowid
                 for account, info in scheduled_txn.splits.items():
                     amount = info['amount']
@@ -1438,16 +1433,15 @@ class SQLiteStorage:
                 splits[account] = {'amount': Fraction(split_record[1], split_record[2])}
                 if split_record[3]:
                     splits[account]['status'] = split_record[3]
-        rows = cur.execute('SELECT name,frequency,next_due_date,type,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
-        payee = self.get_payee(id_=rows[0][4])
+        rows = cur.execute('SELECT name,frequency,next_due_date,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
+        payee = self.get_payee(id_=rows[0][3])
         st = ScheduledTransaction(
                 name=rows[0][0],
                 frequency=ScheduledTransactionFrequency(rows[0][1]),
                 next_due_date=rows[0][2],
                 splits=splits,
-                txn_type=rows[0][3],
                 payee=payee,
-                description=rows[0][5],
+                description=rows[0][4],
                 id_=id_,
             )
         return st
@@ -1646,7 +1640,7 @@ class Engine:
                         transfer_account = [str(a) for a in txn.splits.keys() if a != acc][0]
                     else:
                         transfer_account = 'multiple'
-                    data = [str(txn.txn_date), txn.txn_type or '', payee, txn.description or '',
+                    data = [str(txn.txn_date), payee, txn.description or '',
                             amount_display(txn.splits[acc]['amount']), transfer_account]
                     line = self._create_export_line(data)
                     f.write(f'{line}\n'.encode('utf8'))
@@ -1816,8 +1810,8 @@ class CLI:
     ACCOUNT_LIST_HEADER = ' ID   | Type        | Number | Name                           | Parent\n'\
         '==============================================================================================='
 
-    TXN_LIST_HEADER = ' ID   | Date       | Type   |  Description                   | Payee                          |  Transfer Account              | Withdrawal | Deposit    | Balance\n'\
-        '================================================================================================================================================================'
+    TXN_LIST_HEADER = ' ID   | Date       |  Description                   | Payee                          |  Transfer Account              | Withdrawal | Deposit    | Balance\n'\
+        '======================================================================================================================================================='
 
     NUM_TXNS_IN_PAGE = 50
 
@@ -1911,8 +1905,8 @@ class CLI:
             paged_txns, more_txns = pager(reversed_txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(account, t)
-                self.print(' {8:<4} | {0:<10} | {1:<6} | {2:<30} | {3:<30} | {4:30} | {5:<10} | {6:<10} | {7:<10}'.format(
-                    tds['txn_date'], tds['txn_type'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
+                self.print(' {7:<4} | {0:<6} | {1:<30} | {2:<30} | {3:30} | {4:<10} | {5:<10} | {6:<10}'.format(
+                    tds['txn_date'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
                 )
             if more_txns:
                 prompt = '(o) older txns'
@@ -1959,17 +1953,14 @@ class CLI:
             else:
                 break
         txn_info['splits'] = splits
-        txn_type_prefill = ''
         payee_prefill = ''
         description_prefill = ''
         if txn:
-            txn_type_prefill = txn.txn_type or ''
             if txn.payee:
                 payee_prefill = '\'%s' % txn.payee.name
             else:
                 payee_prefill = ''
             description_prefill = txn.description or ''
-        txn_info['txn_type'] = self.input(prompt='  type: ', prefill=txn_type_prefill)
         payee = self.input(prompt='  payee (id or \'name): ', prefill=payee_prefill)
         if payee == 'p':
             self._list_payees()
@@ -2043,8 +2034,6 @@ class CLI:
         self.print('  next due date: %s' % scheduled_txn.next_due_date)
         splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
         self.print('  splits: %s' % splits_str)
-        if scheduled_txn.txn_type:
-            self.print('  txn type: %s' % scheduled_txn.txn_type)
         if scheduled_txn.payee:
             self.print('  payee: %s' % scheduled_txn.payee)
         if scheduled_txn.description:
@@ -2520,14 +2509,13 @@ class TransactionForm:
     def get_widget(self):
         self.top_level = tk.Toplevel()
         self.form = ttk.Frame(master=self.top_level)
-        for col, label in [(0, 'Type'), (1, 'Date'), (2, 'Payee'), (3, 'Description'), (4, 'Status')]:
+        for col, label in [(0, 'Date'), (1, 'Payee'), (2, 'Description'), (3, 'Status')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
             ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         tds = {}
         if self._transaction:
             tds = get_display_strings_for_ledger(self._account, self._transaction)
-        self.type_entry = ttk.Entry(master=self.form)
         self.date_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
         payee_values = ['']
@@ -2539,7 +2527,6 @@ class TransactionForm:
         self.payee_combo['values'] = payee_values
         self.description_entry = ttk.Entry(master=self.form)
         if self._transaction:
-            self.type_entry.insert(0, tds['txn_type'])
             self.date_entry.insert(0, tds['txn_date'])
             self.payee_combo.current(payee_index)
             self.description_entry.insert(0, tds['description'])
@@ -2568,11 +2555,10 @@ class TransactionForm:
                 deposit_var=self.deposit_var,
             )
         self.transfer_accounts_widget = self.transfer_accounts_display.get_widget()
-        self.type_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
-        self.date_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
-        self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
-        self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
+        self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
+        self.payee_combo.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.description_entry.grid(row=1, column=2, sticky=(tk.N, tk.S))
+        self.status_combo.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.withdrawal_entry.grid(row=3, column=0)
         self.deposit_entry.grid(row=3, column=1)
         self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
@@ -2597,7 +2583,6 @@ class TransactionForm:
         kwargs = {
             'id_': id_,
             'account': self._account,
-            'txn_type': self.type_entry.get(),
             'deposit': self.deposit_var.get(),
             'withdrawal': self.withdrawal_var.get(),
             'txn_date': self.date_entry.get(),
@@ -2648,8 +2633,6 @@ class LedgerDisplay:
 
         self.txns_widget = ttk.Treeview(master=master, columns=columns, show='headings')
         self.txns_widget.tag_configure("scheduled", background="gray")
-        self.txns_widget.heading('type', text='Type')
-        self.txns_widget.column('type', width=50, anchor='center')
         self.txns_widget.heading('date', text='Date')
         self.txns_widget.column('date', width=100, anchor='center')
         self.txns_widget.heading('payee', text='Payee')
@@ -2670,14 +2653,14 @@ class LedgerDisplay:
         sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
         for txn in sorted_txns:
             tds = get_display_strings_for_ledger(account, txn)
-            values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds['status'],
+            values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                       tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
             self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
 
         if not any([status, filter_text, filter_account]):
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
                 tds = get_display_strings_for_ledger(account, st)
-                values = (tds['txn_type'], tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
+                values = (tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
                 iid = f'st{st.id}'
                 self.txns_widget.insert('', tk.END, iid=iid, values=values, tags='scheduled')
@@ -3034,12 +3017,7 @@ class ScheduledTransactionForm:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
         self.next_due_date_entry.grid(row=2, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
 
-        ttk.Label(master=self.content, text='Type').grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
-        self.type_entry = ttk.Entry(master=self.content)
-        if self._scheduled_transaction and self._scheduled_transaction.txn_type:
-            self.type_entry.insert(0, self._scheduled_transaction.txn_type)
-        self.type_entry.grid(row=3, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
-        ttk.Label(master=self.content, text='Payee').grid(row=4, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        ttk.Label(master=self.content, text='Payee').grid(row=3, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.payee_combo = ttk.Combobox(master=self.content)
         payee_values = [p.name for p in self._payees]
         payee_values.insert(0, '')
@@ -3121,7 +3099,6 @@ class ScheduledTransactionForm:
                     next_due_date=self.next_due_date_entry.get(),
                     splits=splits,
                     payee=payee,
-                    txn_type=self.type_entry.get(),
                     id_=id_,
                 )
             self._save_scheduled_txn(scheduled_txn=st)
