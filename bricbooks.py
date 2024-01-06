@@ -103,6 +103,9 @@ class SQLiteStorageError(RuntimeError):
 class InvalidStorageFile(RuntimeError):
     pass
 
+class ImportError(RuntimeError):
+    pass
+
 
 def get_date(val):
     if isinstance(val, str):
@@ -1735,26 +1738,47 @@ def import_kmymoney(kmy_file, engine):
         account = None
         try:
             splits_el = transaction.find('SPLITS')
-            for split in splits_el.iter('SPLIT'):
-                account_orig_id = split.attrib['account']
-                account = engine.get_account(account_mapping_info[account_orig_id])
-                splits[account] = {'amount': split.attrib['value'],
-                                   'quantity': split.attrib['shares']}
-                #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
-                if split.attrib['reconcileflag'] == '2':
-                    splits[account]['status'] = Transaction.RECONCILED
-                elif split.attrib['reconcileflag'] == '1':
-                    splits[account]['status'] = Transaction.CLEARED
-                if split.attrib.get('reconciledate'):
-                    splits[account]['date_reconciled'] = get_date(split.attrib['reconciledate'])
-                payee = None
-                if split.attrib['payee']:
-                    payee = engine.get_payee(id_=payee_mapping_info[split.attrib['payee']])
-                splits[account]['description'] = split.attrib['memo']
-                if split.attrib['action']:
-                    splits[account]['action'] = split.attrib['action'].lower()
-                if split.attrib['price'] != "1/1":
-                    splits[account]['price'] = split.attrib['price']
+            payee = None
+            for split_el in splits_el.iter('SPLIT'):
+                split = {}
+                for key, value in split_el.attrib.items():
+                    if key == 'account':
+                        account_orig_id = split_el.attrib['account']
+                        account = engine.get_account(account_mapping_info[account_orig_id])
+                    elif key == 'value':
+                        split['amount'] = value
+                    elif key == 'shares':
+                        split['quantity'] = value
+                    elif key == 'reconcileflag':
+                        #reconcileflag: '2'=Reconciled, '1'=Cleared, '0'=nothing
+                        if value == '2':
+                            split['status'] = Transaction.RECONCILED
+                        elif value == '1':
+                            split['status'] = Transaction.CLEARED
+                        elif value == '0':
+                            pass
+                        else:
+                            raise ImportError(f'unhandled reconcileflag value: {value}')
+                    elif key == 'reconciledate':
+                        if value:
+                            split['date_reconciled'] = get_date(value)
+                    elif key == 'payee':
+                        if value:
+                            payee = engine.get_payee(id_=payee_mapping_info[value])
+                    elif key == 'memo':
+                        split['description'] = value
+                    elif key == 'action':
+                        split['action'] = value.lower()
+                    elif key == 'price':
+                        if value != '1/1':
+                            split['price'] = value
+                    else:
+                        if key == 'id':
+                            pass
+                        else:
+                            if value:
+                                raise ImportError(f'unhandled txn attribute: {key} = {value}')
+                splits[account] = split
             engine.save_transaction(
                     Transaction(
                         splits=splits,
@@ -1763,7 +1787,7 @@ def import_kmymoney(kmy_file, engine):
                         description=transaction.attrib['memo'],
                     )
                 )
-        except Exception as e:
+        except RuntimeError as e:
             print(f'{datetime.now()} error migrating transaction: {e}\n  account: {account}\n  {transaction.attrib}')
     for top_level_el in root:
         if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
