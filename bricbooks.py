@@ -1032,18 +1032,32 @@ class SQLiteStorage:
             log(msg)
             raise SQLiteStorageError(msg)
 
+    @staticmethod
+    def begin_txn(cursor):
+        cursor.execute('BEGIN IMMEDIATE')
+
+    @staticmethod
+    def rollback(cursor):
+        try:
+            cursor.execute('ROLLBACK')
+        except sqlite3.OperationalError as e:
+            if str(e) == 'cannot rollback - no transaction is active':
+                pass
+            else:
+                raise
+
     def _setup_db(self):
         '''
         Initialize empty DB.
         '''
         cur = self._db_connection.cursor()
-        cur.execute('BEGIN')
+        SQLiteStorage.begin_txn(cur)
         try:
             for statement in self.DB_INIT_STATEMENTS:
                 cur.execute(statement)
             cur.execute('COMMIT')
         except: # no matter the exception, we want to rollback the transaction
-            cur.execute('ROLLBACK')
+            SQLiteStorage.rollback(cur)
             raise
 
     def get_commodity(self, id_=None, code=None):
@@ -1213,7 +1227,7 @@ class SQLiteStorage:
             if not account.id:
                 self.save_account(account)
         cur = self._db_connection.cursor()
-        cur.execute('BEGIN')
+        SQLiteStorage.begin_txn(cur)
         try:
             if txn.id:
                 cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ? WHERE id = ?',
@@ -1257,23 +1271,23 @@ class SQLiteStorage:
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
-            cur.execute('ROLLBACK')
+            SQLiteStorage.rollback(cur)
             raise
 
     def delete_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('BEGIN')
+        SQLiteStorage.begin_txn(cur)
         try:
             cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ?', (txn_id,))
             cur.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
             cur.execute('COMMIT')
         except:
-            cur.execute('ROLLBACK')
+            SQLiteStorage.rollback(cur)
             raise
 
     def save_budget(self, budget):
         cur = self._db_connection.cursor()
-        cur.execute('BEGIN')
+        SQLiteStorage.begin_txn(cur)
         try:
             if budget.id:
                 cur.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
@@ -1322,7 +1336,7 @@ class SQLiteStorage:
                         cur.execute('INSERT INTO budget_values(budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', values)
             cur.execute('COMMIT')
         except:
-            cur.execute('ROLLBACK')
+            SQLiteStorage.rollback(cur)
             raise
 
     def get_budget(self, id_):
@@ -1384,7 +1398,7 @@ class SQLiteStorage:
             payee = None
 
         cur = self._db_connection.cursor()
-        cur.execute('BEGIN')
+        SQLiteStorage.begin_txn(cur)
         try:
             #update existing scheduled transaction
             if scheduled_txn.id:
@@ -1419,7 +1433,7 @@ class SQLiteStorage:
                     cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             cur.execute('COMMIT')
         except:
-            cur.execute('ROLLBACK')
+            SQLiteStorage.rollback(cur)
             raise
 
     def get_scheduled_transaction(self, id_):
