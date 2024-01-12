@@ -1746,11 +1746,14 @@ def import_kmymoney(kmy_file, engine):
     for transaction in transactions.iter('TRANSACTION'):
         splits = {}
         account = None
+        txn_id = transaction.attrib['id']
         try:
             splits_el = transaction.find('SPLITS')
             payee = None
             for split_el in splits_el.iter('SPLIT'):
                 split = {}
+                amount = split_el.attrib['value']
+                quantity = split_el.attrib['shares']
                 for key, value in split_el.attrib.items():
                     if key == 'account':
                         account_orig_id = split_el.attrib['account']
@@ -1782,8 +1785,13 @@ def import_kmymoney(kmy_file, engine):
                     elif key == 'action':
                         split['action'] = value.lower()
                     elif key == 'price':
+                        # we don't care about the price if it's "1/1"
                         if value != '1/1':
-                            split['price'] = value
+                            price = Fraction(value)
+                            diff = price - Fraction(amount)/Fraction(quantity)
+                            # if the price is similar to amount/quantity, we'll ignore it
+                            if abs(diff) > Fraction(1/10):
+                                raise ImportError(f'unhandled price {price} for txn {txn_id}; amount {amount}; quantity {quantity} (diff {diff})')
                     else:
                         if key == 'id':
                             pass
