@@ -919,7 +919,7 @@ class TestSQLiteStorage(unittest.TestCase):
         tomorrow_str = tomorrow.strftime('%Y-%m-%d')
         t = bb.Transaction(
                 splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED, 'number': '100'},
-                        savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'date_reconciled': today}},
+                        savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today}},
                 txn_date=today,
                 entry_date=tomorrow,
                 payee=chickfila,
@@ -935,7 +935,7 @@ class TestSQLiteStorage(unittest.TestCase):
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
-        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,date_reconciled,number,description FROM transaction_splits')
+        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,reconcile_date,number,description FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None, '100', ''),
                                              (2, 1, 2, 101, 1, 101, 1, 'R', today_str, '', 'some description')])
@@ -1087,12 +1087,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertIn('entry_date IS strftime(', str(cm.exception))
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE transaction_splits SET reconciled_state = ?, date_posted = ? WHERE transaction_id = ? AND account_id = ?', ('C', 'asdf', t.id, checking.id))
-        self.assertIn('date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime', str(cm.exception))
+            c.execute('UPDATE transaction_splits SET reconciled_state = ?, post_date = ? WHERE transaction_id = ? AND account_id = ?', ('C', 'asdf', t.id, checking.id))
+        self.assertIn('post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime', str(cm.exception))
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE transaction_splits SET reconciled_state = ?, date_reconciled = ? WHERE transaction_id = ? AND account_id = ?', ('R', 'asdf', t.id, checking.id))
-        self.assertIn('date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime', str(cm.exception))
+            c.execute('UPDATE transaction_splits SET reconciled_state = ?, reconcile_date = ? WHERE transaction_id = ? AND account_id = ?', ('R', 'asdf', t.id, checking.id))
+        self.assertIn('reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime', str(cm.exception))
 
     def test_save_transaction_payee_foreignkey_error(self):
         checking = get_test_account()
@@ -1128,12 +1128,12 @@ class TestSQLiteStorage(unittest.TestCase):
         c = self.storage._db_connection.cursor()
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE transaction_splits SET reconciled_state = "", date_posted = "2010-01-31" WHERE account_id = ?', (checking.id,))
-        self.assertIn('date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime', str(cm.exception))
+            c.execute('UPDATE transaction_splits SET reconciled_state = "", post_date = "2010-01-31" WHERE account_id = ?', (checking.id,))
+        self.assertIn('post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime', str(cm.exception))
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE transaction_splits SET reconciled_state = "C", date_reconciled = "2010-01-31" WHERE account_id = ?', (checking.id,))
-        self.assertIn('date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime', str(cm.exception))
+            c.execute('UPDATE transaction_splits SET reconciled_state = "C", reconcile_date = "2010-01-31" WHERE account_id = ?', (checking.id,))
+        self.assertIn('reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime', str(cm.exception))
 
     def test_save_sparse_txn(self):
         checking = get_test_account()

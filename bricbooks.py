@@ -980,15 +980,15 @@ class SQLiteStorage:
             'action TEXT,'
             'price_numerator INTEGER,'
             'price_denominator INTEGER,'
-            'date_posted TEXT,'
-            'date_reconciled TEXT,'
+            'post_date TEXT,'
+            'reconcile_date TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
-            'CHECK (date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime("%Y-%m-%d", date_posted))),'
-            'CHECK (date_reconciled IS NULL OR (reconciled_state = "R" AND date_reconciled IS strftime("%Y-%m-%d", date_reconciled))),'
+            'CHECK (post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime("%Y-%m-%d", post_date))),'
+            'CHECK (reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime("%Y-%m-%d", reconcile_date))),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0),'
             'CHECK (price_denominator != 0)) STRICT',
@@ -1261,10 +1261,10 @@ class SQLiteStorage:
                 amount = info['amount']
                 quantity = info['quantity']
                 status = info.get('status', '')
-                if 'date_reconciled' in info:
-                    date_reconciled = str(info['date_reconciled'])
+                if 'reconcile_date' in info:
+                    reconcile_date = str(info['reconcile_date'])
                 else:
-                    date_reconciled = None
+                    reconcile_date = None
                 number = info.get('number', '')
                 description = info.get('description', '')
                 action = info.get('action')
@@ -1276,9 +1276,9 @@ class SQLiteStorage:
                     price_numerator = None
                     price_denominator = None
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, date_reconciled = ?, number = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, number, description, action, price_numerator, price_denominator, txn_id, account.id))
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, number = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, price_numerator, price_denominator, txn_id, account.id))
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, date_reconciled, number, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, date_reconciled, number, description, action, price_numerator, price_denominator))
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, number, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, price_numerator, price_denominator))
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
@@ -1785,7 +1785,7 @@ def import_kmymoney(kmy_file, engine):
                             raise ImportError(f'unhandled reconcileflag value: {value}')
                     elif key == 'reconciledate':
                         if value:
-                            split['date_reconciled'] = get_date(value)
+                            split['reconcile_date'] = get_date(value)
                     elif key == 'payee':
                         if value:
                             payee = engine.get_payee(id_=payee_mapping_info[value])
