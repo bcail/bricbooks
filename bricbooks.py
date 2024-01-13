@@ -1254,6 +1254,8 @@ class SQLiteStorage:
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
             old_txn_split_account_ids = [r[0] for r in splits_db_info]
             new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
+            #this could result in losing data if there was data in the splits that wasn't exposed in the GUI...
+            #   eg. post_date, reconcile_date aren't exposed in the GUI
             split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
             for account_id in split_account_ids_to_delete:
                 cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, account_id))
@@ -2659,7 +2661,7 @@ class LedgerDisplay:
     def _show_transactions(self, status=None, filter_text='', filter_account=None):
         master = self.frame
         account = self._account
-        columns = ('type', 'date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
+        columns = ('date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
 
         if self.txns_widget:
             self.txns_widget.destroy()
