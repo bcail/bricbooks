@@ -915,20 +915,23 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_payee(chickfila)
         today = date.today()
         today_str = today.strftime('%Y-%m-%d')
+        tomorrow = today + timedelta(days=1)
+        tomorrow_str = tomorrow.strftime('%Y-%m-%d')
         t = bb.Transaction(
                 splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED, 'number': '100'},
                         savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'date_reconciled': today}},
                 txn_date=today,
+                entry_date=tomorrow,
                 payee=chickfila,
                 description='chicken sandwich',
             )
         self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,date,payee_id,description,created FROM transactions')
+        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
-                (1, 1, today_str, 1, 'chicken sandwich'))
+                (1, 1, today_str, 1, 'chicken sandwich', tomorrow_str))
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
@@ -1080,6 +1083,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertIn('OR date IS strftime(', str(cm.exception))
 
         with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE transactions SET entry_date = ? WHERE id = ?', ('asdf', t.id))
+        self.assertIn('entry_date IS strftime(', str(cm.exception))
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('UPDATE transaction_splits SET reconciled_state = ?, date_posted = ? WHERE transaction_id = ? AND account_id = ?', ('C', 'asdf', t.id, checking.id))
         self.assertIn('date_posted IS NULL OR (reconciled_state != "" AND date_posted IS strftime', str(cm.exception))
 
@@ -1133,16 +1140,18 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
+        today = date.today()
+        today_str = today.strftime('%Y-%m-%d')
         t = bb.Transaction(
                 splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
-                txn_date=date.today(),
+                txn_date=today,
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,type,date,payee_id,description FROM transactions')
+        c.execute('SELECT id,commodity_id,type,date,payee_id,description,entry_date FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, '', date.today().strftime('%Y-%m-%d'), None, ''))
+                (1, 1, '', today_str, None, '', today_str))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1),

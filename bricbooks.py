@@ -417,9 +417,10 @@ class Transaction:
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, splits=None, payee=None, description='', id_=None):
+    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
+        self.entry_date = entry_date
         if payee:
             if isinstance(payee, str):
                 self.payee = Payee(name=payee)
@@ -957,11 +958,13 @@ class SQLiteStorage:
             'date TEXT,' # date the transaction took place
             'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' # date the transaction was entered
+            'entry_date TEXT NOT NULL DEFAULT (date(\'now\', \'localtime\')),' # date the transaction was entered
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
-            'CHECK (date IS NULL OR date IS strftime("%Y-%m-%d", date))) STRICT',
+            'CHECK (date IS NULL OR date IS strftime("%Y-%m-%d", date)),'
+            'CHECK (entry_date IS strftime("%Y-%m-%d", entry_date))) STRICT',
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_splits ('
             'id INTEGER PRIMARY KEY,'
@@ -1230,14 +1233,22 @@ class SQLiteStorage:
         SQLiteStorage.begin_txn(cur)
         try:
             if txn.id:
-                cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ? WHERE id = ?',
-                    (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
+                if txn.entry_date:
+                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, entry_date = ? WHERE id = ?',
+                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date, txn.id))
+                else:
+                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ? WHERE id = ?',
+                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no txn with id %s to update' % txn.id)
                 txn_id = txn.id
             else:
-                cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description) VALUES(?, ?, ?, ?)',
-                    (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
+                if txn.entry_date:
+                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, entry_date) VALUES(?, ?, ?, ?, ?)',
+                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date))
+                else:
+                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description) VALUES(?, ?, ?, ?)',
+                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
                 txn_id = cur.lastrowid
             #update transaction splits
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
