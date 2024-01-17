@@ -1267,7 +1267,7 @@ class SQLiteStorage:
             else:
                 if txn.entry_date:
                     cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, entry_date) VALUES(?, ?, ?, ?, ?)',
-                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date))
+                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date.strftime('%Y-%m-%d')))
                 else:
                     cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description) VALUES(?, ?, ?, ?)',
                         (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
