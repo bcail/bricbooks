@@ -64,6 +64,15 @@ class AccountType(Enum):
     EXPENSE = 'expense'
 
 
+class TransactionAction(Enum):
+    BUY = 'share-buy'
+    SELL = 'share-sell'
+    SPLIT = 'share-split'
+    REINVEST = 'share-reinvest'
+    ADD = 'share-add'
+    REMOVE = 'share-remove'
+
+
 class InvalidCommodityError(RuntimeError):
     pass
 
@@ -951,6 +960,10 @@ class SQLiteStorage:
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
+        'CREATE TABLE transaction_actions ('
+            'action TEXT NOT NULL PRIMARY KEY,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'CHECK (action != "")) STRICT',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
             'commodity_id INTEGER NOT NULL,'
@@ -977,7 +990,7 @@ class SQLiteStorage:
             'reconciled_state TEXT NOT NULL DEFAULT "",'
             'number TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
-            'action TEXT,'
+            'action TEXT,' # not required, but must be valid value if present
             'price_numerator INTEGER,'
             'price_denominator INTEGER,'
             'post_date TEXT,'
@@ -986,6 +999,7 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(action) REFERENCES transaction_actions(action) ON DELETE RESTRICT,'
             'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
             'CHECK (post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime("%Y-%m-%d", post_date))),'
             'CHECK (reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime("%Y-%m-%d", reconcile_date))),'
@@ -1007,6 +1021,8 @@ class SQLiteStorage:
         f'INSERT INTO scheduled_transaction_frequencies(frequency) VALUES("{frequency.value}")' for frequency in ScheduledTransactionFrequency
     ] + [
         f'INSERT INTO account_types(type) VALUES("{account_type.value}")' for account_type in AccountType
+    ] + [
+        f'INSERT INTO transaction_actions(action) VALUES("{action.value}")' for action in TransactionAction
     ] + [
         'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
         'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
@@ -1685,6 +1701,14 @@ class Engine:
 
 
 ### IMPORT ###
+kmymoney_action_mapping = {
+    'Buy': 'share-buy',
+    'Sell': 'share-sell',
+    'Split': 'share-split',
+    'Reinvest': 'share-reinvest',
+    'Add': 'share-add',
+    'Remove': 'share-remove',
+}
 
 def import_kmymoney(kmy_file, engine):
     import gzip
@@ -1802,7 +1826,12 @@ def import_kmymoney(kmy_file, engine):
                     elif key == 'memo':
                         split['description'] = value
                     elif key == 'action':
-                        split['action'] = value.lower()
+                        if not value:
+                            pass
+                        elif value in kmymoney_action_mapping:
+                            split['action'] = kmymoney_action_mapping[value]
+                        else:
+                            raise ImportError(f'unhandled action "{value}"')
                     elif key == 'price':
                         # we don't care about the price if it's "1/1"
                         if value != '1/1':
