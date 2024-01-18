@@ -349,10 +349,17 @@ def amount_display(amount):
     return '{0:,.2f}'.format(fraction_to_decimal(amount))
 
 
-def check_txn_split_amounts(splits):
+def check_txn_splits(splits):
     total = Fraction(0)
+    account_types = set()
+    actions = set()
     for account, info in splits.items():
         total += info['amount']
+        account_types.add(account.type)
+        if info.get('action'):
+            actions.add(info['action'])
+    if actions and AccountType.SECURITY not in account_types:
+        raise InvalidTransactionError('actions can only be used with SECURITY accounts')
     if total != Fraction(0):
         amounts = []
         for account, info in splits.items():
@@ -1237,7 +1244,7 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
-        check_txn_split_amounts(txn.splits)
+        check_txn_splits(txn.splits)
         if txn.payee:
             if not txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=txn.payee.name)
@@ -1420,7 +1427,7 @@ class SQLiteStorage:
         return budgets
 
     def save_scheduled_transaction(self, scheduled_txn):
-        check_txn_split_amounts(scheduled_txn.splits)
+        check_txn_splits(scheduled_txn.splits)
         if scheduled_txn.payee:
             if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
                 db_payee = self.get_payee(name=scheduled_txn.payee.name)

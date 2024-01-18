@@ -986,6 +986,24 @@ class TestSQLiteStorage(unittest.TestCase):
             self.storage.save_txn(txn)
         self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
 
+    def test_splits_action_must_be_valid(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        fund = get_test_account(name='Fund', type_=bb.AccountType.SECURITY)
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        self.storage.save_account(fund)
+
+        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'share-buy'}, savings: {'amount': 100}}, txn_date=date.today())
+        with self.assertRaises(bb.InvalidTransactionError) as cm:
+            self.storage.save_txn(txn)
+        self.assertEqual(str(cm.exception), 'actions can only be used with SECURITY accounts')
+
+        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'asdf'}, fund: {'amount': 100}}, txn_date=date.today())
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            self.storage.save_txn(txn)
+        self.assertIn('FOREIGN KEY constraint failed', str(cm.exception))
+
     def test_cant_save_zero_denominator(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
