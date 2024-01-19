@@ -91,9 +91,6 @@ class InvalidAmount(RuntimeError):
 class InvalidQuantity(RuntimeError):
     pass
 
-class InvalidPrice(RuntimeError):
-    pass
-
 class InvalidTransactionError(RuntimeError):
     pass
 
@@ -326,21 +323,6 @@ def get_validated_quantity(value):
     return quantity
 
 
-def get_validated_price(value):
-    price = None
-    #a string could contain ',', so remove those
-    if isinstance(value, str):
-        value = value.replace(',', '')
-    #try to only allow exact values (eg. no floats)
-    if isinstance(value, (int, str, Fraction)):
-        try:
-            return Fraction(value)
-        except InvalidOperation:
-            raise InvalidPrice('error generating Fraction from "{value}"')
-    else:
-        raise InvalidPrice(f'invalid value type: {type(value)} {value}')
-
-
 def fraction_to_decimal(f):
     return Decimal(f.numerator) / Decimal(f.denominator)
 
@@ -378,8 +360,6 @@ def handle_txn_splits(splits):
         if 'quantity' not in info:
             info['quantity'] = amount
         info['quantity'] = get_validated_quantity(info['quantity'])
-        if 'price' in info:
-            info['price'] = get_validated_price(info['price'])
         info['amount'] = amount
         if 'status' in info:
             info['status'] = info['status'].upper()
@@ -998,8 +978,6 @@ class SQLiteStorage:
             'number TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,' # not required, but must be valid value if present
-            'price_numerator INTEGER,'
-            'price_denominator INTEGER,'
             'post_date TEXT,'
             'reconcile_date TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -1011,8 +989,7 @@ class SQLiteStorage:
             'CHECK (post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime("%Y-%m-%d", post_date))),'
             'CHECK (reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime("%Y-%m-%d", reconcile_date))),'
             'CHECK (value_denominator != 0),'
-            'CHECK (quantity_denominator != 0),'
-            'CHECK (price_denominator != 0)) STRICT',
+            'CHECK (quantity_denominator != 0)) STRICT',
         'CREATE INDEX transaction_split_txn_id_index ON transaction_splits(transaction_id)',
         'CREATE TRIGGER transaction_split_updated UPDATE ON transaction_splits BEGIN UPDATE transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE misc ('
@@ -1299,17 +1276,10 @@ class SQLiteStorage:
                 number = info.get('number', '')
                 description = info.get('description', '')
                 action = info.get('action')
-                if info.get('price'):
-                    price = info['price']
-                    price_numerator = price.numerator
-                    price_denominator = price.denominator
-                else:
-                    price_numerator = None
-                    price_denominator = None
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, number = ?, description = ?, action = ?, price_numerator = ?, price_denominator = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, price_numerator, price_denominator, txn_id, account.id))
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, number = ?, description = ?, action = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, txn_id, account.id))
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, number, description, action, price_numerator, price_denominator) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, price_numerator, price_denominator))
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, number, description, action) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action))
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
