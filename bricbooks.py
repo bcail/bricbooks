@@ -975,7 +975,7 @@ class SQLiteStorage:
             'quantity_numerator INTEGER,'
             'quantity_denominator INTEGER,'
             'reconciled_state TEXT NOT NULL DEFAULT "",'
-            'number TEXT NOT NULL DEFAULT "",'
+            'type TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,' # not required, but must be valid value if present
             'post_date TEXT,'
@@ -1188,14 +1188,14 @@ class SQLiteStorage:
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, number, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                number = split_record[1]
+                type_ = split_record[1]
                 amount = Fraction(split_record[2], split_record[3])
-                split = {'amount': amount, 'number': number}
+                split = {'amount': amount, 'type': type_}
                 if split_record[4]:
                     quantity = Fraction(split_record[4], split_record[5])
                     split['quantity'] = quantity
@@ -1273,13 +1273,13 @@ class SQLiteStorage:
                     reconcile_date = str(info['reconcile_date'])
                 else:
                     reconcile_date = None
-                number = info.get('number', '')
+                type_ = info.get('type', '')
                 description = info.get('description', '')
                 action = info.get('action')
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, number = ?, description = ?, action = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action, txn_id, account.id))
+                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, type = ?, description = ?, action = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action, txn_id, account.id))
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, number, description, action) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, number, description, action))
+                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, type, description, action) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action))
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
@@ -1799,7 +1799,7 @@ def import_kmymoney(kmy_file, engine):
                         if value:
                             payee = engine.get_payee(id_=payee_mapping_info[value])
                     elif key == 'number':
-                        split['number'] = value
+                        split['type'] = value
                     elif key == 'memo':
                         split['description'] = value
                     elif key == 'action':
