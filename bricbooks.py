@@ -413,7 +413,7 @@ class Transaction:
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None):
+    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alt_txn_id=''):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.entry_date = entry_date
@@ -428,6 +428,7 @@ class Transaction:
             self.payee = None
         self.description = description
         self.id = id_
+        self.alt_txn_id = alt_txn_id
 
     def __str__(self):
         return '%s: %s' % (self.id, self.txn_date)
@@ -959,6 +960,7 @@ class SQLiteStorage:
             'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
             'entry_date TEXT NOT NULL DEFAULT (date(\'now\', \'localtime\')),' # date the transaction was entered
+            'alt_transaction_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated txns
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
@@ -1183,7 +1185,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_date, payee_id, description = db_info
+        id_, commodity_id, txn_date, payee_id, description, alt_txn_id = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -1202,11 +1204,11 @@ class SQLiteStorage:
                 if split_record[6]:
                     split['status'] = split_record[6]
                 splits[account] = split
-        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_)
+        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_, alt_txn_id=alt_txn_id)
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,date,payee_id,description FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,date,payee_id,description,alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1240,21 +1242,21 @@ class SQLiteStorage:
         try:
             if txn.id:
                 if txn.entry_date:
-                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, entry_date = ? WHERE id = ?',
-                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date, txn.id))
+                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, entry_date = ?, alt_transaction_id = ? WHERE id = ?',
+                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date, txn.alt_txn_id, txn.id))
                 else:
-                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ? WHERE id = ?',
-                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.id))
+                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, alt_transaction_id = ? WHERE id = ?',
+                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id, txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no txn with id %s to update' % txn.id)
                 txn_id = txn.id
             else:
                 if txn.entry_date:
-                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, entry_date) VALUES(?, ?, ?, ?, ?)',
-                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date.strftime('%Y-%m-%d')))
+                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, entry_date, alt_transaction_id) VALUES(?, ?, ?, ?, ?, ?)',
+                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date.strftime('%Y-%m-%d'), txn.alt_txn_id))
                 else:
-                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description) VALUES(?, ?, ?, ?)',
-                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description))
+                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, alt_transaction_id) VALUES(?, ?, ?, ?, ?)',
+                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id))
                 txn_id = cur.lastrowid
             #update transaction splits
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()

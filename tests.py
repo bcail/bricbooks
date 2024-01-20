@@ -924,14 +924,15 @@ class TestSQLiteStorage(unittest.TestCase):
                 entry_date=tomorrow,
                 payee=chickfila,
                 description='chicken sandwich',
+                alt_txn_id='ID001',
             )
         self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,created FROM transactions')
+        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,alt_transaction_id,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
-                (1, 1, today_str, 1, 'chicken sandwich', tomorrow_str))
+                (1, 1, today_str, 1, 'chicken sandwich', tomorrow_str, 'ID001'))
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
@@ -1235,7 +1236,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         c = self.storage._db_connection.cursor()
         txn_fields = 'id,commodity_id,date,payee_id,description'
-        c.execute(f'INSERT INTO transactions(commodity_id,date) VALUES(?,?)', (1, '2019-05-10'))
+        c.execute(f'INSERT INTO transactions(commodity_id,date,alt_transaction_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
         txn_id = c.lastrowid
         c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,value_numerator,value_denominator) VALUES(?,?,?,?,?)',
                   (txn_id,checking.id, '1a', -100, 1))
@@ -1243,6 +1244,7 @@ class TestSQLiteStorage(unittest.TestCase):
                   (txn_id,savings.id, '', 100, 1))
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
+        self.assertEqual(txn.alt_txn_id, 'ID001')
         self.assertEqual(txn.splits[checking], {'amount': -100, 'quantity': -100, 'type': '1a'})
 
     def test_delete_txn_from_db(self):
