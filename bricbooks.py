@@ -1240,23 +1240,24 @@ class SQLiteStorage:
         cur = self._db_connection.cursor()
         SQLiteStorage.begin_txn(cur)
         try:
+            field_names = ['date', 'payee_id', 'description', 'alt_transaction_id']
+            field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id]
+            if txn.entry_date:
+                field_names.append('entry_date')
+                field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
             if txn.id:
-                if txn.entry_date:
-                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, entry_date = ?, alt_transaction_id = ? WHERE id = ?',
-                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date, txn.alt_txn_id, txn.id))
-                else:
-                    cur.execute('UPDATE transactions SET date = ?, payee_id = ?, description = ?, alt_transaction_id = ? WHERE id = ?',
-                        (txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id, txn.id))
+                field_names_s = ', '.join([f'{name} = ?' for name in field_names])
+                field_values.append(txn.id)
+                cur.execute(f'UPDATE transactions SET {field_names_s} WHERE id = ?', field_values)
                 if cur.rowcount < 1:
                     raise Exception('no txn with id %s to update' % txn.id)
                 txn_id = txn.id
             else:
-                if txn.entry_date:
-                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, entry_date, alt_transaction_id) VALUES(?, ?, ?, ?, ?, ?)',
-                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.entry_date.strftime('%Y-%m-%d'), txn.alt_txn_id))
-                else:
-                    cur.execute('INSERT INTO transactions(commodity_id, date, payee_id, description, alt_transaction_id) VALUES(?, ?, ?, ?, ?)',
-                        (1, txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id))
+                field_names.append('commodity_id')
+                field_values.append(1)
+                field_names_s = ','.join(field_names)
+                field_names_q = ','.join(['?' for _ in field_names])
+                cur.execute(f'INSERT INTO transactions({field_names_s}) VALUES({field_names_q})', field_values)
                 txn_id = cur.lastrowid
             #update transaction splits
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
@@ -1278,10 +1279,16 @@ class SQLiteStorage:
                 type_ = info.get('type', '')
                 description = info.get('description', '')
                 action = info.get('action')
+                field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'action']
+                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action, txn_id, account.id] #add txn id and account id for insert and update
                 if account.id in old_txn_split_account_ids:
-                    cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, reconcile_date = ?, type = ?, description = ?, action = ? WHERE transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action, txn_id, account.id))
+                    field_names_s = ', '.join([f'{name} = ?' for name in field_names])
+                    cur.execute(f'UPDATE transaction_splits SET {field_names_s} WHERE transaction_id = ? AND account_id = ?', field_values)
                 else:
-                    cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, reconcile_date, type, description, action) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', (txn_id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action))
+                    field_names.extend(['transaction_id', 'account_id'])
+                    field_names_s = ','.join(field_names)
+                    field_names_q = ','.join(['?' for _ in field_names])
+                    cur.execute(f'INSERT INTO transaction_splits({field_names_s}) VALUES({field_names_q})', field_values)
             cur.execute('COMMIT')
             txn.id = txn_id
         except: # we always want to rollback, regardless of the exception
