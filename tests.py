@@ -757,7 +757,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_save_account(self):
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
         self.storage.save_account(assets)
-        checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name='Checking', parent=assets)
+        checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name=CHECKING, parent=assets)
         self.storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -767,7 +767,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', 'Checking', assets.id, None))
+                (checking.id, 'asset', 1, None, '4010', CHECKING, assets.id, None))
         #check created/updated default timestamp fields (which are in UTC time)
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
@@ -795,7 +795,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 (savings.id, 'asset', 1, None, None, 'Savings', None, None))
 
     def test_save_account_error_invalid_id(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=1)
+        checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)
         #checking has an id, so it should already be in the DB...
         # it's not, so raise an exception
         with self.assertRaises(Exception) as cm:
@@ -805,14 +805,14 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(account_records, [])
 
     def test_save_account_parent_not_in_db(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', id_=9)
+        checking = get_test_account(type_=bb.AccountType.ASSET, id_=9)
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_account(checking_child)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_parent_account(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET)
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
         self.storage.save_account(checking)
         self.storage.save_account(checking_child)
@@ -821,7 +821,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_cant_delete_account_with_txns(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET)
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
@@ -860,7 +860,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
     def test_account_type_must_be_valid(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking')
+        checking = get_test_account(type_=bb.AccountType.ASSET)
         self.storage.save_account(checking)
         c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
