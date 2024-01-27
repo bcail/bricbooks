@@ -1237,17 +1237,17 @@ class SQLiteStorage:
         for account, info in txn.splits.items():
             if not account.id:
                 self.save_account(account)
+        field_names = ['date', 'payee_id', 'description']
+        field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description]
+        if txn.alt_txn_id is not None:
+            field_names.append('alt_transaction_id')
+            field_values.append(txn.alt_txn_id)
+        if txn.entry_date:
+            field_names.append('entry_date')
+            field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
         cur = self._db_connection.cursor()
         SQLiteStorage.begin_txn(cur)
         try:
-            field_names = ['date', 'payee_id', 'description']
-            field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description]
-            if txn.alt_txn_id is not None:
-                field_names.append('alt_transaction_id')
-                field_values.append(txn.alt_txn_id)
-            if txn.entry_date:
-                field_names.append('entry_date')
-                field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
             if txn.id:
                 field_names_s = ', '.join([f'{name} = ?' for name in field_names])
                 field_values.append(txn.id)
