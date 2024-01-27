@@ -955,6 +955,53 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_from_db = self.storage.get_txn(t.id)
         self.assertEqual(txn_from_db.payee.name, 'someone')
 
+    def test_save_txn_blank_out_alt_txn_id(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                txn_date=date.today(),
+                alt_txn_id='asdf',
+            )
+        self.storage.save_txn(t)
+        txn_id = t.id
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                txn_date=date.today(),
+                alt_txn_id='',
+                id_=txn_id,
+            )
+        self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
+        c.execute('SELECT alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
+        db_info = c.fetchone()
+        self.assertEqual(db_info[0], '')
+
+    def test_save_txn_dont_update_alt_txn_id(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                txn_date=date.today(),
+                alt_txn_id='asdf',
+            )
+        self.storage.save_txn(t)
+        txn_id = t.id
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                txn_date=date.today(),
+                id_=txn_id,
+            )
+        self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
+        c.execute('SELECT alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
+        db_info = c.fetchone()
+        self.assertEqual(db_info[0], 'asdf')
+
     def test_save_transaction_error(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')

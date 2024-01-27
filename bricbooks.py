@@ -413,7 +413,7 @@ class Transaction:
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alt_txn_id=''):
+    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alt_txn_id=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         self.entry_date = entry_date
@@ -1240,8 +1240,11 @@ class SQLiteStorage:
         cur = self._db_connection.cursor()
         SQLiteStorage.begin_txn(cur)
         try:
-            field_names = ['date', 'payee_id', 'description', 'alt_transaction_id']
-            field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description, txn.alt_txn_id]
+            field_names = ['date', 'payee_id', 'description']
+            field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description]
+            if txn.alt_txn_id is not None:
+                field_names.append('alt_transaction_id')
+                field_values.append(txn.alt_txn_id)
             if txn.entry_date:
                 field_names.append('entry_date')
                 field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
