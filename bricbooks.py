@@ -65,6 +65,7 @@ class AccountType(Enum):
 
 
 class TransactionAction(Enum):
+    DEFAULT = ''
     BUY = 'share-buy'
     SELL = 'share-sell'
     SPLIT = 'share-split'
@@ -950,8 +951,7 @@ class SQLiteStorage:
         'CREATE TRIGGER scheduled_transaction_split_updated UPDATE ON scheduled_transaction_splits BEGIN UPDATE scheduled_transaction_splits SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE transaction_actions ('
             'action TEXT NOT NULL PRIMARY KEY,'
-            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-            'CHECK (action != "")) STRICT',
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
             'commodity_id INTEGER NOT NULL,'
@@ -979,7 +979,7 @@ class SQLiteStorage:
             'reconciled_state TEXT NOT NULL DEFAULT "",'
             'type TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
-            'action TEXT,' # not required, but must be valid value if present
+            'action TEXT NOT NULL DEFAULT "",'
             'post_date TEXT,'
             'reconcile_date TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -1281,9 +1281,13 @@ class SQLiteStorage:
                     reconcile_date = None
                 type_ = info.get('type', '')
                 description = info.get('description', '')
+                field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description']
+                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description]
                 action = info.get('action')
-                field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'action']
-                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, action, txn_id, account.id] #add txn id and account id for insert and update
+                if action is not None:
+                    field_names.append('action')
+                    field_values.append(action)
+                field_values.extend([txn_id, account.id]) #add txn id and account id for insert and update
                 if account.id in old_txn_split_account_ids:
                     field_names_s = ', '.join([f'{name} = ?' for name in field_names])
                     cur.execute(f'UPDATE transaction_splits SET {field_names_s} WHERE transaction_id = ? AND account_id = ?', field_values)

@@ -1002,6 +1002,50 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchone()
         self.assertEqual(db_info[0], 'asdf')
 
+    def test_save_txn_blank_out_action(self):
+        checking = get_test_account()
+        fund = get_test_account(name='Fund', type_=bb.AccountType.SECURITY)
+        self.storage.save_account(checking)
+        self.storage.save_account(fund)
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101', 'action': 'share-buy'}, fund: {'amount': 101}},
+                txn_date=date.today(),
+            )
+        self.storage.save_txn(t)
+        txn_id = t.id
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101', 'action': ''}, fund: {'amount': 101}},
+                txn_date=date.today(),
+                id_=txn_id,
+            )
+        self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
+        c.execute('SELECT action FROM transaction_splits WHERE id = ? AND account_id = ?', (txn_id, checking.id))
+        db_info = c.fetchone()
+        self.assertEqual(db_info[0], '')
+
+    def test_save_txn_dont_update_action(self):
+        checking = get_test_account()
+        fund = get_test_account(name='Fund', type_=bb.AccountType.SECURITY)
+        self.storage.save_account(checking)
+        self.storage.save_account(fund)
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101', 'action': 'share-buy'}, fund: {'amount': 101}},
+                txn_date=date.today(),
+            )
+        self.storage.save_txn(t)
+        txn_id = t.id
+        t = bb.Transaction(
+                splits={checking: {'amount': '-101'}, fund: {'amount': 101}},
+                txn_date=date.today(),
+                id_=txn_id,
+            )
+        self.storage.save_txn(t)
+        c = self.storage._db_connection.cursor()
+        c.execute('SELECT action FROM transaction_splits WHERE id = ? AND account_id = ?', (txn_id, checking.id))
+        db_info = c.fetchone()
+        self.assertEqual(db_info[0], 'share-buy')
+
     def test_save_transaction_error(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
@@ -1249,8 +1293,8 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_fields = 'id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description,action'
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', None),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', ''),
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', '')])
         #update it & save again
         splits = {
                 checking: {'amount': '-101'},
@@ -1273,8 +1317,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', None),
-                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', None)])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', ''),
+                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', '')])
 
     def test_get_txn(self):
         checking = get_test_account()
