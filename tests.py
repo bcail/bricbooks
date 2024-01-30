@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from fractions import Fraction
 import io
+import json
 import os
 import shutil
 import sqlite3
@@ -17,9 +18,9 @@ import load_test_data
 CHECKING = load_test_data.CHECKING
 
 
-def get_test_account(id_=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None):
+def get_test_account(id_=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None, extra_data=None):
     commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
-    return bb.Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
+    return bb.Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent, extra_data=extra_data)
 
 
 class TestUtils(unittest.TestCase):
@@ -793,6 +794,15 @@ class TestSQLiteStorage(unittest.TestCase):
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:len(db_info[0])-2],
                 (savings.id, 'asset', 1, None, None, 'Savings', None, None))
+
+    def test_save_account_extra_data(self):
+        rate = Fraction(1, 200)
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, extra_data={'interest_rate': rate})
+        self.storage.save_account(acc)
+        c = self.storage._db_connection.cursor()
+        extra_data = c.execute(f'SELECT extra_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        extra_data = json.loads(extra_data)
+        self.assertEqual(extra_data['interest_rate'], '1/200')
 
     def test_save_account_error_invalid_id(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)

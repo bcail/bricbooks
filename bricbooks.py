@@ -12,6 +12,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
 from fractions import Fraction
 from functools import partial
+import json
 import os
 from pathlib import Path
 import sqlite3
@@ -225,7 +226,7 @@ class Commodity:
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None):
+    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, extra_data=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -238,6 +239,7 @@ class Account:
         self.number = number or None
         self.name = name
         self.parent = parent
+        self.extra_data = extra_data
 
     def __str__(self):
         if self.number:
@@ -867,6 +869,7 @@ class SQLiteStorage:
             'name TEXT NOT NULL,'
             'parent_id INTEGER,'
             'closed TEXT,'
+            'extra_data TEXT NOT NULL DEFAULT "{}",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (number != ""),'
@@ -1120,13 +1123,24 @@ class SQLiteStorage:
         parent_id = None
         if account.parent:
             parent_id = account.parent.id
+        field_names = ['type', 'commodity_id', 'number', 'name', 'parent_id']
+        field_values = [account.type.value, account.commodity.id, account.number, account.name, parent_id]
+        if account.extra_data is not None:
+            field_names.append('extra_data')
+            extra_data = {**account.extra_data}
+            ir = extra_data['interest_rate']
+            extra_data['interest_rate'] = f'{ir.numerator}/{ir.denominator}'
+            field_values.append(json.dumps(extra_data))
         if account.id:
-            cur.execute('UPDATE accounts SET type = ?, commodity_id = ?, number = ?, name = ?, parent_id = ? WHERE id = ?',
-                    (account.type.value, account.commodity.id, account.number, account.name, parent_id, account.id))
+            field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
+            field_values.append(account.id)
+            cur.execute(f'UPDATE accounts SET {field_names_s} WHERE id = ?', field_values)
             if cur.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
-            cur.execute('INSERT INTO accounts(type, commodity_id, number, name, parent_id) VALUES(?, ?, ?, ?, ?)', (account.type.value, account.commodity.id, account.number, account.name, parent_id))
+            field_names_s = ','.join(field_names)
+            field_names_q = ','.join(['?' for _ in field_names])
+            cur.execute(f'INSERT INTO accounts({field_names_s}) VALUES({field_names_q})', field_values)
             account.id = cur.lastrowid
         self._db_connection.commit()
 
