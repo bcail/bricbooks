@@ -874,6 +874,7 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (number != ""),'
             'CHECK (name != ""),'
+            'CHECK (json_type(other_data) IS "object"),'
             'FOREIGN KEY(type) REFERENCES account_types(type) ON DELETE RESTRICT,'
             'FOREIGN KEY(parent_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'

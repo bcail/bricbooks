@@ -804,6 +804,10 @@ class TestSQLiteStorage(unittest.TestCase):
         data = json.loads(data)
         self.assertEqual(data['interest_rate'], '1/200')
 
+        with self.assertRaises(Exception) as cm:
+            c.execute('UPDATE accounts SET other_data = ? WHERE id = ?', ('asdf', acc.id))
+        self.assertEqual(str(cm.exception), 'malformed JSON')
+
     def test_save_account_error_invalid_id(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)
         #checking has an id, so it should already be in the DB...
