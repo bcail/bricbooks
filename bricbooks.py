@@ -1129,8 +1129,9 @@ class SQLiteStorage:
         if account.other_data is not None:
             field_names.append('other_data')
             other_data = {**account.other_data}
-            ir = other_data['interest_rate']
-            other_data['interest_rate'] = f'{ir.numerator}/{ir.denominator}'
+            if other_data:
+                ir = other_data['interest_rate']
+                other_data['interest_rate'] = f'{ir.numerator}/{ir.denominator}'
             field_values.append(json.dumps(other_data))
         if account.id:
             field_names_s = ','.join([f'{fn} = ?' for fn in field_names])

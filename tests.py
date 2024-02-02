@@ -804,9 +804,44 @@ class TestSQLiteStorage(unittest.TestCase):
         data = json.loads(data)
         self.assertEqual(data['interest_rate'], '1/200')
 
+        # verify it has to be valid json
         with self.assertRaises(Exception) as cm:
             c.execute('UPDATE accounts SET other_data = ? WHERE id = ?', ('asdf', acc.id))
         self.assertEqual(str(cm.exception), 'malformed JSON')
+
+        # verify it has to be json object
+        with self.assertRaises(Exception) as cm:
+            c.execute('UPDATE accounts SET other_data = ? WHERE id = ?', (json.dumps([]), acc.id))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: json_type(other_data) IS "object"')
+
+    def test_save_account_blank_out_other_data(self):
+        rate = Fraction(1, 200)
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate': rate})
+        self.storage.save_account(acc)
+        c = self.storage._db_connection.cursor()
+        data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        data = json.loads(data)
+        self.assertIn('interest_rate', data)
+
+        acc.other_data = {}
+        self.storage.save_account(acc)
+        data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        self.assertEqual(data, '{}')
+
+    def test_save_account_dont_update_other_data(self):
+        rate = Fraction(1, 200)
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate': rate})
+        self.storage.save_account(acc)
+        c = self.storage._db_connection.cursor()
+        data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        data = json.loads(data)
+        self.assertIn('interest_rate', data)
+
+        acc = bb.Account(id_=acc.id, commodity=self.storage.get_commodity(id_=1), name='Loan', type_=bb.AccountType.LIABILITY)
+        self.storage.save_account(acc)
+        data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        data = json.loads(data)
+        self.assertIn('interest_rate', data)
 
     def test_save_account_error_invalid_id(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)
