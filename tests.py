@@ -18,9 +18,8 @@ import load_test_data
 CHECKING = load_test_data.CHECKING
 
 
-def get_test_account(id_=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None, other_data=None):
-    commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
-    return bb.Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent, other_data=other_data)
+def get_test_account(id_=None, commodity=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None, other_data=None):
+    return bb.Account(id_=id_, commodity=commodity, type_=type_, number=number, name=name, parent=parent, other_data=other_data)
 
 
 class TestUtils(unittest.TestCase):
@@ -84,18 +83,15 @@ class TestUtils(unittest.TestCase):
 
 class TestAccount(unittest.TestCase):
 
-    def setUp(self):
-        self.commodity = bb.Commodity(id_=1, type_=bb.CommodityType.CURRENCY, code='USD', name='US Dollar')
-
     def test_init(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, number='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
         self.assertEqual(a.name, 'Checking')
         self.assertEqual(a.parent, None)
         self.assertEqual(a.number, '400')
 
     def test_str(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, number='400', name='Checking')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
         self.assertEqual(str(a), '400 - Checking')
 
     def test_account_type(self):
@@ -103,32 +99,32 @@ class TestAccount(unittest.TestCase):
             bb.Account(id_=1, name='Checking')
         self.assertEqual(str(cm.exception), 'Account must have a type')
         with self.assertRaises(bb.InvalidAccountError) as cm:
-            bb.Account(id_=1, type_='asdf', commodity=self.commodity, name='Checking')
+            bb.Account(id_=1, type_='asdf', name='Checking')
         self.assertEqual(str(cm.exception), 'Invalid account type "asdf"')
-        a = bb.Account(id_=1, type_='asset', commodity=self.commodity, name='Checking')
+        a = bb.Account(id_=1, type_='asset', name='Checking')
         self.assertEqual(a.type, bb.AccountType.ASSET)
 
     def test_eq(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, commodity=self.commodity, name='Checking')
-        a2 = bb.Account(id_=2, type_=bb.AccountType.ASSET, commodity=self.commodity, name='Savings')
+        a = bb.Account(id_=1, type_=bb.AccountType.ASSET, name='Checking')
+        a2 = bb.Account(id_=2, type_=bb.AccountType.ASSET, name='Savings')
         self.assertNotEqual(a, a2)
         self.assertEqual(a, a)
-        a3 = bb.Account(type_=bb.AccountType.ASSET, commodity=self.commodity, name='Other')
+        a3 = bb.Account(type_=bb.AccountType.ASSET, name='Other')
         with self.assertRaises(bb.InvalidAccountError) as cm:
             a == a3
         self.assertEqual(str(cm.exception), "Can't compare accounts without an id")
 
     def test_parent(self):
-        housing = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Housing')
-        rent = bb.Account(id_=2, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Rent', parent=housing)
+        housing = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Housing')
+        rent = bb.Account(id_=2, type_=bb.AccountType.EXPENSE, name='Rent', parent=housing)
         self.assertEqual(rent.parent, housing)
 
     def test_empty_strings_for_non_required_elements(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, commodity=self.commodity, name='Test', number='')
+        a = bb.Account(id_=1, type_=bb.AccountType.EXPENSE, name='Test', number='')
         self.assertEqual(a.number, None)
 
     def test_securities_account(self):
-        a = bb.Account(id_=1, type_=bb.AccountType.SECURITY, commodity=self.commodity, name='test')
+        a = bb.Account(id_=1, type_=bb.AccountType.SECURITY, name='test')
         self.assertEqual(list({a: 1}.keys())[0], a)
 
 
@@ -721,7 +717,7 @@ class TestSQLiteStorage(unittest.TestCase):
             storage._db_connection.close()
             self.assertEqual(tables, TABLES)
 
-    def test_commodity(self):
+    def test_save_commodity(self):
         c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 20))
@@ -739,8 +735,19 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', ''))
         self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
-        #now insert with correct currency id of 1 (USD)
+        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
+        self.storage.save_commodity(commodity)
+        record = c.execute('SELECT type, code, name, trading_currency_id FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
+        self.assertEqual(record, ('currency', 'EUR', 'Euro', None))
+
+    def test_get_commodity(self):
+        c = self.storage._db_connection.cursor()
         c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
+        commodity_id = c.lastrowid
+        commodity = self.storage.get_commodity(id_=commodity_id)
+        self.assertEqual(commodity.name, 'A Big Co')
+        commodity = self.storage.get_commodity(code='ABC')
+        self.assertEqual(commodity.name, 'A Big Co')
 
     def test_institution_name_cant_be_empty(self):
         c = self.storage._db_connection.cursor()
@@ -795,6 +802,30 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(db_info[0][:len(db_info[0])-2],
                 (savings.id, 'asset', 1, None, None, 'Savings', None, None))
 
+    def test_save_account_commodity(self):
+        c = self.storage._db_connection.cursor()
+
+        # no commodity - should just get default USD
+        checking = get_test_account()
+        self.storage.save_account(checking)
+        db_info = c.execute(f'SELECT commodity_id FROM accounts WHERE id = ?', (checking.id,)).fetchone()
+        self.assertEqual(db_info, (1,))
+
+        euro = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
+        self.storage.save_commodity(euro)
+
+        # with commodity - should be saved properly
+        acc = get_test_account(name='with commodity', commodity=euro)
+        self.storage.save_account(acc)
+        db_info = c.execute(f'SELECT commodity_id FROM accounts WHERE id = ?', (acc.id,)).fetchone()
+        self.assertEqual(db_info, (euro.id,))
+
+        # save Account object without specifying commodity - should leave commodity_id unchanged
+        acc = bb.Account(id_=acc.id, type_=bb.AccountType.ASSET, name='with commodity')
+        self.storage.save_account(acc)
+        db_info = c.execute(f'SELECT commodity_id FROM accounts WHERE id = ?', (acc.id,)).fetchone()
+        self.assertEqual(db_info, (euro.id,))
+
     def test_save_account_other_data(self):
         rate = Fraction(1, 200)
         acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate': rate})
@@ -837,7 +868,7 @@ class TestSQLiteStorage(unittest.TestCase):
         data = json.loads(data)
         self.assertIn('interest_rate', data)
 
-        acc = bb.Account(id_=acc.id, commodity=self.storage.get_commodity(id_=1), name='Loan', type_=bb.AccountType.LIABILITY)
+        acc = bb.Account(id_=acc.id, name='Loan', type_=bb.AccountType.LIABILITY)
         self.storage.save_account(acc)
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)

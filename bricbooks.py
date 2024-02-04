@@ -230,8 +230,6 @@ class Account:
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
-        if not commodity:
-            raise InvalidAccountError('Account must have a commodity')
         if not name:
             raise InvalidAccountNameError('Account must have a name')
         self.type = self._check_type(type_)
@@ -1124,8 +1122,11 @@ class SQLiteStorage:
         parent_id = None
         if account.parent:
             parent_id = account.parent.id
-        field_names = ['type', 'commodity_id', 'number', 'name', 'parent_id']
-        field_values = [account.type.value, account.commodity.id, account.number, account.name, parent_id]
+        field_names = ['type', 'number', 'name', 'parent_id']
+        field_values = [account.type.value, account.number, account.name, parent_id]
+        if account.commodity:
+            field_names.append('commodity_id')
+            field_values.append(account.commodity.id)
         if account.other_data is not None:
             field_names.append('other_data')
             other_data = {**account.other_data}
@@ -1140,6 +1141,9 @@ class SQLiteStorage:
             if cur.rowcount < 1:
                 raise Exception('no account with id %s to update' % account.id)
         else:
+            if 'commodity_id' not in field_names:
+                field_names.append('commodity_id')
+                field_values.append(1) # default USD commodity
             field_names_s = ','.join(field_names)
             field_names_q = ','.join(['?' for _ in field_names])
             cur.execute(f'INSERT INTO accounts({field_names_s}) VALUES({field_names_q})', field_values)
@@ -1557,10 +1561,7 @@ class Engine:
             if commodity_id:
                 commodity = self._storage.get_commodity(id_=commodity_id)
             else:
-                if id_:
-                    commodity = self._storage.get_account(id_).commodity
-                else:
-                    commodity = self.get_currencies()[0]
+                commodity = None
             account = Account(id_=id_, type_=type_, commodity=commodity, number=number, name=name, parent=parent)
         self._storage.save_account(account)
         return account
