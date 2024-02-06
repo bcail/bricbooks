@@ -334,15 +334,11 @@ def amount_display(amount):
 
 def check_txn_splits(splits):
     total = Fraction(0)
-    account_types = set()
-    actions = set()
     for account, info in splits.items():
         total += info['amount']
-        account_types.add(account.type)
         if info.get('action'):
-            actions.add(info['action'])
-    if actions and AccountType.SECURITY not in account_types:
-        raise InvalidTransactionError('actions can only be used with SECURITY accounts')
+            if account.type != AccountType.SECURITY:
+                raise InvalidTransactionError('actions can only be used with SECURITY accounts')
     if total != Fraction(0):
         amounts = []
         for account, info in splits.items():

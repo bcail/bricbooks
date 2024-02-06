@@ -1088,19 +1088,19 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(fund)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'action': 'share-buy'}, fund: {'amount': 101}},
+                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': 'share-buy'}},
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'action': ''}, fund: {'amount': 101}},
+                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': ''}},
                 txn_date=date.today(),
                 id_=txn_id,
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT action FROM transaction_splits WHERE id = ? AND account_id = ?', (txn_id, checking.id))
+        c.execute('SELECT action FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, fund.id))
         db_info = c.fetchone()
         self.assertEqual(db_info[0], '')
 
@@ -1110,7 +1110,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(fund)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'action': 'share-buy'}, fund: {'amount': 101}},
+                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': 'share-buy'}},
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
@@ -1122,7 +1122,7 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT action FROM transaction_splits WHERE id = ? AND account_id = ?', (txn_id, checking.id))
+        c.execute('SELECT action FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, fund.id))
         db_info = c.fetchone()
         self.assertEqual(db_info[0], 'share-buy')
 
@@ -1166,12 +1166,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         self.storage.save_account(fund)
 
-        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'share-buy'}, savings: {'amount': 100}}, txn_date=date.today())
+        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'share-buy'}, fund: {'amount': 100}}, txn_date=date.today())
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             self.storage.save_txn(txn)
         self.assertEqual(str(cm.exception), 'actions can only be used with SECURITY accounts')
 
-        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'asdf'}, fund: {'amount': 100}}, txn_date=date.today())
+        txn = bb.Transaction(splits={checking: {'amount': -100}, fund: {'amount': 100, 'action': 'asdf'}}, txn_date=date.today())
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_txn(txn)
         self.assertIn('FOREIGN KEY constraint failed', str(cm.exception))
