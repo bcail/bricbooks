@@ -1403,20 +1403,21 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_get_txn(self):
         checking = get_test_account()
         self.storage.save_account(checking)
-        savings = get_test_account(name='Savings')
-        self.storage.save_account(savings)
+        fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
+        self.storage.save_account(fund)
         c = self.storage._db_connection.cursor()
         txn_fields = 'id,commodity_id,date,payee_id,description'
         c.execute(f'INSERT INTO transactions(commodity_id,date,alt_transaction_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
         txn_id = c.lastrowid
-        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,value_numerator,value_denominator) VALUES(?,?,?,?,?)',
-                  (txn_id,checking.id, '1a', -100, 1))
-        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,value_numerator,value_denominator) VALUES(?,?,?,?,?)',
-                  (txn_id,savings.id, '', 100, 1))
+        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
+                  (txn_id,checking.id, '1a', '', -100, 1))
+        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
+                  (txn_id,fund.id, '', 'share-buy', 100, 1))
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
         self.assertEqual(txn.alt_txn_id, 'ID001')
-        self.assertEqual(txn.splits[checking], {'amount': -100, 'quantity': -100, 'type': '1a'})
+        self.assertEqual(txn.splits[checking], {'amount': -100, 'quantity': -100, 'type': '1a', 'action': ''})
+        self.assertEqual(txn.splits[fund], {'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy'})
 
     def test_delete_txn_from_db(self):
         checking = get_test_account()
@@ -2123,8 +2124,8 @@ class TestCLI(unittest.TestCase):
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
-        self.assertEqual(txn.splits[checking], {'amount': -15, 'quantity': -15, 'type': '', 'status': 'C'})
-        self.assertEqual(txn.splits[savings], {'amount': 15, 'quantity': 15, 'type': ''})
+        self.assertEqual(txn.splits[checking], {'action': '', 'amount': -15, 'quantity': -15, 'type': '', 'status': 'C'})
+        self.assertEqual(txn.splits[savings], {'action': '', 'amount': 15, 'quantity': 15, 'type': ''})
         self.assertEqual(txn.payee, payee)
         self.assertEqual(txn.description, 'description')
         output = 'Create Transaction:\n  date: Splits:\nnew account ID:  amount: new account ID:  amount: new account ID:   payee (id or \'name):   description:   status: '
@@ -2189,9 +2190,9 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_txn()
         edited_txn = self.cli._engine.get_transaction(id_=txn.id)
         self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
-        self.assertEqual(edited_txn.splits[checking], {'amount': -90, 'quantity': -90, 'type': ''})
-        self.assertEqual(edited_txn.splits[savings], {'amount': 50, 'quantity': 50, 'type': ''})
-        self.assertEqual(edited_txn.splits[another_account], {'amount': 40, 'quantity': 40, 'type': ''})
+        self.assertEqual(edited_txn.splits[checking], {'action': '', 'amount': -90, 'quantity': -90, 'type': ''})
+        self.assertEqual(edited_txn.splits[savings], {'action': '', 'amount': 50, 'quantity': 50, 'type': ''})
+        self.assertEqual(edited_txn.splits[another_account], {'action': '', 'amount': 40, 'quantity': 40, 'type': ''})
         self.assertEqual(edited_txn.description, 'new description')
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue(f'{CHECKING} amount' in buffer_value)
@@ -2270,8 +2271,8 @@ class TestCLI(unittest.TestCase):
         txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
         self.assertEqual(txns[0].splits[checking]['amount'], 175)
-        self.assertEqual(txns[1].splits[checking], {'amount': -101, 'quantity': -101, 'type': ''})
-        self.assertEqual(txns[1].splits[savings], {'amount': 101, 'quantity': 101, 'type': ''})
+        self.assertEqual(txns[1].splits[checking], {'action': '', 'amount': -101, 'quantity': -101, 'type': ''})
+        self.assertEqual(txns[1].splits[savings], {'action': '', 'amount': 101, 'quantity': 101, 'type': ''})
         self.assertEqual(txns[1].txn_date, date(2019, 1, 2))
         scheduled_txn = self.cli._engine.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))

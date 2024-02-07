@@ -1206,7 +1206,7 @@ class SQLiteStorage:
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
         splits = {}
-        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1219,6 +1219,7 @@ class SQLiteStorage:
                     split['quantity'] = quantity
                 if split_record[6]:
                     split['status'] = split_record[6]
+                split['action'] = split_record[7]
                 splits[account] = split
         return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_, alt_txn_id=alt_txn_id)
 
