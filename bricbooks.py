@@ -1999,7 +1999,7 @@ class CLI:
             else:
                 break
 
-    def _get_common_txn_info(self, txn=None):
+    def _get_common_txn_info(self, is_scheduled_txn=False, txn=None):
         '''get pieces of data common to txns and scheduled txns'''
         txn_info = {}
         self.print('Splits:')
@@ -2015,6 +2015,8 @@ class CLI:
                     reconciled_state = self.input(prompt=f'{account.name} reconciled state: ', prefill=orig_status)
                     if reconciled_state:
                         splits[account]['status'] = reconciled_state
+                    if not is_scheduled_txn:
+                        splits[account]['type'] = self.input(prompt=f'{account.name} type: ', prefill=split_info['type'])
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
@@ -2025,6 +2027,8 @@ class CLI:
                     reconciled_state = self.input(prompt=f'{account.name} reconciled state: ')
                     if reconciled_state:
                         splits[account]['status'] = reconciled_state
+                    if not is_scheduled_txn:
+                        splits[account]['type'] = self.input(prompt=f'{account.name} type: ')
                 else:
                     break
             else:
@@ -2049,7 +2053,7 @@ class CLI:
         txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
         return txn_info
 
-    def _get_and_save_txn(self, txn=None):
+    def _get_and_save_txn(self, is_scheduled_txn=False, txn=None):
         info = {}
         if txn:
             if isinstance(txn, ScheduledTransaction):
@@ -2060,7 +2064,7 @@ class CLI:
         else:
             date_prefill = ''
         info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
-        info.update(self._get_common_txn_info(txn=txn))
+        info.update(self._get_common_txn_info(is_scheduled_txn=is_scheduled_txn, txn=txn))
         self._engine.save_transaction(Transaction(**info))
 
     def _create_txn(self):
@@ -2088,7 +2092,7 @@ class CLI:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
                 scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
-                self._get_and_save_txn(txn=scheduled_txn)
+                self._get_and_save_txn(is_scheduled_txn=True, txn=scheduled_txn)
                 scheduled_txn.advance_to_next_due_date()
                 self._engine.save_scheduled_transaction(scheduled_txn)
             else:
@@ -2129,7 +2133,7 @@ class CLI:
         else:
             due_date_prefill = ''
         next_due_date = self.input('  next due date (yyyy-mm-dd): ', prefill=due_date_prefill)
-        common_info = self._get_common_txn_info(txn=scheduled_txn)
+        common_info = self._get_common_txn_info(is_scheduled_txn=True, txn=scheduled_txn)
         id_ = None
         if scheduled_txn:
             id_ = scheduled_txn.id
