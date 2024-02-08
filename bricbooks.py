@@ -2017,6 +2017,7 @@ class CLI:
                         splits[account]['status'] = reconciled_state
                     if not is_scheduled_txn:
                         splits[account]['type'] = self.input(prompt=f'{account.name} type: ', prefill=split_info['type'])
+                        splits[account]['action'] = self.input(prompt=f'{account.name} action: ', prefill=split_info['action'])
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
@@ -2029,6 +2030,7 @@ class CLI:
                         splits[account]['status'] = reconciled_state
                     if not is_scheduled_txn:
                         splits[account]['type'] = self.input(prompt=f'{account.name} type: ')
+                        splits[account]['action'] = self.input(prompt=f'{account.name} action: ')
                 else:
                     break
             else:
