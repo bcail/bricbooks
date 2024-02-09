@@ -122,6 +122,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(add_form.date_entry.get(), str(date.today()))
         add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
+        add_form.type_entry.insert(0, 'ACH')
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
         add_form.save_button.invoke()
@@ -129,6 +130,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
+        self.assertEqual(txns[0].splits[checking]['type'], 'ACH')
         self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: -20.05')
 
     @patch('bricbooks.handle_error')
@@ -210,7 +212,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         payee = bb.Payee('some payee')
         gui._engine.save_payee(payee)
         txn = bb.Transaction(splits={checking: {'amount': -5}, food: {'amount': 5}}, txn_date=date(2017, 1, 3))
-        txn2 = bb.Transaction(splits={checking: {'amount': -17, 'status': bb.Transaction.CLEARED}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2), payee=payee, description='description')
+        txn2 = bb.Transaction(splits={checking: {'amount': -17, 'type': 'ACH', 'status': bb.Transaction.CLEARED}, restaurants: {'amount': 17}}, txn_date=date(2017, 5, 2), payee=payee, description='description')
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
@@ -218,6 +220,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
 
         #verify that data is loaded into form
         self.assertEqual(gui.ledger_display.edit_transaction_form.withdrawal_entry.get(), '17.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.type_entry.get(), 'ACH')
         self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
 
         #update values & save

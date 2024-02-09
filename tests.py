@@ -309,6 +309,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
                     'status': 'C',
+                    'type': '',
                     'categories': 'Savings',
                     'balance': '5.00',
                 }
@@ -322,6 +323,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
                     'status': '',
+                    'type': '',
                     'categories': CHECKING,
                     'balance': '5.00',
                 }
@@ -340,6 +342,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': '',
                     'status': '',
+                    'type': '',
                     'categories': 'Savings',
                 }
             )
@@ -1338,10 +1341,10 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,type,date,payee_id,description,entry_date FROM transactions')
+        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, '', today_str, None, '', today_str))
+                (1, 1, today_str, None, '', today_str))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator FROM transaction_splits')
         txn_split_records = c.fetchall()
         self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1),

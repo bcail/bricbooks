@@ -369,7 +369,7 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories, status=''):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
         if not deposit and not withdrawal:
@@ -382,6 +382,8 @@ class Transaction:
             splits[account] = {'amount': amount}
         else:
             splits[account] = {'amount': amount * -1}
+        if type_ is not None:
+            splits[account]['type'] = type_
         if isinstance(input_categories, Account):
             if deposit:
                 splits[input_categories] = {'amount': amount * -1}
@@ -400,8 +402,8 @@ class Transaction:
         return splits
 
     @staticmethod
-    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, id_=None):
-        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status)
+    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, type_=None, id_=None):
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status, type_)
         return Transaction(
                 splits=splits,
                 txn_date=txn_date,
@@ -493,6 +495,7 @@ def get_display_strings_for_ledger(account, txn):
         display_strings['txn_date'] = str(txn.next_due_date)
     else:
         display_strings['status'] = txn.splits[account].get('status', '')
+        display_strings['type'] = txn.splits[account].get('type', '')
         display_strings['txn_date'] = str(txn.txn_date)
     if hasattr(txn, 'balance'):
         display_strings['balance'] = amount_display(txn.balance)
@@ -953,7 +956,6 @@ class SQLiteStorage:
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
             'commodity_id INTEGER NOT NULL,'
-            'type TEXT NOT NULL DEFAULT "",'
             'date TEXT,' # date the transaction took place
             'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
@@ -2576,6 +2578,7 @@ class TransferAccountsDisplay:
 
 
 class TransactionForm:
+    '''Used for adding/editing transactions, and entering a transaction from a Scheduled Transaction'''
 
     def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None, skip_transaction=None, delete_transaction=None):
         self._accounts = accounts
@@ -2592,7 +2595,7 @@ class TransactionForm:
     def get_widget(self):
         self.top_level = tk.Toplevel()
         self.form = ttk.Frame(master=self.top_level)
-        for col, label in [(0, 'Date'), (1, 'Payee'), (2, 'Description'), (3, 'Status')]:
+        for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
             ttk.Label(master=self.form, text=label).grid(row=2, column=col)
@@ -2600,6 +2603,7 @@ class TransactionForm:
         if self._transaction:
             tds = get_display_strings_for_ledger(self._account, self._transaction)
         self.date_entry = ttk.Entry(master=self.form)
+        self.type_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
         payee_values = ['']
         payee_index = 0
@@ -2611,6 +2615,7 @@ class TransactionForm:
         self.description_entry = ttk.Entry(master=self.form)
         if self._transaction:
             self.date_entry.insert(0, tds['txn_date'])
+            self.type_entry.insert(0, tds.get('type', ''))
             self.payee_combo.current(payee_index)
             self.description_entry.insert(0, tds['description'])
         else:
@@ -2639,9 +2644,10 @@ class TransactionForm:
             )
         self.transfer_accounts_widget = self.transfer_accounts_display.get_widget()
         self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
-        self.payee_combo.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.description_entry.grid(row=1, column=2, sticky=(tk.N, tk.S))
-        self.status_combo.grid(row=1, column=3, sticky=(tk.N, tk.S))
+        self.type_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
+        self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
+        self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
         self.withdrawal_entry.grid(row=3, column=0)
         self.deposit_entry.grid(row=3, column=1)
         self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
@@ -2672,6 +2678,7 @@ class TransactionForm:
             'payee': self.payee_combo.get(),
             'description': self.description_entry.get(),
             'status': self.status_combo.get(),
+            'type_': self.type_entry.get(),
             'categories': self.transfer_accounts_display.get_transfer_accounts(),
         }
         try:
@@ -3064,6 +3071,7 @@ class BudgetDisplay:
 
 
 class ScheduledTransactionForm:
+    '''Used for editing Scheduled Transactions (ie. frequency, ...)'''
 
     def __init__(self, accounts, payees, save_scheduled_transaction, scheduled_transaction=None):
         self._accounts = accounts
