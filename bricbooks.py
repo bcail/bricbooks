@@ -2499,11 +2499,11 @@ class SplitTransactionEditor:
 
 class TransferAccountsDisplay:
 
-    def __init__(self, master, accounts=None, main_account=None, transaction=None, withdrawal_var=None, deposit_var=None):
+    def __init__(self, master, accounts=None, main_account=None, splits=None, withdrawal_var=None, deposit_var=None):
         self._master = master
         self._accounts = accounts
         self._main_account = main_account
-        self._transaction = transaction
+        self._splits = splits or {}
         self._withdrawal_var = withdrawal_var
         self._deposit_var = deposit_var
         self._widget = ttk.Frame(master=self._master)
@@ -2515,8 +2515,8 @@ class TransferAccountsDisplay:
         for account in self._accounts:
             if account != self._main_account:
                 #find correct account in the list if txn has just two splits
-                if self._transaction and len(self._transaction.splits.keys()) == 2:
-                    if account in self._transaction.splits:
+                if len(self._splits.keys()) == 2:
+                    if account in self._splits:
                          current_index = index + 1
                 self._transfer_accounts_display_list.append(str(account))
                 self._transfer_accounts_list.append(account)
@@ -2524,11 +2524,11 @@ class TransferAccountsDisplay:
         self._transfer_accounts_display_list.append('multiple')
         self._transfer_accounts_list.append({})
         self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
-        if self._transaction:
-            if len(self._transaction.splits.keys()) > 2:
+        if self._splits:
+            if len(self._splits.keys()) > 2:
                 current_index = len(self._transfer_accounts_display_list) - 1
             self.transfer_accounts_combo.current(current_index)
-            self._multiple_splits = self._transaction.splits.copy()
+            self._multiple_splits = self._splits.copy()
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         self.split_button = ttk.Button(master=self._widget, text='Split', command=self._show_splits_editor)
         self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))
@@ -2536,8 +2536,8 @@ class TransferAccountsDisplay:
     def _show_splits_editor(self):
         #make sure amounts are converted to text for passing to splits editor
         initial_txn_splits = {}
-        if self._transaction:
-            for acc, info in self._transaction.splits.items():
+        if self._splits:
+            for acc, info in self._splits.items():
                 initial_txn_splits[acc] = {'amount': amount_display(info['amount'])}
         withdrawal = self._withdrawal_var.get()
         deposit = self._withdrawal_var.get()
@@ -2613,32 +2613,30 @@ class TransactionForm:
                 payee_index = index + 1 #because of first empty item
         self.payee_combo['values'] = payee_values
         self.description_entry = ttk.Entry(master=self.form)
-        if self._transaction:
-            self.date_entry.insert(0, tds['txn_date'])
-            self.type_entry.insert(0, tds.get('type', ''))
-            self.payee_combo.current(payee_index)
-            self.description_entry.insert(0, tds['description'])
-        else:
-            self.date_entry.insert(0, str(date.today()))
+        self.date_entry.insert(0, tds.get('txn_date', str(date.today())))
+        self.type_entry.insert(0, tds.get('type', ''))
+        self.description_entry.insert(0, tds.get('description', ''))
+        self.payee_combo.current(payee_index)
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values
         self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
         self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
+        tds_status = tds.get('status', '')
+        for index, status in enumerate(status_values):
+            if tds_status == status:
+                self.status_combo.current(index)
+        self.withdrawal_var.set(tds.get('withdrawal', ''))
+        self.deposit_var.set(tds.get('deposit', ''))
         if self._transaction:
-            for index, status in enumerate(status_values):
-                try:
-                    if self._transaction.splits[self._account].get('status') == status:
-                        self.status_combo.current(index)
-                except AttributeError: #ScheduledTxn doesn't have a status
-                    pass
-            self.withdrawal_var.set(tds['withdrawal'])
-            self.deposit_var.set(tds['deposit'])
+            splits = self._transaction.splits
+        else:
+            splits = {}
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.form,
                 accounts=self._accounts,
                 main_account=self._account,
-                transaction=self._transaction,
+                splits=splits,
                 withdrawal_var=self.withdrawal_var,
                 deposit_var=self.deposit_var,
             )
@@ -2654,7 +2652,7 @@ class TransactionForm:
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=3, column=3)
         if self._transaction:
-            if isinstance(self._transaction, ScheduledTransaction):
+            if self._skip_transaction:
                 self.save_button['text'] = 'Enter New'
                 self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
                 self.skip_button.grid(row=3, column=4)
@@ -3152,10 +3150,14 @@ class ScheduledTransactionForm:
             self.deposit_entry.insert(0, deposit)
         self.deposit_entry.grid(row=7, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         ttk.Label(master=self.content, text='Categories').grid(row=8, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
+        if self._scheduled_transaction:
+            splits = self._scheduled_transaction.splits
+        else:
+            splits = {}
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.content,
                 accounts=self._accounts,
-                transaction=self._scheduled_transaction,
+                splits=splits,
                 main_account=account
             )
         self.transfer_accounts_display.get_widget().grid(row=8, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
