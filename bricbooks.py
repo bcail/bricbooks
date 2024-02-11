@@ -2580,15 +2580,17 @@ class TransferAccountsDisplay:
 class TransactionForm:
     '''Used for adding/editing transactions, and entering a transaction from a Scheduled Transaction'''
 
-    def __init__(self, accounts, account, payees, save_transaction, update_display, transaction=None, skip_transaction=None, delete_transaction=None):
+    def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, tds=None, splits=None):
         self._accounts = accounts
         self._account = account
         self._payees = payees
         self._save_transaction = save_transaction
         self._update_display = update_display
-        self._transaction = transaction
         self._skip_transaction = skip_transaction
         self._delete_transaction = delete_transaction
+        self._id = id_
+        self._tds = tds or {}
+        self._splits = splits or {}
         self.withdrawal_var = tk.StringVar()
         self.deposit_var = tk.StringVar()
 
@@ -2599,9 +2601,6 @@ class TransactionForm:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
             ttk.Label(master=self.form, text=label).grid(row=2, column=col)
-        tds = {}
-        if self._transaction:
-            tds = get_display_strings_for_ledger(self._account, self._transaction)
         self.date_entry = ttk.Entry(master=self.form)
         self.type_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
@@ -2609,34 +2608,30 @@ class TransactionForm:
         payee_index = 0
         for index, payee in enumerate(self._payees):
             payee_values.append(payee.name)
-            if self._transaction and payee.name == tds['payee']:
+            if payee.name == self._tds.get('payee'):
                 payee_index = index + 1 #because of first empty item
         self.payee_combo['values'] = payee_values
         self.description_entry = ttk.Entry(master=self.form)
-        self.date_entry.insert(0, tds.get('txn_date', str(date.today())))
-        self.type_entry.insert(0, tds.get('type', ''))
-        self.description_entry.insert(0, tds.get('description', ''))
+        self.date_entry.insert(0, self._tds.get('txn_date', str(date.today())))
+        self.type_entry.insert(0, self._tds.get('type', ''))
+        self.description_entry.insert(0, self._tds.get('description', ''))
         self.payee_combo.current(payee_index)
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values
         self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
         self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
-        tds_status = tds.get('status', '')
+        tds_status = self._tds.get('status', '')
         for index, status in enumerate(status_values):
             if tds_status == status:
                 self.status_combo.current(index)
-        self.withdrawal_var.set(tds.get('withdrawal', ''))
-        self.deposit_var.set(tds.get('deposit', ''))
-        if self._transaction:
-            splits = self._transaction.splits
-        else:
-            splits = {}
+        self.withdrawal_var.set(self._tds.get('withdrawal', ''))
+        self.deposit_var.set(self._tds.get('deposit', ''))
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.form,
                 accounts=self._accounts,
                 main_account=self._account,
-                splits=splits,
+                splits=self._splits,
                 withdrawal_var=self.withdrawal_var,
                 deposit_var=self.deposit_var,
             )
@@ -2651,24 +2646,20 @@ class TransactionForm:
         self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=3, column=3)
-        if self._transaction:
-            if self._skip_transaction:
-                self.save_button['text'] = 'Enter New'
-                self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
-                self.skip_button.grid(row=3, column=4)
-            else:
-                self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
-                self.delete_button.grid(row=3, column=4)
+        if self._skip_transaction:
+            self.save_button['text'] = 'Enter New'
+            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
+            self.skip_button.grid(row=3, column=4)
+        elif self._delete_transaction:
+            self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
+            self.delete_button.grid(row=3, column=4)
 
         self.form.grid()
         return self.top_level
 
     def _handle_save(self):
-        id_ = None
-        if self._transaction and not isinstance(self._transaction, ScheduledTransaction):
-            id_ = self._transaction.id
         kwargs = {
-            'id_': id_,
+            'id_': self._id,
             'account': self._account,
             'deposit': self.deposit_var.get(),
             'withdrawal': self.withdrawal_var.get(),
@@ -2833,24 +2824,28 @@ class LedgerDisplay:
             payees = self._engine.get_payees()
             save_txn = partial(self._enter_scheduled_transaction, scheduled_transaction=scheduled_transaction)
             skip_txn = partial(self._skip_scheduled_transaction, scheduled_transaction_id=scheduled_transaction.id)
+            tds = get_display_strings_for_ledger(self._account, scheduled_transaction)
             self.edit_scheduled_transaction_form = TransactionForm(
                     accounts=accounts,
                     payees=payees,
                     save_transaction=save_txn,
                     account=self._account,
-                    transaction=scheduled_transaction,
                     update_display=self._show_transactions,
                     skip_transaction=skip_txn,
+                    tds=tds,
+                    splits=scheduled_transaction.splits,
                 )
             widget = self.edit_scheduled_transaction_form.get_widget()
             widget.grid()
         elif txn_id:
-            transaction = self._engine.get_transaction(id_=int(txn_id))
+            txn_id = int(txn_id)
+            transaction = self._engine.get_transaction(id_=txn_id)
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
+            tds = get_display_strings_for_ledger(self._account, transaction)
             self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
                     save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
-                    transaction=transaction, delete_transaction=partial(self._delete, transaction_id=txn_id))
+                    delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id, tds=tds, splits=transaction.splits)
             widget = self.edit_transaction_form.get_widget()
             widget.grid()
 
