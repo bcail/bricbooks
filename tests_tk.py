@@ -112,9 +112,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
     def test_ledger_new_transaction(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
-        savings = get_test_account(name='Savings')
+        fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
         gui._engine.save_account(account=checking)
-        gui._engine.save_account(account=savings)
+        gui._engine.save_account(account=fund)
         gui.ledger_button.invoke()
         self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: 0.00')
         gui.ledger_display.add_button.invoke()
@@ -123,6 +123,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
         add_form.type_entry.insert(0, 'ACH')
+        add_form.action_combo.current(1)
         add_form.withdrawal_entry.insert(0, '20.05')
         add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
         add_form.save_button.invoke()
@@ -131,6 +132,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[checking]['amount'], Fraction(-401, 20))
         self.assertEqual(txns[0].splits[checking]['type'], 'ACH')
+        self.assertEqual(txns[0].splits[fund]['amount'], Fraction(401, 20))
+        self.assertEqual(txns[0].splits[fund]['action'], 'share-buy')
         self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: -20.05')
 
     @patch('bricbooks.handle_error')

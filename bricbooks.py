@@ -369,7 +369,7 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None, action=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = {}
         if not deposit and not withdrawal:
@@ -399,11 +399,16 @@ class Transaction:
         else:
             raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         splits[account]['status'] = status.upper()
+        if action:
+            if account.type == AccountType.SECURITY:
+                splits[account]['action'] = action
+            else:
+                splits[input_categories]['action'] = action
         return splits
 
     @staticmethod
-    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, type_=None, id_=None):
-        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status, type_)
+    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, type_=None, action=None, id_=None):
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status, type_, action)
         return Transaction(
                 splits=splits,
                 txn_date=txn_date,
@@ -2597,7 +2602,7 @@ class TransactionForm:
     def get_widget(self):
         self.top_level = tk.Toplevel()
         self.form = ttk.Frame(master=self.top_level)
-        for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status')]:
+        for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status'), (5, 'Action')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
             ttk.Label(master=self.form, text=label).grid(row=2, column=col)
@@ -2619,6 +2624,8 @@ class TransactionForm:
         self.status_combo = ttk.Combobox(master=self.form)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values
+        self.action_combo = ttk.Combobox(master=self.form)
+        self.action_combo['values'] = [a.value for a in TransactionAction]
         self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
         self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
         tds_status = self._tds.get('status', '')
@@ -2668,6 +2675,7 @@ class TransactionForm:
             'description': self.description_entry.get(),
             'status': self.status_combo.get(),
             'type_': self.type_entry.get(),
+            'action': self.action_combo.get(),
             'categories': self.transfer_accounts_display.get_transfer_accounts(),
         }
         try:
