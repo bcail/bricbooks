@@ -7,6 +7,7 @@ Architecture:
     No objects should use private/hidden members of other objects.
 '''
 from collections import namedtuple
+import copy
 from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import Enum
@@ -334,32 +335,33 @@ def amount_display(amount):
 
 def check_txn_splits(splits):
     total = Fraction(0)
-    for account, info in splits.items():
-        total += info['amount']
-        if info.get('action'):
-            if account.type != AccountType.SECURITY:
+    for split in splits:
+        total += split['amount']
+        if split.get('action'):
+            if split['account'].type != AccountType.SECURITY:
                 raise InvalidTransactionError('actions can only be used with SECURITY accounts')
     if total != Fraction(0):
         amounts = []
-        for account, info in splits.items():
-            amounts.append(amount_display(info['amount']))
+        for split in splits:
+            amounts.append(amount_display(split['amount']))
         raise InvalidTransactionError("splits don't balance: %s" % ', '.join(amounts))
 
 
 def handle_txn_splits(splits):
-    for account, info in splits.items():
+    for split in splits:
+        account = split['account']
         if not account:
             raise InvalidTransactionError('must have a valid account in splits')
         try:
-            amount = get_validated_amount(info['amount'])
+            amount = get_validated_amount(split['amount'])
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid split: %s' % e)
-        if 'quantity' not in info:
-            info['quantity'] = amount
-        info['quantity'] = get_validated_quantity(info['quantity'])
-        info['amount'] = amount
-        if 'status' in info:
-            info['status'] = info['status'].upper()
+        if 'quantity' not in split:
+            split['quantity'] = amount
+        split['quantity'] = get_validated_quantity(split['quantity'])
+        split['amount'] = amount
+        if 'status' in split:
+            split['status'] = split['status'].upper()
     return splits
 
 
@@ -371,39 +373,45 @@ class Transaction:
     @staticmethod
     def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None, action=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
-        splits = {}
+        splits = []
         if not deposit and not withdrawal:
             raise InvalidTransactionError('must enter deposit or withdrawal')
         try:
             amount = get_validated_amount(deposit or withdrawal)
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid deposit/withdrawal: %s' % e)
+        main_split = {}
         if deposit:
-            splits[account] = {'amount': amount}
+            main_split = {'account': account, 'amount': amount}
         else:
-            splits[account] = {'amount': amount * -1}
+            main_split = {'account': account, 'amount': amount * -1}
         if type_ is not None:
-            splits[account]['type'] = type_
+            main_split['type'] = type_
+        transfer_account_splits = []
         if isinstance(input_categories, Account):
+            split = {'account': input_categories}
             if deposit:
-                splits[input_categories] = {'amount': amount * -1}
+                split['amount'] = amount * -1
             else:
-                splits[input_categories] = {'amount': amount}
-        elif isinstance(input_categories, dict):
+                split['amount'] = amount
+            transfer_account_splits.append(split)
+        elif isinstance(input_categories, list):
             #don't need to negate any of the values here - should already be set correctly when user enters splits
-            for acc, split_info in input_categories.items():
-                if isinstance(split_info, dict) and 'amount' in split_info:
-                    splits[acc] = split_info
+            for split in input_categories:
+                if isinstance(split, dict) and 'account' in split and 'amount' in split:
+                    transfer_account_splits.append(split)
                 else:
                     raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         else:
             raise InvalidTransactionError(f'invalid input categories: {input_categories}')
-        splits[account]['status'] = status.upper()
+        main_split['status'] = status.upper()
         if action:
             if account.type == AccountType.SECURITY:
-                splits[account]['action'] = action
+                main_split['action'] = action
             else:
-                splits[input_categories]['action'] = action
+                transfer_account_splits[0]['action'] = action
+        splits.append(main_split)
+        splits.extend(transfer_account_splits)
         return splits
 
     @staticmethod
@@ -465,8 +473,9 @@ class Transaction:
 
 
 def _categories_display(splits, main_account):
-    if len(splits.keys()) == 2:
-        for account in splits.keys():
+    if len(splits) == 2:
+        for split in splits:
+            account = split['account']
             if account != main_account:
                 return str(account)
     return 'multiple'
@@ -474,7 +483,8 @@ def _categories_display(splits, main_account):
 
 def get_display_strings_for_ledger(account, txn):
     '''txn can be either Transaction or ScheduledTransaction'''
-    amount = txn.splits[account]['amount']
+    split = [s for s in txn.splits if s['account'] == account][0]
+    amount = split['amount']
     if amount < Fraction(0):
         #make negative amount display as positive
         withdrawal = amount_display(amount * Fraction('-1'))
@@ -499,8 +509,8 @@ def get_display_strings_for_ledger(account, txn):
         display_strings['frequency'] = str(txn.frequency)
         display_strings['txn_date'] = str(txn.next_due_date)
     else:
-        display_strings['status'] = txn.splits[account].get('status', '')
-        display_strings['type'] = txn.splits[account].get('type', '')
+        display_strings['status'] = split.get('status', '')
+        display_strings['type'] = split.get('type', '')
         display_strings['txn_date'] = str(txn.txn_date)
     if hasattr(txn, 'balance'):
         display_strings['balance'] = amount_display(txn.balance)
@@ -512,8 +522,9 @@ LedgerBalances = namedtuple('LedgerBalances', ['current', 'current_cleared'])
 
 def splits_display(splits):
     account_amt_list = []
-    for account, info in splits.items():
-        amount = info['amount']
+    for split in splits:
+        account = split['account']
+        amount = split['amount']
         account_amt_list.append(f'{account.name}: {amount_display(amount)}')
     return '; '.join(account_amt_list)
 
@@ -1212,7 +1223,7 @@ class SQLiteStorage:
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
-        splits = {}
+        splits = []
         split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
@@ -1220,14 +1231,14 @@ class SQLiteStorage:
                 account = self.get_account(account_id)
                 type_ = split_record[1]
                 amount = Fraction(split_record[2], split_record[3])
-                split = {'amount': amount, 'type': type_}
+                split = {'account': account, 'amount': amount, 'type': type_}
                 if split_record[4]:
                     quantity = Fraction(split_record[4], split_record[5])
                     split['quantity'] = quantity
                 if split_record[6]:
                     split['status'] = split_record[6]
                 split['action'] = split_record[7]
-                splits[account] = split
+                splits.append(split)
         return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_, alt_txn_id=alt_txn_id)
 
     def get_txn(self, txn_id):
@@ -1258,7 +1269,8 @@ class SQLiteStorage:
             payee = txn.payee.id
         else:
             payee = None
-        for account, info in txn.splits.items():
+        for split in txn.splits:
+            account = split['account']
             if not account.id:
                 self.save_account(account)
         field_names = ['date', 'payee_id', 'description']
@@ -1289,28 +1301,29 @@ class SQLiteStorage:
             #update transaction splits
             splits_db_info = cur.execute('SELECT account_id FROM transaction_splits WHERE transaction_id = ?', (txn_id,)).fetchall()
             old_txn_split_account_ids = [r[0] for r in splits_db_info]
-            new_txn_split_account_ids = [a.id for a in txn.splits.keys()]
+            new_txn_split_account_ids = [split['account'].id for split in txn.splits]
             #this could result in losing data if there was data in the splits that wasn't exposed in the GUI...
             #   eg. post_date, reconcile_date aren't exposed in the GUI
             split_account_ids_to_delete = set(old_txn_split_account_ids) - set(new_txn_split_account_ids)
             for account_id in split_account_ids_to_delete:
                 cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, account_id))
-            for account, info in txn.splits.items():
-                amount = info['amount']
-                quantity = info['quantity']
-                status = info.get('status', '')
-                if 'reconcile_date' in info:
-                    reconcile_date = str(info['reconcile_date'])
+            for split in txn.splits:
+                amount = split['amount']
+                quantity = split['quantity']
+                status = split.get('status', '')
+                if 'reconcile_date' in split:
+                    reconcile_date = str(split['reconcile_date'])
                 else:
                     reconcile_date = None
-                type_ = info.get('type', '')
-                description = info.get('description', '')
+                type_ = split.get('type', '')
+                description = split.get('description', '')
                 field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description']
                 field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description]
-                action = info.get('action')
+                action = split.get('action')
                 if action is not None:
                     field_names.append('action')
                     field_values.append(action)
+                account = split['account']
                 field_values.extend([txn_id, account.id]) #add txn id and account id for insert and update
                 if account.id in old_txn_split_account_ids:
                     field_names_s = ', '.join([f'{name} = ?' for name in field_names])
@@ -1461,14 +1474,15 @@ class SQLiteStorage:
                 #handle splits
                 splits_db_info = cur.execute('SELECT account_id FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (scheduled_txn.id,)).fetchall()
                 old_split_account_ids = [r[0] for r in splits_db_info]
-                new_split_account_ids = [a.id for a in scheduled_txn.splits.keys()]
+                new_split_account_ids = [split['account'].id for split in scheduled_txn.splits]
                 split_account_ids_to_delete = set(old_split_account_ids) - set(new_split_account_ids)
                 for account_id in split_account_ids_to_delete:
                     cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
-                for account, info in scheduled_txn.splits.items():
-                    amount = info['amount']
+                for split in scheduled_txn.splits:
+                    account = split['account']
+                    amount = split['amount']
                     quantity = amount
-                    status = info.get('status', '')
+                    status = split.get('status', '')
                     if account.id in old_split_account_ids:
                         cur.execute('UPDATE scheduled_transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, scheduled_txn.id, account.id))
                     else:
@@ -1478,10 +1492,11 @@ class SQLiteStorage:
                 cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, payee_id, description) VALUES (?, ?, ?, ?, ?)',
                     (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, scheduled_txn.description))
                 scheduled_txn.id = cur.lastrowid
-                for account, info in scheduled_txn.splits.items():
-                    amount = info['amount']
+                for split in scheduled_txn.splits:
+                    account = split['account']
+                    amount = split['amount']
                     quantity = amount
-                    status = info.get('status', '')
+                    status = split.get('status', '')
                     cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             cur.execute('COMMIT')
         except:
@@ -1490,15 +1505,16 @@ class SQLiteStorage:
 
     def get_scheduled_transaction(self, id_):
         cur = self._db_connection.cursor()
-        splits = {}
+        splits = []
         split_records = cur.execute('SELECT account_id, value_numerator, value_denominator, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
-                splits[account] = {'amount': Fraction(split_record[1], split_record[2])}
+                split = {'account': account, 'amount': Fraction(split_record[1], split_record[2])}
                 if split_record[3]:
-                    splits[account]['status'] = split_record[3]
+                    split['status'] = split_record[3]
+                splits.append(split)
         rows = cur.execute('SELECT name,frequency,next_due_date,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         payee = self.get_payee(id_=rows[0][3])
         st = ScheduledTransaction(
@@ -1580,7 +1596,8 @@ class Engine:
         txns_with_balance = []
         balance = Fraction(0)
         for t in txns:
-            balance = balance + t.splits[account][balance_field]
+            split = [s for s in t.splits if s['account'] == account][0]
+            balance = balance + split[balance_field]
             t.balance = balance
             txns_with_balance.append(t)
         return txns_with_balance
@@ -1591,9 +1608,9 @@ class Engine:
     def get_transactions(self, account, filter_account=None, query=None, status=None, sort='date', reverse=False):
         results = self._storage.get_transactions(account_id=account.id)
         if filter_account:
-            results = [t for t in results if filter_account in t.splits]
+            results = [t for t in results if filter_account in [s['account'] for s in t.splits]]
         if status:
-            results = [t for t in results if t.splits[account].get('status') == status]
+            results = [t for t in results if [s for s in t.splits if s['account'] == account][0].get('status') == status]
         if query:
             query = query.lower()
             results = [t for t in results
@@ -1616,8 +1633,9 @@ class Engine:
         for t in sorted_txns:
             if t.txn_date <= today:
                 current = t.balance
-                if t.splits[account].get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
-                    current_cleared = current_cleared + t.splits[account][balance_field]
+                split = [s for s in t.splits if s['account'] == account][0]
+                if split.get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
+                    current_cleared = current_cleared + split[balance_field]
         return LedgerBalances(
                 current=amount_display(current),
                 current_cleared=amount_display(current_cleared),
@@ -1648,7 +1666,7 @@ class Engine:
         scheduled_txns = self._storage.get_scheduled_transactions()
         if accounts:
             for acc in accounts:
-                scheduled_txns = [st for st in scheduled_txns if acc in st.splits]
+                scheduled_txns = [st for st in scheduled_txns if acc in [s['account'] for s in st.splits]]
         return [t for t in scheduled_txns if t.is_due()]
 
     def save_scheduled_transaction(self, scheduled_txn):
@@ -1699,12 +1717,13 @@ class Engine:
                         payee = txn.payee.name
                     else:
                         payee = ''
-                    if len(txn.splits.keys()) == 2:
-                        transfer_account = [str(a) for a in txn.splits.keys() if a != acc][0]
+                    if len(txn.splits) == 2:
+                        transfer_account = [str(s['account']) for s in txn.splits if s['account'] != acc][0]
                     else:
                         transfer_account = 'multiple'
+                    split = [s for s in txn.splits if s['account'] == acc][0]
                     data = [str(txn.txn_date), payee, txn.description or '',
-                            amount_display(txn.splits[acc]['amount']), transfer_account]
+                            amount_display(split['amount']), transfer_account]
                     line = self._create_export_line(data)
                     f.write(f'{line}\n'.encode('utf8'))
 
@@ -1801,7 +1820,7 @@ def import_kmymoney(kmy_file, engine):
     print(f'{datetime.now()} migrating transactions...')
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
-        splits = {}
+        splits = []
         account = None
         txn_id = transaction.attrib['id']
         try:
@@ -1815,6 +1834,7 @@ def import_kmymoney(kmy_file, engine):
                     if key == 'account':
                         account_orig_id = split_el.attrib['account']
                         account = engine.get_account(account_mapping_info[account_orig_id])
+                        split['account'] = account
                     elif key == 'value':
                         split['amount'] = value
                     elif key == 'shares':
@@ -1860,7 +1880,7 @@ def import_kmymoney(kmy_file, engine):
                         else:
                             if value:
                                 raise ImportError(f'unhandled txn attribute: {key} = {value}')
-                splits[account] = split
+                splits.append(split)
             engine.save_transaction(
                     Transaction(
                         splits=splits,
@@ -2010,34 +2030,37 @@ class CLI:
         '''get pieces of data common to txns and scheduled txns'''
         txn_info = {}
         self.print('Splits:')
-        splits = {}
+        splits = []
         if txn:
-            for account, split_info in txn.splits.items():
+            for split_info in txn.splits:
+                account = split_info['account']
                 amount = self.input(prompt='%s amount: ' % account.name, prefill=fraction_to_decimal(split_info['amount']))
                 if amount:
-                    splits[account] = {'amount': amount}
+                    split = {'account': account, 'amount': amount}
                     orig_status = split_info.get('status', '')
                     if orig_status:
                         orig_status = orig_status.value
                     reconciled_state = self.input(prompt=f'{account.name} reconciled state: ', prefill=orig_status)
                     if reconciled_state:
-                        splits[account]['status'] = reconciled_state
+                        split['status'] = reconciled_state
                     if not is_scheduled_txn:
-                        splits[account]['type'] = self.input(prompt=f'{account.name} type: ', prefill=split_info['type'])
-                        splits[account]['action'] = self.input(prompt=f'{account.name} action: ', prefill=split_info['action'])
+                        split['type'] = self.input(prompt=f'{account.name} type: ', prefill=split_info['type'])
+                        split['action'] = self.input(prompt=f'{account.name} action: ', prefill=split_info['action'])
+                    splits.append(split)
         while True:
             acct_id = self.input(prompt='new account ID: ')
             if acct_id:
                 account = self._engine.get_account(id_=acct_id)
                 amt = self.input(prompt=' amount: ')
                 if amt:
-                    splits[account] = {'amount': amt}
+                    split = {'account': account, 'amount': amt}
                     reconciled_state = self.input(prompt=f'{account.name} reconciled state: ')
                     if reconciled_state:
-                        splits[account]['status'] = reconciled_state
+                        split['status'] = reconciled_state
                     if not is_scheduled_txn:
-                        splits[account]['type'] = self.input(prompt=f'{account.name} type: ')
-                        splits[account]['action'] = self.input(prompt=f'{account.name} action: ')
+                        split['type'] = self.input(prompt=f'{account.name} type: ')
+                        split['action'] = self.input(prompt=f'{account.name} action: ')
+                    splits.append(split)
                 else:
                     break
             else:
@@ -2122,7 +2145,7 @@ class CLI:
         self.print('%s: %s' % (scheduled_txn.id, scheduled_txn.name))
         self.print('  frequency: %s' % scheduled_txn.frequency.name)
         self.print('  next due date: %s' % scheduled_txn.next_due_date)
-        splits_str = '; '.join(['%s-%s: %s' % (acc.id, acc.name, str(scheduled_txn.splits[acc])) for acc in scheduled_txn.splits.keys()])
+        splits_str = '; '.join(['%s-%s: %s' % (split['account'].id, split['account'].name, str(split)) for split in scheduled_txn.splits])
         self.print('  splits: %s' % splits_str)
         if scheduled_txn.payee:
             self.print('  payee: %s' % scheduled_txn.payee)
@@ -2520,8 +2543,8 @@ class TransferAccountsDisplay:
         for account in self._accounts:
             if account != self._main_account:
                 #find correct account in the list if txn has just two splits
-                if len(self._splits.keys()) == 2:
-                    if account in self._splits:
+                if len(self._splits) == 2:
+                    if account in [s['account'] for s in self._splits]:
                          current_index = index + 1
                 self._transfer_accounts_display_list.append(str(account))
                 self._transfer_accounts_list.append(account)
@@ -2530,10 +2553,10 @@ class TransferAccountsDisplay:
         self._transfer_accounts_list.append({})
         self.transfer_accounts_combo['values'] = self._transfer_accounts_display_list
         if self._splits:
-            if len(self._splits.keys()) > 2:
+            if len(self._splits) > 2:
                 current_index = len(self._transfer_accounts_display_list) - 1
             self.transfer_accounts_combo.current(current_index)
-            self._multiple_splits = self._splits.copy()
+            self._multiple_splits = copy.deepcopy(self._splits)
         self.transfer_accounts_combo.grid(row=0, column=0, sticky=(tk.N, tk.S))
         self.split_button = ttk.Button(master=self._widget, text='Split', command=self._show_splits_editor)
         self.split_button.grid(row=1, column=0, sticky=(tk.N, tk.S))
@@ -2542,8 +2565,9 @@ class TransferAccountsDisplay:
         #make sure amounts are converted to text for passing to splits editor
         initial_txn_splits = {}
         if self._splits:
-            for acc, info in self._splits.items():
-                initial_txn_splits[acc] = {'amount': amount_display(info['amount'])}
+            for split in self._splits:
+                account = split['account']
+                initial_txn_splits[account] = {'amount': amount_display(split['amount'])}
         withdrawal = self._withdrawal_var.get()
         deposit = self._withdrawal_var.get()
         if withdrawal or deposit:
@@ -2560,7 +2584,7 @@ class TransferAccountsDisplay:
         #update the withdrawal/deposit fields here, when splits editor closes
         if txn_splits:
             self.transfer_accounts_combo.current(len(self._transfer_accounts_display_list)-1)
-            self._multiple_splits = {}
+            self._multiple_splits = []
             for acc, info in txn_splits.items():
                 if acc == self._main_account and info.get('amount'):
                     if info['amount'].startswith('-'):
@@ -2568,7 +2592,7 @@ class TransferAccountsDisplay:
                     else:
                         self._deposit_var.set(info['amount'])
                 else:
-                    self._multiple_splits[acc] = {'amount': get_validated_amount(info['amount'])}
+                    self._multiple_splits.append({'account': acc, 'amount': get_validated_amount(info['amount'])})
 
     def get_transfer_accounts(self):
         transfer_account_index = self.transfer_accounts_combo.current()
@@ -2665,18 +2689,22 @@ class TransactionForm:
         return self.top_level
 
     def _handle_save(self):
+        dt = self.date_entry.get()
+        transfer_accounts = self.transfer_accounts_display.get_transfer_accounts()
+        if isinstance(transfer_accounts, list):
+            transfer_accounts = [ta for ta in transfer_accounts if ta['account'] != self._account]
         kwargs = {
             'id_': self._id,
             'account': self._account,
             'deposit': self.deposit_var.get(),
             'withdrawal': self.withdrawal_var.get(),
-            'txn_date': self.date_entry.get(),
+            'txn_date': dt,
             'payee': self.payee_combo.get(),
             'description': self.description_entry.get(),
             'status': self.status_combo.get(),
             'type_': self.type_entry.get(),
             'action': self.action_combo.get(),
-            'categories': self.transfer_accounts_display.get_transfer_accounts(),
+            'categories': transfer_accounts,
         }
         try:
             transaction = Transaction.from_user_info(**kwargs)
@@ -3124,8 +3152,8 @@ class ScheduledTransactionForm:
 
         account = deposit = withdrawal = None
         if self._scheduled_transaction:
-            account = list(self._scheduled_transaction.splits.keys())[0]
-            amount = self._scheduled_transaction.splits[account]['amount']
+            account = self._scheduled_transaction.splits[0]['account']
+            amount = self._scheduled_transaction.splits[0]['amount']
             if amount > 0:
                 deposit = amount_display(amount)
             else:
@@ -3156,7 +3184,7 @@ class ScheduledTransactionForm:
         if self._scheduled_transaction:
             splits = self._scheduled_transaction.splits
         else:
-            splits = {}
+            splits = []
         self.transfer_accounts_display = TransferAccountsDisplay(
                 master=self.content,
                 accounts=self._accounts,

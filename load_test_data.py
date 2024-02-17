@@ -59,51 +59,51 @@ def _load_data(storage, many_txns):
     payee = bb.Payee("Joe's Burgers")
     storage.save_payee(payee)
 
-    storage.save_txn(bb.Transaction(splits={opening_balances: {'amount': '-1000'}, checking: {'amount': 1000}}, txn_date='2018-01-01'))
-    storage.save_txn(bb.Transaction(splits={opening_balances: {'amount': '-1000'}, savings: {'amount': 1000}}, txn_date='2018-01-01'))
-    storage.save_txn(bb.Transaction(splits={wages: {'amount': '-1000'}, checking: {'amount': 900}, stock_a: {'amount': 100, 'quantity': '5.23'}}, txn_date='2018-01-01'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-10'}, restaurants: {'amount': 10}}, txn_date='2018-01-01', payee=payee))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-20'}, restaurants: {'amount': 20}}, txn_date='2018-01-02'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-30'}, restaurants: {'amount': 30}}, txn_date='2018-01-04'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-40'}, restaurants: {'amount': 40}}, txn_date='2018-01-06'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-50'}, restaurants: {'amount': 50}}, txn_date='2018-01-07'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-60'}, restaurants: {'amount': 60}}, txn_date='2018-01-08'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '100'}, savings: {'amount': '-100'}}, txn_date='2018-01-09'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-70'}, restaurants: {'amount': 70}}, txn_date='2018-01-10'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-80'}, restaurants: {'amount': 80}}, txn_date='2018-01-11'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-90'}, restaurants: {'amount': 90}}, txn_date='2018-02-11'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-180'}, housing: {'amount': 180}}, txn_date='2018-02-12'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '80.13'}, savings: {'amount': '-80.13'}}, txn_date='2018-02-13'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-50'}, gas_stations: {'amount': 50}}, txn_date='2018-02-14'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-70'}, gas_stations: {'amount': 40}, restaurants: {'amount': 30}}, txn_date='2018-02-15'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-10'}, gas_stations: {'amount': 10}}, txn_date='2018-02-16'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-20'}, gas_stations: {'amount': 20}}, txn_date='2018-02-17'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-40'}, gas_stations: {'amount': 40}}, txn_date='2018-02-18'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-30'}, gas_stations: {'amount': 30}}, txn_date='2018-02-19'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-50'}, gas_stations: {'amount': 50}}, txn_date='2018-02-21'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-70'}, gas_stations: {'amount': 70}}, txn_date='2018-02-23'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '-90'}, gas_stations: {'amount': 90}}, txn_date='2018-02-24'))
-    storage.save_txn(bb.Transaction(splits={checking: {'amount': '40'}, savings: {'amount': '-40'}}, txn_date='2018-02-25'))
+    storage.save_txn(bb.Transaction(splits=[{'account': opening_balances, 'amount': '-1000'}, {'account': checking, 'amount': 1000}], txn_date='2018-01-01'))
+    storage.save_txn(bb.Transaction(splits=[{'account': opening_balances, 'amount': '-1000'}, {'account': savings, 'amount': 1000}], txn_date='2018-01-01'))
+    storage.save_txn(bb.Transaction(splits=[{'account': wages, 'amount': '-1000'}, {'account': checking, 'amount': 900}, {'account': stock_a, 'amount': 100, 'quantity': '5.23'}], txn_date='2018-01-01'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-10'}, {'account': restaurants, 'amount': 10}], txn_date='2018-01-01', payee=payee))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-20'}, {'account': restaurants, 'amount': 20}], txn_date='2018-01-02'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-30'}, {'account': restaurants, 'amount': 30}], txn_date='2018-01-04'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-40'}, {'account': restaurants, 'amount': 40}], txn_date='2018-01-06'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-50'}, {'account': restaurants, 'amount': 50}], txn_date='2018-01-07'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-60'}, {'account': restaurants, 'amount': 60}], txn_date='2018-01-08'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '100'}, {'account': savings, 'amount': '-100'}], txn_date='2018-01-09'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-70'}, {'account': restaurants, 'amount': 70}], txn_date='2018-01-10'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-80'}, {'account': restaurants, 'amount': 80}], txn_date='2018-01-11'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-90'}, {'account': restaurants, 'amount': 90}], txn_date='2018-02-11'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-180'}, {'account': housing, 'amount': 180}], txn_date='2018-02-12'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '80.13'}, {'account': savings, 'amount': '-80.13'}], txn_date='2018-02-13'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-50'}, {'account': gas_stations, 'amount': 50}], txn_date='2018-02-14'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-70'}, {'account': gas_stations, 'amount': 40}, {'account': restaurants, 'amount': 30}], txn_date='2018-02-15'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-10'}, {'account': gas_stations, 'amount': 10}], txn_date='2018-02-16'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-20'}, {'account': gas_stations, 'amount': 20}], txn_date='2018-02-17'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-40'}, {'account': gas_stations, 'amount': 40}], txn_date='2018-02-18'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-30'}, {'account': gas_stations, 'amount': 30}], txn_date='2018-02-19'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-50'}, {'account': gas_stations, 'amount': 50}], txn_date='2018-02-21'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-70'}, {'account': gas_stations, 'amount': 70}], txn_date='2018-02-23'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-90'}, {'account': gas_stations, 'amount': 90}], txn_date='2018-02-24'))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '40'}, {'account': savings, 'amount': '-40'}], txn_date='2018-02-25'))
 
     if many_txns:
         print('adding 1000 random txns')
         for i in range(1000):
             amt = random.randint(1, 500)
             day = random.randint(1, 30)
-            txn = bb.Transaction(splits={checking: {'amount': amt * -1}, restaurants: {'amount': amt}}, txn_date='2018-04-%s' % day)
+            txn = bb.Transaction(splits=[{'account': checking, 'amount': amt * -1}, {'account': restaurants, 'amount': amt}], txn_date='2018-04-%s' % day)
             storage.save_txn(txn)
 
     rent_scheduled_txn = bb.ScheduledTransaction(
             name='rent',
             frequency=bb.ScheduledTransactionFrequency.MONTHLY,
-            splits={checking: {'amount': -100}, housing: {'amount': 100}},
+            splits=[{'account': checking, 'amount': -100}, {'account': housing, 'amount': 100}],
             next_due_date=date.today()-timedelta(days=1)
         )
     storage.save_scheduled_transaction(rent_scheduled_txn)
     taxes_scheduled_txn = bb.ScheduledTransaction(
             name='taxes',
             frequency=bb.ScheduledTransactionFrequency.YEARLY,
-            splits={checking: {'amount': -25}, taxes: {'amount': 25}},
+            splits=[{'account': checking, 'amount': -25}, {'account': taxes, 'amount': 25}],
             next_due_date=date.today()+timedelta(days=1)
         )
     storage.save_scheduled_transaction(taxes_scheduled_txn)

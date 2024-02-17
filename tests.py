@@ -133,17 +133,17 @@ class TestTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
-        self.valid_splits = {self.checking: {'amount': '100'}, self.savings: {'amount': '-100'}}
+        self.valid_splits = [{'account': self.checking, 'amount': '100'}, {'account': self.savings, 'amount': '-100'}]
 
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(splits={self.checking: {'amount': 101.1}, self.savings: {'amount': '-101.1'}})
+            bb.Transaction(splits=[{'account': self.checking, 'amount': 101.1}, {'account':self.savings, 'amount': '-101.1'}])
         self.assertEqual(str(cm.exception), 'invalid split: invalid value type: <class \'float\'> 101.1')
         with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(splits={self.checking: {'amount': '123.456'}, self.savings: {'amount': '-123.45'}})
+            bb.Transaction(splits=[{'account': self.checking, 'amount': '123.456'}, {'account': self.savings, 'amount': '-123.45'}])
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
         with self.assertRaises(bb.InvalidTransactionError) as cm:
-            bb.Transaction(splits={self.checking: {'amount': '123.456'}, self.savings: {'amount': 123}})
+            bb.Transaction(splits=[{'account': self.checking, 'amount': '123.456'}, {'account': self.savings, 'amount': 123}])
         self.assertEqual(str(cm.exception), 'invalid split: no fractions of cents allowed: 123.456')
 
     def test_invalid_txn_date(self):
@@ -163,16 +163,19 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
-        splits = {self.checking: {'amount': '100', 'status': 'c'}, self.savings: {'amount': '-100'}}
+        splits = [{'account': self.checking, 'amount': '100', 'status': 'c'}, {'account': self.savings, 'amount': '-100'}]
         t = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
                 payee=bb.Payee('payee 1'),
                 description='2 hamburgers',
             )
-        txn_splits = {self.checking: {'amount': Fraction(100), 'quantity': Fraction(100), 'status': 'C'}, self.savings: {'amount': Fraction(-100), 'quantity': Fraction(-100)}}
-        self.assertEqual(t.splits, txn_splits)
-        self.assertTrue(isinstance(t.splits[self.checking]['amount'], Fraction))
+        expected_splits = [
+                {'account': self.checking, 'amount': Fraction(100), 'quantity': Fraction(100), 'status': 'C'},
+                {'account': self.savings, 'amount': Fraction(-100), 'quantity': Fraction(-100)}
+            ]
+        self.assertEqual(t.splits, expected_splits)
+        self.assertTrue(isinstance(t.splits[0]['amount'], Fraction))
         self.assertEqual(t.txn_date, date.today())
         self.assertEqual(t.payee.name, 'payee 1')
         self.assertEqual(t.description, '2 hamburgers')
@@ -189,10 +192,10 @@ class TestTransaction(unittest.TestCase):
 
     def test_splits(self):
         t = bb.Transaction(
-                splits={self.checking: {'amount': '-1'}, self.savings: {'amount': '1'}},
+                splits=[{'account': self.checking, 'amount': '-1'}, {'account': self.savings, 'amount': '1'}],
                 txn_date=date.today(),
             )
-        self.assertEqual(t.splits, {self.checking: {'amount': -1, 'quantity': -1}, self.savings: {'amount': 1, 'quantity': 1}})
+        self.assertEqual(t.splits, [{'account': self.checking, 'amount': -1, 'quantity': -1}, {'account': self.savings, 'amount': 1, 'quantity': 1}])
 
     def test_txn_payee(self):
         t = bb.Transaction(
@@ -220,10 +223,10 @@ class TestTransaction(unittest.TestCase):
                 status='C',
                 categories=self.savings, #what to call this? it's the other accounts, the categories, ... (& many times, it's just one expense account)
             )
-        self.assertEqual(t.splits, {
-            self.checking: {'amount': 1001, 'quantity': 1001, 'status': 'C'},
-            self.savings: {'amount': -1001, 'quantity': -1001},
-        })
+        self.assertEqual(t.splits, [
+            {'account': self.checking, 'amount': 1001, 'quantity': 1001, 'status': 'C'},
+            {'account': self.savings, 'amount': -1001, 'quantity': -1001},
+        ])
 
     def test_txn_from_user_info_withdrawal_splits(self):
         #test passing in list, just one account, ...
@@ -233,17 +236,17 @@ class TestTransaction(unittest.TestCase):
                 account=self.checking,
                 deposit='',
                 withdrawal='100',
-                categories={self.savings: {'amount': 45}, house: {'amount': 55}},
+                categories=[{'account': self.savings, 'amount': 45}, {'account': house, 'amount': 55}],
                 description='something',
                 payee=bb.Payee('payee 1'),
                 status='R',
             )
         self.assertEqual(txn.splits,
-                {
-                    self.checking: {'amount': -100, 'quantity': -100, 'status': 'R'},
-                    self.savings: {'amount': 45, 'quantity': 45},
-                    house: {'amount': 55, 'quantity': 55},
-                }
+                [
+                    {'account': self.checking, 'amount': -100, 'quantity': -100, 'status': 'R'},
+                    {'account': self.savings, 'amount': 45, 'quantity': 45},
+                    {'account': house, 'amount': 55, 'quantity': 55},
+                ]
             )
 
     def test_txn_from_user_info_deposit_splits(self):
@@ -254,17 +257,17 @@ class TestTransaction(unittest.TestCase):
                 account=self.checking,
                 deposit='100',
                 withdrawal='',
-                categories={self.savings: {'amount': -45}, wages: {'amount': -55}},
+                categories=[{'account':self.savings, 'amount': -45}, {'account': wages, 'amount': -55}],
                 description='something',
                 payee=bb.Payee('company'),
                 status='R',
             )
         self.assertEqual(txn.splits,
-                {
-                    self.checking: {'amount': 100, 'quantity': 100, 'status': 'R'},
-                    self.savings: {'amount': -45, 'quantity': -45},
-                    wages: {'amount': -55, 'quantity': -55},
-                }
+                [
+                    {'account': self.checking, 'amount': 100, 'quantity': 100, 'status': 'R'},
+                    {'account': self.savings, 'amount': -45, 'quantity': -45},
+                    {'account': wages, 'amount': -55, 'quantity': -55},
+                ]
             )
 
     def test_txn_from_user_info_no_withdrawal_deposit(self):
@@ -274,7 +277,7 @@ class TestTransaction(unittest.TestCase):
                     account=self.checking,
                     deposit='',
                     withdrawal='',
-                    categories={},
+                    categories=[],
                     description='',
                     payee='',
                     status='',
@@ -284,17 +287,17 @@ class TestTransaction(unittest.TestCase):
 
     def test_txn_status(self):
         t = bb.Transaction(
-                splits={
-                    self.checking: {'amount': '-101', 'status': 'c'},
-                    self.savings: {'amount': '101'},
-                },
+                splits=[
+                    {'account': self.checking, 'amount': '-101', 'status': 'c'},
+                    {'account': self.savings, 'amount': '101'},
+                ],
                 txn_date=date.today(),
             )
-        self.assertEqual(t.splits[self.checking]['status'], 'C')
+        self.assertEqual(t.splits[0]['status'], 'C')
 
     def test_get_display_strings(self):
         t = bb.Transaction(
-                splits={self.checking: {'amount': '-1.2', 'status': 'C'}, self.savings: {'amount': '1.2'}},
+                splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2'}],
                 txn_date=date.today(),
                 description='something',
                 payee=bb.Payee('asdf'),
@@ -352,19 +355,19 @@ class TestTransaction(unittest.TestCase):
         a2 = get_test_account(id_=2, name='Savings')
         a3 = get_test_account(id_=3, name='Other')
         t = bb.Transaction(
-                splits={
-                    a: {'amount': -100},
-                    a2: {'amount': 65},
-                    a3: {'amount': 35},
-                },
+                splits=[
+                    {'account': a, 'amount': -100},
+                    {'account': a2, 'amount': 65},
+                    {'account': a3, 'amount': 35},
+                ],
                 txn_date=date.today(),
             )
         self.assertEqual(bb._categories_display(t.splits, main_account=a), 'multiple')
         t = bb.Transaction(
-                splits={
-                    a: {'amount': -100},
-                    a2: {'amount': 100},
-                },
+                splits=[
+                    {'account': a, 'amount': -100},
+                    {'account': a2, 'amount': 100},
+                ],
                 txn_date=date.today(),
             )
         self.assertEqual(bb._categories_display(t.splits, main_account=a), 'Savings')
@@ -375,10 +378,10 @@ class TestScheduledTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
-        self.valid_splits={
-                self.checking: {'amount': -101},
-                self.savings: {'amount': 101},
-            }
+        self.valid_splits=[
+                {'account': self.checking, 'amount': -101},
+                {'account': self.savings, 'amount': 101},
+            ]
 
     def test_invalid_frequency(self):
         with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
@@ -908,7 +911,7 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        txn = bb.Transaction(txn_date=date(2020,10,15), splits={checking: {'amount': 10}, savings: {'amount': -10}})
+        txn = bb.Transaction(txn_date=date(2020,10,15), splits=[{'account': checking, 'amount': 10}, {'account': savings, 'amount': -10}])
         self.storage.save_txn(txn)
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage._db_connection.execute('DELETE FROM accounts WHERE id=1')
@@ -991,9 +994,9 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_txn(self):
         checking = get_test_account()
-        savings = get_test_account(name='Savings')
+        groceries = get_test_account(name='Groceries')
         self.storage.save_account(checking)
-        self.storage.save_account(savings)
+        self.storage.save_account(groceries)
         chickfila = bb.Payee('Chick-fil-A')
         self.storage.save_payee(chickfila)
         today = date.today()
@@ -1001,8 +1004,11 @@ class TestSQLiteStorage(unittest.TestCase):
         tomorrow = today + timedelta(days=1)
         tomorrow_str = tomorrow.strftime('%Y-%m-%d')
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'status': bb.Transaction.CLEARED, 'type': '100'},
-                        savings: {'amount': 101, 'description': 'some description', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today}},
+                splits=[
+                    {'account': checking, 'amount': '-101', 'status': bb.Transaction.CLEARED, 'type': '100'},
+                    {'account': groceries, 'amount': 51, 'description': 'flour', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today},
+                    {'account': groceries, 'amount': 50, 'description': 'rice', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today},
+                    ],
                 txn_date=today,
                 entry_date=tomorrow,
                 payee=chickfila,
@@ -1021,8 +1027,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,reconcile_date,type,description FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, -101, 1, -101, 1, 'C', None, '100', ''),
-                                             (2, 1, 2, 101, 1, 101, 1, 'R', today_str, '', 'some description')])
+        self.assertEqual(txn_split_records, [(1, 1, checking.id, -101, 1, -101, 1, 'C', None, '100', ''),
+                                             (2, 1, groceries.id, 51, 1, 51, 1, 'R', today_str, '', 'flour'),
+                                             (3, 1, groceries.id, 50, 1, 50, 1, 'R', today_str, '', 'rice')])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
@@ -1030,7 +1037,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 payee='someone',
             )
@@ -1044,14 +1051,14 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 alt_txn_id='asdf',
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 alt_txn_id='',
                 id_=txn_id,
@@ -1068,14 +1075,14 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 alt_txn_id='asdf',
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 id_=txn_id,
             )
@@ -1091,13 +1098,13 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(fund)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': 'share-buy'}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': fund, 'amount': 101, 'action': 'share-buy'}],
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': ''}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': fund, 'amount': 101, 'action': ''}],
                 txn_date=date.today(),
                 id_=txn_id,
             )
@@ -1113,13 +1120,13 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(fund)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, fund: {'amount': 101, 'action': 'share-buy'}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': fund, 'amount': 101, 'action': 'share-buy'}],
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, fund: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': fund, 'amount': 101}],
                 txn_date=date.today(),
                 id_=txn_id,
             )
@@ -1135,7 +1142,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 id_=1
             )
@@ -1156,7 +1163,7 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: {'amount': -100}, savings: {'amount': 90}}, txn_date=date.today())
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': -100}, {'account': savings, 'amount': 90}], txn_date=date.today())
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             self.storage.save_txn(txn)
         self.assertEqual(str(cm.exception), "splits don't balance: -100.00, 90.00")
@@ -1169,12 +1176,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         self.storage.save_account(fund)
 
-        txn = bb.Transaction(splits={checking: {'amount': -100, 'action': 'share-buy'}, fund: {'amount': 100}}, txn_date=date.today())
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': -100, 'action': 'share-buy'}, {'account': fund, 'amount': 100}], txn_date=date.today())
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             self.storage.save_txn(txn)
         self.assertEqual(str(cm.exception), 'actions can only be used with SECURITY accounts')
 
-        txn = bb.Transaction(splits={checking: {'amount': -100}, fund: {'amount': 100, 'action': 'asdf'}}, txn_date=date.today())
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': -100}, {'account': fund, 'amount': 100, 'action': 'asdf'}], txn_date=date.today())
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_txn(txn)
         self.assertIn('FOREIGN KEY constraint failed', str(cm.exception))
@@ -1185,7 +1192,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}],
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
@@ -1201,10 +1208,10 @@ class TestSQLiteStorage(unittest.TestCase):
         # check scheduled txns as well
         wendys = bb.Payee('Wendys')
         self.storage.save_payee(wendys)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1228,10 +1235,10 @@ class TestSQLiteStorage(unittest.TestCase):
 
         # first have the splits error
         t = bb.Transaction(
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}],
                 txn_date=date.today(),
             )
-        t.splits[checking].pop('amount')
+        t.splits[0].pop('amount')
         try:
             self.storage.save_txn(t)
         except KeyError:
@@ -1245,7 +1252,7 @@ class TestSQLiteStorage(unittest.TestCase):
 
         # now have the transaction record error
         t = bb.Transaction(
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}],
                 txn_date=date.today(),
             )
         t.txn_date = 'asdf'
@@ -1265,7 +1272,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}],
                 txn_date=date.today(),
             )
         self.storage.save_txn(t)
@@ -1294,7 +1301,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         payee = bb.Payee('payee', id_=1)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 payee=payee,
             )
@@ -1308,14 +1315,14 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'status': 'd'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101', 'status': 'd'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
             )
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_txn(t)
         self.assertIn('reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"', str(cm.exception))
 
-        t.splits[checking].pop('status')
+        t.splits[0].pop('status')
         self.storage.save_txn(t)
 
         c = self.storage._db_connection.cursor()
@@ -1336,7 +1343,7 @@ class TestSQLiteStorage(unittest.TestCase):
         today = date.today()
         today_str = today.strftime('%Y-%m-%d')
         t = bb.Transaction(
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}},
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}],
                 txn_date=today,
             )
         self.storage.save_txn(t)
@@ -1361,7 +1368,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_payee(payee)
         #create txn & save it
         t = bb.Transaction(
-                splits={checking: {'amount': '-101', 'status': 'C'}, savings: {'amount': 101}},
+                splits=[{'account': checking, 'amount': '-101', 'status': 'C'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
                 payee=payee,
             )
@@ -1379,10 +1386,10 @@ class TestSQLiteStorage(unittest.TestCase):
                 [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', ''),
                  (2, txn_id, savings.id, 101, 1, 101, 1, '', '', '')])
         #update it & save again
-        splits = {
-                checking: {'amount': '-101'},
-                another_acct: {'amount': '101'},
-            }
+        splits = [
+                {'account': checking, 'amount': '-101'},
+                {'account': another_acct, 'amount': '101'},
+            ]
         updated_txn = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
@@ -1419,8 +1426,8 @@ class TestSQLiteStorage(unittest.TestCase):
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
         self.assertEqual(txn.alt_txn_id, 'ID001')
-        self.assertEqual(txn.splits[checking], {'amount': -100, 'quantity': -100, 'type': '1a', 'action': ''})
-        self.assertEqual(txn.splits[fund], {'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy'})
+        self.assertEqual(txn.splits[0], {'account': checking, 'amount': -100, 'quantity': -100, 'type': '1a', 'action': ''})
+        self.assertEqual(txn.splits[1], {'account': fund, 'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy'})
 
     def test_delete_txn_from_db(self):
         checking = get_test_account()
@@ -1432,10 +1439,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_payee(payee)
         self.storage.save_payee(subway_payee)
         txn = bb.Transaction(txn_date=date(2017, 1, 25), payee=payee,
-                splits={checking: {'amount': '101'}, savings: {'amount': '-101'}})
+                splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}])
         self.storage.save_txn(txn)
         txn2 = bb.Transaction(txn_date=date(2017, 1, 28), payee=subway_payee,
-                splits={checking: {'amount': '46.23'}, savings: {'amount': '-46.23'}})
+                splits=[{'account': checking, 'amount': '46.23'}, {'account': savings, 'amount': '-46.23'}])
         self.storage.save_txn(txn2)
         self.storage.delete_txn(txn.id)
         c = self.storage._db_connection.cursor()
@@ -1587,19 +1594,19 @@ class TestSQLiteStorage(unittest.TestCase):
         transportation = get_test_account(type_=bb.AccountType.EXPENSE, name='Transportation')
         self.storage.save_account(transportation)
         txn1 = bb.Transaction(txn_date=date(2018, 1, 25),
-                splits={checking: {'amount': '-101'}, housing: {'amount': '101'}})
+                splits=[{'account': checking, 'amount': '-101'}, {'account': housing, 'amount': '101'}])
         txn2 = bb.Transaction(txn_date=date(2018, 2, 28),
-                splits={checking: {'amount': '-46.23'}, food: {'amount': '46.23'}})
+                splits=[{'account': checking, 'amount': '-46.23'}, {'account': food, 'amount': '46.23'}])
         txn3 = bb.Transaction(txn_date=date(2018, 3, 28),
-                splits={savings: {'amount': '-56.23'}, food: {'amount': '56.23'}})
+                splits=[{'account': savings, 'amount': '-56.23'}, {'account': food, 'amount': '56.23'}])
         txn4 = bb.Transaction(txn_date=date(2018, 4, 28),
-                splits={checking: {'amount': '-15'}, savings: {'amount': 15}})
+                splits=[{'account': checking, 'amount': '-15'}, {'account': savings, 'amount': 15}])
         txn5 = bb.Transaction(txn_date=date(2018, 5, 28),
-                splits={checking: {'amount': 15}, food: {'amount': '-15'}})
+                splits=[{'account': checking, 'amount': 15}, {'account': food, 'amount': '-15'}])
         txn6 = bb.Transaction(txn_date=date(2017, 1, 26),
-                splits={checking: {'amount': '-108'}, housing: {'amount': '108'}})
+                splits=[{'account': checking, 'amount': '-108'}, {'account': housing, 'amount': '108'}])
         txn7 = bb.Transaction(txn_date=date(2018, 2, 5),
-                splits={checking: {'amount': '100'}, wages: {'amount': '-100'}})
+                splits=[{'account': checking, 'amount': '100'}, {'account': wages, 'amount': '-100'}])
         for t in [txn1, txn2, txn3, txn4, txn5, txn6, txn7]:
             self.storage.save_txn(t)
         cursor = self.storage._db_connection.cursor()
@@ -1671,10 +1678,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         wendys = bb.Payee('Wendys')
         self.storage.save_payee(wendys)
-        valid_splits={
-                checking: {'amount': -101, 'status': 'R'},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101, 'status': 'R'},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1709,10 +1716,10 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1741,10 +1748,10 @@ class TestSQLiteStorage(unittest.TestCase):
                 name='w',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-01',
-                splits={
-                    checking: {'amount': -101},
-                    savings: {'amount': 25},
-                }
+                splits=[
+                    {'account': checking, 'amount': -101},
+                    {'account': savings, 'amount': 25},
+                ]
             )
         with self.assertRaises(bb.InvalidTransactionError) as cm:
             self.storage.save_scheduled_transaction(st)
@@ -1758,10 +1765,10 @@ class TestSQLiteStorage(unittest.TestCase):
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
-                splits={
-                    checking: {'amount': -101},
-                    savings: {'amount': 101},
-                }
+                splits=[
+                    {'account': checking, 'amount': -101},
+                    {'account': savings, 'amount': 101},
+                ]
             )
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_scheduled_transaction(st)
@@ -1776,10 +1783,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(another_acct)
         wendys = bb.Payee('Wendys')
         self.storage.save_payee(wendys)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits=[
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1802,10 +1809,10 @@ class TestSQLiteStorage(unittest.TestCase):
                 name='monthly 1 updated',
                 frequency=bb.ScheduledTransactionFrequency.MONTHLY,
                 next_due_date=date(2019, 1, 16),
-                splits={
-                    checking: {'amount': -101},
-                    another_acct: {'amount': 101},
-                },
+                splits=[
+                    {'account': checking, 'amount': -101},
+                    {'account': another_acct, 'amount': 101},
+                ],
                 id_=st_id
             )
         self.storage.save_scheduled_transaction(new_st)
@@ -1825,10 +1832,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         wendys = bb.Payee('Wendys')
         self.storage.save_payee(wendys)
-        valid_splits={
-                checking: {'amount': -101, 'status': bb.Transaction.CLEARED},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101, 'status': bb.Transaction.CLEARED},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1852,10 +1859,10 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -1938,9 +1945,29 @@ class TestEngine(unittest.TestCase):
         savings = self.engine.get_account(name='Savings')
         wages = self.engine.get_account(name='Wages')
         food = self.engine.get_account(name='Food')
-        txn = bb.Transaction(splits={checking: {'amount': -5, 'status': bb.Transaction.CLEARED}, food: {'amount': 5}}, txn_date=date(2017, 1, 15), payee='Some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2))
-        txn3 = bb.Transaction(splits={wages: {'amount': -100}, savings: {'amount': 100}}, txn_date=date(2017, 1, 31))
+        txn = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -5, 'status': bb.Transaction.CLEARED},
+                    {'account': food, 'amount': 5}
+                ],
+                txn_date=date(2017, 1, 15),
+                payee='Some payee',
+                description='description'
+            )
+        txn2 = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': 5},
+                    {'account': savings, 'amount': -5}
+                ],
+                txn_date=date(2017, 1, 2)
+            )
+        txn3 = bb.Transaction(
+                splits=[
+                    {'account': wages, 'amount': -100},
+                    {'account': savings, 'amount': 100}
+                ],
+                txn_date=date(2017, 1, 31)
+            )
         self.engine.save_transaction(txn)
         self.engine.save_transaction(txn2)
         self.engine.save_transaction(txn3)
@@ -2026,8 +2053,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._engine.save_scheduled_transaction(
@@ -2035,7 +2062,7 @@ class TestCLI(unittest.TestCase):
                     name='scheduled txn',
                     frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                     next_due_date=date(2019, 1, 13),
-                    splits={checking: {'amount': 14}, savings: {'amount': -14}},
+                    splits=[{'account': checking, 'amount': 14}, {'account': savings, 'amount': -14}],
                 )
             )
         self.cli._list_account_txns()
@@ -2056,8 +2083,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits={checking: {'amount': 5, 'status': bb.Transaction.CLEARED}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5, 'status': bb.Transaction.CLEARED}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
@@ -2079,8 +2106,8 @@ class TestCLI(unittest.TestCase):
         rent = get_test_account(name='Rent')
         self.cli._engine.save_account(rent)
         input_mock.return_value = f'1 acc:{rent.id}'
-        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1))
-        txn2 = bb.Transaction(splits={checking: {'amount': -5}, rent: {'amount': 5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1))
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': rent, 'amount': 5}], txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
@@ -2099,8 +2126,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
-        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
         self.cli._engine._storage.save_txn(txn)
         self.cli._engine._storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
@@ -2129,8 +2156,8 @@ class TestCLI(unittest.TestCase):
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
-        self.assertEqual(txn.splits[checking], {'action': '', 'amount': -15, 'quantity': -15, 'type': 'type1', 'status': 'C'})
-        self.assertEqual(txn.splits[fund], {'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2'})
+        self.assertEqual(txn.splits[0], {'account': checking, 'action': '', 'amount': -15, 'quantity': -15, 'type': 'type1', 'status': 'C'})
+        self.assertEqual(txn.splits[1], {'account': fund, 'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2'})
         self.assertEqual(txn.payee, payee)
         self.assertEqual(txn.description, 'description')
         buffer_value = self.memory_buffer.getvalue()
@@ -2193,7 +2220,7 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_account(savings)
         another_account = get_test_account(name='Another')
         self.cli._engine._storage.save_account(another_account)
-        txn = bb.Transaction(splits={checking: {'amount': 5}, savings: {'amount': -5}}, txn_date=date(2017, 1, 1))
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1))
         self.cli._engine.save_transaction(txn)
 
         input_mock.side_effect = [str(txn.id), '2017-02-13',
@@ -2205,9 +2232,9 @@ class TestCLI(unittest.TestCase):
 
         edited_txn = self.cli._engine.get_transaction(id_=txn.id)
         self.assertEqual(edited_txn.txn_date, date(2017, 2, 13))
-        self.assertEqual(edited_txn.splits[checking], {'action': '', 'amount': -90, 'quantity': -90, 'type': ''})
-        self.assertEqual(edited_txn.splits[savings], {'action': '', 'amount': 50, 'quantity': 50, 'type': ''})
-        self.assertEqual(edited_txn.splits[another_account], {'action': '', 'amount': 40, 'quantity': 40, 'type': ''})
+        self.assertEqual(edited_txn.splits[0], {'account': checking, 'action': '', 'amount': -90, 'quantity': -90, 'type': ''})
+        self.assertEqual(edited_txn.splits[1], {'account': savings, 'action': '', 'amount': 50, 'quantity': 50, 'type': ''})
+        self.assertEqual(edited_txn.splits[2], {'account': another_account, 'action': '', 'amount': 40, 'quantity': 40, 'type': ''})
         self.assertEqual(edited_txn.description, 'new description')
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue(f'{CHECKING} amount' in buffer_value)
@@ -2220,10 +2247,10 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(checking)
         self.cli._engine._storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2242,10 +2269,10 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(checking)
         self.cli._engine._storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2267,13 +2294,13 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_txn(
             bb.Transaction(
                 txn_date=date(2018, 5, 13),
-                splits={checking: {'amount': 175}, savings: {'amount': -175}}
+                splits=[{'account': checking, 'amount': 175}, {'account': savings, 'amount': -175}]
             )
         )
-        valid_splits={
-             checking: {'amount': -101},
-             savings: {'amount': 101},
-        }
+        valid_splits = [
+            {'account': checking, 'amount': -101},
+            {'account': savings, 'amount': 101},
+        ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2285,9 +2312,9 @@ class TestCLI(unittest.TestCase):
         self.cli._list_scheduled_txns()
         txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
-        self.assertEqual(txns[0].splits[checking]['amount'], 175)
-        self.assertEqual(txns[1].splits[checking], {'action': '', 'amount': -101, 'quantity': -101, 'type': ''})
-        self.assertEqual(txns[1].splits[savings], {'action': '', 'amount': 101, 'quantity': 101, 'type': ''})
+        self.assertEqual(txns[0].splits[0]['amount'], 175)
+        self.assertEqual(txns[1].splits[0], {'account': checking, 'action': '', 'amount': -101, 'quantity': -101, 'type': ''})
+        self.assertEqual(txns[1].splits[1], {'account': savings, 'action': '', 'amount': 101, 'quantity': 101, 'type': ''})
         self.assertEqual(txns[1].txn_date, date(2019, 1, 2))
         scheduled_txn = self.cli._engine.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 9))
@@ -2298,10 +2325,10 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(checking)
         self.cli._engine._storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2330,10 +2357,10 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(scheduled_txns[0].name, 'weekly 1')
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].splits,
-                {
-                    checking: {'amount': -15, 'quantity': -15, 'status': 'R'},
-                    savings: {'amount': 15, 'quantity': 15},
-                })
+                [
+                    {'account': checking, 'amount': -15, 'quantity': -15, 'status': 'R'},
+                    {'account': savings, 'amount': 15, 'quantity': 15},
+                ])
         self.assertEqual(scheduled_txns[0].payee.name, 'payee')
         self.assertEqual(scheduled_txns[0].description, 'desc')
 
@@ -2344,10 +2371,10 @@ class TestCLI(unittest.TestCase):
         storage = self.cli._engine._storage
         storage.save_account(checking)
         storage.save_account(savings)
-        valid_splits={
-                checking: {'amount': -101},
-                savings: {'amount': 101},
-            }
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -2359,7 +2386,7 @@ class TestCLI(unittest.TestCase):
         self.cli._edit_scheduled_txn()
         scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].splits[checking], {'amount': -15, 'quantity': -15})
+        self.assertEqual(scheduled_txns[0].splits[0], {'account': checking, 'amount': -15, 'quantity': -15})
         self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txns[0].payee.name, 'payee')
         self.assertEqual(scheduled_txns[0].description, 'desc')
@@ -2421,7 +2448,7 @@ class TestCLI(unittest.TestCase):
         storage.save_txn(
                 bb.Transaction(
                     txn_date='2019-01-13',
-                    splits={wages: {'amount': '-101'}, housing: {'amount': 101}},
+                    splits=[{'account': wages, 'amount': '-101'}, {'account': housing, 'amount': 101}],
                 )
             )
         input_mock.side_effect = [str(b.id)]
