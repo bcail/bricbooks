@@ -8,6 +8,7 @@ import shutil
 import sqlite3
 import tempfile
 import time
+import unicodedata
 import unittest
 from unittest.mock import patch, MagicMock
 
@@ -16,6 +17,8 @@ import load_test_data
 
 
 CHECKING = load_test_data.CHECKING
+CHECKING_NFD = unicodedata.normalize('NFD', CHECKING)
+CHECKING_NFC = unicodedata.normalize('NFC', CHECKING)
 
 
 def get_test_account(id_=None, commodity=None, name=CHECKING, type_=bb.AccountType.ASSET, number=None, parent=None, other_data=None):
@@ -771,7 +774,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_save_account(self):
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
         self.storage.save_account(assets)
-        checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name=CHECKING, parent=assets)
+        checking = get_test_account(type_=bb.AccountType.ASSET, number='4010', name=CHECKING_NFD, parent=assets)
         self.storage.save_account(checking)
         #make sure we save the id to the account object
         self.assertEqual(assets.id, 1)
@@ -781,7 +784,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', CHECKING, assets.id, None))
+                (checking.id, 'asset', 1, None, '4010', CHECKING_NFC, assets.id, None))
         #check created/updated default timestamp fields (which are in UTC time)
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-2]}+00:00')

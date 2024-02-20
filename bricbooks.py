@@ -2,6 +2,7 @@
 Architecture:
     Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
     Storage - SQLiteStorage (or another storage class). Handles saving & retrieving business objects from storage.
+        - normalize user strings to NFC
     Engine - has a storage object, and implements application logic.
     Outer Layer - UI (GUI, console). Has an engine object, and handles displaying data to the user and sending user actions to the engine.
     No objects should use private/hidden members of other objects.
@@ -195,6 +196,13 @@ def increment_quarter(date_obj):
 
 def increment_year(date_obj):
     return date(date_obj.year+1, date_obj.month, date_obj.day)
+
+
+def normalize(s):
+    # save all user data as NFC
+    if s:
+        return unicodedata.normalize('NFC', s)
+    return s
 
 
 def to_ascii(s):
@@ -1099,7 +1107,8 @@ class SQLiteStorage:
 
     def save_commodity(self, commodity):
         cur = self._db_connection.cursor()
-        cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (commodity.type.value, commodity.code, commodity.name))
+        cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)',
+                    (commodity.type.value, commodity.code, normalize(commodity.name)))
         commodity.id = cur.lastrowid
         self._db_connection.commit()
 
@@ -1137,7 +1146,7 @@ class SQLiteStorage:
         if account.parent:
             parent_id = account.parent.id
         field_names = ['type', 'number', 'name', 'parent_id']
-        field_values = [account.type.value, account.number, account.name, parent_id]
+        field_values = [account.type.value, normalize(account.number), normalize(account.name), parent_id]
         if account.commodity:
             field_names.append('commodity_id')
             field_values.append(account.commodity.id)
@@ -1147,7 +1156,7 @@ class SQLiteStorage:
             if other_data:
                 ir = other_data['interest_rate']
                 other_data['interest_rate'] = f'{ir.numerator}/{ir.denominator}'
-            field_values.append(json.dumps(other_data))
+            field_values.append(normalize(json.dumps(other_data)))
         if account.id:
             field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
             field_values.append(account.id)
@@ -1191,12 +1200,14 @@ class SQLiteStorage:
 
     def save_payee(self, payee):
         cur = self._db_connection.cursor()
+        field_values = [normalize(payee.name), normalize(payee.notes)]
         if payee.id:
-            cur.execute('UPDATE payees SET name = ?, notes = ?', (payee.name, payee.notes))
+            field_values.append(payee.id)
+            cur.execute('UPDATE payees SET name = ?, notes = ? WHERE id = ?', field_values)
             if cur.rowcount < 1:
                 raise Exception('no payee with id %s to update' % payee.id)
         else:
-            cur.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', (payee.name, payee.notes))
+            cur.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', field_values)
             payee.id = cur.lastrowid
         self._db_connection.commit()
 
@@ -1274,7 +1285,7 @@ class SQLiteStorage:
             if not account.id:
                 self.save_account(account)
         field_names = ['date', 'payee_id', 'description']
-        field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, txn.description]
+        field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, normalize(txn.description)]
         if txn.alt_txn_id is not None:
             field_names.append('alt_transaction_id')
             field_values.append(txn.alt_txn_id)
@@ -1315,8 +1326,8 @@ class SQLiteStorage:
                     reconcile_date = str(split['reconcile_date'])
                 else:
                     reconcile_date = None
-                type_ = split.get('type', '')
-                description = split.get('description', '')
+                type_ = normalize(split.get('type', ''))
+                description = normalize(split.get('description', ''))
                 field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description']
                 field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description]
                 action = split.get('action')
@@ -1356,7 +1367,7 @@ class SQLiteStorage:
         try:
             if budget.id:
                 cur.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
-                    (budget.name, str(budget.start_date), str(budget.end_date), budget.id))
+                    (normalize(budget.name), str(budget.start_date), str(budget.end_date), budget.id))
                 #handle budget_values
                 values_db_info = cur.execute('SELECT account_id FROM budget_values WHERE budget_id = ?', (budget.id,)).fetchall()
                 old_account_ids = [r[0] for r in values_db_info]
@@ -1374,7 +1385,7 @@ class SQLiteStorage:
                         else:
                             carryover_numerator = None
                             carryover_denominator = None
-                        notes = info.get('notes', '')
+                        notes = normalize(info.get('notes', ''))
                         amount = info['amount']
                         if account.id in old_account_ids:
                             values = (amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes, budget.id, account.id)
@@ -1395,7 +1406,7 @@ class SQLiteStorage:
                         else:
                             carryover_numerator = None
                             carryover_denominator = None
-                        notes = info.get('notes', '')
+                        notes = normalize(info.get('notes', ''))
                         amount = info['amount']
                         values = (budget.id, account.id, amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes)
                         cur.execute('INSERT INTO budget_values(budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', values)
@@ -1468,7 +1479,7 @@ class SQLiteStorage:
             #update existing scheduled transaction
             if scheduled_txn.id:
                 cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, payee_id = ?, description = ? WHERE id = ?',
-                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, scheduled_txn.description, scheduled_txn.id))
+                    (normalize(scheduled_txn.name), scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, normalize(scheduled_txn.description), scheduled_txn.id))
                 if cur.rowcount < 1:
                     raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
                 #handle splits
