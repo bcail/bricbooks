@@ -1272,7 +1272,7 @@ class SQLiteStorage:
         check_txn_splits(txn.splits)
         if txn.payee:
             if not txn.payee.id: #Payee may not have been saved in DB yet
-                db_payee = self.get_payee(name=txn.payee.name)
+                db_payee = self.get_payee(name=normalize(txn.payee.name))
                 if db_payee:
                     txn.payee.id = db_payee.id
                 else:
@@ -1288,7 +1288,7 @@ class SQLiteStorage:
         field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, normalize(txn.description)]
         if txn.alt_txn_id is not None:
             field_names.append('alt_transaction_id')
-            field_values.append(txn.alt_txn_id)
+            field_values.append(normalize(txn.alt_txn_id))
         if txn.entry_date:
             field_names.append('entry_date')
             field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
@@ -1898,6 +1898,7 @@ def import_kmymoney(kmy_file, engine):
                         txn_date=transaction.attrib['postdate'],
                         payee=payee,
                         description=transaction.attrib['memo'],
+                        alt_txn_id=txn_id,
                     )
                 )
         except RuntimeError as e:
