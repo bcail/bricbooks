@@ -436,7 +436,10 @@ class Transaction:
     def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alt_txn_id=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
-        self.entry_date = entry_date
+        if entry_date and isinstance(entry_date, str):
+            self.entry_date = date.fromisoformat(entry_date)
+        else:
+            self.entry_date = entry_date
         if payee:
             if isinstance(payee, str):
                 self.payee = Payee(name=payee)
@@ -1230,7 +1233,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_date, payee_id, description, alt_txn_id = db_info
+        id_, commodity_id, txn_date, payee_id, description, alt_txn_id, entry_date = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -1250,11 +1253,12 @@ class SQLiteStorage:
                     split['status'] = split_record[6]
                 split['action'] = split_record[7]
                 splits.append(split)
-        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description, id_=id_, alt_txn_id=alt_txn_id)
+        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description,
+                           id_=id_, alt_txn_id=alt_txn_id, entry_date=entry_date)
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,date,payee_id,description,alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,date,payee_id,description,alt_transaction_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1834,6 +1838,7 @@ def import_kmymoney(kmy_file, engine):
         splits = []
         account = None
         txn_id = transaction.attrib['id']
+        entry_date = transaction.attrib['entrydate']
         try:
             splits_el = transaction.find('SPLITS')
             payee = None
@@ -1899,6 +1904,7 @@ def import_kmymoney(kmy_file, engine):
                         payee=payee,
                         description=transaction.attrib['memo'],
                         alt_txn_id=txn_id,
+                        entry_date=entry_date or None,
                     )
                 )
         except RuntimeError as e:

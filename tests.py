@@ -2564,6 +2564,7 @@ class TestImport(unittest.TestCase):
         txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[1].payee.name, 'A restaurant')
+        self.assertEqual(txns[1].entry_date, date(2021, 1, 29))
         self.assertEqual(txns[1].alt_txn_id, 'T000000000000000002')
         balances = engine.get_current_balances_for_display(account=checking)
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
