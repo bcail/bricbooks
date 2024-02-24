@@ -1111,7 +1111,7 @@ class SQLiteStorage:
     def save_commodity(self, commodity):
         cur = self._db_connection.cursor()
         cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)',
-                    (commodity.type.value, commodity.code, normalize(commodity.name)))
+                    (commodity.type.value, normalize(commodity.code), normalize(commodity.name)))
         commodity.id = cur.lastrowid
         self._db_connection.commit()
 
@@ -1468,7 +1468,7 @@ class SQLiteStorage:
         check_txn_splits(scheduled_txn.splits)
         if scheduled_txn.payee:
             if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
-                db_payee = self.get_payee(name=scheduled_txn.payee.name)
+                db_payee = self.get_payee(name=normalize(scheduled_txn.payee.name))
                 if db_payee:
                     scheduled_txn.payee.id = db_payee.id
                 else:
@@ -1505,7 +1505,7 @@ class SQLiteStorage:
             #add new scheduled transaction
             else:
                 cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, payee_id, description) VALUES (?, ?, ?, ?, ?)',
-                    (scheduled_txn.name, scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, scheduled_txn.description))
+                    (normalize(scheduled_txn.name), scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, normalize(scheduled_txn.description)))
                 scheduled_txn.id = cur.lastrowid
                 for split in scheduled_txn.splits:
                     account = split['account']
