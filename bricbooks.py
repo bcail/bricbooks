@@ -1116,16 +1116,18 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def get_account(self, id_=None, number=None, name=None):
+        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'other_data']
+        fields_str = ','.join(fields)
         if id_:
-            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE id = ?', (id_,)).fetchone()
+            account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE id = ?', (id_,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with id "{id_}"')
         elif number:
-            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE number = ?', (number,)).fetchone()
+            account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE number = ?', (number,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with number "{number}"')
         elif name:
-            account_info = self._db_connection.execute('SELECT id, type, commodity_id, number, name, parent_id FROM accounts WHERE name = ?', (name,)).fetchone()
+            account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE name = ?', (name,)).fetchone()
             if not account_info:
                 raise Exception(f'no account with name "{name}"')
         else:
@@ -1134,6 +1136,9 @@ class SQLiteStorage:
         parent = None
         if account_info[5]:
             parent = self.get_account(account_info[5])
+        other_data = json.loads(account_info[6])
+        if 'interest_rate_percent' in other_data:
+            other_data['interest_rate_percent'] = Fraction(other_data['interest_rate_percent'])
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
@@ -1141,6 +1146,7 @@ class SQLiteStorage:
                 number=account_info[3],
                 name=account_info[4],
                 parent=parent,
+                other_data=other_data,
             )
 
     def save_account(self, account):
@@ -1157,8 +1163,8 @@ class SQLiteStorage:
             field_names.append('other_data')
             other_data = {**account.other_data}
             if other_data:
-                ir = other_data['interest_rate']
-                other_data['interest_rate'] = f'{ir.numerator}/{ir.denominator}'
+                ir = other_data['interest_rate_percent']
+                other_data['interest_rate_percent'] = f'{ir.numerator}/{ir.denominator}'
             field_values.append(normalize(json.dumps(other_data)))
         if account.id:
             field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
@@ -1796,15 +1802,16 @@ def import_kmymoney(kmy_file, engine):
     accounts = root.find('ACCOUNTS')
     for account in accounts.iter('ACCOUNT'):
         type_ = AccountType.ASSET
-        if account.attrib['type'] in ['10']:
+        kmy_type = account.attrib['type']
+        if kmy_type in ['10', '5']:
             type_ = AccountType.LIABILITY
-        elif account.attrib['type'] in ['13']:
+        elif kmy_type in ['13']:
             type_ = AccountType.EXPENSE
-        elif account.attrib['type'] in ['12']:
+        elif kmy_type in ['12']:
             type_ = AccountType.INCOME
-        elif account.attrib['type'] in ['16']:
+        elif kmy_type in ['16']:
             type_ = AccountType.EQUITY
-        elif account.attrib['type'] in ['15']:
+        elif kmy_type in ['15']:
             type_ = AccountType.SECURITY
         currency_id = commodity_mapping_info[account.attrib['currency']]
         commodity = engine.get_commodity(id_=currency_id)
@@ -1813,11 +1820,19 @@ def import_kmymoney(kmy_file, engine):
             parent_account = engine.get_account(account_mapping_info[account.attrib['parentaccount']])
         else:
             parent_account = None
+        other_data = None
+        if kmy_type == '5':
+            other_data = {}
+            key_value_pairs = account.find('KEYVALUEPAIRS')
+            for pair in key_value_pairs.iter('PAIR'):
+                if pair.attrib.get('key', '').startswith('ir-'):
+                    other_data['interest_rate_percent'] = Fraction(pair.attrib['value'])
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
                     name=account.attrib['name'],
                     parent=parent_account,
+                    other_data=other_data,
                 )
         engine.save_account(acc_obj)
         account_mapping_info[account.attrib['id']] = acc_obj.id
