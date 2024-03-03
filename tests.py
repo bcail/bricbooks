@@ -837,12 +837,12 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_other_data(self):
         rate = Fraction(5)
-        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate_percent': rate})
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest-rate-percent': rate})
         self.storage.save_account(acc)
         c = self.storage._db_connection.cursor()
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)
-        self.assertEqual(data['interest_rate_percent'], '5/1')
+        self.assertEqual(data['interest-rate-percent'], '5/1')
 
         # verify it has to be valid json
         with self.assertRaises(Exception) as cm:
@@ -856,12 +856,12 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_blank_out_other_data(self):
         rate = Fraction(5)
-        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate_percent': rate})
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest-rate-percent': rate})
         self.storage.save_account(acc)
         c = self.storage._db_connection.cursor()
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)
-        self.assertIn('interest_rate_percent', data)
+        self.assertIn('interest-rate-percent', data)
 
         acc.other_data = {}
         self.storage.save_account(acc)
@@ -870,18 +870,18 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_dont_update_other_data(self):
         rate = Fraction(5)
-        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest_rate_percent': rate})
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest-rate-percent': rate})
         self.storage.save_account(acc)
         c = self.storage._db_connection.cursor()
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)
-        self.assertIn('interest_rate_percent', data)
+        self.assertIn('interest-rate-percent', data)
 
         acc = bb.Account(id_=acc.id, name='Loan', type_=bb.AccountType.LIABILITY)
         self.storage.save_account(acc)
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)
-        self.assertIn('interest_rate_percent', data)
+        self.assertIn('interest-rate-percent', data)
 
     def test_save_account_error_invalid_id(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)
@@ -972,7 +972,7 @@ class TestSQLiteStorage(unittest.TestCase):
         account_id = c.lastrowid
         c.execute('INSERT INTO accounts(type, commodity_id, name, parent_id) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 'Sub-Checking', account_id))
         sub_checking_id = c.lastrowid
-        c.execute('INSERT INTO accounts(type, commodity_id, name, other_data) VALUES (?, ?, ?, ?)', (bb.AccountType.LIABILITY.value, 1, 'Mortgage', json.dumps({'interest_rate_percent': '5/1'})))
+        c.execute('INSERT INTO accounts(type, commodity_id, name, other_data) VALUES (?, ?, ?, ?)', (bb.AccountType.LIABILITY.value, 1, 'Mortgage', json.dumps({'interest-rate-percent': '5/1'})))
         mortgage_id = c.lastrowid
         account = self.storage.get_account(account_id)
         self.assertEqual(account.id, account_id)
@@ -985,7 +985,7 @@ class TestSQLiteStorage(unittest.TestCase):
         sub_checking = self.storage.get_account(sub_checking_id)
         self.assertEqual(sub_checking.parent, account)
         mortgage = self.storage.get_account(mortgage_id)
-        self.assertEqual(mortgage.other_data, {'interest_rate_percent': Fraction(5)})
+        self.assertEqual(mortgage.other_data, {'interest-rate-percent': Fraction(5)})
 
     def test_payee_unique(self):
         payee = bb.Payee('payee')
@@ -2574,7 +2574,7 @@ class TestImport(unittest.TestCase):
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
         self.assertEqual(balances, expected_balances)
         mortgage = engine.get_account(name='Mortgage')
-        self.assertEqual(mortgage.other_data, {'interest_rate_percent': Fraction(5)})
+        self.assertEqual(mortgage.other_data, {'interest-rate-percent': Fraction(5), 'fixed-interest': True})
         engine._storage._db_connection.close()
 
 

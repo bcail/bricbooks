@@ -1137,8 +1137,8 @@ class SQLiteStorage:
         if account_info[5]:
             parent = self.get_account(account_info[5])
         other_data = json.loads(account_info[6])
-        if 'interest_rate_percent' in other_data:
-            other_data['interest_rate_percent'] = Fraction(other_data['interest_rate_percent'])
+        if 'interest-rate-percent' in other_data:
+            other_data['interest-rate-percent'] = Fraction(other_data['interest-rate-percent'])
         return Account(
                 id_=account_info[0],
                 type_=AccountType(account_info[1]),
@@ -1163,8 +1163,8 @@ class SQLiteStorage:
             field_names.append('other_data')
             other_data = {**account.other_data}
             if other_data:
-                ir = other_data['interest_rate_percent']
-                other_data['interest_rate_percent'] = f'{ir.numerator}/{ir.denominator}'
+                ir = other_data['interest-rate-percent']
+                other_data['interest-rate-percent'] = f'{ir.numerator}/{ir.denominator}'
             field_values.append(normalize(json.dumps(other_data)))
         if account.id:
             field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
@@ -1826,7 +1826,9 @@ def import_kmymoney(kmy_file, engine):
             key_value_pairs = account.find('KEYVALUEPAIRS')
             for pair in key_value_pairs.iter('PAIR'):
                 if pair.attrib.get('key', '').startswith('ir-'):
-                    other_data['interest_rate_percent'] = Fraction(pair.attrib['value'])
+                    other_data['interest-rate-percent'] = Fraction(pair.attrib['value'])
+                if pair.attrib.get('key') == 'fixed-interest' and pair.attrib['value'] == 'yes':
+                    other_data['fixed-interest'] = True
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
