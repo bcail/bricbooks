@@ -1163,8 +1163,27 @@ class SQLiteStorage:
             field_names.append('other_data')
             other_data = {**account.other_data}
             if other_data:
-                ir = other_data['interest-rate-percent']
-                other_data['interest-rate-percent'] = f'{ir.numerator}/{ir.denominator}'
+                allowed_keys = {'term', 'fixed-interest', 'interest-rate-percent'}
+                keys = set(other_data.keys())
+                invalid_keys = keys - allowed_keys
+                if invalid_keys:
+                    raise InvalidAccountError(f'invalid keys: {invalid_keys}')
+                if 'term' in other_data:
+                    term_value = other_data['term']
+                    if (
+                        not isinstance(term_value, str) or
+                        not term_value[-1] in ['y', 'm', 'w', 'd'] or
+                        not term_value[:-1].isdigit()
+                    ):
+                        raise InvalidAccountError(f'invalid term value: {term_value}')
+                if 'fixed-interest' in other_data and other_data['fixed-interest'] not in [True, False]:
+                    raise InvalidAccountError(f'invalid fixed-interest value: {other_data["fixed-interest"]}')
+                if 'interest-rate-percent' in other_data:
+                    ir = other_data['interest-rate-percent']
+                    if not isinstance(ir, (Fraction, int, str)):
+                        raise InvalidAccountError(f'invalid interest-rate-percent value: {ir}')
+                    ir = Fraction(ir)
+                    other_data['interest-rate-percent'] = f'{ir.numerator}/{ir.denominator}'
             field_values.append(normalize(json.dumps(other_data)))
         if account.id:
             field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
@@ -1825,10 +1844,14 @@ def import_kmymoney(kmy_file, engine):
             other_data = {}
             key_value_pairs = account.find('KEYVALUEPAIRS')
             for pair in key_value_pairs.iter('PAIR'):
-                if pair.attrib.get('key', '').startswith('ir-'):
-                    other_data['interest-rate-percent'] = Fraction(pair.attrib['value'])
-                if pair.attrib.get('key') == 'fixed-interest' and pair.attrib['value'] == 'yes':
+                key = pair.attrib.get('key', '')
+                value = pair.attrib.get('value')
+                if key.startswith('ir-'):
+                    other_data['interest-rate-percent'] = Fraction(value)
+                if key == 'fixed-interest' and value == 'yes':
                     other_data['fixed-interest'] = True
+                if key == 'term':
+                    other_data['term'] = f'{value}m'
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,

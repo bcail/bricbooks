@@ -837,7 +837,8 @@ class TestSQLiteStorage(unittest.TestCase):
 
     def test_save_account_other_data(self):
         rate = Fraction(5)
-        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data={'interest-rate-percent': rate})
+        other_data = {'interest-rate-percent': rate}
+        acc = get_test_account(name='Loan', type_=bb.AccountType.LIABILITY, other_data=other_data)
         self.storage.save_account(acc)
         c = self.storage._db_connection.cursor()
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
@@ -853,6 +854,34 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             c.execute('UPDATE accounts SET other_data = ? WHERE id = ?', (json.dumps([]), acc.id))
         self.assertEqual(str(cm.exception), 'CHECK constraint failed: json_type(other_data) IS "object"')
+
+        acc.other_data['term'] = '360'
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            self.storage.save_account(acc)
+        self.assertEqual(str(cm.exception), 'invalid term value: 360')
+
+        acc.other_data['term'] = 'asdy'
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            self.storage.save_account(acc)
+        self.assertEqual(str(cm.exception), 'invalid term value: asdy')
+
+        acc.other_data['term'] = '30y'
+        acc.other_data['fixed-interest'] = 'yes'
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            self.storage.save_account(acc)
+        self.assertEqual(str(cm.exception), 'invalid fixed-interest value: yes')
+
+        acc.other_data['fixed-interest'] = True
+        acc.other_data['interest-rate-percent'] = 5.23
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            self.storage.save_account(acc)
+        self.assertEqual(str(cm.exception), 'invalid interest-rate-percent value: 5.23')
+
+        acc.other_data['interest-rate-percent'] = 5
+        acc.other_data['wrong-key'] = 1
+        with self.assertRaises(bb.InvalidAccountError) as cm:
+            self.storage.save_account(acc)
+        self.assertEqual(str(cm.exception), "invalid keys: {'wrong-key'}")
 
     def test_save_account_blank_out_other_data(self):
         rate = Fraction(5)
@@ -2574,7 +2603,12 @@ class TestImport(unittest.TestCase):
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
         self.assertEqual(balances, expected_balances)
         mortgage = engine.get_account(name='Mortgage')
-        self.assertEqual(mortgage.other_data, {'interest-rate-percent': Fraction(5), 'fixed-interest': True})
+        mortgage_data = {
+            'interest-rate-percent': Fraction(5),
+            'fixed-interest': True,
+            'term': '360m',
+        }
+        self.assertEqual(mortgage.other_data, mortgage_data)
         engine._storage._db_connection.close()
 
 
