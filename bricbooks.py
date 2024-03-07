@@ -113,7 +113,7 @@ class SQLiteStorageError(RuntimeError):
 class InvalidStorageFile(RuntimeError):
     pass
 
-class ImportError(RuntimeError):
+class DataImportError(RuntimeError):
     pass
 
 
@@ -1788,6 +1788,8 @@ kmymoney_action_mapping = {
     'Reinvest': 'share-reinvest',
     'Add': 'share-add',
     'Remove': 'share-remove',
+    'Amortization': '',
+    'Interest': '',
 }
 
 def import_kmymoney(kmy_file, engine):
@@ -1828,15 +1830,16 @@ def import_kmymoney(kmy_file, engine):
     accounts = root.find('ACCOUNTS')
     for account in accounts.iter('ACCOUNT'):
         type_ = AccountType.ASSET # default
+        kmy_type = None
         commodity = None
         parent_account = None
         name = None
         alternate_id = None
-        other_data = None
         for key, value in account.attrib.items():
             if key == 'id':
                 alternate_id = value
             elif key == 'type':
+                kmy_type = value
                 if value in ['10', '5']:
                     type_ = AccountType.LIABILITY
                 elif value in ['13']:
@@ -1847,18 +1850,6 @@ def import_kmymoney(kmy_file, engine):
                     type_ = AccountType.EQUITY
                 elif value in ['15']:
                     type_ = AccountType.SECURITY
-                if value == '5':
-                    other_data = {}
-                    key_value_pairs = account.find('KEYVALUEPAIRS')
-                    for pair in key_value_pairs.iter('PAIR'):
-                        key = pair.attrib.get('key', '')
-                        value = pair.attrib.get('value')
-                        if key.startswith('ir-'):
-                            other_data['interest-rate-percent'] = Fraction(value)
-                        if key == 'fixed-interest' and value == 'yes':
-                            other_data['fixed-interest'] = True
-                        if key == 'term':
-                            other_data['term'] = f'{value}m'
             elif key == 'currency':
                 currency_id = commodity_mapping_info[value]
                 commodity = engine.get_commodity(id_=currency_id)
@@ -1871,8 +1862,26 @@ def import_kmymoney(kmy_file, engine):
                 pass
             else:
                 if value:
-                    print(f'unhandled account attribute: {key} => {value}')
+                    raise DataImportError(f'unhandled account attribute: {key} => {value}')
         print(f'  {name} ({type_.name})')
+        other_data = {}
+        key_value_pairs = account.find('KEYVALUEPAIRS')
+        if key_value_pairs:
+            for pair in key_value_pairs.iter('PAIR'):
+                key = pair.attrib.get('key', '')
+                value = pair.attrib.get('value')
+                if key.startswith('ir-'):
+                    other_data['interest-rate-percent'] = Fraction(value)
+                elif key == 'fixed-interest' and value == 'yes':
+                    other_data['fixed-interest'] = True
+                elif key == 'term':
+                    other_data['term'] = f'{value}m'
+                elif key in ['OpeningBalanceAccount', 'lastNumberUsed', 'compoundingFrequency', 'final-payment',
+                             'interest-calculation', 'loan-amount', 'periodic-payment', 'schedule', 'IBAN', 'mm-closed']: # ignore these
+                    pass
+                else:
+                    if value:
+                        raise DataImportError(f'unhandled account key/value: {key} => {value}')
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
@@ -1926,7 +1935,7 @@ def import_kmymoney(kmy_file, engine):
                         elif value == '0':
                             pass
                         else:
-                            raise ImportError(f'unhandled reconcileflag value: {value}')
+                            raise DataImportError(f'unhandled reconcileflag value: {value}')
                     elif key == 'reconciledate':
                         if value:
                             split['reconcile_date'] = get_date(value)
@@ -1943,21 +1952,21 @@ def import_kmymoney(kmy_file, engine):
                         elif value in kmymoney_action_mapping:
                             split['action'] = kmymoney_action_mapping[value]
                         else:
-                            raise ImportError(f'unhandled action "{value}"')
+                            raise DataImportError(f'unhandled action "{value}"')
                     elif key == 'price':
-                        # we don't care about the price if it's "1/1"
+                        # we probably don't care about the price
                         if value != '1/1':
                             price = Fraction(value)
                             diff = price - Fraction(amount)/Fraction(quantity)
                             # if the price is similar to amount/quantity, we'll ignore it
                             if abs(diff) > Fraction(1/10):
-                                raise ImportError(f'unhandled price {price} for txn {txn_id}; amount {amount}; quantity {quantity} (diff {diff})')
+                                raise DataImportError(f'unhandled price {price} for txn {txn_id}; amount {amount}; quantity {quantity} (diff {diff})')
                     else:
                         if key == 'id':
                             pass
                         else:
                             if value:
-                                raise ImportError(f'unhandled txn attribute: {key} = {value}')
+                                raise DataImportError(f'unhandled txn attribute: {key} = {value}')
                 splits.append(split)
             engine.save_transaction(
                     Transaction(
