@@ -1049,12 +1049,12 @@ class TestSQLiteStorage(unittest.TestCase):
                 entry_date=tomorrow,
                 payee=chickfila,
                 description='chicken sandwich',
-                alt_txn_id='ID001',
+                alternate_id='ID001',
             )
         self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,alt_transaction_id,created FROM transactions')
+        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,alternate_id,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
                 (1, 1, today_str, 1, 'chicken sandwich', tomorrow_str, 'ID001'))
@@ -1081,7 +1081,7 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_from_db = self.storage.get_txn(t.id)
         self.assertEqual(txn_from_db.payee.name, 'someone')
 
-    def test_save_txn_blank_out_alt_txn_id(self):
+    def test_save_txn_blank_out_alternate_id(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
@@ -1089,23 +1089,23 @@ class TestSQLiteStorage(unittest.TestCase):
         t = bb.Transaction(
                 splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
-                alt_txn_id='asdf',
+                alternate_id='asdf',
             )
         self.storage.save_txn(t)
         txn_id = t.id
         t = bb.Transaction(
                 splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
-                alt_txn_id='',
+                alternate_id='',
                 id_=txn_id,
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
+        c.execute('SELECT alternate_id FROM transactions WHERE id = ?', (txn_id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[0], '')
 
-    def test_save_txn_dont_update_alt_txn_id(self):
+    def test_save_txn_dont_update_alternate_id(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
@@ -1113,7 +1113,7 @@ class TestSQLiteStorage(unittest.TestCase):
         t = bb.Transaction(
                 splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
-                alt_txn_id='asdf',
+                alternate_id='asdf',
             )
         self.storage.save_txn(t)
         txn_id = t.id
@@ -1124,7 +1124,7 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT alt_transaction_id FROM transactions WHERE id = ?', (txn_id,))
+        c.execute('SELECT alternate_id FROM transactions WHERE id = ?', (txn_id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[0], 'asdf')
 
@@ -1453,7 +1453,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(fund)
         c = self.storage._db_connection.cursor()
         txn_fields = 'id,commodity_id,date,payee_id,description'
-        c.execute(f'INSERT INTO transactions(commodity_id,date,alt_transaction_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
+        c.execute(f'INSERT INTO transactions(commodity_id,date,alternate_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
         txn_id = c.lastrowid
         c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
                   (txn_id,checking.id, '1a', '', -100, 1))
@@ -1461,7 +1461,7 @@ class TestSQLiteStorage(unittest.TestCase):
                   (txn_id,fund.id, '', 'share-buy', 100, 1))
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
-        self.assertEqual(txn.alt_txn_id, 'ID001')
+        self.assertEqual(txn.alternate_id, 'ID001')
         self.assertEqual(txn.splits[0], {'account': checking, 'amount': -100, 'quantity': -100, 'type': '1a', 'action': ''})
         self.assertEqual(txn.splits[1], {'account': fund, 'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy'})
 
@@ -2594,11 +2594,12 @@ class TestImport(unittest.TestCase):
         self.assertEqual(len(payees), 2)
         checking = engine.get_account(name='Checking')
         self.assertEqual(checking.parent.name, 'Asset')
+        self.assertEqual(checking.alternate_id, 'A000025')
         txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
         self.assertEqual(txns[1].payee.name, 'A restaurant')
         self.assertEqual(txns[1].entry_date, date(2021, 1, 29))
-        self.assertEqual(txns[1].alt_txn_id, 'T000000000000000002')
+        self.assertEqual(txns[1].alternate_id, 'T000000000000000002')
         balances = engine.get_current_balances_for_display(account=checking)
         expected_balances = bb.LedgerBalances(current='742.78', current_cleared='842.78')
         self.assertEqual(balances, expected_balances)

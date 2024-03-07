@@ -235,7 +235,7 @@ class Commodity:
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, other_data=None):
+    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None, other_data=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -246,6 +246,7 @@ class Account:
         self.number = number or None
         self.name = name
         self.parent = parent
+        self.alternate_id = alternate_id
         self.other_data = other_data
 
     def __str__(self):
@@ -433,7 +434,7 @@ class Transaction:
                 id_=id_
             )
 
-    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alt_txn_id=None):
+    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alternate_id=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         if entry_date and isinstance(entry_date, str):
@@ -451,7 +452,7 @@ class Transaction:
             self.payee = None
         self.description = description
         self.id = id_
-        self.alt_txn_id = alt_txn_id
+        self.alternate_id = alternate_id
 
     def __str__(self):
         return '%s: %s' % (self.id, self.txn_date)
@@ -893,6 +894,7 @@ class SQLiteStorage:
             'name TEXT NOT NULL,'
             'parent_id INTEGER,'
             'closed TEXT,'
+            'alternate_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated accounts
             'other_data TEXT NOT NULL DEFAULT "{}",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -987,7 +989,7 @@ class SQLiteStorage:
             'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
             'entry_date TEXT NOT NULL DEFAULT (date(\'now\', \'localtime\')),' # date the transaction was entered
-            'alt_transaction_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated txns
+            'alternate_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated txns
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
@@ -1116,7 +1118,7 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def get_account(self, id_=None, number=None, name=None):
-        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'other_data']
+        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'other_data']
         fields_str = ','.join(fields)
         if id_:
             account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE id = ?', (id_,)).fetchone()
@@ -1136,7 +1138,8 @@ class SQLiteStorage:
         parent = None
         if account_info[5]:
             parent = self.get_account(account_info[5])
-        other_data = json.loads(account_info[6])
+        alternate_id = account_info[6]
+        other_data = json.loads(account_info[7])
         if 'interest-rate-percent' in other_data:
             other_data['interest-rate-percent'] = Fraction(other_data['interest-rate-percent'])
         return Account(
@@ -1146,6 +1149,7 @@ class SQLiteStorage:
                 number=account_info[3],
                 name=account_info[4],
                 parent=parent,
+                alternate_id=alternate_id,
                 other_data=other_data,
             )
 
@@ -1159,6 +1163,9 @@ class SQLiteStorage:
         if account.commodity:
             field_names.append('commodity_id')
             field_values.append(account.commodity.id)
+        if account.alternate_id is not None:
+            field_names.append('alternate_id')
+            field_values.append(account.alternate_id)
         if account.other_data is not None:
             field_names.append('other_data')
             other_data = {**account.other_data}
@@ -1258,7 +1265,7 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_date, payee_id, description, alt_txn_id, entry_date = db_info
+        id_, commodity_id, txn_date, payee_id, description, alternate_id, entry_date = db_info
         txn_date = get_date(txn_date)
         payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
@@ -1279,11 +1286,11 @@ class SQLiteStorage:
                 split['action'] = split_record[7]
                 splits.append(split)
         return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description,
-                           id_=id_, alt_txn_id=alt_txn_id, entry_date=entry_date)
+                           id_=id_, alternate_id=alternate_id, entry_date=entry_date)
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,date,payee_id,description,alt_transaction_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,date,payee_id,description,alternate_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1315,9 +1322,9 @@ class SQLiteStorage:
                 self.save_account(account)
         field_names = ['date', 'payee_id', 'description']
         field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, normalize(txn.description)]
-        if txn.alt_txn_id is not None:
-            field_names.append('alt_transaction_id')
-            field_values.append(normalize(txn.alt_txn_id))
+        if txn.alternate_id is not None:
+            field_names.append('alternate_id')
+            field_values.append(normalize(txn.alternate_id))
         if txn.entry_date:
             field_names.append('entry_date')
             field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
@@ -1820,43 +1827,58 @@ def import_kmymoney(kmy_file, engine):
     account_mapping_info = {}
     accounts = root.find('ACCOUNTS')
     for account in accounts.iter('ACCOUNT'):
-        type_ = AccountType.ASSET
-        kmy_type = account.attrib['type']
-        if kmy_type in ['10', '5']:
-            type_ = AccountType.LIABILITY
-        elif kmy_type in ['13']:
-            type_ = AccountType.EXPENSE
-        elif kmy_type in ['12']:
-            type_ = AccountType.INCOME
-        elif kmy_type in ['16']:
-            type_ = AccountType.EQUITY
-        elif kmy_type in ['15']:
-            type_ = AccountType.SECURITY
-        currency_id = commodity_mapping_info[account.attrib['currency']]
-        commodity = engine.get_commodity(id_=currency_id)
-        print(f'  {account.attrib["type"]} {account.attrib["name"]} => {type_}')
-        if account.attrib.get('parentaccount'):
-            parent_account = engine.get_account(account_mapping_info[account.attrib['parentaccount']])
-        else:
-            parent_account = None
+        type_ = AccountType.ASSET # default
+        commodity = None
+        parent_account = None
+        name = None
+        alternate_id = None
         other_data = None
-        if kmy_type == '5':
-            other_data = {}
-            key_value_pairs = account.find('KEYVALUEPAIRS')
-            for pair in key_value_pairs.iter('PAIR'):
-                key = pair.attrib.get('key', '')
-                value = pair.attrib.get('value')
-                if key.startswith('ir-'):
-                    other_data['interest-rate-percent'] = Fraction(value)
-                if key == 'fixed-interest' and value == 'yes':
-                    other_data['fixed-interest'] = True
-                if key == 'term':
-                    other_data['term'] = f'{value}m'
+        for key, value in account.attrib.items():
+            if key == 'id':
+                alternate_id = value
+            elif key == 'type':
+                if value in ['10', '5']:
+                    type_ = AccountType.LIABILITY
+                elif value in ['13']:
+                    type_ = AccountType.EXPENSE
+                elif value in ['12']:
+                    type_ = AccountType.INCOME
+                elif value in ['16']:
+                    type_ = AccountType.EQUITY
+                elif value in ['15']:
+                    type_ = AccountType.SECURITY
+                if value == '5':
+                    other_data = {}
+                    key_value_pairs = account.find('KEYVALUEPAIRS')
+                    for pair in key_value_pairs.iter('PAIR'):
+                        key = pair.attrib.get('key', '')
+                        value = pair.attrib.get('value')
+                        if key.startswith('ir-'):
+                            other_data['interest-rate-percent'] = Fraction(value)
+                        if key == 'fixed-interest' and value == 'yes':
+                            other_data['fixed-interest'] = True
+                        if key == 'term':
+                            other_data['term'] = f'{value}m'
+            elif key == 'currency':
+                currency_id = commodity_mapping_info[value]
+                commodity = engine.get_commodity(id_=currency_id)
+            elif key == 'parentaccount':
+                if value:
+                    parent_account = engine.get_account(account_mapping_info[value])
+            elif key == 'name':
+                name = value
+            elif key in ['opened', 'lastmodified', 'institution', 'number', 'description']: # ignore these attributes
+                pass
+            else:
+                if value:
+                    print(f'unhandled account attribute: {key} => {value}')
+        print(f'  {name} ({type_.name})')
         acc_obj = Account(
                     type_=type_,
                     commodity=commodity,
                     name=account.attrib['name'],
                     parent=parent_account,
+                    alternate_id=alternate_id,
                     other_data=other_data,
                 )
         engine.save_account(acc_obj)
@@ -1943,7 +1965,7 @@ def import_kmymoney(kmy_file, engine):
                         txn_date=transaction.attrib['postdate'],
                         payee=payee,
                         description=transaction.attrib['memo'],
-                        alt_txn_id=txn_id,
+                        alternate_id=txn_id,
                         entry_date=entry_date or None,
                     )
                 )
