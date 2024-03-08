@@ -235,7 +235,8 @@ class Commodity:
 
 class Account:
 
-    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None, other_data=None):
+    def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None,
+                 closed=None, other_data=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -247,6 +248,7 @@ class Account:
         self.name = name
         self.parent = parent
         self.alternate_id = alternate_id
+        self.closed = closed
         self.other_data = other_data
 
     def __str__(self):
@@ -893,7 +895,7 @@ class SQLiteStorage:
             'number TEXT UNIQUE,'
             'name TEXT NOT NULL,'
             'parent_id INTEGER,'
-            'closed TEXT,'
+            'closed INTEGER NOT NULL DEFAULT 0,'
             'alternate_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated accounts
             'other_data TEXT NOT NULL DEFAULT "{}",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -901,6 +903,7 @@ class SQLiteStorage:
             'CHECK (number != ""),'
             'CHECK (name != ""),'
             'CHECK (json_type(other_data) IS "object"),'
+            'CHECK (closed = 0 OR closed = 1),'
             'FOREIGN KEY(type) REFERENCES account_types(type) ON DELETE RESTRICT,'
             'FOREIGN KEY(parent_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
@@ -1118,7 +1121,7 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def get_account(self, id_=None, number=None, name=None):
-        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'other_data']
+        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'closed', 'other_data']
         fields_str = ','.join(fields)
         if id_:
             account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE id = ?', (id_,)).fetchone()
@@ -1139,7 +1142,11 @@ class SQLiteStorage:
         if account_info[5]:
             parent = self.get_account(account_info[5])
         alternate_id = account_info[6]
-        other_data = json.loads(account_info[7])
+        if account_info[7] == 1:
+            closed = True
+        else:
+            closed = False
+        other_data = json.loads(account_info[8])
         if 'interest-rate-percent' in other_data:
             other_data['interest-rate-percent'] = Fraction(other_data['interest-rate-percent'])
         return Account(
@@ -1150,6 +1157,7 @@ class SQLiteStorage:
                 name=account_info[4],
                 parent=parent,
                 alternate_id=alternate_id,
+                closed=closed,
                 other_data=other_data,
             )
 
@@ -1166,6 +1174,15 @@ class SQLiteStorage:
         if account.alternate_id is not None:
             field_names.append('alternate_id')
             field_values.append(account.alternate_id)
+        if account.closed is not None:
+            field_names.append('closed')
+            if account.closed is True:
+                value = 1
+            elif account.closed is False:
+                value = 0
+            else:
+                raise InvalidAccountError(f'invalid value for closed: {account.closed}')
+            field_values.append(value)
         if account.other_data is not None:
             field_names.append('other_data')
             other_data = {**account.other_data}
@@ -1864,6 +1881,7 @@ def import_kmymoney(kmy_file, engine):
                 if value:
                     raise DataImportError(f'unhandled account attribute: {key} => {value}')
         print(f'  {name} ({type_.name})')
+        closed = False
         other_data = {}
         key_value_pairs = account.find('KEYVALUEPAIRS')
         if key_value_pairs is not None:
@@ -1876,8 +1894,11 @@ def import_kmymoney(kmy_file, engine):
                     other_data['fixed-interest'] = True
                 elif key == 'term':
                     other_data['term'] = f'{value}m'
+                elif key == 'mm-closed':
+                    if value == 'yes':
+                        closed = True
                 elif key in ['OpeningBalanceAccount', 'lastNumberUsed', 'compoundingFrequency', 'final-payment',
-                             'interest-calculation', 'loan-amount', 'periodic-payment', 'schedule', 'IBAN', 'mm-closed']: # ignore these
+                             'interest-calculation', 'loan-amount', 'periodic-payment', 'schedule', 'IBAN']: # ignore these
                     pass
                 else:
                     if value:
@@ -1888,6 +1909,7 @@ def import_kmymoney(kmy_file, engine):
                     name=account.attrib['name'],
                     parent=parent_account,
                     alternate_id=alternate_id,
+                    closed=closed,
                     other_data=other_data,
                 )
         engine.save_account(acc_obj)

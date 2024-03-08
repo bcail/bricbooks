@@ -784,7 +784,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', CHECKING_NFC, assets.id, None))
+                (checking.id, 'asset', 1, None, '4010', CHECKING_NFC, assets.id, 0))
         #check created/updated default timestamp fields (which are in UTC time)
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
@@ -798,7 +798,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', 'checking updated', assets.id, None))
+                (checking.id, 'asset', 1, None, '4010', 'checking updated', assets.id, 0))
         new_created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
         self.assertEqual(created, new_created)
         new_updated = datetime.fromisoformat(f'{db_info[-1]}+00:00')
@@ -809,7 +809,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:len(db_info[0])-2],
-                (savings.id, 'asset', 1, None, None, 'Savings', None, None))
+                (savings.id, 'asset', 1, None, None, 'Savings', None, 0))
 
     def test_save_account_commodity(self):
         c = self.storage._db_connection.cursor()
@@ -911,6 +911,35 @@ class TestSQLiteStorage(unittest.TestCase):
         data = c.execute(f'SELECT other_data FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
         data = json.loads(data)
         self.assertIn('interest-rate-percent', data)
+
+    def test_save_account_closed(self):
+        acc = get_test_account()
+        acc.closed = True
+        self.storage.save_account(acc)
+
+        c = self.storage._db_connection.cursor()
+        closed = c.execute('SELECT closed FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        self.assertEqual(closed, 1)
+
+        # verify `closed` isn't updated if value wasn't set
+        acc = self.storage.get_account(acc.id)
+        acc.closed = None
+        self.storage.save_account(acc)
+        closed = c.execute('SELECT closed FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        self.assertEqual(closed, 1)
+
+        # test updating the value of `closed`
+        acc = self.storage.get_account(acc.id)
+        self.assertEqual(acc.closed, True)
+        acc.closed = False
+        self.storage.save_account(acc)
+        closed = c.execute('SELECT closed FROM accounts WHERE id = ?', (acc.id,)).fetchone()[0]
+        self.assertEqual(closed, 0)
+
+        # verify that we can't save an invalid value
+        with self.assertRaises(Exception) as cm:
+            c.execute('UPDATE accounts SET closed = ? WHERE id = ?', (2, acc.id))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: closed = 0 OR closed = 1')
 
     def test_save_account_error_invalid_id(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=1)
