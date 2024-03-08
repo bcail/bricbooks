@@ -1866,7 +1866,7 @@ def import_kmymoney(kmy_file, engine):
         print(f'  {name} ({type_.name})')
         other_data = {}
         key_value_pairs = account.find('KEYVALUEPAIRS')
-        if key_value_pairs:
+        if key_value_pairs is not None:
             for pair in key_value_pairs.iter('PAIR'):
                 key = pair.attrib.get('key', '')
                 value = pair.attrib.get('value')
