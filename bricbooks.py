@@ -236,7 +236,7 @@ class Commodity:
 class Account:
 
     def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None,
-                 closed=None, other_data=None):
+                 description=None, closed=None, other_data=None):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -247,6 +247,7 @@ class Account:
         self.number = number or None
         self.name = name
         self.parent = parent
+        self.description = description
         self.alternate_id = alternate_id
         self.closed = closed
         self.other_data = other_data
@@ -895,6 +896,7 @@ class SQLiteStorage:
             'number TEXT UNIQUE,'
             'name TEXT NOT NULL,'
             'parent_id INTEGER,'
+            'description TEXT NOT NULL DEFAULT "",'
             'closed INTEGER NOT NULL DEFAULT 0,'
             'alternate_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated accounts
             'other_data TEXT NOT NULL DEFAULT "{}",'
@@ -1121,7 +1123,7 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def get_account(self, id_=None, number=None, name=None):
-        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'closed', 'other_data']
+        fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'description', 'closed', 'other_data']
         fields_str = ','.join(fields)
         if id_:
             account_info = self._db_connection.execute(f'SELECT {fields_str} FROM accounts WHERE id = ?', (id_,)).fetchone()
@@ -1142,11 +1144,12 @@ class SQLiteStorage:
         if account_info[5]:
             parent = self.get_account(account_info[5])
         alternate_id = account_info[6]
-        if account_info[7] == 1:
+        description = account_info[7]
+        if account_info[8] == 1:
             closed = True
         else:
             closed = False
-        other_data = json.loads(account_info[8])
+        other_data = json.loads(account_info[9])
         if 'interest-rate-percent' in other_data:
             other_data['interest-rate-percent'] = Fraction(other_data['interest-rate-percent'])
         return Account(
@@ -1157,6 +1160,7 @@ class SQLiteStorage:
                 name=account_info[4],
                 parent=parent,
                 alternate_id=alternate_id,
+                description=description,
                 closed=closed,
                 other_data=other_data,
             )
@@ -1174,6 +1178,9 @@ class SQLiteStorage:
         if account.alternate_id is not None:
             field_names.append('alternate_id')
             field_values.append(account.alternate_id)
+        if account.description is not None:
+            field_names.append('description')
+            field_values.append(account.description)
         if account.closed is not None:
             field_names.append('closed')
             if account.closed is True:
@@ -1852,6 +1859,7 @@ def import_kmymoney(kmy_file, engine):
         parent_account = None
         name = None
         alternate_id = None
+        description = None
         for key, value in account.attrib.items():
             if key == 'id':
                 alternate_id = value
@@ -1875,7 +1883,9 @@ def import_kmymoney(kmy_file, engine):
                     parent_account = engine.get_account(account_mapping_info[value])
             elif key == 'name':
                 name = value
-            elif key in ['opened', 'lastmodified', 'institution', 'number', 'description']: # ignore these attributes
+            elif key == 'description':
+                description = value
+            elif key in ['opened', 'lastmodified', 'institution', 'number']: # ignore these attributes
                 pass
             else:
                 if value:
@@ -1909,6 +1919,7 @@ def import_kmymoney(kmy_file, engine):
                     name=account.attrib['name'],
                     parent=parent_account,
                     alternate_id=alternate_id,
+                    description=description,
                     closed=closed,
                     other_data=other_data,
                 )
