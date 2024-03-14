@@ -567,7 +567,7 @@ class ScheduledTransaction:
                 id_=id_
             )
 
-    def __init__(self, name, frequency, next_due_date, splits, payee=None, description='', status='', id_=None):
+    def __init__(self, name, frequency, next_due_date=None, splits=None, payee=None, description='', status='', id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -577,7 +577,7 @@ class ScheduledTransaction:
             except ValueError:
                 raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
-        self.splits = handle_txn_splits(splits)
+        self.splits = handle_txn_splits(splits or {})
         if payee:
             if isinstance(payee, str):
                 self.payee = Payee(name=payee)
@@ -595,10 +595,11 @@ class ScheduledTransaction:
         return '%s: %s (%s %s) (%s)' % (self.id, self.name, self.frequency.name, self.next_due_date, splits_display(self.splits))
 
     def _check_date(self, dt):
-        try:
-            return get_date(dt)
-        except Exception:
-            raise InvalidScheduledTransactionError('invalid date "%s"' % dt)
+        if dt:
+            try:
+                return get_date(dt)
+            except Exception:
+                raise InvalidScheduledTransactionError('invalid date "%s"' % dt)
 
     def is_due(self):
         if self.next_due_date <= date.today():
@@ -958,7 +959,7 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'name TEXT UNIQUE NOT NULL,'
             'frequency TEXT NOT NULL,'
-            'next_due_date TEXT NOT NULL,'
+            'next_due_date TEXT,'
             'type TEXT,'
             'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
@@ -967,7 +968,7 @@ class SQLiteStorage:
             'FOREIGN KEY(frequency) REFERENCES scheduled_transaction_frequencies(frequency) ON DELETE RESTRICT,'
             'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (name != ""),'
-            'CHECK (next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
+            'CHECK (next_due_date IS NULL OR next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
         'CREATE TABLE scheduled_transaction_splits ('
             'id INTEGER PRIMARY KEY,'
@@ -1536,14 +1537,22 @@ class SQLiteStorage:
             payee = scheduled_txn.payee.id
         else:
             payee = None
+        if scheduled_txn.next_due_date:
+            next_due_date = scheduled_txn.next_due_date.strftime('%Y-%m-%d')
+        else:
+            next_due_date = None
+
+        field_names = ['name', 'frequency', 'next_due_date', 'payee_id', 'description']
+        field_values = [normalize(scheduled_txn.name), scheduled_txn.frequency.value, next_due_date, payee, normalize(scheduled_txn.description)]
 
         cur = self._db_connection.cursor()
         SQLiteStorage.begin_txn(cur)
         try:
             #update existing scheduled transaction
             if scheduled_txn.id:
-                cur.execute('UPDATE scheduled_transactions SET name = ?, frequency = ?, next_due_date = ?, payee_id = ?, description = ? WHERE id = ?',
-                    (normalize(scheduled_txn.name), scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, normalize(scheduled_txn.description), scheduled_txn.id))
+                field_names_s = ', '.join([f'{name} = ?' for name in field_names])
+                field_values.append(scheduled_txn.id)
+                cur.execute(f'UPDATE scheduled_transactions SET {field_names_s} WHERE id = ?', field_values)
                 if cur.rowcount < 1:
                     raise Exception('no scheduled transaction with id %s to update' % scheduled_txn.id)
                 #handle splits
@@ -1564,8 +1573,9 @@ class SQLiteStorage:
                         cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
             #add new scheduled transaction
             else:
-                cur.execute('INSERT INTO scheduled_transactions(name, frequency, next_due_date, payee_id, description) VALUES (?, ?, ?, ?, ?)',
-                    (normalize(scheduled_txn.name), scheduled_txn.frequency.value, scheduled_txn.next_due_date.strftime('%Y-%m-%d'), payee, normalize(scheduled_txn.description)))
+                field_names_s = ', '.join(field_names)
+                field_names_q = ', '.join(['?' for _ in field_names])
+                cur.execute(f'INSERT INTO scheduled_transactions({field_names_s}) VALUES ({field_names_q})', field_values)
                 scheduled_txn.id = cur.lastrowid
                 for split in scheduled_txn.splits:
                     account = split['account']
@@ -2017,8 +2027,48 @@ def import_kmymoney(kmy_file, engine):
                 )
         except RuntimeError as e:
             print(f'{datetime.now()} error migrating transaction: {e}\n  account: {account}\n  {transaction.attrib}')
+    scheduled = root.find('SCHEDULES')
+    for scheduled_txn in scheduled.iter('SCHEDULED_TX'):
+        name = scheduled_txn.attrib.get('name')
+        frequency = scheduled_txn.attrib.get('occurence')
+        if frequency == '4':
+            frequency = ScheduledTransactionFrequency.WEEKLY
+        elif frequency == '32':
+            frequency = ScheduledTransactionFrequency.MONTHLY
+        elif frequency == '18':
+            frequency = ScheduledTransactionFrequency.SEMI_MONTHLY
+        elif frequency == '4096':
+            frequency = ScheduledTransactionFrequency.QUARTERLY
+        elif frequency == '16384':
+            frequency = ScheduledTransactionFrequency.YEARLY
+        else:
+            print(f'unhandled scheduled txn frequency value: {value}')
+            continue
+        occurence_multiplier = scheduled_txn.attrib.get('occurenceMultiplier')
+        if occurence_multiplier != '1':
+            print(f'unhandled scheduled txn occurenceMultiplier: {value}')
+            continue
+        splits = []
+        splits_el = scheduled_txn.find('TRANSACTION').find('SPLITS')
+        for split_el in splits_el.iter('SPLIT'):
+            split = {}
+            for key, value in split_el.attrib.items():
+                if key == 'account':
+                    account_orig_id = split_el.attrib['account']
+                    account = engine.get_account(account_mapping_info[account_orig_id])
+                    split['account'] = account
+                split['amount'] = 0
+            if split:
+                splits.append(split)
+        engine.save_scheduled_transaction(
+                ScheduledTransaction(
+                    name=name,
+                    frequency=frequency,
+                    splits=splits,
+                )
+            )
     for top_level_el in root:
-        if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS']:
+        if top_level_el.tag not in ['CURRENCIES', 'SECURITIES', 'ACCOUNTS', 'PAYEES', 'TRANSACTIONS', 'SCHEDULES']:
             print(f"{datetime.now()} didn't migrate {top_level_el.tag} data")
 
 

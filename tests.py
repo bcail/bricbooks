@@ -405,14 +405,6 @@ class TestScheduledTransaction(unittest.TestCase):
                 splits=self.valid_splits,
             )
         self.assertEqual(str(cm.exception), 'invalid date "abcd"')
-        with self.assertRaises(bb.InvalidScheduledTransactionError) as cm:
-            bb.ScheduledTransaction(
-                name='w',
-                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
-                next_due_date=None,
-                splits=self.valid_splits,
-            )
-        self.assertEqual(str(cm.exception), 'invalid date "None"')
 
     def test_init(self):
         st = bb.ScheduledTransaction(
@@ -2639,6 +2631,8 @@ class TestImport(unittest.TestCase):
             'term': '360m',
         }
         self.assertEqual(mortgage.other_data, mortgage_data)
+        scheduled_txns = engine.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
         engine._storage._db_connection.close()
 
 
