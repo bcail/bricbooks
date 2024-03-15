@@ -2044,6 +2044,25 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].payee.name, 'Some payee')
 
+    def test_get_scheduled_transactions_due(self):
+        create_test_accounts(self.engine)
+        checking = self.engine.get_account(name='Checking')
+        savings = self.engine.get_account(name='Savings')
+        st1 = bb.ScheduledTransaction(
+                name='st1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date=date(2024, 3, 14)
+            )
+        st2 = bb.ScheduledTransaction(
+                name='st2',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+            )
+        self.engine.save_scheduled_transaction(st1)
+        self.engine.save_scheduled_transaction(st2)
+        scheduled_txns_due = self.engine.get_scheduled_transactions_due()
+        self.assertEqual(len(scheduled_txns_due), 1)
+        self.assertEqual(scheduled_txns_due[0].id, st1.id)
+
 
 class TestCLI(unittest.TestCase):
 

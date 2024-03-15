@@ -594,6 +594,9 @@ class ScheduledTransaction:
     def __str__(self):
         return '%s: %s (%s %s) (%s)' % (self.id, self.name, self.frequency.name, self.next_due_date, splits_display(self.splits))
 
+    def __repr__(self):
+        return str(self)
+
     def _check_date(self, dt):
         if dt:
             try:
@@ -602,7 +605,7 @@ class ScheduledTransaction:
                 raise InvalidScheduledTransactionError('invalid date "%s"' % dt)
 
     def is_due(self):
-        if self.next_due_date <= date.today():
+        if self.next_due_date and self.next_due_date <= date.today():
             return True
         return False
 
