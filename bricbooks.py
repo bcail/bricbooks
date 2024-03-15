@@ -1921,7 +1921,7 @@ def import_kmymoney(kmy_file, engine):
                 elif key == 'mm-closed':
                     if value == 'yes':
                         closed = True
-                elif key in ['OpeningBalanceAccount', 'lastNumberUsed', 'compoundingFrequency', 'final-payment',
+                elif key in ['OpeningBalanceAccount', 'lastNumberUsed', 'compoundingFrequency', 'final-payment', 'priceMode',
                              'interest-calculation', 'loan-amount', 'periodic-payment', 'schedule', 'IBAN']: # ignore these
                     pass
                 else:
