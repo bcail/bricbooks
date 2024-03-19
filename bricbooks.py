@@ -1706,15 +1706,21 @@ class Engine:
         sorted_results = Engine.sort_txns(results, key='date')
         #add balance if we have all the txns for a specific account, without limiting by another account, or a query, or a status, ...
         if not any([filter_account, query, status]):
-            sorted_results = Engine.add_balance_to_txns(sorted_results, account=account)
+            balance_field = 'amount'
+            if account.type == AccountType.SECURITY:
+                balance_field = 'quantity'
+            sorted_results = Engine.add_balance_to_txns(sorted_results, account=account, balance_field=balance_field)
         if reverse:
             return list(reversed(sorted_results))
         else:
             return sorted_results
 
-    def get_current_balances_for_display(self, account, balance_field='amount', sorted_txns=None):
+    def get_current_balances_for_display(self, account, sorted_txns=None):
         if not sorted_txns:
             sorted_txns = self.get_transactions(account=account)
+        balance_field = 'amount'
+        if account.type == AccountType.SECURITY:
+            balance_field = 'quantity'
         current = Fraction(0)
         current_cleared = Fraction(0)
         today = date.today()
@@ -1722,7 +1728,7 @@ class Engine:
             if t.txn_date <= today:
                 current = t.balance
                 split = [s for s in t.splits if s['account'] == account][0]
-                if split.get('status', None) in [Transaction.CLEARED, Transaction.RECONCILED]:
+                if split.get('status') in [Transaction.CLEARED, Transaction.RECONCILED]:
                     current_cleared = current_cleared + split[balance_field]
         return LedgerBalances(
                 current=amount_display(current),

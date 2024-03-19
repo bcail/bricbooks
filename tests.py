@@ -2002,6 +2002,7 @@ class TestEngine(unittest.TestCase):
         savings = self.engine.get_account(name='Savings')
         wages = self.engine.get_account(name='Wages')
         food = self.engine.get_account(name='Food')
+        stock = self.engine.get_account(name='Stock A')
         txn = bb.Transaction(
                 splits=[
                     {'account': checking, 'amount': -5, 'status': bb.Transaction.CLEARED},
@@ -2025,13 +2026,31 @@ class TestEngine(unittest.TestCase):
                 ],
                 txn_date=date(2017, 1, 31)
             )
+        txn4 = bb.Transaction(
+                splits=[
+                    {'account': stock, 'amount': 100, 'quantity': '5.23'},
+                    {'account': checking, 'amount': -100},
+                ],
+                txn_date=date(2018, 2, 3)
+            )
+        txn5 = bb.Transaction(
+                splits=[
+                    {'account': stock, 'amount': 100, 'quantity': '6.71'},
+                    {'account': checking, 'amount': -100},
+                ],
+                txn_date=date(2018, 3, 3)
+            )
         self.engine.save_transaction(txn)
         self.engine.save_transaction(txn2)
         self.engine.save_transaction(txn3)
+        self.engine.save_transaction(txn4)
+        self.engine.save_transaction(txn5)
         #get txns for an account, with balance
         txns = self.engine.get_transactions(account=checking)
-        self.assertEqual(len(txns), 2)
+        self.assertEqual(len(txns), 4)
         self.assertEqual(txns[0].balance, Fraction(5))
+        self.assertEqual(txns[1].balance, 0)
+        self.assertEqual(txns[3].balance, -200)
         #get txns matching multiple accounts
         txns = self.engine.get_transactions(account=checking, filter_account=food)
         self.assertEqual(len(txns), 1)
@@ -2043,6 +2062,46 @@ class TestEngine(unittest.TestCase):
         txns = self.engine.get_transactions(account=checking, query='some payee')
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].payee.name, 'Some payee')
+        #security ledger
+        txns = self.engine.get_transactions(account=stock)
+        self.assertEqual(len(txns), 2)
+        self.assertEqual(txns[0].balance, Fraction('5.23'))
+        self.assertEqual(txns[1].balance, Fraction('11.94'))
+
+    def test_get_current_balances_for_display(self):
+        create_test_accounts(self.engine)
+        checking = self.engine.get_account(name='Checking')
+        stock = self.engine.get_account(name='Stock A')
+        txn = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -50, 'status': bb.Transaction.CLEARED},
+                    {'account': stock, 'amount': 50, 'quantity': Fraction('5.25'), 'status': bb.Transaction.CLEARED}
+                ],
+                txn_date=date(2017, 1, 15),
+            )
+        txn2 = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -50},
+                    {'account': stock, 'amount': 50, 'quantity': Fraction('4.5')}
+                ],
+                txn_date=date(2017, 1, 22)
+            )
+        txn3 = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -50},
+                    {'account': stock, 'amount': 50, 'quantity': Fraction(3)}
+                ],
+                txn_date=date(2017, 1, 31)
+            )
+        self.engine.save_transaction(txn)
+        self.engine.save_transaction(txn2)
+        self.engine.save_transaction(txn3)
+        balances = self.engine.get_current_balances_for_display(checking)
+        expected_balances = bb.LedgerBalances(current='-150.00', current_cleared='-50.00')
+        self.assertEqual(balances, expected_balances)
+        stock_balances = self.engine.get_current_balances_for_display(stock)
+        expected_stock_balances = bb.LedgerBalances(current='12.75', current_cleared='5.25')
+        self.assertEqual(stock_balances, expected_stock_balances)
 
     def test_get_scheduled_transactions_due(self):
         create_test_accounts(self.engine)
