@@ -1888,7 +1888,7 @@ def import_kmymoney(kmy_file, engine):
                 alternate_id = value
             elif key == 'type':
                 kmy_type = value
-                if value in ['10', '5']:
+                if value in ['4', '5', '10']:
                     type_ = AccountType.LIABILITY
                 elif value in ['13']:
                     type_ = AccountType.EXPENSE
