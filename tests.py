@@ -1933,19 +1933,25 @@ class TestSQLiteStorage(unittest.TestCase):
 
 def create_test_accounts(engine):
     accounts = {
-            'Checking': bb.AccountType.ASSET,
-            'Savings': bb.AccountType.ASSET,
-            'Retirement 401k': bb.AccountType.ASSET,
-            'Stock A': bb.AccountType.SECURITY,
-            'Mortgage': bb.AccountType.LIABILITY,
-            'Wages': bb.AccountType.INCOME,
-            'Housing': bb.AccountType.EXPENSE,
-            'Food': bb.AccountType.EXPENSE,
-            'Opening Balances': bb.AccountType.EQUITY,
-        }
-    for name, type_ in accounts.items():
-        account = get_test_account(type_=type_, name=name)
+        'Bank Accounts': {'type': bb.AccountType.ASSET},
+        'Checking': {'type': bb.AccountType.ASSET, 'parent': 'Bank Accounts'},
+        'Savings': {'type': bb.AccountType.ASSET, 'parent': 'Bank Accounts'},
+        'Retirement 401k': {'type': bb.AccountType.ASSET},
+        'Stock A': {'type': bb.AccountType.SECURITY, 'parent': 'Retirement 401k'},
+        'Mortgage': {'type': bb.AccountType.LIABILITY},
+        'Wages': {'type': bb.AccountType.INCOME},
+        'Housing': {'type': bb.AccountType.EXPENSE},
+        'Mortgage Interest': {'type': bb.AccountType.EXPENSE, 'parent': 'Housing'},
+        'Food': {'type': bb.AccountType.EXPENSE},
+        'Opening Balances': {'type': bb.AccountType.EQUITY},
+    }
+    for name, info in accounts.items():
+        parent = None
+        if 'parent' in info:
+            parent = accounts[info['parent']]['account']
+        account = get_test_account(type_=info['type'], name=name, parent=parent)
         engine.save_account(account)
+        info['account'] = account
 
 
 class TestEngine(unittest.TestCase):
@@ -1976,10 +1982,12 @@ class TestEngine(unittest.TestCase):
     def test_get_accounts(self):
         create_test_accounts(self.engine)
         accounts = self.engine.get_accounts()
-        self.assertEqual(len(accounts), 9)
-        self.assertEqual(accounts[0].name, 'Checking')
-        self.assertEqual(accounts[1].name, 'Savings')
-        self.assertEqual(accounts[2].name, 'Retirement 401k')
+        self.assertEqual(len(accounts), 11)
+        self.assertEqual(accounts[0].name, 'Bank Accounts')
+        self.assertEqual(accounts[1].name, 'Checking')
+        self.assertEqual(accounts[1].parent, accounts[0])
+        self.assertEqual(accounts[2].name, 'Savings')
+        self.assertEqual(accounts[3].name, 'Retirement 401k')
 
     def test_payees(self):
         self.engine.save_payee(bb.Payee('New Payee'))
@@ -1993,8 +2001,8 @@ class TestEngine(unittest.TestCase):
     def test_get_ledger_accounts(self):
         create_test_accounts(self.engine)
         accounts = self.engine.get_ledger_accounts()
-        self.assertEqual(len(accounts), 6)
-        self.assertEqual(accounts[0].name, 'Checking')
+        self.assertEqual(len(accounts), 7)
+        self.assertEqual(accounts[1].name, 'Checking')
 
     def test_get_transactions(self):
         create_test_accounts(self.engine)
