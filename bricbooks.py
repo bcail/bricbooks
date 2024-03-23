@@ -1657,10 +1657,6 @@ class Engine:
         else:
             return self._storage.get_accounts()
 
-    def get_ledger_accounts(self):
-        '''Retrieve accounts for Ledger display'''
-        return self.get_accounts(types=[AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY])
-
     def save_account(self, account=None, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
         if not account:
             parent = None

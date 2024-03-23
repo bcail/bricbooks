@@ -1998,12 +1998,6 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(payees[0].name, 'A New Payee')
         self.assertEqual(payees[2].name, 'New Payee')
 
-    def test_get_ledger_accounts(self):
-        create_test_accounts(self.engine)
-        accounts = self.engine.get_ledger_accounts()
-        self.assertEqual(len(accounts), 7)
-        self.assertEqual(accounts[1].name, 'Checking')
-
     def test_get_transactions(self):
         create_test_accounts(self.engine)
         checking = self.engine.get_account(name='Checking')
