@@ -109,6 +109,27 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.accounts_display.add_account_form.save_button.invoke()
         mock_method.assert_called_once()
 
+    def test_ledger_display_security(self):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=fund)
+        txn = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -50},
+                    {'account': fund, 'amount': 50, 'quantity': '2.34'}
+                ],
+                txn_date=date(2017, 1, 15),
+            )
+        gui._engine.save_transaction(txn)
+        gui.ledger_button.invoke()
+        gui.ledger_display.account_select_combo.current(1)
+        gui.ledger_display.account_select_combo.event_generate('<<ComboboxSelected>>')
+        self.assertEqual(gui.ledger_display.account_select_combo.get(), 'Fund')
+        self.assertEqual(gui.ledger_display._account.name, 'Fund')
+        self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: 2.34')
+
     def test_ledger_new_transaction(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()

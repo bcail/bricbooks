@@ -311,6 +311,7 @@ class TestTransaction(unittest.TestCase):
                 {
                     'withdrawal': '1.20',
                     'deposit': '',
+                    'quantity': '-1.2',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
@@ -325,6 +326,7 @@ class TestTransaction(unittest.TestCase):
                 {
                     'withdrawal': '',
                     'deposit': '1.20',
+                    'quantity': '1.2',
                     'description': 'something',
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
@@ -344,6 +346,7 @@ class TestTransaction(unittest.TestCase):
                 {
                     'withdrawal': '',
                     'deposit': '100.00',
+                    'quantity': '100',
                     'description': '',
                     'txn_date': str(date.today()),
                     'payee': '',

@@ -345,6 +345,10 @@ def amount_display(amount):
     return '{0:,.2f}'.format(fraction_to_decimal(amount))
 
 
+def quantity_display(quantity):
+    return str(fraction_to_decimal(quantity))
+
+
 def check_txn_splits(splits):
     total = Fraction(0)
     for split in splits:
@@ -507,6 +511,7 @@ def get_display_strings_for_ledger(account, txn):
     else:
         withdrawal = ''
         deposit = amount_display(amount)
+    quantity = quantity_display(split['quantity'])
     if txn.payee:
         payee = txn.payee.name
     else:
@@ -514,6 +519,7 @@ def get_display_strings_for_ledger(account, txn):
     display_strings = {
             'withdrawal': withdrawal,
             'deposit': deposit,
+            'quantity': quantity,
             'description': txn.description or '',
             'payee': payee,
             'categories': _categories_display(splits=txn.splits, main_account=account),
@@ -2920,38 +2926,51 @@ class LedgerDisplay:
         return self._engine.get_transactions(account=self._account, status=status, filter_account=filter_account, query=filter_text)
 
     def _show_transactions(self, status=None, filter_text='', filter_account=None):
-        master = self.frame
-        account = self._account
-        columns = ('date', 'payee', 'description', 'status', 'withdrawal', 'deposit', 'balance', 'transfer account')
-
         if self.txns_widget:
             self.txns_widget.destroy()
 
-        self.txns_widget = ttk.Treeview(master=master, columns=columns, show='headings')
-        self.txns_widget.tag_configure("scheduled", background="gray")
-        self.txns_widget.heading('date', text='Date')
-        self.txns_widget.column('date', width=100, anchor='center')
-        self.txns_widget.heading('payee', text='Payee')
-        self.txns_widget.column('payee', width=100, anchor='center')
-        self.txns_widget.heading('description', text='Description')
-        self.txns_widget.column('description', width=100, anchor='center')
-        self.txns_widget.heading('status', text='Status')
-        self.txns_widget.column('status', width=100, anchor='center')
-        self.txns_widget.heading('withdrawal', text='Withdrawal')
-        self.txns_widget.column('withdrawal', width=100, anchor='center')
-        self.txns_widget.heading('deposit', text='Deposit')
-        self.txns_widget.column('deposit', width=100, anchor='center')
-        self.txns_widget.heading('balance', text='Balance')
-        self.txns_widget.column('balance', width=100, anchor='center')
-        self.txns_widget.heading('transfer account', text='Transfer Account')
-        self.txns_widget.column('transfer account', width=100, anchor='center')
+        master = self.frame
+        account = self._account
+        columns = {
+            'date': {'text': 'Date'},
+            'payee': {'text': 'Payee'},
+            'description': {'text': 'Description'},
+            'status': {'text': 'Status'},
+            'withdrawal': {'text': 'Withdrawal'},
+            'deposit': {'text': 'Deposit'},
+            'balance': {'text': 'Balance'},
+            'transfer account': {'text': 'Transfer Account'},
+        }
+        if self._account.type == AccountType.SECURITY:
+            columns = {
+                'date': {'text': 'Date'},
+                'payee': {'text': 'Payee'},
+                'description': {'text': 'Description'},
+                'status': {'text': 'Status'},
+                'shares': {'text': 'Shares'},
+                'withdrawal': {'text': 'Withdrawal'},
+                'deposit': {'text': 'Deposit'},
+                'balance': {'text': 'Balance'},
+                'transfer account': {'text': 'Transfer Account'},
+            }
+
+        self.txns_widget = ttk.Treeview(master=master, columns=tuple(columns.keys()), show='headings')
+        self.txns_widget.tag_configure('scheduled', background='gray')
+        for column_name, column_info in columns.items():
+            self.txns_widget.heading(column_name, text=column_info['text'])
+            self.txns_widget.column(column_name, width=100, anchor='center')
 
         sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
         for txn in sorted_txns:
             tds = get_display_strings_for_ledger(account, txn)
-            values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
-                      tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+            if self._account.type == AccountType.SECURITY:
+                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+            else:
+                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
             self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
+
 
         if not any([status, filter_text, filter_account]):
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
