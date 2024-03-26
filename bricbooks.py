@@ -387,7 +387,7 @@ class Transaction:
     RECONCILED = 'R'
 
     @staticmethod
-    def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None, action=None):
+    def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None, action=None, quantity=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = []
         if not deposit and not withdrawal:
@@ -403,6 +403,8 @@ class Transaction:
             main_split = {'account': account, 'amount': amount * -1}
         if type_ is not None:
             main_split['type'] = type_
+        if quantity is not None:
+            main_split['quantity'] = quantity
         transfer_account_splits = []
         if isinstance(input_categories, Account):
             split = {'account': input_categories}
@@ -431,8 +433,9 @@ class Transaction:
         return splits
 
     @staticmethod
-    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status, type_=None, action=None, id_=None):
-        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status, type_, action)
+    def from_user_info(account, deposit, withdrawal, txn_date, categories, payee, description, status,
+                       type_=None, action=None, id_=None, quantity=None):
+        splits = Transaction.splits_from_user_info(account, deposit, withdrawal, categories, status, type_, action, quantity=quantity)
         return Transaction(
                 splits=splits,
                 txn_date=txn_date,
@@ -2807,6 +2810,7 @@ class TransactionForm:
         self._id = id_
         self._tds = tds or {}
         self._splits = splits or {}
+        self.shares_var = tk.StringVar()
         self.withdrawal_var = tk.StringVar()
         self.deposit_var = tk.StringVar()
 
@@ -2815,8 +2819,12 @@ class TransactionForm:
         self.form = ttk.Frame(master=self.top_level)
         for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status'), (5, 'Action')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
-        for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
-            ttk.Label(master=self.form, text=label).grid(row=2, column=col)
+        if self._account.type == AccountType.SECURITY:
+            for col, label in [(0, 'Shares'), (1, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
+                ttk.Label(master=self.form, text=label).grid(row=2, column=col)
+        else:
+            for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
+                ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         self.date_entry = ttk.Entry(master=self.form)
         self.type_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
@@ -2837,8 +2845,11 @@ class TransactionForm:
         self.status_combo['values'] = status_values
         self.action_combo = ttk.Combobox(master=self.form)
         self.action_combo['values'] = [a.value for a in TransactionAction]
+        if self._account.type == AccountType.SECURITY:
+            self.shares_entry = ttk.Entry(master=self.form, textvariable=self.shares_var)
         self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
         self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
+        self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         tds_status = self._tds.get('status', '')
         for index, status in enumerate(status_values):
             if tds_status == status:
@@ -2859,18 +2870,18 @@ class TransactionForm:
         self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
-        self.withdrawal_entry.grid(row=3, column=0)
-        self.deposit_entry.grid(row=3, column=1)
-        self.transfer_accounts_widget.grid(row=3, column=2, sticky=(tk.N, tk.S))
-        self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
-        self.save_button.grid(row=3, column=3)
+        entries = [self.withdrawal_entry, self.deposit_entry, self.transfer_accounts_widget, self.save_button]
+        if self._account.type == AccountType.SECURITY:
+            entries.insert(0, self.shares_entry)
         if self._skip_transaction:
             self.save_button['text'] = 'Enter New'
             self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
-            self.skip_button.grid(row=3, column=4)
+            entries.append(self.skip_button)
         elif self._delete_transaction:
             self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
-            self.delete_button.grid(row=3, column=4)
+            entries.append(self.delete_button)
+        for index, entry in enumerate(entries):
+            entry.grid(row=3, column=index, sticky=(tk.N, tk.S))
 
         self.form.grid()
         return self.top_level
@@ -2893,6 +2904,8 @@ class TransactionForm:
             'action': self.action_combo.get(),
             'categories': transfer_accounts,
         }
+        if self._account.type == AccountType.SECURITY:
+            kwargs['quantity'] = self.shares_var.get()
         try:
             transaction = Transaction.from_user_info(**kwargs)
             self._save_transaction(transaction=transaction)
