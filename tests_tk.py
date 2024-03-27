@@ -301,6 +301,36 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[1].payee.name, 'New Payee')
         self.assertEqual(txns[1].description, 'description')
 
+    def test_ledger_update_transaction_security(self):
+        gui = bb.GUI_TK(':memory:')
+        checking = get_test_account()
+        fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
+        gui._engine.save_account(account=checking)
+        gui._engine.save_account(account=fund)
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': -50}, {'account': fund, 'amount': 50, 'quantity': '4.5'}], txn_date=date(2017, 1, 3))
+        gui._engine.save_transaction(txn)
+        gui.ledger_button.invoke()
+        gui.ledger_display.account_select_combo.current(1)
+        gui.ledger_display.account_select_combo.event_generate('<<ComboboxSelected>>')
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=10)
+
+        #verify that data is loaded into form
+        self.assertEqual(gui.ledger_display.edit_transaction_form.shares_entry.get(), '4.5')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.deposit_entry.get(), '50.00')
+
+        #update values & save
+        gui.ledger_display.edit_transaction_form.shares_entry.delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.shares_entry.insert(0, '3.67')
+        gui.ledger_display.edit_transaction_form.save_button.invoke()
+
+        #verify transaction updates saved
+        txns = gui._engine.get_transactions(account=fund)
+        self.assertEqual(len(txns), 1)
+        self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
+        self.assertEqual(txns[0].splits[0]['account'], checking)
+        self.assertEqual(txns[0].splits[1]['account'], fund)
+        self.assertEqual(txns[0].splits[1]['quantity'], Fraction('3.67'))
+
     def test_ledger_update_transaction_multiple_transfer(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()

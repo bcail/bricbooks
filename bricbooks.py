@@ -2847,6 +2847,7 @@ class TransactionForm:
         self.action_combo['values'] = [a.value for a in TransactionAction]
         if self._account.type == AccountType.SECURITY:
             self.shares_entry = ttk.Entry(master=self.form, textvariable=self.shares_var)
+            self.shares_var.set(self._tds.get('quantity', ''))
         self.withdrawal_entry = ttk.Entry(master=self.form, textvariable=self.withdrawal_var)
         self.deposit_entry = ttk.Entry(master=self.form, textvariable=self.deposit_var)
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
