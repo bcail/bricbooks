@@ -280,13 +280,33 @@ class TestTransaction(unittest.TestCase):
                     account=self.checking,
                     deposit='',
                     withdrawal='',
-                    categories=[],
+                    categories=[{'account':self.savings}],
                     description='',
                     payee='',
                     status='',
                 )
 
         self.assertIn('deposit or withdrawal', str(cm.exception).lower())
+
+    def test_txn_from_user_info_no_transfer_account(self):
+        fund = get_test_account(name='Fund', type_=bb.AccountType.SECURITY)
+        txn = bb.Transaction.from_user_info(
+                txn_date='2017-10-15',
+                account=fund,
+                deposit='',
+                withdrawal='0',
+                quantity='5',
+                categories=None,
+                payee='',
+                description='',
+                status='',
+                action='shares-split',
+            )
+        self.assertEqual(txn.splits,
+                [
+                    {'account': fund, 'amount': 0, 'quantity': 5, 'action': 'shares-split', 'status': ''},
+                ]
+            )
 
     def test_txn_status(self):
         t = bb.Transaction(

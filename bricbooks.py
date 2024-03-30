@@ -390,7 +390,7 @@ class Transaction:
     def splits_from_user_info(account, deposit, withdrawal, input_categories, status='', type_=None, action=None, quantity=None):
         #input_categories: can be an account, or a dict like {acc: {'amount': '5', 'status': 'C'}, ...}
         splits = []
-        if not deposit and not withdrawal:
+        if input_categories and not deposit and not withdrawal:
             raise InvalidTransactionError('must enter deposit or withdrawal')
         try:
             amount = get_validated_amount(deposit or withdrawal)
@@ -421,7 +421,10 @@ class Transaction:
                 else:
                     raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         else:
-            raise InvalidTransactionError(f'invalid input categories: {input_categories}')
+            if amount == 0 and not input_categories:
+                pass # eg. split shares txn with no value/amount change
+            else:
+                raise InvalidTransactionError(f'invalid input categories: {input_categories}')
         main_split['status'] = status.upper()
         if action:
             if account.type == AccountType.SECURITY:
@@ -2820,7 +2823,7 @@ class TransactionForm:
         for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status'), (5, 'Action')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         if self._account.type == AccountType.SECURITY:
-            for col, label in [(0, 'Shares'), (1, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
+            for col, label in [(0, 'Shares'), (1, 'Withdrawal'), (2, 'Deposit'), (3, 'Transfer Accounts')]:
                 ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         else:
             for col, label in [(0, 'Withdrawal'), (1, 'Deposit'), (2, 'Transfer Accounts')]:
