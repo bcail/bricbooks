@@ -529,6 +529,7 @@ def get_display_strings_for_ledger(account, txn):
             'description': txn.description or '',
             'payee': payee,
             'categories': _categories_display(splits=txn.splits, main_account=account),
+            'action': split.get('action', '')
         }
     if isinstance(txn, ScheduledTransaction):
         display_strings['name'] = txn.name
@@ -2847,7 +2848,8 @@ class TransactionForm:
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         self.status_combo['values'] = status_values
         self.action_combo = ttk.Combobox(master=self.form)
-        self.action_combo['values'] = [a.value for a in TransactionAction]
+        action_values = [a.value for a in TransactionAction]
+        self.action_combo['values'] = action_values
         if self._account.type == AccountType.SECURITY:
             self.shares_entry = ttk.Entry(master=self.form, textvariable=self.shares_var)
             self.shares_var.set(self._tds.get('quantity', ''))
@@ -2858,6 +2860,10 @@ class TransactionForm:
         for index, status in enumerate(status_values):
             if tds_status == status:
                 self.status_combo.current(index)
+        tds_action = self._tds.get('action', '')
+        for index, action in enumerate(action_values):
+            if tds_action == action:
+                self.action_combo.current(index)
         self.withdrawal_var.set(self._tds.get('withdrawal', ''))
         self.deposit_var.set(self._tds.get('deposit', ''))
         self.transfer_accounts_display = TransferAccountsDisplay(
@@ -2874,6 +2880,7 @@ class TransactionForm:
         self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
+        self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
         entries = [self.withdrawal_entry, self.deposit_entry, self.transfer_accounts_widget, self.save_button]
         if self._account.type == AccountType.SECURITY:
             entries.insert(0, self.shares_entry)

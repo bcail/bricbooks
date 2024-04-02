@@ -336,6 +336,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
                     'status': 'C',
+                    'action': '',
                     'type': '',
                     'categories': 'Savings',
                     'balance': '5.00',
@@ -351,6 +352,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': 'asdf',
                     'status': '',
+                    'action': '',
                     'type': '',
                     'categories': CHECKING,
                     'balance': '5.00',
@@ -371,6 +373,7 @@ class TestTransaction(unittest.TestCase):
                     'txn_date': str(date.today()),
                     'payee': '',
                     'status': '',
+                    'action': '',
                     'type': '',
                     'categories': 'Savings',
                 }

@@ -307,7 +307,13 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=fund)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': -50}, {'account': fund, 'amount': 50, 'quantity': '4.5'}], txn_date=date(2017, 1, 3))
+        txn = bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': -50},
+                    {'account': fund, 'amount': 50, 'quantity': '4.5', 'action': 'share-buy'}
+                ],
+                txn_date=date(2017, 1, 3)
+            )
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
         gui.ledger_display.account_select_combo.current(1)
@@ -317,6 +323,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         #verify that data is loaded into form
         self.assertEqual(gui.ledger_display.edit_transaction_form.shares_entry.get(), '4.5')
         self.assertEqual(gui.ledger_display.edit_transaction_form.deposit_entry.get(), '50.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.action_combo.get(), 'share-buy')
 
         #update values & save
         gui.ledger_display.edit_transaction_form.shares_entry.delete(0, tkinter.END)
