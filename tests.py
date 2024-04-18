@@ -1978,6 +1978,8 @@ def create_test_accounts(engine):
         account = get_test_account(type_=info['type'], name=name, parent=parent)
         engine.save_account(account)
         info['account'] = account
+    closed_account = bb.Account(type_=bb.AccountType.ASSET, name='closed account', closed=True)
+    engine.save_account(closed_account)
 
 
 class TestEngine(unittest.TestCase):
