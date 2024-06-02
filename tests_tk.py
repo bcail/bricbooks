@@ -143,10 +143,12 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(add_form.date_entry.get(), str(date.today()))
         add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
-        add_form.type_entry.insert(0, 'ACH')
-        add_form.action_combo.current(1)
-        add_form.withdrawal_entry.insert(0, '20.05')
-        add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
+        add_form.splits_form._splits[0]['account_combo'].current(1)
+        add_form.splits_form._splits[0]['type_entry'].insert(0, 'ACH')
+        add_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '20.05')
+        add_form.splits_form._splits[1]['account_combo'].current(2)
+        add_form.splits_form._splits[1]['action_combo'].current(1)
+        add_form.splits_form._splits[1]['deposit_entry'].insert(0, '20.05')
         add_form.save_button.invoke()
         txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
@@ -173,20 +175,22 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(add_form.date_entry.get(), str(date.today()))
         add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-30')
-        add_form.action_combo.current(1)
-        add_form.deposit_entry.insert(0, '20.05')
-        add_form.shares_entry.insert(0, '4.5')
-        add_form.transfer_accounts_display.transfer_accounts_combo.current(1)
+        add_form.splits_form._splits[0]['account_combo'].current(1)
+        add_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '20.05')
+        add_form.splits_form._splits[1]['account_combo'].current(2)
+        add_form.splits_form._splits[1]['action_combo'].current(1)
+        add_form.splits_form._splits[1]['deposit_entry'].insert(0, '20.05')
+        add_form.splits_form._splits[1]['shares_entry'].insert(0, '4.5')
         add_form.save_button.invoke()
         txns = gui._engine.get_transactions(account=fund)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 30))
-        self.assertEqual(txns[0].splits[0]['account'], fund)
-        self.assertEqual(txns[0].splits[0]['amount'], Fraction(401, 20))
-        self.assertEqual(txns[0].splits[0]['quantity'], 4.5)
-        self.assertEqual(txns[0].splits[0]['action'], 'share-buy')
-        self.assertEqual(txns[0].splits[1]['account'], checking)
-        self.assertEqual(txns[0].splits[1]['amount'], Fraction(-401, 20))
+        self.assertEqual(txns[0].splits[0]['account'], checking)
+        self.assertEqual(txns[0].splits[0]['amount'], Fraction(-401, 20))
+        self.assertEqual(txns[0].splits[1]['account'], fund)
+        self.assertEqual(txns[0].splits[1]['amount'], Fraction(401, 20))
+        self.assertEqual(txns[0].splits[1]['quantity'], 4.5)
+        self.assertEqual(txns[0].splits[1]['action'], 'share-buy')
         self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: 4.50')
 
     @patch('bricbooks.handle_error')
@@ -196,10 +200,11 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui.ledger_button.invoke()
         gui.ledger_display.add_button.invoke()
+        gui.ledger_display.add_transaction_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '10')
         gui.ledger_display.add_transaction_form.save_button.invoke()
         mock_method.assert_called_once()
 
-    def test_ledger_new_transaction_multiple_transfer(self):
+    def test_ledger_new_transaction_multiple_splits(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         food = get_test_account(name='Food')
@@ -212,52 +217,23 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         add_form = gui.ledger_display.add_transaction_form
         add_form.date_entry.delete(0, tkinter.END)
         add_form.date_entry.insert(0, '2021-01-13')
-        add_form.withdrawal_entry.insert(0, '20.05')
-        add_form.transfer_accounts_display.split_button.invoke()
-
-        splits_editor = add_form.transfer_accounts_display.splits_editor
-        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-20.05')
-
-        splits_editor._entries[food.id][0].insert(0, '10.05')
-        splits_editor._entries[restaurants.id][0].insert(0, '10')
-        splits_editor.ok_button.invoke()
+        add_form.splits_form._splits[0]['account_combo'].current(1)
+        add_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '20.05')
+        add_form.splits_form._splits[1]['account_combo'].current(2)
+        add_form.splits_form._splits[1]['deposit_entry'].insert(0, '10.05')
+        add_form.splits_form.add_button.invoke()
+        add_form.splits_form._splits[2]['account_combo'].current(3)
+        add_form.splits_form._splits[2]['deposit_entry'].insert(0, '10')
         add_form.save_button.invoke()
         txns = gui._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
         self.assertEqual(txns[0].splits[0]['account'], checking)
         self.assertEqual(txns[0].splits[0]['amount'], Fraction(-401, 20))
-
-    def test_ledger_new_transaction_multiple_transfer_modify_main_amount(self):
-        gui = bb.GUI_TK(':memory:')
-        checking = get_test_account()
-        food = get_test_account(name='Food')
-        restaurants = get_test_account(name='Restaurants')
-        gui._engine.save_account(account=checking)
-        gui._engine.save_account(account=food)
-        gui._engine.save_account(account=restaurants)
-        gui.ledger_button.invoke()
-        gui.ledger_display.add_button.invoke()
-        add_form = gui.ledger_display.add_transaction_form
-        add_form.date_entry.delete(0, tkinter.END)
-        add_form.date_entry.insert(0, '2021-01-13')
-        add_form.withdrawal_entry.insert(0, '20.05')
-        add_form.transfer_accounts_display.split_button.invoke()
-
-        splits_editor = add_form.transfer_accounts_display.splits_editor
-        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-20.05')
-
-        splits_editor._entries[checking.id][0].delete(0, tkinter.END)
-        splits_editor._entries[checking.id][0].insert(0, '-30')
-        splits_editor._entries[food.id][0].insert(0, '21.05')
-        splits_editor._entries[restaurants.id][0].insert(0, '8.95')
-        splits_editor.ok_button.invoke()
-        add_form.save_button.invoke()
-        txns = gui._engine.get_transactions(account=checking)
-        self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].txn_date, date(2021, 1, 13))
-        self.assertEqual(txns[0].splits[0]['account'], checking)
-        self.assertEqual(txns[0].splits[0]['amount'], Fraction(-30, 1))
+        self.assertEqual(txns[0].splits[1]['account'], food)
+        self.assertEqual(txns[0].splits[1]['amount'], Fraction(201, 20))
+        self.assertEqual(txns[0].splits[2]['account'], restaurants)
+        self.assertEqual(txns[0].splits[2]['amount'], Fraction(10, 1))
 
     def test_ledger_update_transaction(self):
         gui = bb.GUI_TK(':memory:')
@@ -277,15 +253,18 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
 
         #verify that data is loaded into form
-        self.assertEqual(gui.ledger_display.edit_transaction_form.withdrawal_entry.get(), '17.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.type_entry.get(), 'ACH')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '17.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['type_entry'].get(), 'ACH')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['account_combo'].get(), checking.name)
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['account_combo'].get(), 'Restaurants')
 
         #update values & save
         gui.ledger_display.edit_transaction_form.payee_combo.delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.payee_combo.insert(0, 'New Payee')
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '21')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '21')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].insert(0, '21')
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
@@ -321,13 +300,14 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=10)
 
         #verify that data is loaded into form
-        self.assertEqual(gui.ledger_display.edit_transaction_form.shares_entry.get(), '4.5')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.deposit_entry.get(), '50.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.action_combo.get(), 'share-buy')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '50.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['shares_entry'].get(), '4.5')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].get(), '50.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['action_combo'].get(), 'share-buy')
 
         #update values & save
-        gui.ledger_display.edit_transaction_form.shares_entry.delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.shares_entry.insert(0, '3.67')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['shares_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['shares_entry'].insert(0, '3.67')
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
@@ -353,24 +333,17 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=10)
 
         #verify that data is loaded into form
-        self.assertEqual(gui.ledger_display.edit_transaction_form.withdrawal_entry.get(), '20.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'multiple')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '20.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].get(), '5.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[2]['deposit_entry'].get(), '15.00')
 
         #update values & save
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '40')
-        gui.ledger_display.edit_transaction_form.transfer_accounts_display.split_button.invoke()
-
-        splits_editor = gui.ledger_display.edit_transaction_form.transfer_accounts_display.splits_editor
-        self.assertEqual(splits_editor._entries[checking.id][0].get(), '-40') #withdrawal entry already updated
-        self.assertEqual(splits_editor._entries[food.id][0].get(), '5.00')
-        self.assertEqual(splits_editor._entries[restaurants.id][0].get(), '15.00')
-
-        splits_editor._entries[food.id][0].delete(0, tkinter.END)
-        splits_editor._entries[food.id][0].insert(0, '17')
-        splits_editor._entries[restaurants.id][0].delete(0, tkinter.END)
-        splits_editor._entries[restaurants.id][0].insert(0, '23')
-        splits_editor.ok_button.invoke()
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '40')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].insert(0, '17')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[2]['deposit_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[2]['deposit_entry'].insert(0, '23')
 
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
@@ -503,18 +476,17 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         savings = get_test_account(name='Savings')
-        housing = get_test_account(name='Housing', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
-        gui._engine.save_account(account=housing)
         gui.scheduled_transactions_button.invoke()
         gui.scheduled_transactions_display.add_button.invoke()
         gui.scheduled_transactions_display.new_form.name_entry.insert(0, 'test 1')
         gui.scheduled_transactions_display.new_form.next_due_date_entry.insert(0, '2020-01-16')
-        gui.scheduled_transactions_display.new_form.withdrawal_entry.insert(0, '100')
         gui.scheduled_transactions_display.new_form.payee_combo.insert(0, 'New Payee')
-        gui.scheduled_transactions_display.new_form.account_combo.current(0)
-        gui.scheduled_transactions_display.new_form.transfer_accounts_display.transfer_accounts_combo.current(2)
+        gui.scheduled_transactions_display.new_form.splits_form._splits[0]['account_combo'].current(1)
+        gui.scheduled_transactions_display.new_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '100')
+        gui.scheduled_transactions_display.new_form.splits_form._splits[1]['account_combo'].current(2)
+        gui.scheduled_transactions_display.new_form.splits_form._splits[1]['deposit_entry'].insert(0, '100')
         gui.scheduled_transactions_display.new_form.save_button.invoke()
         scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
@@ -553,12 +525,14 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.scheduled_transactions_button.invoke()
         gui.scheduled_transactions_display.tree.event_generate('<Button-1>', x=1, y=10)
 
-        self.assertEqual(gui.scheduled_transactions_display.edit_form.withdrawal_entry.get(), '100.00')
+        self.assertEqual(gui.scheduled_transactions_display.edit_form.splits_form._splits[0]['withdrawal_entry'].get(), '100.00')
 
         gui.scheduled_transactions_display.edit_form.name_entry.delete(0, tkinter.END)
         gui.scheduled_transactions_display.edit_form.name_entry.insert(0, 'weekly updated')
-        gui.scheduled_transactions_display.edit_form.withdrawal_entry.delete(0, tkinter.END)
-        gui.scheduled_transactions_display.edit_form.withdrawal_entry.insert(0, '15')
+        gui.scheduled_transactions_display.edit_form.splits_form._splits[0]['withdrawal_entry'].delete(0, tkinter.END)
+        gui.scheduled_transactions_display.edit_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '15')
+        gui.scheduled_transactions_display.edit_form.splits_form._splits[1]['deposit_entry'].delete(0, tkinter.END)
+        gui.scheduled_transactions_display.edit_form.splits_form._splits[1]['deposit_entry'].insert(0, '15')
         gui.scheduled_transactions_display.edit_form.save_button.invoke()
         scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
