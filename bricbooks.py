@@ -2800,6 +2800,118 @@ class TransferAccountsDisplay:
         return self._widget
 
 
+class NewTransactionForm:
+
+    def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, tds=None, splits=None):
+        self._accounts = accounts
+        self._account = account
+        self._payees = payees
+        self._save_transaction = save_transaction
+        self._update_display = update_display
+        self._skip_transaction = skip_transaction
+        self._delete_transaction = delete_transaction
+        self._id = id_
+        self._tds = tds or {}
+        self._splits = splits or {}
+        self.shares_var = tk.StringVar()
+
+    def get_widget(self):
+        self.top_level = tk.Toplevel()
+        self.form = ttk.Frame(master=self.top_level)
+        for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status'), (5, 'Action')]:
+            ttk.Label(master=self.form, text=label).grid(row=0, column=col)
+        if self._account.type == AccountType.SECURITY:
+            for col, label in [(0, 'Shares')]:
+                ttk.Label(master=self.form, text=label).grid(row=2, column=col)
+        self.date_entry = ttk.Entry(master=self.form)
+        self.type_entry = ttk.Entry(master=self.form)
+        self.payee_combo = ttk.Combobox(master=self.form)
+        payee_values = ['']
+        payee_index = 0
+        for index, payee in enumerate(self._payees):
+            payee_values.append(payee.name)
+            if payee.name == self._tds.get('payee'):
+                payee_index = index + 1 #because of first empty item
+        self.payee_combo['values'] = payee_values
+        self.description_entry = ttk.Entry(master=self.form)
+        self.date_entry.insert(0, self._tds.get('txn_date', str(date.today())))
+        self.type_entry.insert(0, self._tds.get('type', ''))
+        self.description_entry.insert(0, self._tds.get('description', ''))
+        self.payee_combo.current(payee_index)
+        self.status_combo = ttk.Combobox(master=self.form)
+        status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
+        self.status_combo['values'] = status_values
+        self.action_combo = ttk.Combobox(master=self.form)
+        action_values = [a.value for a in TransactionAction]
+        self.action_combo['values'] = action_values
+        if self._account.type == AccountType.SECURITY:
+            self.shares_entry = ttk.Entry(master=self.form, textvariable=self.shares_var)
+            self.shares_var.set(self._tds.get('quantity', ''))
+        self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
+        tds_status = self._tds.get('status', '')
+        for index, status in enumerate(status_values):
+            if tds_status == status:
+                self.status_combo.current(index)
+        tds_action = self._tds.get('action', '')
+        for index, action in enumerate(action_values):
+            if tds_action == action:
+                self.action_combo.current(index)
+        self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
+        self.type_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
+        self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
+        self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
+        self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
+        entries = [self.save_button]
+        if self._account.type == AccountType.SECURITY:
+            entries.insert(0, self.shares_entry)
+        if self._skip_transaction:
+            self.save_button['text'] = 'Enter New'
+            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
+            entries.append(self.skip_button)
+        elif self._delete_transaction:
+            self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
+            entries.append(self.delete_button)
+        for index, entry in enumerate(entries):
+            entry.grid(row=3, column=index, sticky=(tk.N, tk.S))
+
+        self.form.grid()
+        return self.top_level
+
+    def _handle_save(self):
+        dt = self.date_entry.get()
+        transfer_accounts = self.transfer_accounts_display.get_transfer_accounts()
+        if isinstance(transfer_accounts, list):
+            transfer_accounts = [ta for ta in transfer_accounts if ta['account'] != self._account]
+        kwargs = {
+            'id_': self._id,
+            'account': self._account,
+            'deposit': self.deposit_var.get(),
+            'withdrawal': self.withdrawal_var.get(),
+            'txn_date': dt,
+            'payee': self.payee_combo.get(),
+            'description': self.description_entry.get(),
+            'status': self.status_combo.get(),
+            'type_': self.type_entry.get(),
+            'action': self.action_combo.get(),
+            'categories': transfer_accounts,
+        }
+        if self._account.type == AccountType.SECURITY:
+            kwargs['quantity'] = self.shares_var.get()
+        try:
+            transaction = Transaction.from_user_info(**kwargs)
+            self._save_transaction(transaction=transaction)
+        except Exception as e:
+            handle_error(e)
+            return
+        self.top_level.destroy()
+        self._update_display()
+
+    def _handle_delete(self):
+        self.top_level.destroy()
+        self._delete_transaction()
+
+
 class TransactionForm:
     '''Used for adding/editing transactions, and entering a transaction from a Scheduled Transaction'''
 
@@ -3103,7 +3215,7 @@ class LedgerDisplay:
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
             tds = get_display_strings_for_ledger(self._account, transaction)
-            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
+            self.edit_transaction_form = NewTransactionForm(accounts, account=self._account, payees=payees,
                     save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
                     delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id, tds=tds, splits=transaction.splits)
             widget = self.edit_transaction_form.get_widget()
