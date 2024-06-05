@@ -2800,6 +2800,36 @@ class TransferAccountsDisplay:
         return self._widget
 
 
+class SplitsForm:
+
+    def __init__(self, master, splits):
+        self._master = master
+        self._splits = splits
+
+    def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        ttk.Label(master=self.frame, text='Splits').grid(row=0, column=0)
+        ttk.Label(master=self.frame, text='Account').grid(row=1, column=0)
+        ttk.Label(master=self.frame, text='Deposits').grid(row=1, column=1)
+        ttk.Label(master=self.frame, text='Withdrawal').grid(row=1, column=2)
+
+        row_index = 2
+
+        for split in self._splits:
+            ttk.Label(master=self.frame, text=split['account'].name).grid(row=row_index, column=0)
+            if split['amount'] >= 0:
+                ttk.Label(master=self.frame, text=split['amount']).grid(row=row_index, column=1)
+            else:
+                ttk.Label(master=self.frame, text=split['amount']).grid(row=row_index, column=2)
+            row_index += 1
+
+        self.frame.grid()
+        return self.frame
+
+
 class NewTransactionForm:
 
     def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, tds=None, splits=None):
@@ -2812,7 +2842,7 @@ class NewTransactionForm:
         self._delete_transaction = delete_transaction
         self._id = id_
         self._tds = tds or {}
-        self._splits = splits or {}
+        self._splits = splits or []
         self.shares_var = tk.StringVar()
 
     def get_widget(self):
@@ -2862,6 +2892,8 @@ class NewTransactionForm:
         self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
         self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
+        self.splits_form = SplitsForm(master=self.form, splits=self._splits)
+        self.splits_form.get_widget().grid(row=2, column=0)
         entries = [self.save_button]
         if self._account.type == AccountType.SECURITY:
             entries.insert(0, self.shares_entry)
