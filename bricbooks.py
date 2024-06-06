@@ -2804,7 +2804,7 @@ class SplitsForm:
 
     def __init__(self, master, splits):
         self._master = master
-        self._splits = splits
+        self._splits = copy.deepcopy(splits)
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
@@ -2820,10 +2820,14 @@ class SplitsForm:
 
         for split in self._splits:
             ttk.Label(master=self.frame, text=split['account'].name).grid(row=row_index, column=0)
+            split['deposit_entry'] = ttk.Entry(master=self.frame)
+            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
             if split['amount'] >= 0:
-                ttk.Label(master=self.frame, text=split['amount']).grid(row=row_index, column=1)
+                split['deposit_entry'].insert(0, str(split['amount']))
             else:
-                ttk.Label(master=self.frame, text=split['amount']).grid(row=row_index, column=2)
+                split['withdrawal_entry'].insert(0, str(split['amount']))
+            split['deposit_entry'].grid(row=row_index, column=1)
+            split['withdrawal_entry'].grid(row=row_index, column=2)
             row_index += 1
 
         self.frame.grid()
