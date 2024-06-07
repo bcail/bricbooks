@@ -2811,27 +2811,41 @@ class SplitsForm:
         self.frame.columnconfigure(1, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
-        ttk.Label(master=self.frame, text='Splits').grid(row=0, column=0)
-        ttk.Label(master=self.frame, text='Account').grid(row=1, column=0)
-        ttk.Label(master=self.frame, text='Deposits').grid(row=1, column=1)
-        ttk.Label(master=self.frame, text='Withdrawal').grid(row=1, column=2)
+        ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
+        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
+        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
+        self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
+        self.add_button.grid(row=0, column=3)
 
-        row_index = 2
+        self._show_splits(self._splits)
 
+        self.frame.grid()
+        return self.frame
+
+    def _show_splits(self, splits):
+        row_index = 1
         for split in self._splits:
-            ttk.Label(master=self.frame, text=split['account'].name).grid(row=row_index, column=0)
+            account_name = ''
+            deposit_amount = ''
+            withdrawal_amount = ''
+            if split:
+                account_name = split['account'].name
+                if split['amount'] >= 0:
+                    deposit_amount = str(split['amount'])
+                else:
+                    withdrawal_amount = str(abs(split['amount']))
             split['deposit_entry'] = ttk.Entry(master=self.frame)
             split['withdrawal_entry'] = ttk.Entry(master=self.frame)
-            if split['amount'] >= 0:
-                split['deposit_entry'].insert(0, str(split['amount']))
-            else:
-                split['withdrawal_entry'].insert(0, str(split['amount']))
+            ttk.Label(master=self.frame, text=account_name).grid(row=row_index, column=0)
+            split['deposit_entry'].insert(0, deposit_amount)
+            split['withdrawal_entry'].insert(0, withdrawal_amount)
             split['deposit_entry'].grid(row=row_index, column=1)
             split['withdrawal_entry'].grid(row=row_index, column=2)
             row_index += 1
 
-        self.frame.grid()
-        return self.frame
+    def _add_row(self):
+        self._splits.append({})
+        self._show_splits(self._splits)
 
 
 class NewTransactionForm:
