@@ -2816,7 +2816,6 @@ class SplitsForm:
         ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
         ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
-        self.add_button.grid(row=0, column=3)
 
         self._show_splits(self._splits)
 
@@ -2855,6 +2854,7 @@ class SplitsForm:
             split['deposit_entry'].grid(row=row_index, column=1)
             split['withdrawal_entry'].grid(row=row_index, column=2)
             row_index += 1
+        self.add_button.grid(row=row_index, column=1)
 
     def _add_row(self):
         self._splits.append({})
@@ -2924,7 +2924,7 @@ class NewTransactionForm:
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
         self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
         self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts)
-        self.splits_form.get_widget().grid(row=2, column=0)
+        self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
         entries = [self.save_button]
         if self._account.type == AccountType.SECURITY:
             entries.insert(0, self.shares_entry)
@@ -2936,7 +2936,7 @@ class NewTransactionForm:
             self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
             entries.append(self.delete_button)
         for index, entry in enumerate(entries):
-            entry.grid(row=3, column=index, sticky=(tk.N, tk.S))
+            entry.grid(row=2, column=index+3)
 
         self.form.grid()
         return self.top_level
