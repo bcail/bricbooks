@@ -2802,9 +2802,10 @@ class TransferAccountsDisplay:
 
 class SplitsForm:
 
-    def __init__(self, master, splits):
+    def __init__(self, master, splits, accounts):
         self._master = master
         self._splits = copy.deepcopy(splits)
+        self._accounts = accounts
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
@@ -2829,9 +2830,6 @@ class SplitsForm:
                 # we already set up this split
                 row_index += 1
                 continue
-            account_name = ''
-            if 'account' in split:
-                account_name = split['account'].name
             deposit_amount = ''
             withdrawal_amount = ''
             if 'amount' in split:
@@ -2841,9 +2839,19 @@ class SplitsForm:
                     withdrawal_amount = str(abs(split['amount']))
             split['deposit_entry'] = ttk.Entry(master=self.frame)
             split['withdrawal_entry'] = ttk.Entry(master=self.frame)
-            ttk.Label(master=self.frame, text=account_name).grid(row=row_index, column=0)
+            split['account_combo'] = ttk.Combobox(master=self.frame)
+            account_values = ['']
+            account_index = 0
+            selected_account = split.get('account')
+            for index, account in enumerate(self._accounts):
+                account_values.append(account.name)
+                if account == selected_account:
+                    account_index = index + 1 #because of first empty item
+            split['account_combo']['values'] = account_values
+            split['account_combo'].current(account_index)
             split['deposit_entry'].insert(0, deposit_amount)
             split['withdrawal_entry'].insert(0, withdrawal_amount)
+            split['account_combo'].grid(row=row_index, column=0)
             split['deposit_entry'].grid(row=row_index, column=1)
             split['withdrawal_entry'].grid(row=row_index, column=2)
             row_index += 1
@@ -2915,7 +2923,7 @@ class NewTransactionForm:
         self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
         self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
         self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
-        self.splits_form = SplitsForm(master=self.form, splits=self._splits)
+        self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts)
         self.splits_form.get_widget().grid(row=2, column=0)
         entries = [self.save_button]
         if self._account.type == AccountType.SECURITY:
