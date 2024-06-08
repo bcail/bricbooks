@@ -2813,8 +2813,11 @@ class SplitsForm:
         self.frame.rowconfigure(1, weight=1)
 
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
-        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
-        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
+        ttk.Label(master=self.frame, text='Action').grid(row=0, column=1)
+        ttk.Label(master=self.frame, text='Type').grid(row=0, column=2)
+        ttk.Label(master=self.frame, text='Status').grid(row=0, column=3)
+        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=4)
+        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=5)
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
 
         self._show_splits(self._splits)
@@ -2836,8 +2839,6 @@ class SplitsForm:
                     deposit_amount = str(split['amount'])
                 else:
                     withdrawal_amount = str(abs(split['amount']))
-            split['deposit_entry'] = ttk.Entry(master=self.frame)
-            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
             split['account_combo'] = ttk.Combobox(master=self.frame)
             account_values = ['']
             account_index = 0
@@ -2848,17 +2849,52 @@ class SplitsForm:
                     account_index = index + 1 #because of first empty item
             split['account_combo']['values'] = account_values
             split['account_combo'].current(account_index)
+            split['action_combo'] = ttk.Combobox(master=self.frame)
+            action_values = [a.value for a in TransactionAction]
+            split['action_combo']['values'] = action_values
+            split['deposit_entry'] = ttk.Entry(master=self.frame)
+            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
+            split['status_combo'] = ttk.Combobox(master=self.frame)
+            status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
+            split['status_combo']['values'] = status_values
+            split['status_combo'].set(split.get('status', ''))
             split['deposit_entry'].insert(0, deposit_amount)
             split['withdrawal_entry'].insert(0, withdrawal_amount)
+
             split['account_combo'].grid(row=row_index, column=0)
-            split['deposit_entry'].grid(row=row_index, column=1)
-            split['withdrawal_entry'].grid(row=row_index, column=2)
+            split['action_combo'].grid(row=row_index, column=1)
+            split['status_combo'].grid(row=row_index, column=3)
+            split['deposit_entry'].grid(row=row_index, column=4)
+            split['withdrawal_entry'].grid(row=row_index, column=5)
             row_index += 1
-        self.add_button.grid(row=row_index, column=1)
+        self.add_button.grid(row=row_index, column=0)
 
     def _add_row(self):
         self._splits.append({})
         self._show_splits(self._splits)
+
+    def get_splits(self):
+        splits = []
+        for split in self._splits:
+            s = {}
+            account = split['account_combo'].current()
+            deposit = split['deposit_entry'].get()
+            withdrawal = split['withdrawal_entry'].get()
+            if account > 0:
+                s['account'] = self._accounts[account-1]
+                if deposit and withdrawal:
+                    raise Exception('can\'t have both deposit and withdrawal set')
+                if deposit:
+                    s['amount'] = deposit
+                else:
+                    s['amount'] = f'-{withdrawal}'
+            else:
+                if deposit or withdrawal:
+                    raise Exception('must select account')
+            if split['status_combo'].get() != '':
+                s['status'] = split['status_combo'].get()
+            splits.append(s)
+        return splits
 
 
 class NewTransactionForm:
@@ -2879,13 +2915,12 @@ class NewTransactionForm:
     def get_widget(self):
         self.top_level = tk.Toplevel()
         self.form = ttk.Frame(master=self.top_level)
-        for col, label in [(0, 'Date'), (1, 'Type'), (2, 'Payee'), (3, 'Description'), (4, 'Status'), (5, 'Action')]:
+        for col, label in [(0, 'Date'), (1, 'Payee'), (2, 'Description')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         if self._account.type == AccountType.SECURITY:
             for col, label in [(0, 'Shares')]:
                 ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         self.date_entry = ttk.Entry(master=self.form)
-        self.type_entry = ttk.Entry(master=self.form)
         self.payee_combo = ttk.Combobox(master=self.form)
         payee_values = ['']
         payee_index = 0
@@ -2896,33 +2931,15 @@ class NewTransactionForm:
         self.payee_combo['values'] = payee_values
         self.description_entry = ttk.Entry(master=self.form)
         self.date_entry.insert(0, self._tds.get('txn_date', str(date.today())))
-        self.type_entry.insert(0, self._tds.get('type', ''))
         self.description_entry.insert(0, self._tds.get('description', ''))
         self.payee_combo.current(payee_index)
-        self.status_combo = ttk.Combobox(master=self.form)
-        status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
-        self.status_combo['values'] = status_values
-        self.action_combo = ttk.Combobox(master=self.form)
-        action_values = [a.value for a in TransactionAction]
-        self.action_combo['values'] = action_values
         if self._account.type == AccountType.SECURITY:
             self.shares_entry = ttk.Entry(master=self.form, textvariable=self.shares_var)
             self.shares_var.set(self._tds.get('quantity', ''))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
-        tds_status = self._tds.get('status', '')
-        for index, status in enumerate(status_values):
-            if tds_status == status:
-                self.status_combo.current(index)
-        tds_action = self._tds.get('action', '')
-        for index, action in enumerate(action_values):
-            if tds_action == action:
-                self.action_combo.current(index)
         self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
-        self.type_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.payee_combo.grid(row=1, column=2, sticky=(tk.N, tk.S))
-        self.description_entry.grid(row=1, column=3, sticky=(tk.N, tk.S))
-        self.status_combo.grid(row=1, column=4, sticky=(tk.N, tk.S))
-        self.action_combo.grid(row=1, column=5, sticky=(tk.N, tk.S))
+        self.payee_combo.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.description_entry.grid(row=1, column=2, sticky=(tk.N, tk.S))
         self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts)
         self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
         entries = [self.save_button]
@@ -2942,27 +2959,19 @@ class NewTransactionForm:
         return self.top_level
 
     def _handle_save(self):
+        splits = self.splits_form.get_splits()
         dt = self.date_entry.get()
-        transfer_accounts = self.transfer_accounts_display.get_transfer_accounts()
-        if isinstance(transfer_accounts, list):
-            transfer_accounts = [ta for ta in transfer_accounts if ta['account'] != self._account]
         kwargs = {
             'id_': self._id,
-            'account': self._account,
-            'deposit': self.deposit_var.get(),
-            'withdrawal': self.withdrawal_var.get(),
             'txn_date': dt,
             'payee': self.payee_combo.get(),
             'description': self.description_entry.get(),
-            'status': self.status_combo.get(),
-            'type_': self.type_entry.get(),
-            'action': self.action_combo.get(),
-            'categories': transfer_accounts,
+            'splits': splits,
         }
         if self._account.type == AccountType.SECURITY:
             kwargs['quantity'] = self.shares_var.get()
         try:
-            transaction = Transaction.from_user_info(**kwargs)
+            transaction = Transaction(**kwargs)
             self._save_transaction(transaction=transaction)
         except Exception as e:
             handle_error(e)
