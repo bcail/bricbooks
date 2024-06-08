@@ -2825,11 +2825,16 @@ class SplitsForm:
     def _show_splits(self, splits):
         row_index = 1
         for split in self._splits:
+            if 'deposit_entry' in split:
+                # we already set up this split
+                row_index += 1
+                continue
             account_name = ''
+            if 'account' in split:
+                account_name = split['account'].name
             deposit_amount = ''
             withdrawal_amount = ''
-            if split:
-                account_name = split['account'].name
+            if 'amount' in split:
                 if split['amount'] >= 0:
                     deposit_amount = str(split['amount'])
                 else:
