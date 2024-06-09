@@ -2836,9 +2836,9 @@ class SplitsForm:
             withdrawal_amount = ''
             if 'amount' in split:
                 if split['amount'] >= 0:
-                    deposit_amount = str(split['amount'])
+                    deposit_amount = amount_display(split['amount'])
                 else:
-                    withdrawal_amount = str(abs(split['amount']))
+                    withdrawal_amount = amount_display(abs(split['amount']))
             split['account_combo'] = ttk.Combobox(master=self.frame)
             account_values = ['']
             account_index = 0
@@ -2852,6 +2852,8 @@ class SplitsForm:
             split['action_combo'] = ttk.Combobox(master=self.frame)
             action_values = [a.value for a in TransactionAction]
             split['action_combo']['values'] = action_values
+            split['type_entry'] = ttk.Entry(master=self.frame)
+            split['type_entry'].insert(0, split.get('type', ''))
             split['deposit_entry'] = ttk.Entry(master=self.frame)
             split['withdrawal_entry'] = ttk.Entry(master=self.frame)
             split['status_combo'] = ttk.Combobox(master=self.frame)
@@ -2863,6 +2865,7 @@ class SplitsForm:
 
             split['account_combo'].grid(row=row_index, column=0)
             split['action_combo'].grid(row=row_index, column=1)
+            split['type_entry'].grid(row=row_index, column=2)
             split['status_combo'].grid(row=row_index, column=3)
             split['deposit_entry'].grid(row=row_index, column=4)
             split['withdrawal_entry'].grid(row=row_index, column=5)

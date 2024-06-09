@@ -277,15 +277,18 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
 
         #verify that data is loaded into form
-        self.assertEqual(gui.ledger_display.edit_transaction_form.withdrawal_entry.get(), '17.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.type_entry.get(), 'ACH')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.transfer_accounts_display.transfer_accounts_combo.get(), 'Restaurants')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '17.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['type_entry'].get(), 'ACH')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['account_combo'].get(), checking.name)
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['account_combo'].get(), 'Restaurants')
 
         #update values & save
         gui.ledger_display.edit_transaction_form.payee_combo.delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.payee_combo.insert(0, 'New Payee')
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.withdrawal_entry.insert(0, '21')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '21')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].insert(0, '21')
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
@@ -322,8 +325,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
 
         #verify that data is loaded into form
         self.assertEqual(gui.ledger_display.edit_transaction_form.shares_entry.get(), '4.5')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.deposit_entry.get(), '50.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.action_combo.get(), 'share-buy')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].get(), '50.00')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['action_combo'].get(), 'share-buy')
 
         #update values & save
         gui.ledger_display.edit_transaction_form.shares_entry.delete(0, tkinter.END)
