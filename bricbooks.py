@@ -3447,7 +3447,7 @@ class ScheduledTransactionForm:
         self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
 
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
-        self.save_button.grid(row=2, column=3, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.save_button.grid(row=2, column=3)
 
         self.content.grid(sticky=(tk.N, tk.S, tk.W, tk.E))
 
@@ -3455,22 +3455,12 @@ class ScheduledTransactionForm:
 
     def _save(self):
         payee = self.payee_combo.get()
-        account_index = self.account_combo.current()
-        account = self._accounts[account_index]
-        deposit = self.deposit_entry.get()
-        withdrawal = self.withdrawal_entry.get()
-        categories = self.transfer_accounts_display.get_transfer_accounts()
         if self._scheduled_transaction:
             id_ = self._scheduled_transaction.id
         else:
             id_ = None
+        splits = self.splits_form.get_splits()
         try:
-            splits = Transaction.splits_from_user_info(
-                    account=account,
-                    deposit=deposit,
-                    withdrawal=withdrawal,
-                    input_categories=categories
-                )
             st = ScheduledTransaction(
                     name=self.name_entry.get(),
                     frequency=self.frequencies[self.frequency_combo.current()],
