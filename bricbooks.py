@@ -2716,7 +2716,7 @@ class SplitsForm:
         return splits
 
 
-class NewTransactionForm:
+class TransactionForm:
 
     def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, tds=None, splits=None):
         self._accounts = accounts
@@ -2756,7 +2756,7 @@ class NewTransactionForm:
         self.payee_combo.grid(row=1, column=1, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=2, sticky=(tk.N, tk.S))
         self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts)
-        self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
+        self.splits_form.get_widget().grid(row=2, column=0, columnspan=5)
         entries = [self.save_button]
         if self._skip_transaction:
             self.save_button['text'] = 'Enter New'
@@ -2766,7 +2766,7 @@ class NewTransactionForm:
             self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
             entries.append(self.delete_button)
         for index, entry in enumerate(entries):
-            entry.grid(row=2, column=index+3)
+            entry.grid(row=1, column=index+3)
 
         self.form.grid()
         return self.top_level
@@ -2935,7 +2935,7 @@ class LedgerDisplay:
     def _open_new_transaction_form(self):
         accounts = self._engine.get_accounts()
         payees = self._engine.get_payees()
-        self.add_transaction_form = NewTransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
+        self.add_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
         widget = self.add_transaction_form.get_widget()
         widget.grid()
 
@@ -2949,7 +2949,7 @@ class LedgerDisplay:
             save_txn = partial(self._enter_scheduled_transaction, scheduled_transaction=scheduled_transaction)
             skip_txn = partial(self._skip_scheduled_transaction, scheduled_transaction_id=scheduled_transaction.id)
             tds = get_display_strings_for_ledger(self._account, scheduled_transaction)
-            self.edit_scheduled_transaction_form = NewTransactionForm(
+            self.edit_scheduled_transaction_form = TransactionForm(
                     accounts=accounts,
                     payees=payees,
                     save_transaction=save_txn,
@@ -2967,7 +2967,7 @@ class LedgerDisplay:
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
             tds = get_display_strings_for_ledger(self._account, transaction)
-            self.edit_transaction_form = NewTransactionForm(accounts, account=self._account, payees=payees,
+            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
                     save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
                     delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id, tds=tds, splits=transaction.splits)
             widget = self.edit_transaction_form.get_widget()
