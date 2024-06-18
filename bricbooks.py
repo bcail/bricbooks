@@ -2619,11 +2619,10 @@ class SplitsForm:
         self.frame.rowconfigure(1, weight=1)
 
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
-        ttk.Label(master=self.frame, text='Action').grid(row=0, column=1)
-        ttk.Label(master=self.frame, text='Type').grid(row=0, column=2)
-        ttk.Label(master=self.frame, text='Status').grid(row=0, column=3)
-        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=4)
-        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=5)
+        ttk.Label(master=self.frame, text='Type').grid(row=0, column=1)
+        ttk.Label(master=self.frame, text='Status').grid(row=0, column=2)
+        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=3)
+        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=4)
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
 
         self._show_splits(self._splits)
@@ -2655,10 +2654,6 @@ class SplitsForm:
                     account_index = index + 1 #because of first empty item
             split['account_combo']['values'] = account_values
             split['account_combo'].current(account_index)
-            split['action_combo'] = ttk.Combobox(master=self.frame)
-            action_values = [a.value for a in TransactionAction]
-            split['action_combo']['values'] = action_values
-            split['action_combo'].set(split.get('action', ''))
             split['type_entry'] = ttk.Entry(master=self.frame)
             split['type_entry'].insert(0, split.get('type', ''))
             split['deposit_entry'] = ttk.Entry(master=self.frame)
@@ -2669,15 +2664,19 @@ class SplitsForm:
             split['status_combo'].set(split.get('status', ''))
             split['deposit_entry'].insert(0, deposit_amount)
             split['withdrawal_entry'].insert(0, withdrawal_amount)
+            split['action_combo'] = ttk.Combobox(master=self.frame)
+            action_values = [a.value for a in TransactionAction]
+            split['action_combo']['values'] = action_values
+            split['action_combo'].set(split.get('action', ''))
             split['shares_entry'] = ttk.Entry(master=self.frame)
             split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
 
             split['account_combo'].grid(row=row_index, column=0)
-            split['action_combo'].grid(row=row_index, column=1)
-            split['type_entry'].grid(row=row_index, column=2)
-            split['status_combo'].grid(row=row_index, column=3)
-            split['deposit_entry'].grid(row=row_index, column=4)
-            split['withdrawal_entry'].grid(row=row_index, column=5)
+            split['type_entry'].grid(row=row_index, column=1)
+            split['status_combo'].grid(row=row_index, column=2)
+            split['deposit_entry'].grid(row=row_index, column=3)
+            split['withdrawal_entry'].grid(row=row_index, column=4)
+            split['action_combo'].grid(row=row_index, column=5)
             split['shares_entry'].grid(row=row_index, column=6)
             row_index += 1
         self.add_button.grid(row=row_index, column=0)
