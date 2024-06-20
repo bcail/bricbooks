@@ -34,13 +34,18 @@ except ImportError:
 
 __version__ = '0.5.3.dev'
 TITLE = f'bricbooks {__version__}'
-CUR_DIR = os.getcwd()
-LOG_FILENAME = 'bricbooks.log'
 SQLITE_VERSION = sqlite3.sqlite_version_info
 
 
+if sys.platform == 'darwin':
+    USER_DIR = os.path.expanduser('~/Library/Application Support')
+else:
+    USER_DIR = os.path.expanduser('~')
+
+
 def log(msg):
-    log_filepath = os.path.join(CUR_DIR, LOG_FILENAME)
+    file_name = 'bricbooks.log'
+    log_filepath = os.path.join(USER_DIR, file_name)
     msg = f'{datetime.now()} {msg}\n'
     with open(log_filepath, 'ab') as f:
         f.write(msg.encode('utf8'))
@@ -132,7 +137,7 @@ def get_date(val):
 
 def get_files(directory):
     d = Path(directory)
-    return d.glob('*.sqlite3')
+    return list(d.glob('*.sqlite3'))
 
 
 def increment_month(date_obj):
@@ -1000,10 +1005,8 @@ class SQLiteStorage:
 
     def __init__(self, conn_name):
         if not conn_name:
-            raise SQLiteStorageError(f'invalid SQLite connection name: {conn_name}')
+            raise SQLiteStorageError('must pass in conn_name')
         #conn_name is either ':memory:' or the name of the data file
-        if not conn_name == ':memory:':
-            conn_name = os.path.join(CUR_DIR, conn_name)
         self._db_connection = sqlite3.connect(conn_name, isolation_level=None)
         self._db_connection.execute('PRAGMA foreign_keys = ON;')
         result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
@@ -3424,10 +3427,12 @@ class GUI_TK:
         new_button.grid(row=0, column=0)
         open_button = ttk.Button(master=content, text='Open...', command=partial(self._open_file, splash_screen=content))
         open_button.grid(row=1, column=0)
-        files = get_files(CUR_DIR)
-        for index, f in enumerate(files, start=2):
-            button = ttk.Button(master=content, text=f.name, command=partial(self._handle_splash_selection, file_name=str(f), splash_screen=content))
-            button.grid(row=index, column=0)
+        files = get_files(USER_DIR)
+        if files:
+            ttk.Label(master=content, text=f'Files in {USER_DIR}:').grid(row=2, column=0)
+            for index, f in enumerate(files, start=3):
+                button = ttk.Button(master=content, text=f.name, command=partial(self._handle_splash_selection, file_name=str(f), splash_screen=content))
+                button.grid(row=index, column=0)
 
     def _new_file(self, splash_screen):
         from tkinter import filedialog as fd
