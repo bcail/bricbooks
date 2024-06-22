@@ -109,6 +109,12 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.accounts_display.add_account_form.save_button.invoke()
         mock_method.assert_called_once()
 
+    @patch('bricbooks.handle_error')
+    def test_ledger_display_no_accounts(self, mock_method):
+        gui = bb.GUI_TK(':memory:')
+        gui.ledger_button.invoke()
+        mock_method.assert_called_once()
+
     def test_ledger_display_security(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()

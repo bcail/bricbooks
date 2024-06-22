@@ -3506,11 +3506,15 @@ class GUI_TK:
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def _show_ledger(self, current_account=None):
+        if not current_account:
+            accounts = self._engine.get_accounts()
+            if accounts:
+                current_account = accounts[0]
+            else:
+                handle_error('Please create an account first.')
+                return
         if self.main_frame:
             self.main_frame.destroy()
-        accounts = self._engine.get_accounts()
-        if not current_account:
-            current_account = accounts[0]
         self._update_action_buttons(display='ledger')
         self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, engine=self._engine)
         self.main_frame = self.ledger_display.get_widget()
