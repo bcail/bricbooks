@@ -3460,11 +3460,7 @@ class GUI_TK:
         self._action_buttons_frame = self._init_action_buttons_frame(self.content_frame)
         self._action_buttons_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        accounts = self._engine.get_accounts()
-        if accounts:
-            self._show_ledger()
-        else:
-            self._show_accounts()
+        self._show_accounts()
 
     def _init_action_buttons_frame(self, master):
         frame = ttk.Frame(master=master)
