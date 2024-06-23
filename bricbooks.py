@@ -3415,55 +3415,50 @@ class GUI_TK:
         self.content_frame.rowconfigure(1, weight=1)
         self.content_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
+        self.main_frame = None
+
+        self._show_splash()
         if file_name:
             self._load_db(file_name)
-        else:
-            self._show_splash()
 
     def _show_splash(self):
-        content = ttk.Frame(master=self.content_frame)
-        content.grid()
-        new_button = ttk.Button(master=content, text='New...', command=partial(self._new_file, splash_screen=content))
+        self.main_frame = ttk.Frame(master=self.content_frame)
+        new_button = ttk.Button(master=self.main_frame, text='New...', command=self._new_file)
         new_button.grid(row=0, column=0)
-        open_button = ttk.Button(master=content, text='Open...', command=partial(self._open_file, splash_screen=content))
+        open_button = ttk.Button(master=self.main_frame, text='Open...', command=self._open_file)
         open_button.grid(row=1, column=0)
         files = get_files(USER_DIR)
         if files:
-            ttk.Label(master=content, text=f'Files in {USER_DIR}:').grid(row=2, column=0)
+            ttk.Label(master=self.main_frame, text=f'Files in {USER_DIR}:').grid(row=2, column=0)
             for index, f in enumerate(files, start=3):
-                button = ttk.Button(master=content, text=f.name, command=partial(self._handle_splash_selection, file_name=str(f), splash_screen=content))
+                button = ttk.Button(master=self.main_frame, text=f.name, command=partial(self._load_db, file_name=str(f)))
                 button.grid(row=index, column=0)
+        self.main_frame.grid()
 
-    def _new_file(self, splash_screen):
+    def _new_file(self):
         from tkinter import filedialog as fd
-        d = fd.FileDialog(master=splash_screen)
+        d = fd.FileDialog(master=self.main_frame)
         file_name = d.go()
         if file_name:
-            self._handle_splash_selection(file_name=file_name, splash_screen=splash_screen)
+            self._load_db(file_name=file_name)
 
-    def _open_file(self, splash_screen):
+    def _open_file(self):
         from tkinter import filedialog as fd
         file_names = fd.askopenfilenames()
         if file_names:
-            self._handle_splash_selection(file_name=file_names[0], splash_screen=splash_screen)
-
-    def _handle_splash_selection(self, file_name, splash_screen):
-        splash_screen.destroy()
-        self._load_db(file_name)
+            self._load_db(file_name=file_names[0])
 
     def _load_db(self, file_name):
         try:
             self._engine = Engine(file_name)
         except InvalidStorageFile as e:
             if 'file is not a database' in str(e):
-                print(msg='File %s is not a database' % file_name)
-                sys.exit(1)
+                handle_error(f'File {file_name} is not a database')
+                return
             raise
 
         self._action_buttons_frame = self._init_action_buttons_frame(self.content_frame)
         self._action_buttons_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
-
-        self.main_frame = None
 
         accounts = self._engine.get_accounts()
         if accounts:
