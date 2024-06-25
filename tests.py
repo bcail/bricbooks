@@ -1616,16 +1616,16 @@ class TestSQLiteStorage(unittest.TestCase):
 
         report_display = budget.get_report_display(current_date=date(2018, 6, 30))
         expenses = report_display['expense']
-        self.assertEqual(expenses[0]['name'], 'Housing')
-        self.assertEqual(expenses[0]['amount'], '135.00')
-        self.assertEqual(expenses[0]['spent'], '101.00')
-        self.assertEqual(expenses[0]['notes'], 'hello')
+        self.assertEqual(expenses[0]['name'], 'Food')
+        self.assertEqual(expenses[0]['amount'], '70.00')
+        self.assertEqual(expenses[0]['carryover'], '15.00')
+        self.assertEqual(expenses[0]['income'], '15.00')
+        self.assertEqual(expenses[0]['spent'], '102.46')
 
-        self.assertEqual(expenses[1]['name'], 'Food')
-        self.assertEqual(expenses[1]['amount'], '70.00')
-        self.assertEqual(expenses[1]['carryover'], '15.00')
-        self.assertEqual(expenses[1]['income'], '15.00')
-        self.assertEqual(expenses[1]['spent'], '102.46')
+        self.assertEqual(expenses[1]['name'], 'Housing')
+        self.assertEqual(expenses[1]['amount'], '135.00')
+        self.assertEqual(expenses[1]['spent'], '101.00')
+        self.assertEqual(expenses[1]['notes'], 'hello')
 
         self.assertEqual(expenses[2], {'name': 'Transportation'})
 
@@ -1658,7 +1658,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(len(budgets), 1)
         self.assertEqual(budgets[0].start_date, date(2018, 1, 1))
         self.assertEqual(budgets[0].end_date, date(2018, 12, 31))
-        self.assertEqual(budgets[0].get_report_display()['expense'][0]['name'], 'Housing')
+        self.assertEqual(budgets[0].get_report_display()['expense'][1]['name'], 'Housing')
 
     def test_save_scheduled_txn(self):
         checking = get_test_account()
@@ -1920,8 +1920,8 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(accounts[0].name, 'Bank Accounts')
         self.assertEqual(accounts[1].name, 'Checking')
         self.assertEqual(accounts[1].parent, accounts[0])
-        self.assertEqual(accounts[2].name, 'Savings')
-        self.assertEqual(accounts[3].name, 'Retirement 401k')
+        self.assertEqual(accounts[2].name, 'Retirement 401k')
+        self.assertEqual(accounts[3].name, 'Savings')
 
     def test_payees(self):
         self.engine.save_payee(bb.Payee('New Payee'))
@@ -2108,11 +2108,12 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
         self.cli._edit_account()
-        accounts = self.cli._engine._storage.get_accounts()
-        self.assertEqual(accounts[0].name, 'Checking updated')
-        self.assertEqual(accounts[0].type, bb.AccountType.ASSET)
-        self.assertEqual(accounts[0].number, '400')
-        self.assertEqual(accounts[0].parent, savings)
+        accounts = self.cli._engine.get_accounts()
+        self.assertEqual(accounts[0].name, 'Savings')
+        self.assertEqual(accounts[1].name, 'Checking updated')
+        self.assertEqual(accounts[1].type, bb.AccountType.ASSET)
+        self.assertEqual(accounts[1].number, '400')
+        self.assertEqual(accounts[1].parent, savings)
         output = 'Account ID: %s' % self.ACCOUNT_FORM_OUTPUT
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
@@ -2566,8 +2567,8 @@ class TestCLI(unittest.TestCase):
         budget = storage.get_budgets()[0]
         self.assertEqual(budget.start_date, date(2019, 1, 10))
         budget_data = budget.get_budget_data()
-        self.assertEqual(budget_data[housing]['amount'], 40)
-        self.assertEqual(budget_data[food], {})
+        self.assertEqual(budget_data[food]['amount'], 40)
+        self.assertEqual(budget_data[housing], {})
         self.assertEqual(budget_data[wages]['amount'], 100)
 
 

@@ -1223,7 +1223,8 @@ class SQLiteStorage:
         self._db_connection.commit()
 
     def _get_accounts_by_type(self, type_):
-        db_records = self._db_connection.execute('SELECT id FROM accounts WHERE type = ? AND closed = ? ORDER BY id', (type_.value, 0)).fetchall()
+        query = 'SELECT id FROM accounts WHERE type = ? AND closed = ? ORDER BY number, name'
+        db_records = self._db_connection.execute(query, (type_.value, 0)).fetchall()
         accounts = []
         for r in db_records:
             accounts.append(self.get_account(r[0]))
