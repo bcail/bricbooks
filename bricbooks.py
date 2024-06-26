@@ -1222,12 +1222,24 @@ class SQLiteStorage:
             payee.id = cur.lastrowid
         self._db_connection.commit()
 
+    def _get_account_children(self, account):
+        children = []
+        query = 'SELECT id FROM accounts WHERE closed = ? AND parent_id = ? ORDER BY number, name'
+        db_records = self._db_connection.execute(query, (0, account.id)).fetchall()
+        for r in db_records:
+            account = self.get_account(r[0])
+            children.append(account)
+            children.extend(self._get_account_children(account))
+        return children
+
     def _get_accounts_by_type(self, type_):
-        query = 'SELECT id FROM accounts WHERE type = ? AND closed = ? ORDER BY number, name'
+        query = 'SELECT id FROM accounts WHERE type = ? AND closed = ? AND parent_id IS NULL ORDER BY number, name'
         db_records = self._db_connection.execute(query, (type_.value, 0)).fetchall()
         accounts = []
         for r in db_records:
-            accounts.append(self.get_account(r[0]))
+            account = self.get_account(r[0])
+            accounts.append(account)
+            accounts.extend(self._get_account_children(account))
         return accounts
 
     def get_accounts(self, type_=None):
@@ -1854,7 +1866,6 @@ def import_kmymoney(kmy_file, engine):
             else:
                 if value:
                     raise DataImportError(f'unhandled account attribute: {key} => {value}')
-        print(f'  {name} ({type_.name})')
         closed = False
         other_data = {}
         key_value_pairs = account.find('KEYVALUEPAIRS')

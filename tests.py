@@ -1868,6 +1868,7 @@ def create_test_accounts(engine):
         'Bank Accounts': {'type': bb.AccountType.ASSET},
         'Checking': {'type': bb.AccountType.ASSET, 'parent': 'Bank Accounts'},
         'Savings': {'type': bb.AccountType.ASSET, 'parent': 'Bank Accounts'},
+        'House Down Payment': {'type': bb.AccountType.ASSET, 'parent': 'Savings'},
         'Retirement 401k': {'type': bb.AccountType.ASSET},
         'Stock A': {'type': bb.AccountType.SECURITY, 'parent': 'Retirement 401k'},
         'Mortgage': {'type': bb.AccountType.LIABILITY},
@@ -1916,12 +1917,16 @@ class TestEngine(unittest.TestCase):
     def test_get_accounts(self):
         create_test_accounts(self.engine)
         accounts = self.engine.get_accounts()
-        self.assertEqual(len(accounts), 11)
+        self.assertEqual(len(accounts), 12)
         self.assertEqual(accounts[0].name, 'Bank Accounts')
         self.assertEqual(accounts[1].name, 'Checking')
         self.assertEqual(accounts[1].parent, accounts[0])
-        self.assertEqual(accounts[2].name, 'Retirement 401k')
-        self.assertEqual(accounts[3].name, 'Savings')
+        self.assertEqual(accounts[2].name, 'Savings')
+        self.assertEqual(accounts[2].parent, accounts[0])
+        self.assertEqual(accounts[3].name, 'House Down Payment')
+        self.assertEqual(accounts[3].parent, accounts[2])
+        self.assertEqual(accounts[4].name, 'Retirement 401k')
+        self.assertEqual(accounts[5].name, 'Stock A')
 
     def test_payees(self):
         self.engine.save_payee(bb.Payee('New Payee'))
@@ -2615,7 +2620,7 @@ class TestImport(unittest.TestCase):
         accounts = engine.get_accounts()
         self.assertEqual(len(accounts), 38)
         assets = engine.get_accounts(types=[bb.AccountType.ASSET])
-        self.assertEqual(len(assets), 5)
+        self.assertEqual(len(assets), 8)
         liabilities = engine.get_accounts(types=[bb.AccountType.LIABILITY])
         self.assertEqual(len(liabilities), 2)
         expenses = engine.get_accounts(types=[bb.AccountType.EXPENSE])
@@ -2625,7 +2630,7 @@ class TestImport(unittest.TestCase):
         equities = engine.get_accounts(types=[bb.AccountType.EQUITY])
         self.assertEqual(len(equities), 2)
         securities = engine.get_accounts(types=[bb.AccountType.SECURITY])
-        self.assertEqual(len(securities), 3)
+        self.assertEqual(len(securities), 0)
         payees = engine.get_payees()
         self.assertEqual(len(payees), 2)
         checking = engine.get_account(name='Checking')
