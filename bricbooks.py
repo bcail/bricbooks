@@ -241,7 +241,7 @@ class Commodity:
 class Account:
 
     def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None,
-                 description=None, closed=None, other_data=None):
+                 description=None, closed=None, other_data=None, child_level=0):
         self.id = id_
         if not type_:
             raise InvalidAccountError('Account must have a type')
@@ -256,6 +256,7 @@ class Account:
         self.alternate_id = alternate_id
         self.closed = closed
         self.other_data = other_data
+        self.child_level = child_level
 
     def __str__(self):
         if self.number:
@@ -1222,14 +1223,15 @@ class SQLiteStorage:
             payee.id = cur.lastrowid
         self._db_connection.commit()
 
-    def _get_account_children(self, account):
+    def _get_account_children(self, account, child_level):
         children = []
         query = 'SELECT id FROM accounts WHERE closed = ? AND parent_id = ? ORDER BY number, name'
         db_records = self._db_connection.execute(query, (0, account.id)).fetchall()
         for r in db_records:
             account = self.get_account(r[0])
+            account.child_level = child_level
             children.append(account)
-            children.extend(self._get_account_children(account))
+            children.extend(self._get_account_children(account, child_level=child_level+1))
         return children
 
     def _get_accounts_by_type(self, type_):
@@ -1239,7 +1241,7 @@ class SQLiteStorage:
         for r in db_records:
             account = self.get_account(r[0])
             accounts.append(account)
-            accounts.extend(self._get_account_children(account))
+            accounts.extend(self._get_account_children(account, child_level=1))
         return accounts
 
     def get_accounts(self, type_=None):
