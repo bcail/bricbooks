@@ -2569,21 +2569,19 @@ class AccountsDisplay:
         if self.tree:
             self.tree.destroy()
 
-        columns = ('type', 'number', 'name', 'parent')
+        columns = ('type', 'number', 'name')
 
         self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
         self.tree.heading('type', text='Type')
         self.tree.heading('number', text='Number')
         self.tree.heading('name', text='Name')
-        self.tree.heading('parent', text='Parent')
 
         accounts = self._engine.get_accounts()
         for account in accounts:
-            if account.parent:
-                parent = account.parent.name
-            else:
-                parent = ''
-            values = (account.type.name, account.number or '', account.name, parent)
+            name = account.name
+            if account.child_level:
+                name = ' -  ' * account.child_level + name
+            values = (account.type.name, account.number or '', name)
             self.tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
         self.tree.bind('<Button-1>', self._item_selected)
