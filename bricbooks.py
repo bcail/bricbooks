@@ -386,6 +386,17 @@ def handle_txn_splits(splits):
         split['amount'] = amount
         if 'status' in split:
             split['status'] = split['status'].upper()
+        if 'payee' in split:
+            if split['payee']:
+                payee = split['payee']
+                if isinstance(payee, str):
+                    split['payee'] = Payee(name=payee)
+                elif isinstance(payee, Payee):
+                    split['payee'] = payee
+                else:
+                    raise InvalidTransactionError(f'invalid payee: {payee}')
+            else:
+                split.pop('payee')
     return splits
 
 
@@ -394,22 +405,13 @@ class Transaction:
     CLEARED = 'C'
     RECONCILED = 'R'
 
-    def __init__(self, txn_date=None, entry_date=None, splits=None, payee=None, description='', id_=None, alternate_id=None):
+    def __init__(self, txn_date=None, entry_date=None, splits=None, description='', id_=None, alternate_id=None):
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         if entry_date and isinstance(entry_date, str):
             self.entry_date = date.fromisoformat(entry_date)
         else:
             self.entry_date = entry_date
-        if payee:
-            if isinstance(payee, str):
-                self.payee = Payee(name=payee)
-            elif isinstance(payee, Payee):
-                self.payee = payee
-            else:
-                raise InvalidTransactionError('invalid payee: %s' % payee)
-        else:
-            self.payee = None
         self.description = description
         self.id = id_
         self.alternate_id = alternate_id
@@ -465,10 +467,14 @@ def get_display_strings_for_ledger(account, txn):
         withdrawal = ''
         deposit = amount_display(amount)
     quantity = quantity_display(split['quantity'])
-    if txn.payee:
-        payee = txn.payee.name
+    if 'payee' in split:
+        payee = split['payee'].name
     else:
-        payee = ''
+        payees = [s['payee'] for s in txn.splits if 'payee' in s]
+        if payees:
+            payee = payees[0].name
+        else:
+            payee = ''
     display_strings = {
             'withdrawal': withdrawal,
             'deposit': deposit,
@@ -911,12 +917,10 @@ class SQLiteStorage:
             'frequency TEXT NOT NULL,'
             'next_due_date TEXT,'
             'type TEXT,'
-            'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(frequency) REFERENCES scheduled_transaction_frequencies(frequency) ON DELETE RESTRICT,'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (name != ""),'
             'CHECK (next_due_date IS NULL OR next_due_date IS strftime("%Y-%m-%d", next_due_date))) STRICT',
         'CREATE TRIGGER scheduled_transaction_updated UPDATE ON scheduled_transactions BEGIN UPDATE scheduled_transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -931,10 +935,12 @@ class SQLiteStorage:
             'reconciled_state TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT,'
+            'payee_id INTEGER,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(scheduled_transaction_id) REFERENCES scheduled_transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
             'CHECK (value_denominator != 0),'
             'CHECK (quantity_denominator != 0)) STRICT',
@@ -946,14 +952,12 @@ class SQLiteStorage:
             'id INTEGER PRIMARY KEY,'
             'commodity_id INTEGER NOT NULL,'
             'date TEXT,' # date the transaction took place
-            'payee_id INTEGER,'
             'description TEXT NOT NULL DEFAULT "",'
             'entry_date TEXT NOT NULL DEFAULT (date(\'now\', \'localtime\')),' # date the transaction was entered
             'alternate_id TEXT NOT NULL DEFAULT "",' # eg. the previous ID for migrated txns
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'FOREIGN KEY(commodity_id) REFERENCES commodities(id) ON DELETE RESTRICT,'
-            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (date IS NULL OR date IS strftime("%Y-%m-%d", date)),'
             'CHECK (entry_date IS strftime("%Y-%m-%d", entry_date))) STRICT',
         'CREATE TRIGGER transaction_updated UPDATE ON transactions BEGIN UPDATE transactions SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
@@ -969,6 +973,7 @@ class SQLiteStorage:
             'type TEXT NOT NULL DEFAULT "",'
             'description TEXT NOT NULL DEFAULT "",'
             'action TEXT NOT NULL DEFAULT "",'
+            'payee_id INTEGER,'
             'post_date TEXT,'
             'reconcile_date TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
@@ -976,6 +981,7 @@ class SQLiteStorage:
             'FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE RESTRICT,'
             'FOREIGN KEY(action) REFERENCES transaction_actions(action) ON DELETE RESTRICT,'
+            'FOREIGN KEY(payee_id) REFERENCES payees(id) ON DELETE RESTRICT,'
             'CHECK (reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"),'
             'CHECK (post_date IS NULL OR (reconciled_state != "" AND post_date IS strftime("%Y-%m-%d", post_date))),'
             'CHECK (reconcile_date IS NULL OR (reconciled_state = "R" AND reconcile_date IS strftime("%Y-%m-%d", reconcile_date))),'
@@ -1256,12 +1262,11 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_date, payee_id, description, alternate_id, entry_date = db_info
+        id_, commodity_id, txn_date, description, alternate_id, entry_date = db_info
         txn_date = get_date(txn_date)
-        payee = self.get_payee(id_=payee_id)
         cur = self._db_connection.cursor()
         splits = []
-        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1275,13 +1280,15 @@ class SQLiteStorage:
                 if split_record[6]:
                     split['status'] = split_record[6]
                 split['action'] = split_record[7]
+                if split_record[8]:
+                    split['payee'] = self.get_payee(id_=split_record[8])
                 splits.append(split)
-        return Transaction(splits=splits, txn_date=txn_date, payee=payee, description=description,
+        return Transaction(splits=splits, txn_date=txn_date, description=description,
                            id_=id_, alternate_id=alternate_id, entry_date=entry_date)
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,date,payee_id,description,alternate_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
+        cur.execute('SELECT id,commodity_id,date,description,alternate_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
@@ -1297,22 +1304,19 @@ class SQLiteStorage:
 
     def save_txn(self, txn):
         check_txn_splits(txn.splits)
-        if txn.payee:
-            if not txn.payee.id: #Payee may not have been saved in DB yet
-                db_payee = self.get_payee(name=normalize(txn.payee.name))
-                if db_payee:
-                    txn.payee.id = db_payee.id
-                else:
-                    self.save_payee(txn.payee)
-            payee = txn.payee.id
-        else:
-            payee = None
         for split in txn.splits:
             account = split['account']
             if not account.id:
                 self.save_account(account)
-        field_names = ['date', 'payee_id', 'description']
-        field_values = [txn.txn_date.strftime('%Y-%m-%d'), payee, normalize(txn.description)]
+            if 'payee' in split:
+                if not split['payee'].id: #Payee may not have been saved in DB yet
+                    db_payee = self.get_payee(name=normalize(split['payee'].name))
+                    if db_payee:
+                        split['payee'].id = db_payee.id
+                    else:
+                        self.save_payee(split['payee'])
+        field_names = ['date', 'description']
+        field_values = [txn.txn_date.strftime('%Y-%m-%d'), normalize(txn.description)]
         if txn.alternate_id is not None:
             field_names.append('alternate_id')
             field_values.append(normalize(txn.alternate_id))
@@ -1346,6 +1350,10 @@ class SQLiteStorage:
             for account_id in split_account_ids_to_delete:
                 cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ? AND account_id = ?', (txn_id, account_id))
             for split in txn.splits:
+                if 'payee' in split:
+                    payee_id = split['payee'].id
+                else:
+                    payee_id = None
                 amount = split['amount']
                 quantity = split['quantity']
                 status = split.get('status', '')
@@ -1355,8 +1363,8 @@ class SQLiteStorage:
                     reconcile_date = None
                 type_ = normalize(split.get('type', ''))
                 description = normalize(split.get('description', ''))
-                field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description']
-                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description]
+                field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'payee_id']
+                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, payee_id]
                 action = split.get('action')
                 if action is not None:
                     field_names.append('action')
@@ -1489,23 +1497,13 @@ class SQLiteStorage:
 
     def save_scheduled_transaction(self, scheduled_txn):
         check_txn_splits(scheduled_txn.splits)
-        if scheduled_txn.payee:
-            if not scheduled_txn.payee.id: #Payee may not have been saved in DB yet
-                db_payee = self.get_payee(name=normalize(scheduled_txn.payee.name))
-                if db_payee:
-                    scheduled_txn.payee.id = db_payee.id
-                else:
-                    self.save_payee(scheduled_txn.payee)
-            payee = scheduled_txn.payee.id
-        else:
-            payee = None
         if scheduled_txn.next_due_date:
             next_due_date = scheduled_txn.next_due_date.strftime('%Y-%m-%d')
         else:
             next_due_date = None
 
-        field_names = ['name', 'frequency', 'next_due_date', 'payee_id', 'description']
-        field_values = [normalize(scheduled_txn.name), scheduled_txn.frequency.value, next_due_date, payee, normalize(scheduled_txn.description)]
+        field_names = ['name', 'frequency', 'next_due_date', 'description']
+        field_values = [normalize(scheduled_txn.name), scheduled_txn.frequency.value, next_due_date, normalize(scheduled_txn.description)]
 
         cur = self._db_connection.cursor()
         SQLiteStorage.begin_txn(cur)
@@ -1525,14 +1523,24 @@ class SQLiteStorage:
                 for account_id in split_account_ids_to_delete:
                     cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
                 for split in scheduled_txn.splits:
+                    if 'payee' in split:
+                        if not split['payee'].id: #Payee may not have been saved in DB yet
+                            db_payee = self.get_payee(name=normalize(split['payee'].name))
+                            if db_payee:
+                                split['payee'].id = db_payee.id
+                            else:
+                                self.save_payee(split['payee'])
+                        payee = split['payee'].id
+                    else:
+                        payee = None
                     account = split['account']
                     amount = split['amount']
                     quantity = amount
                     status = split.get('status', '')
                     if account.id in old_split_account_ids:
-                        cur.execute('UPDATE scheduled_transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, scheduled_txn.id, account.id))
+                        cur.execute('UPDATE scheduled_transaction_splits SET value_numerator = ?, value_denominator = ?, quantity_numerator = ?, quantity_denominator = ?, reconciled_state = ?, payee_id = ? WHERE scheduled_transaction_id = ? AND account_id = ?', (amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, payee, scheduled_txn.id, account.id))
                     else:
-                        cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
+                        cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, payee_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, payee))
             #add new scheduled transaction
             else:
                 field_names_s = ', '.join(field_names)
@@ -1553,7 +1561,7 @@ class SQLiteStorage:
     def get_scheduled_transaction(self, id_):
         cur = self._db_connection.cursor()
         splits = []
-        split_records = cur.execute('SELECT account_id, value_numerator, value_denominator, reconciled_state FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, value_numerator, value_denominator, reconciled_state, payee_id FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1561,16 +1569,16 @@ class SQLiteStorage:
                 split = {'account': account, 'amount': Fraction(split_record[1], split_record[2])}
                 if split_record[3]:
                     split['status'] = split_record[3]
+                if split_record[4]:
+                    split['payee'] = self.get_payee(id_=split_record[4])
                 splits.append(split)
-        rows = cur.execute('SELECT name,frequency,next_due_date,payee_id,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
-        payee = self.get_payee(id_=rows[0][3])
+        rows = cur.execute('SELECT name,frequency,next_due_date,description FROM scheduled_transactions WHERE id = ?', (id_,)).fetchall()
         st = ScheduledTransaction(
                 name=rows[0][0],
                 frequency=ScheduledTransactionFrequency(rows[0][1]),
                 next_due_date=rows[0][2],
                 splits=splits,
-                payee=payee,
-                description=rows[0][4],
+                description=rows[0][3],
                 id_=id_,
             )
         return st
@@ -1951,7 +1959,7 @@ def import_kmymoney(kmy_file, engine):
                             split['reconcile_date'] = get_date(value)
                     elif key == 'payee':
                         if value:
-                            payee = engine.get_payee(id_=payee_mapping_info[value])
+                            split['payee'] = engine.get_payee(id_=payee_mapping_info[value])
                     elif key == 'number':
                         split['type'] = value
                     elif key == 'memo':
@@ -1982,7 +1990,6 @@ def import_kmymoney(kmy_file, engine):
                     Transaction(
                         splits=splits,
                         txn_date=transaction.attrib['postdate'],
-                        payee=payee,
                         description=transaction.attrib['memo'],
                         alternate_id=txn_id,
                         entry_date=entry_date or None,

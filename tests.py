@@ -136,7 +136,8 @@ class TestTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
-        self.valid_splits = [{'account': self.checking, 'amount': '100'}, {'account': self.savings, 'amount': '-100'}]
+        self.valid_splits = [{'account': self.checking, 'amount': '100', 'payee': ''},
+                             {'account': self.savings, 'amount': '-100', 'payee': 'Burgers'}]
 
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
@@ -166,21 +167,21 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
-        splits = [{'account': self.checking, 'amount': '100', 'status': 'c'}, {'account': self.savings, 'amount': '-100'}]
+        payee = bb.Payee('payee 1')
+        splits = [{'account': self.checking, 'amount': '100', 'status': 'c'},
+                  {'account': self.savings, 'amount': '-100', 'payee': payee}]
         t = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
-                payee=bb.Payee('payee 1'),
                 description='2 hamburgers',
             )
         expected_splits = [
                 {'account': self.checking, 'amount': Fraction(100), 'quantity': Fraction(100), 'status': 'C'},
-                {'account': self.savings, 'amount': Fraction(-100), 'quantity': Fraction(-100)}
+                {'account': self.savings, 'amount': Fraction(-100), 'quantity': Fraction(-100), 'payee': payee}
             ]
         self.assertEqual(t.splits, expected_splits)
         self.assertTrue(isinstance(t.splits[0]['amount'], Fraction))
         self.assertEqual(t.txn_date, date.today())
-        self.assertEqual(t.payee.name, 'payee 1')
         self.assertEqual(t.description, '2 hamburgers')
 
     def test_sparse_init(self):
@@ -190,7 +191,6 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
             )
         self.assertEqual(t.id, None)
-        self.assertEqual(t.payee, None)
         self.assertEqual(t.description, '')
 
     def test_splits(self):
@@ -204,15 +204,9 @@ class TestTransaction(unittest.TestCase):
         t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
-                payee='',
             )
-        self.assertEqual(t.payee, None)
-        t = bb.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-                payee='Burgers',
-            )
-        self.assertEqual(t.payee.name, 'Burgers')
+        self.assertNotIn('payee', t.splits[0])
+        self.assertEqual(t.splits[1]['payee'].name, 'Burgers')
 
     def test_txn_status(self):
         t = bb.Transaction(
@@ -226,10 +220,9 @@ class TestTransaction(unittest.TestCase):
 
     def test_get_display_strings(self):
         t = bb.Transaction(
-                splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2'}],
+                splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2', 'payee': 'asdf'}],
                 txn_date=date.today(),
                 description='something',
-                payee=bb.Payee('asdf'),
             )
         t.balance = Fraction(5)
         self.assertDictEqual(
@@ -277,7 +270,7 @@ class TestTransaction(unittest.TestCase):
                     'quantity': '100',
                     'description': '',
                     'txn_date': str(date.today()),
-                    'payee': '',
+                    'payee': 'Burgers',
                     'status': '',
                     'action': '',
                     'type': '',
@@ -1026,13 +1019,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101, 'payee': 'someone'}],
                 txn_date=date.today(),
-                payee='someone',
             )
         self.storage.save_txn(t)
         txn_from_db = self.storage.get_txn(t.id)
-        self.assertEqual(txn_from_db.payee.name, 'someone')
+        self.assertEqual(txn_from_db.splits[1]['payee'].name, 'someone')
 
     def test_save_txn_blank_out_alternate_id(self):
         checking = get_test_account()
