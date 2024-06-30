@@ -62,7 +62,7 @@ def _load_data(storage, many_txns):
     storage.save_txn(bb.Transaction(splits=[{'account': opening_balances, 'amount': '-1000'}, {'account': checking, 'amount': 1000}], txn_date='2018-01-01'))
     storage.save_txn(bb.Transaction(splits=[{'account': opening_balances, 'amount': '-1000'}, {'account': savings, 'amount': 1000}], txn_date='2018-01-01'))
     storage.save_txn(bb.Transaction(splits=[{'account': wages, 'amount': '-1000'}, {'account': checking, 'amount': 900}, {'account': stock_a, 'amount': 100, 'quantity': '5.23'}], txn_date='2018-01-01'))
-    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-10'}, {'account': restaurants, 'amount': 10}], txn_date='2018-01-01', payee=payee))
+    storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-10'}, {'account': restaurants, 'amount': 10, 'payee': payee}], txn_date='2018-01-01'))
     storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-20'}, {'account': restaurants, 'amount': 20}], txn_date='2018-01-02'))
     storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-30'}, {'account': restaurants, 'amount': 30}], txn_date='2018-01-04'))
     storage.save_txn(bb.Transaction(splits=[{'account': checking, 'amount': '-40'}, {'account': restaurants, 'amount': 40}], txn_date='2018-01-06'))
