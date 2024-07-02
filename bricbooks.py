@@ -520,7 +520,7 @@ class ScheduledTransactionFrequency(Enum):
 
 class ScheduledTransaction:
 
-    def __init__(self, name, frequency, next_due_date=None, splits=None, payee=None, description='', status='', id_=None):
+    def __init__(self, name, frequency, next_due_date=None, splits=None, description='', status='', id_=None):
         self.name = name
         if isinstance(frequency, ScheduledTransactionFrequency):
             self.frequency = frequency
@@ -531,15 +531,6 @@ class ScheduledTransaction:
                 raise InvalidScheduledTransactionError('invalid frequency "%s"' % frequency)
         self.next_due_date = self._check_date(next_due_date)
         self.splits = handle_txn_splits(splits or {})
-        if payee:
-            if isinstance(payee, str):
-                self.payee = Payee(name=payee)
-            elif isinstance(payee, Payee):
-                self.payee = payee
-            else:
-                raise InvalidScheduledTransactionError('invalid payee: %s' % payee)
-        else:
-            self.payee = None
         self.description = description
         self.status = status.upper()
         self.id = id_
@@ -1502,6 +1493,15 @@ class SQLiteStorage:
         else:
             next_due_date = None
 
+        for split in scheduled_txn.splits:
+            if 'payee' in split:
+                if not split['payee'].id: #Payee may not have been saved in DB yet
+                    db_payee = self.get_payee(name=normalize(split['payee'].name))
+                    if db_payee:
+                        split['payee'].id = db_payee.id
+                    else:
+                        self.save_payee(split['payee'])
+
         field_names = ['name', 'frequency', 'next_due_date', 'description']
         field_values = [normalize(scheduled_txn.name), scheduled_txn.frequency.value, next_due_date, normalize(scheduled_txn.description)]
 
@@ -1524,12 +1524,6 @@ class SQLiteStorage:
                     cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ? AND account_id = ?', (scheduled_txn.id, account_id))
                 for split in scheduled_txn.splits:
                     if 'payee' in split:
-                        if not split['payee'].id: #Payee may not have been saved in DB yet
-                            db_payee = self.get_payee(name=normalize(split['payee'].name))
-                            if db_payee:
-                                split['payee'].id = db_payee.id
-                            else:
-                                self.save_payee(split['payee'])
                         payee = split['payee'].id
                     else:
                         payee = None
@@ -1548,11 +1542,15 @@ class SQLiteStorage:
                 cur.execute(f'INSERT INTO scheduled_transactions({field_names_s}) VALUES ({field_names_q})', field_values)
                 scheduled_txn.id = cur.lastrowid
                 for split in scheduled_txn.splits:
+                    if 'payee' in split:
+                        payee = split['payee'].id
+                    else:
+                        payee = None
                     account = split['account']
                     amount = split['amount']
                     quantity = amount
                     status = split.get('status', '')
-                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state) VALUES (?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status))
+                    cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, payee_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, payee))
             cur.execute('COMMIT')
         except:
             SQLiteStorage.rollback(cur)
@@ -1665,7 +1663,11 @@ class Engine:
         if query:
             query = query.lower()
             results = [t for t in results
-                    if ((t.payee and query in t.payee.name.lower()) or (t.description and query in t.description.lower()))]
+                    if (
+                        [s for s in t.splits if 'payee' in s and query in s['payee'].name.lower()] or
+                        (t.description and query in t.description.lower())
+                    )
+                ]
         sorted_results = Engine.sort_txns(results, key='date')
         #add balance if we have all the txns for a specific account, without limiting by another account, or a query, or a status, ...
         if not any([filter_account, query, status]):
@@ -1768,18 +1770,14 @@ class Engine:
             txns = self.get_transactions(account=acc)
             acc_file = os.path.join(export_dir, f'acc_{to_ascii(acc.name.lower())}.tsv')
             with open(acc_file, 'wb') as f:
-                f.write('date\ttype\tpayee\tdescription\tamount\ttransfer_account\n'.encode('utf8'))
+                f.write('date\ttype\tdescription\tamount\ttransfer_account\n'.encode('utf8'))
                 for txn in txns:
-                    if txn.payee:
-                        payee = txn.payee.name
-                    else:
-                        payee = ''
                     if len(txn.splits) == 2:
                         transfer_account = [str(s['account']) for s in txn.splits if s['account'] != acc][0]
                     else:
                         transfer_account = 'multiple'
                     split = [s for s in txn.splits if s['account'] == acc][0]
-                    data = [str(txn.txn_date), payee, txn.description or '',
+                    data = [str(txn.txn_date), txn.description or '',
                             amount_display(split['amount']), transfer_account]
                     line = self._create_export_line(data)
                     f.write(f'{line}\n'.encode('utf8'))
