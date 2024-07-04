@@ -2630,13 +2630,14 @@ class AccountsDisplay:
 
 class SplitsForm:
 
-    def __init__(self, master, splits, accounts):
+    def __init__(self, master, splits, accounts, payees):
         self._master = master
         if splits:
             self._splits = copy.deepcopy(splits)
         else:
             self._splits = [{}, {}]
         self._accounts = accounts
+        self._payees = payees
         self.action_label = None
         self.shares_label = None
 
@@ -2692,6 +2693,15 @@ class SplitsForm:
             split['status_combo'].set(split.get('status', ''))
             split['deposit_entry'].insert(0, deposit_amount)
             split['withdrawal_entry'].insert(0, withdrawal_amount)
+            split['payee_combo'] = ttk.Combobox(master=self.frame)
+            payee_values = ['']
+            payee_index = 0
+            for index, payee in enumerate(self._payees):
+                payee_values.append(payee.name)
+                if split.get('payee') and split['payee'] == payee:
+                    payee_index = index + 1 #because of first empty item
+            split['payee_combo']['values'] = payee_values
+            split['payee_combo'].current(payee_index)
             if selected_account and selected_account.type == AccountType.SECURITY:
                 split['action_combo'] = ttk.Combobox(master=self.frame)
                 action_values = [a.value for a in TransactionAction]
@@ -2776,6 +2786,7 @@ class SplitsForm:
                 s['action'] = split['action_combo'].get()
             if 'shares_entry' in split:
                 s['quantity'] = split['shares_entry'].get()
+            s['payee'] = split['payee_combo'].get()
             splits.append(s)
         return splits
 
@@ -2797,29 +2808,19 @@ class TransactionForm:
     def get_widget(self):
         self.top_level = tk.Toplevel()
         self.form = ttk.Frame(master=self.top_level)
-        for col, label in [(0, 'Date'), (1, 'Payee'), (2, 'Description')]:
+        for col, label in [(0, 'Date'), (1, 'Description')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
         if self._account.type == AccountType.SECURITY:
             for col, label in [(0, 'Shares')]:
                 ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         self.date_entry = ttk.Entry(master=self.form)
-        self.payee_combo = ttk.Combobox(master=self.form)
-        payee_values = ['']
-        payee_index = 0
-        for index, payee in enumerate(self._payees):
-            payee_values.append(payee.name)
-            if payee.name == self._tds.get('payee'):
-                payee_index = index + 1 #because of first empty item
-        self.payee_combo['values'] = payee_values
         self.description_entry = ttk.Entry(master=self.form)
         self.date_entry.insert(0, self._tds.get('txn_date', str(date.today())))
         self.description_entry.insert(0, self._tds.get('description', ''))
-        self.payee_combo.current(payee_index)
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
-        self.payee_combo.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.description_entry.grid(row=1, column=2, sticky=(tk.N, tk.S))
-        self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts)
+        self.description_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
+        self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts, payees=self._payees)
         self.splits_form.get_widget().grid(row=2, column=0, columnspan=5)
         entries = [self.save_button]
         if self._skip_transaction:
@@ -2842,7 +2843,6 @@ class TransactionForm:
             kwargs = {
                 'id_': self._id,
                 'txn_date': dt,
-                'payee': self.payee_combo.get(),
                 'description': self.description_entry.get(),
                 'splits': splits,
             }
@@ -3267,7 +3267,6 @@ class ScheduledTransactionForm:
         ttk.Label(master=self.content, text='Name').grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         ttk.Label(master=self.content, text='Frequency').grid(row=0, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         ttk.Label(master=self.content, text='Next Due Date').grid(row=0, column=2, sticky=(tk.N, tk.S, tk.W, tk.E))
-        ttk.Label(master=self.content, text='Payee').grid(row=0, column=3, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.name_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.name_entry.insert(0, self._scheduled_transaction.name)
@@ -3287,28 +3286,16 @@ class ScheduledTransactionForm:
         if self._scheduled_transaction:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
 
-        self.payee_combo = ttk.Combobox(master=self.content)
-        payee_values = [p.name for p in self._payees]
-        payee_values.insert(0, '')
-        payee_index = 0
-        for index, payee in enumerate(self._payees):
-            if self._scheduled_transaction and self._scheduled_transaction.payee and self._scheduled_transaction.payee.name == payee.name:
-                payee_index = index + 1 #because of first empty item
-        self.payee_combo['values'] = payee_values
-        if self._scheduled_transaction:
-            self.payee_combo.current(payee_index)
-
         self.name_entry.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.frequency_combo.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.next_due_date_entry.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.W, tk.E))
-        self.payee_combo.grid(row=1, column=3, sticky=(tk.N, tk.S, tk.W, tk.E))
 
         if self._scheduled_transaction:
             splits = self._scheduled_transaction.splits
         else:
             splits = []
 
-        self.splits_form = SplitsForm(master=self.content, splits=splits, accounts=self._accounts)
+        self.splits_form = SplitsForm(master=self.content, splits=splits, accounts=self._accounts, payees=self._payees)
         self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
 
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
@@ -3319,7 +3306,6 @@ class ScheduledTransactionForm:
         return self._form
 
     def _save(self):
-        payee = self.payee_combo.get()
         if self._scheduled_transaction:
             id_ = self._scheduled_transaction.id
         else:
@@ -3331,7 +3317,6 @@ class ScheduledTransactionForm:
                     frequency=self.frequencies[self.frequency_combo.current()],
                     next_due_date=self.next_due_date_entry.get(),
                     splits=splits,
-                    payee=payee,
                     id_=id_,
                 )
             self._save_scheduled_txn(scheduled_txn=st)
@@ -3368,8 +3353,9 @@ class ScheduledTransactionsDisplay:
 
         scheduled_txns = self._engine.get_scheduled_transactions()
         for scheduled_txn in scheduled_txns:
-            if scheduled_txn.payee:
-                payee = scheduled_txn.payee.name
+            payees = [s['payee'] for s in scheduled_txn.splits if 'payee' in s]
+            if payees:
+                payee = payees[0].name
             else:
                 payee = ''
             values = (scheduled_txn.name, scheduled_txn.frequency.value, str(scheduled_txn.next_due_date), payee, splits_display(scheduled_txn.splits))
