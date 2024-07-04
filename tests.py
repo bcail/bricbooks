@@ -2358,7 +2358,14 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli._engine._storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
+        input_mock.side_effect = [str(st.id), '2019-01-02',
+                                  '-101', '', '',
+                                  '101', '', '',
+                                  '', # blank for no new account splits
+                                  'description',
+                                  '', # no more scheduled txns to enter
+                                  '', # no scheduled txns to skip
+                              ]
         self.cli._list_scheduled_txns()
         txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
@@ -2400,19 +2407,23 @@ class TestCLI(unittest.TestCase):
         storage = self.cli._engine._storage
         storage.save_account(checking)
         storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16', '1', '-15', 'R', '2', '15', '', '', '\'payee', 'desc']
+        input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16',
+                                  '1', '-15', 'R', '',
+                                  '2', '15', '', "'payee",
+                                  '', 'desc']
         self.cli._create_scheduled_txn()
         scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].name, 'weekly 1')
-        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
-        self.assertEqual(scheduled_txns[0].splits,
-                [
-                    {'account': checking, 'amount': -15, 'quantity': -15, 'status': 'R'},
-                    {'account': savings, 'amount': 15, 'quantity': 15},
-                ])
-        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
-        self.assertEqual(scheduled_txns[0].description, 'desc')
+        scheduled_txn = scheduled_txns[0]
+        self.assertEqual(scheduled_txn.name, 'weekly 1')
+        self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txn.splits[0]['account'], checking)
+        self.assertEqual(scheduled_txn.splits[0]['amount'], -15)
+        self.assertEqual(scheduled_txn.splits[0]['status'], 'R')
+        self.assertEqual(scheduled_txn.splits[1]['account'], savings)
+        self.assertEqual(scheduled_txn.splits[1]['amount'], 15)
+        self.assertEqual(scheduled_txn.splits[1]['payee'].name, 'payee')
+        self.assertEqual(scheduled_txn.description, 'desc')
 
     @patch('builtins.input')
     def test_edit_scheduled_txn(self, input_mock):
@@ -2432,14 +2443,22 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), 'weekly 1', 'weekly', '2020-01-16', '-15', '', '15', '', '', '\'payee', 'desc']
+        input_mock.side_effect = [str(st.id),
+                                  'weekly 1', 'weekly', '2020-01-16',
+                                  '-15', '', '',
+                                  '15', '', '\'payee',
+                                  '', 'desc']
         self.cli._edit_scheduled_txn()
         scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].splits[0], {'account': checking, 'amount': -15, 'quantity': -15})
-        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
-        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
-        self.assertEqual(scheduled_txns[0].description, 'desc')
+        scheduled_txn = scheduled_txns[0]
+        self.assertEqual(scheduled_txn.splits[0]['account'], checking)
+        self.assertEqual(scheduled_txn.splits[0]['amount'], -15)
+        self.assertEqual(scheduled_txn.splits[1]['account'], savings)
+        self.assertEqual(scheduled_txn.splits[1]['amount'], 15)
+        self.assertEqual(scheduled_txn.splits[1]['payee'].name, 'payee')
+        self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txn.description, 'desc')
 
     def test_list_budgets(self):
         storage = self.cli._engine._storage
@@ -2611,7 +2630,8 @@ class TestImport(unittest.TestCase):
         self.assertEqual(checking.alternate_id, 'A000025')
         txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
-        self.assertEqual(txns[1].payee.name, 'A restaurant')
+        self.assertEqual(txns[1].splits[1]['payee'].name, 'A restaurant')
+        self.assertEqual(txns[1].splits[1]['account'].name, 'Recreation')
         self.assertEqual(txns[1].entry_date, date(2021, 1, 29))
         self.assertEqual(txns[1].alternate_id, 'T000000000000000002')
         balances = engine.get_current_balances_for_display(account=checking)

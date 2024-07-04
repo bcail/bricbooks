@@ -2298,8 +2298,6 @@ class CLI:
         self.print('  next due date: %s' % scheduled_txn.next_due_date)
         splits_str = '; '.join(['%s-%s: %s' % (split['account'].id, split['account'].name, str(split)) for split in scheduled_txn.splits])
         self.print('  splits: %s' % splits_str)
-        if scheduled_txn.payee:
-            self.print('  payee: %s' % scheduled_txn.payee)
         if scheduled_txn.description:
             self.print('  description: %s' % scheduled_txn.description)
 
