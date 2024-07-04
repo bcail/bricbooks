@@ -2102,8 +2102,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._engine.save_scheduled_transaction(
@@ -2115,8 +2115,8 @@ class TestCLI(unittest.TestCase):
                 )
             )
         self.cli._list_account_txns()
-        txn1_output = ' 1    | 2017-01-01 | description                    | some payee                     | Savings                        |            | 5.00       | 5.00      \n'
-        txn2_output = ' 2    | 2017-01-02 |                                | payee 2                        | Savings                        |            | 5.00       | 10.00     \n'
+        txn1_output = ' 1    | 2017-01-01 | description                    |                                | Savings                        |            | 5.00       | 5.00      \n'
+        txn2_output = ' 2    | 2017-01-02 |                                |                                | Savings                        |            | 5.00       | 10.00     \n'
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue(f'Account ID (or search string): {CHECKING} (Current balance: 10.00; Cleared: 0.00)' in printed_output)
         self.assertTrue('scheduled txn' in printed_output)
@@ -2132,12 +2132,12 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5, 'status': bb.Transaction.CLEARED}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5, 'status': bb.Transaction.CLEARED}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
-        txn1_output = ' 1    | 2017-01-01 | description                    | some payee                     | Savings                        |            | 5.00       |           \n'
+        txn1_output = ' 1    | 2017-01-01 | description                    |                                | Savings                        |            | 5.00       |           \n'
         txn2_output = '2017-01-02'
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue('Account ID (or search string)' in printed_output)
@@ -2156,7 +2156,7 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(rent)
         input_mock.return_value = f'1 acc:{rent.id}'
         txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1))
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': rent, 'amount': 5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': rent, 'amount': 5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
@@ -2175,8 +2175,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine._storage.save_txn(txn)
         self.cli._engine._storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
@@ -2199,15 +2199,14 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', 'C', 'type1', '',
-                str(fund.id), '15', '', 'type2', 'share-buy',
-                '', str(payee.id), 'description']
+                str(checking.id), '-15', 'C', 'type1', '', '',
+                str(fund.id), '15', '', 'type2', 'share-buy', str(payee.id),
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[0], {'account': checking, 'action': '', 'amount': -15, 'quantity': -15, 'type': 'type1', 'status': 'C'})
-        self.assertEqual(txn.splits[1], {'account': fund, 'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2'})
-        self.assertEqual(txn.payee, payee)
+        self.assertEqual(txn.splits[1], {'account': fund, 'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2', 'payee': payee})
         self.assertEqual(txn.description, 'description')
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue('Create Transaction:\n' in buffer_value)
@@ -2219,12 +2218,12 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
-        self.assertEqual(txn.payee.name, 'payee 1')
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_create_txn_existing_payee_by_name(self, input_mock):
@@ -2237,12 +2236,12 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
-        self.assertEqual(txn.payee.name, 'payee 1')
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_create_txn_list_payees(self, input_mock):
@@ -2254,12 +2253,14 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', 'p', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', 'p', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue('1: payee 1' in buffer_value)
+        txn = self.cli._engine.get_transactions(account=checking)[0]
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
@@ -2273,10 +2274,10 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_transaction(txn)
 
         input_mock.side_effect = [str(txn.id), '2017-02-13',
-                '-90', '', '', '',
-                '50', '', '', '',
-                str(another_account.id), '40', '', '', '',
-                '', '', 'new description']
+                '-90', '', '', '', '',
+                '50', '', '', '', '',
+                str(another_account.id), '40', '', '', '', '',
+                '', 'new description']
         self.cli._edit_txn()
 
         edited_txn = self.cli._engine.get_transaction(id_=txn.id)

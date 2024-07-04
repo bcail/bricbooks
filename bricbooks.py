@@ -2190,6 +2190,20 @@ class CLI:
                     if not is_scheduled_txn:
                         split['type'] = self.input(prompt=f'{account.name} type: ', prefill=split_info['type'])
                         split['action'] = self.input(prompt=f'{account.name} action: ', prefill=split_info['action'])
+                    payee_prefill = ''
+                    if 'payee' in split_info:
+                        if split_info['payee']:
+                            payee_prefill = '\'%s' % split_info['payee'].name
+                        else:
+                            payee_prefill = ''
+                    payee = self.input(prompt='  payee (id or \'name): ', prefill=payee_prefill)
+                    if payee == 'p':
+                        self._list_payees()
+                        payee = self.input(prompt='  payee (id or \'name): ')
+                    if payee.startswith("'"):
+                        split['payee'] = Payee(payee[1:])
+                    else:
+                        split['payee'] = self._engine.get_payee(id_=payee)
                     splits.append(split)
         while True:
             acct_id = self.input(prompt='new account ID: ')
@@ -2204,28 +2218,21 @@ class CLI:
                     if not is_scheduled_txn:
                         split['type'] = self.input(prompt=f'{account.name} type: ')
                         split['action'] = self.input(prompt=f'{account.name} action: ')
+                    payee = self.input(prompt='  payee (id or \'name): ')
+                    if payee == 'p':
+                        self._list_payees()
+                        payee = self.input(prompt='  payee (id or \'name): ')
+                    if payee.startswith("'"):
+                        split['payee'] = Payee(payee[1:])
+                    else:
+                        split['payee'] = self._engine.get_payee(id_=payee)
                     splits.append(split)
                 else:
                     break
             else:
                 break
         txn_info['splits'] = splits
-        payee_prefill = ''
         description_prefill = ''
-        if txn:
-            if txn.payee:
-                payee_prefill = '\'%s' % txn.payee.name
-            else:
-                payee_prefill = ''
-            description_prefill = txn.description or ''
-        payee = self.input(prompt='  payee (id or \'name): ', prefill=payee_prefill)
-        if payee == 'p':
-            self._list_payees()
-            payee = self.input(prompt='  payee (id or \'name): ')
-        if payee.startswith("'"):
-            txn_info['payee'] = Payee(payee[1:])
-        else:
-            txn_info['payee'] = self._engine.get_payee(id_=payee)
         txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
         return txn_info
 
