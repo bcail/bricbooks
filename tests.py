@@ -136,7 +136,8 @@ class TestTransaction(unittest.TestCase):
     def setUp(self):
         self.checking = get_test_account(id_=1)
         self.savings = get_test_account(id_=2, name='Savings')
-        self.valid_splits = [{'account': self.checking, 'amount': '100'}, {'account': self.savings, 'amount': '-100'}]
+        self.valid_splits = [{'account': self.checking, 'amount': '100', 'payee': ''},
+                             {'account': self.savings, 'amount': '-100', 'payee': 'Burgers'}]
 
     def test_invalid_split_amounts(self):
         with self.assertRaises(bb.InvalidTransactionError) as cm:
@@ -166,21 +167,21 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.txn_date, date(2018, 3, 18))
 
     def test_init(self):
-        splits = [{'account': self.checking, 'amount': '100', 'status': 'c'}, {'account': self.savings, 'amount': '-100'}]
+        payee = bb.Payee('payee 1')
+        splits = [{'account': self.checking, 'amount': '100', 'status': 'c'},
+                  {'account': self.savings, 'amount': '-100', 'payee': payee}]
         t = bb.Transaction(
                 splits=splits,
                 txn_date=date.today(),
-                payee=bb.Payee('payee 1'),
                 description='2 hamburgers',
             )
         expected_splits = [
                 {'account': self.checking, 'amount': Fraction(100), 'quantity': Fraction(100), 'status': 'C'},
-                {'account': self.savings, 'amount': Fraction(-100), 'quantity': Fraction(-100)}
+                {'account': self.savings, 'amount': Fraction(-100), 'quantity': Fraction(-100), 'payee': payee}
             ]
         self.assertEqual(t.splits, expected_splits)
         self.assertTrue(isinstance(t.splits[0]['amount'], Fraction))
         self.assertEqual(t.txn_date, date.today())
-        self.assertEqual(t.payee.name, 'payee 1')
         self.assertEqual(t.description, '2 hamburgers')
 
     def test_sparse_init(self):
@@ -190,7 +191,6 @@ class TestTransaction(unittest.TestCase):
                 txn_date=date.today(),
             )
         self.assertEqual(t.id, None)
-        self.assertEqual(t.payee, None)
         self.assertEqual(t.description, '')
 
     def test_splits(self):
@@ -204,15 +204,9 @@ class TestTransaction(unittest.TestCase):
         t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
-                payee='',
             )
-        self.assertEqual(t.payee, None)
-        t = bb.Transaction(
-                splits=self.valid_splits,
-                txn_date=date.today(),
-                payee='Burgers',
-            )
-        self.assertEqual(t.payee.name, 'Burgers')
+        self.assertNotIn('payee', t.splits[0])
+        self.assertEqual(t.splits[1]['payee'].name, 'Burgers')
 
     def test_txn_status(self):
         t = bb.Transaction(
@@ -226,10 +220,9 @@ class TestTransaction(unittest.TestCase):
 
     def test_get_display_strings(self):
         t = bb.Transaction(
-                splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2'}],
+                splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2', 'payee': 'asdf'}],
                 txn_date=date.today(),
                 description='something',
-                payee=bb.Payee('asdf'),
             )
         t.balance = Fraction(5)
         self.assertDictEqual(
@@ -277,7 +270,7 @@ class TestTransaction(unittest.TestCase):
                     'quantity': '100',
                     'description': '',
                     'txn_date': str(date.today()),
-                    'payee': '',
+                    'payee': 'Burgers',
                     'status': '',
                     'action': '',
                     'type': '',
@@ -315,7 +308,7 @@ class TestScheduledTransaction(unittest.TestCase):
         self.savings = get_test_account(id_=2, name='Savings')
         self.valid_splits=[
                 {'account': self.checking, 'amount': -101},
-                {'account': self.savings, 'amount': 101},
+                {'account': self.savings, 'amount': 101, 'payee': 'restaurant'},
             ]
 
     def test_invalid_frequency(self):
@@ -344,14 +337,12 @@ class TestScheduledTransaction(unittest.TestCase):
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
-                payee='Wendys',
                 description='something',
             )
         self.assertEqual(st.name, 'weekly 1')
         self.assertEqual(st.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(st.next_due_date, date(2019, 1, 2))
         self.assertEqual(st.splits, self.valid_splits)
-        self.assertEqual(st.payee.name, 'Wendys')
         self.assertEqual(st.description, 'something')
 
     def test_init_frequency(self):
@@ -369,17 +360,8 @@ class TestScheduledTransaction(unittest.TestCase):
                 frequency='quarterly',
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
-                payee='',
             )
-        self.assertEqual(st.payee, None)
-        st = bb.ScheduledTransaction(
-                name='weekly 1',
-                frequency='quarterly',
-                next_due_date='2019-01-02',
-                splits=self.valid_splits,
-                payee='Burgers',
-            )
-        self.assertEqual(st.payee.name, 'Burgers')
+        self.assertEqual(st.splits[1]['payee'].name, 'restaurant')
 
     def test_display_strings(self):
         st = bb.ScheduledTransaction(
@@ -387,7 +369,6 @@ class TestScheduledTransaction(unittest.TestCase):
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=self.valid_splits,
-                payee=bb.Payee('Wendys'),
                 description='something',
             )
         tds = bb.get_display_strings_for_ledger(account=self.checking, txn=st)
@@ -986,8 +967,8 @@ class TestSQLiteStorage(unittest.TestCase):
         groceries = get_test_account(name='Groceries')
         self.storage.save_account(checking)
         self.storage.save_account(groceries)
-        chickfila = bb.Payee('Chick-fil-A')
-        self.storage.save_payee(chickfila)
+        restaurant_a = bb.Payee('Restaurant A')
+        self.storage.save_payee(restaurant_a)
         today = date.today()
         today_str = today.strftime('%Y-%m-%d')
         tomorrow = today + timedelta(days=1)
@@ -995,30 +976,29 @@ class TestSQLiteStorage(unittest.TestCase):
         t = bb.Transaction(
                 splits=[
                     {'account': checking, 'amount': '-101', 'status': bb.Transaction.CLEARED, 'type': '100'},
-                    {'account': groceries, 'amount': 51, 'description': 'flour', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today},
+                    {'account': groceries, 'amount': 51, 'description': 'flour', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today, 'payee': restaurant_a},
                     {'account': groceries, 'amount': 50, 'description': 'rice', 'status': bb.Transaction.RECONCILED, 'reconcile_date': today},
                     ],
                 txn_date=today,
                 entry_date=tomorrow,
-                payee=chickfila,
-                description='chicken sandwich',
+                description='food',
                 alternate_id='ID001',
             )
         self.storage.save_txn(t)
         self.assertEqual(t.id, 1) #make sure we save the id to the txn object
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date,alternate_id,created FROM transactions')
+        c.execute('SELECT id,commodity_id,date,description,entry_date,alternate_id,created FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-1],
-                (1, 1, today_str, 1, 'chicken sandwich', tomorrow_str, 'ID001'))
+                (1, 1, today_str, 'food', tomorrow_str, 'ID001'))
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-1]}+00:00')
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
-        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,reconcile_date,type,description FROM transaction_splits')
+        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,reconcile_date,type,description,payee_id FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, checking.id, -101, 1, -101, 1, 'C', None, '100', ''),
-                                             (2, 1, groceries.id, 51, 1, 51, 1, 'R', today_str, '', 'flour'),
-                                             (3, 1, groceries.id, 50, 1, 50, 1, 'R', today_str, '', 'rice')])
+        self.assertEqual(txn_split_records, [(1, 1, checking.id, -101, 1, -101, 1, 'C', None, '100', '', None),
+                                             (2, 1, groceries.id, 51, 1, 51, 1, 'R', today_str, '', 'flour', restaurant_a.id),
+                                             (3, 1, groceries.id, 50, 1, 50, 1, 'R', today_str, '', 'rice', None)])
 
     def test_save_txn_payee_string(self):
         checking = get_test_account()
@@ -1026,13 +1006,12 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         t = bb.Transaction(
-                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101, 'payee': 'someone'}],
                 txn_date=date.today(),
-                payee='someone',
             )
         self.storage.save_txn(t)
         txn_from_db = self.storage.get_txn(t.id)
-        self.assertEqual(txn_from_db.payee.name, 'someone')
+        self.assertEqual(txn_from_db.splits[1]['payee'].name, 'someone')
 
     def test_save_txn_blank_out_alternate_id(self):
         checking = get_test_account()
@@ -1290,9 +1269,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(savings)
         payee = bb.Payee('payee', id_=1)
         t = bb.Transaction(
-                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101}],
+                splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101, 'payee': payee}],
                 txn_date=date.today(),
-                payee=payee,
             )
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             self.storage.save_txn(t)
@@ -1337,14 +1315,14 @@ class TestSQLiteStorage(unittest.TestCase):
             )
         self.storage.save_txn(t)
         c = self.storage._db_connection.cursor()
-        c.execute('SELECT id,commodity_id,date,payee_id,description,entry_date FROM transactions')
+        c.execute('SELECT id,commodity_id,date,description,entry_date FROM transactions')
         db_info = c.fetchone()
         self.assertEqual(db_info,
-                (1, 1, today_str, None, '', today_str))
-        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator FROM transaction_splits')
+                (1, 1, today_str, '', today_str))
+        c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,payee_id FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1),
-                                             (2, 1, 2, -101, 1, -101, 1)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1, None),
+                                             (2, 1, 2, -101, 1, -101, 1, None)])
 
     def test_round_trip(self):
         checking = get_test_account()
@@ -1357,23 +1335,22 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_payee(payee)
         #create txn & save it
         t = bb.Transaction(
-                splits=[{'account': checking, 'amount': '-101', 'status': 'C'}, {'account': savings, 'amount': 101}],
+                splits=[{'account': checking, 'amount': '-101', 'status': 'C'}, {'account': savings, 'amount': 101, 'payee': payee}],
                 txn_date=date.today(),
-                payee=payee,
             )
         self.storage.save_txn(t)
         txn_id = t.id
         #verify db
         c = self.storage._db_connection.cursor()
-        txn_fields = 'id,commodity_id,date,payee_id,description'
+        txn_fields = 'id,commodity_id,date,description'
         txn_db_info = c.execute(f'SELECT {txn_fields} FROM transactions').fetchall()
         self.assertEqual(txn_db_info,
-                [(txn_id, 1, date.today().strftime('%Y-%m-%d'), 1, '')])
-        txn_split_fields = 'id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description,action'
+                [(txn_id, 1, date.today().strftime('%Y-%m-%d'), '')])
+        txn_split_fields = 'id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description,action,payee_id'
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', ''),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', '')])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', '', None),
+                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', '', payee.id)])
         #update it & save again
         splits = [
                 {'account': checking, 'amount': '-101'},
@@ -1390,14 +1367,14 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {txn_fields},created,updated FROM transactions')
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:-2],
-                (txn_id, 1, date.today().strftime('%Y-%m-%d'), None, ''))
+                (txn_id, 1, date.today().strftime('%Y-%m-%d'), ''))
         created = datetime.fromisoformat(f'{db_info[0][-2]}+00:00')
         updated = datetime.fromisoformat(f'{db_info[0][-1]}+00:00')
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', ''),
-                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', '')])
+                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', '', None),
+                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', '', None)])
 
     def test_get_txn(self):
         checking = get_test_account()
@@ -1423,14 +1400,10 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.storage.save_account(savings)
-        payee = bb.Payee('Waffle House')
-        subway_payee = bb.Payee('Subway')
-        self.storage.save_payee(payee)
-        self.storage.save_payee(subway_payee)
-        txn = bb.Transaction(txn_date=date(2017, 1, 25), payee=payee,
+        txn = bb.Transaction(txn_date=date(2017, 1, 25),
                 splits=[{'account': checking, 'amount': '101'}, {'account': savings, 'amount': '-101'}])
         self.storage.save_txn(txn)
-        txn2 = bb.Transaction(txn_date=date(2017, 1, 28), payee=subway_payee,
+        txn2 = bb.Transaction(txn_date=date(2017, 1, 28),
                 splits=[{'account': checking, 'amount': '46.23'}, {'account': savings, 'amount': '-46.23'}])
         self.storage.save_txn(txn2)
         self.storage.delete_txn(txn.id)
@@ -1665,30 +1638,29 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        wendys = bb.Payee('Wendys')
-        self.storage.save_payee(wendys)
+        restaurant = bb.Payee('Restaurant')
+        self.storage.save_payee(restaurant)
         valid_splits = [
                 {'account': checking, 'amount': -101, 'status': 'R'},
-                {'account': savings, 'amount': 101},
+                {'account': savings, 'amount': 101, 'payee': restaurant},
             ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
-                payee=wendys,
                 description='something',
             )
         self.storage.save_scheduled_transaction(st)
         self.assertEqual(st.id, 1)
-        st_records = self.storage._db_connection.execute('SELECT id,name,frequency,next_due_date,payee_id,description FROM scheduled_transactions').fetchall()
+        st_records = self.storage._db_connection.execute('SELECT id,name,frequency,next_due_date,description FROM scheduled_transactions').fetchall()
         self.assertEqual(len(st_records), 1)
         self.assertEqual(st_records[0],
-                (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 1, 'something'))
-        st_split_records = self.storage._db_connection.execute('SELECT scheduled_transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state FROM scheduled_transaction_splits').fetchall()
+                (1, 'weekly 1', bb.ScheduledTransactionFrequency.WEEKLY.value, '2019-01-02', 'something'))
+        st_split_records = self.storage._db_connection.execute('SELECT scheduled_transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,payee_id FROM scheduled_transaction_splits').fetchall()
         self.assertEqual(len(st_split_records), 2)
-        self.assertEqual(st_split_records[0], (st.id, checking.id, -101, 1, -101, 1, 'R'))
-        self.assertEqual(st_split_records[1], (st.id, savings.id, 101, 1, 101, 1, ''))
+        self.assertEqual(st_split_records[0], (st.id, checking.id, -101, 1, -101, 1, 'R', None))
+        self.assertEqual(st_split_records[1], (st.id, savings.id, 101, 1, 101, 1, '', restaurant.id))
 
         # make sure next_due_date has to be valid date
         c = self.storage._db_connection.cursor()
@@ -1770,18 +1742,17 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage.save_account(checking)
         self.storage.save_account(savings)
         self.storage.save_account(another_acct)
-        wendys = bb.Payee('Wendys')
-        self.storage.save_payee(wendys)
+        restaurant = bb.Payee('Restaurant')
+        self.storage.save_payee(restaurant)
         valid_splits=[
                 {'account': checking, 'amount': -101},
-                {'account': savings, 'amount': 101},
+                {'account': savings, 'amount': 101, 'payee': restaurant},
             ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
-                payee=wendys,
                 description='something',
             )
         self.storage.save_scheduled_transaction(st)
@@ -1819,18 +1790,17 @@ class TestSQLiteStorage(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
         self.storage.save_account(savings)
-        wendys = bb.Payee('Wendys')
-        self.storage.save_payee(wendys)
+        restaurant = bb.Payee('Restaurant')
+        self.storage.save_payee(restaurant)
         valid_splits = [
                 {'account': checking, 'amount': -101, 'status': bb.Transaction.CLEARED},
-                {'account': savings, 'amount': 101},
+                {'account': savings, 'amount': 101, 'payee': restaurant},
             ]
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
                 next_due_date='2019-01-02',
                 splits=valid_splits,
-                payee=wendys,
                 description='something',
                 status='C',
             )
@@ -1839,7 +1809,6 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(scheduled_txn.name, 'weekly 1')
         self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
-        self.assertEqual(scheduled_txn.payee.name, 'Wendys')
         self.assertEqual(scheduled_txn.description, 'something')
         self.assertEqual(scheduled_txn.splits, valid_splits)
 
@@ -1951,10 +1920,9 @@ class TestEngine(unittest.TestCase):
         txn = bb.Transaction(
                 splits=[
                     {'account': checking, 'amount': -5, 'status': bb.Transaction.CLEARED},
-                    {'account': food, 'amount': 5}
+                    {'account': food, 'amount': 5, 'payee': 'Some payee'}
                 ],
                 txn_date=date(2017, 1, 15),
-                payee='Some payee',
                 description='description'
             )
         txn2 = bb.Transaction(
@@ -2006,7 +1974,7 @@ class TestEngine(unittest.TestCase):
         #search txns in an account
         txns = self.engine.get_transactions(account=checking, query='some payee')
         self.assertEqual(len(txns), 1)
-        self.assertEqual(txns[0].payee.name, 'Some payee')
+        self.assertEqual(txns[0].splits[1]['payee'].name, 'Some payee')
         #security ledger
         txns = self.engine.get_transactions(account=stock)
         self.assertEqual(len(txns), 2)
@@ -2134,8 +2102,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._engine.save_scheduled_transaction(
@@ -2147,8 +2115,8 @@ class TestCLI(unittest.TestCase):
                 )
             )
         self.cli._list_account_txns()
-        txn1_output = ' 1    | 2017-01-01 | description                    | some payee                     | Savings                        |            | 5.00       | 5.00      \n'
-        txn2_output = ' 2    | 2017-01-02 |                                | payee 2                        | Savings                        |            | 5.00       | 10.00     \n'
+        txn1_output = ' 1    | 2017-01-01 | description                    |                                | Savings                        |            | 5.00       | 5.00      \n'
+        txn2_output = ' 2    | 2017-01-02 |                                |                                | Savings                        |            | 5.00       | 10.00     \n'
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue(f'Account ID (or search string): {CHECKING} (Current balance: 10.00; Cleared: 0.00)' in printed_output)
         self.assertTrue('scheduled txn' in printed_output)
@@ -2164,12 +2132,12 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5, 'status': bb.Transaction.CLEARED}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5, 'status': bb.Transaction.CLEARED}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
-        txn1_output = ' 1    | 2017-01-01 | description                    | some payee                     | Savings                        |            | 5.00       |           \n'
+        txn1_output = ' 1    | 2017-01-01 | description                    |                                | Savings                        |            | 5.00       |           \n'
         txn2_output = '2017-01-02'
         printed_output = self.memory_buffer.getvalue()
         self.assertTrue('Account ID (or search string)' in printed_output)
@@ -2188,7 +2156,7 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_account(rent)
         input_mock.return_value = f'1 acc:{rent.id}'
         txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1))
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': rent, 'amount': 5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': rent, 'amount': 5}], txn_date=date(2017, 1, 2))
         self.cli._engine.save_transaction(txn)
         self.cli._engine.save_transaction(txn2)
         self.cli._list_account_txns()
@@ -2207,8 +2175,8 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_account(checking)
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), payee='some payee', description='description')
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2), payee='payee 2')
+        txn = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 1), description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': 5}, {'account': savings, 'amount': -5}], txn_date=date(2017, 1, 2))
         self.cli._engine._storage.save_txn(txn)
         self.cli._engine._storage.save_txn(txn2)
         self.cli._list_account_txns(num_txns_in_page=1)
@@ -2231,15 +2199,14 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', 'C', 'type1', '',
-                str(fund.id), '15', '', 'type2', 'share-buy',
-                '', str(payee.id), 'description']
+                str(checking.id), '-15', 'C', 'type1', '', '',
+                str(fund.id), '15', '', 'type2', 'share-buy', str(payee.id),
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
         self.assertEqual(txn.txn_date, date(2019, 2, 24))
         self.assertEqual(txn.splits[0], {'account': checking, 'action': '', 'amount': -15, 'quantity': -15, 'type': 'type1', 'status': 'C'})
-        self.assertEqual(txn.splits[1], {'account': fund, 'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2'})
-        self.assertEqual(txn.payee, payee)
+        self.assertEqual(txn.splits[1], {'account': fund, 'action': 'share-buy', 'amount': 15, 'quantity': 15, 'type': 'type2', 'payee': payee})
         self.assertEqual(txn.description, 'description')
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue('Create Transaction:\n' in buffer_value)
@@ -2251,12 +2218,12 @@ class TestCLI(unittest.TestCase):
         savings = get_test_account(name='Savings')
         self.cli._engine._storage.save_account(savings)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
-        self.assertEqual(txn.payee.name, 'payee 1')
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_create_txn_existing_payee_by_name(self, input_mock):
@@ -2269,12 +2236,12 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         txn = self.cli._engine.get_transactions(account=checking)[0]
-        self.assertEqual(txn.payee.name, 'payee 1')
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_create_txn_list_payees(self, input_mock):
@@ -2286,12 +2253,14 @@ class TestCLI(unittest.TestCase):
         payee = bb.Payee(name='payee 1')
         self.cli._engine._storage.save_payee(payee)
         input_mock.side_effect = ['2019-02-24',
-                str(checking.id), '-15', '', '', '',
-                str(savings.id), '15', '', '', '',
-                '', 'p', "'payee 1", 'description']
+                str(checking.id), '-15', '', '', '', '',
+                str(savings.id), '15', '', '', '', 'p', "'payee 1",
+                '', 'description']
         self.cli._create_txn()
         buffer_value = self.memory_buffer.getvalue()
         self.assertTrue('1: payee 1' in buffer_value)
+        txn = self.cli._engine.get_transactions(account=checking)[0]
+        self.assertEqual(txn.splits[1]['payee'].name, 'payee 1')
 
     @patch('builtins.input')
     def test_edit_txn(self, input_mock):
@@ -2305,10 +2274,10 @@ class TestCLI(unittest.TestCase):
         self.cli._engine.save_transaction(txn)
 
         input_mock.side_effect = [str(txn.id), '2017-02-13',
-                '-90', '', '', '',
-                '50', '', '', '',
-                str(another_account.id), '40', '', '', '',
-                '', '', 'new description']
+                '-90', '', '', '', '',
+                '50', '', '', '', '',
+                str(another_account.id), '40', '', '', '', '',
+                '', 'new description']
         self.cli._edit_txn()
 
         edited_txn = self.cli._engine.get_transaction(id_=txn.id)
@@ -2389,7 +2358,14 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         self.cli._engine._storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), '2019-01-02', '-101', '', '101', '', '', '', '', '', '', '', '']
+        input_mock.side_effect = [str(st.id), '2019-01-02',
+                                  '-101', '', '',
+                                  '101', '', '',
+                                  '', # blank for no new account splits
+                                  'description',
+                                  '', # no more scheduled txns to enter
+                                  '', # no scheduled txns to skip
+                              ]
         self.cli._list_scheduled_txns()
         txns = self.cli._engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 2)
@@ -2431,19 +2407,23 @@ class TestCLI(unittest.TestCase):
         storage = self.cli._engine._storage
         storage.save_account(checking)
         storage.save_account(savings)
-        input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16', '1', '-15', 'R', '2', '15', '', '', '\'payee', 'desc']
+        input_mock.side_effect = ['weekly 1', 'weekly', '2020-01-16',
+                                  '1', '-15', 'R', '',
+                                  '2', '15', '', "'payee",
+                                  '', 'desc']
         self.cli._create_scheduled_txn()
         scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].name, 'weekly 1')
-        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
-        self.assertEqual(scheduled_txns[0].splits,
-                [
-                    {'account': checking, 'amount': -15, 'quantity': -15, 'status': 'R'},
-                    {'account': savings, 'amount': 15, 'quantity': 15},
-                ])
-        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
-        self.assertEqual(scheduled_txns[0].description, 'desc')
+        scheduled_txn = scheduled_txns[0]
+        self.assertEqual(scheduled_txn.name, 'weekly 1')
+        self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txn.splits[0]['account'], checking)
+        self.assertEqual(scheduled_txn.splits[0]['amount'], -15)
+        self.assertEqual(scheduled_txn.splits[0]['status'], 'R')
+        self.assertEqual(scheduled_txn.splits[1]['account'], savings)
+        self.assertEqual(scheduled_txn.splits[1]['amount'], 15)
+        self.assertEqual(scheduled_txn.splits[1]['payee'].name, 'payee')
+        self.assertEqual(scheduled_txn.description, 'desc')
 
     @patch('builtins.input')
     def test_edit_scheduled_txn(self, input_mock):
@@ -2463,14 +2443,22 @@ class TestCLI(unittest.TestCase):
                 splits=valid_splits,
             )
         storage.save_scheduled_transaction(st)
-        input_mock.side_effect = [str(st.id), 'weekly 1', 'weekly', '2020-01-16', '-15', '', '15', '', '', '\'payee', 'desc']
+        input_mock.side_effect = [str(st.id),
+                                  'weekly 1', 'weekly', '2020-01-16',
+                                  '-15', '', '',
+                                  '15', '', '\'payee',
+                                  '', 'desc']
         self.cli._edit_scheduled_txn()
         scheduled_txns = storage.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
-        self.assertEqual(scheduled_txns[0].splits[0], {'account': checking, 'amount': -15, 'quantity': -15})
-        self.assertEqual(scheduled_txns[0].frequency, bb.ScheduledTransactionFrequency.WEEKLY)
-        self.assertEqual(scheduled_txns[0].payee.name, 'payee')
-        self.assertEqual(scheduled_txns[0].description, 'desc')
+        scheduled_txn = scheduled_txns[0]
+        self.assertEqual(scheduled_txn.splits[0]['account'], checking)
+        self.assertEqual(scheduled_txn.splits[0]['amount'], -15)
+        self.assertEqual(scheduled_txn.splits[1]['account'], savings)
+        self.assertEqual(scheduled_txn.splits[1]['amount'], 15)
+        self.assertEqual(scheduled_txn.splits[1]['payee'].name, 'payee')
+        self.assertEqual(scheduled_txn.frequency, bb.ScheduledTransactionFrequency.WEEKLY)
+        self.assertEqual(scheduled_txn.description, 'desc')
 
     def test_list_budgets(self):
         storage = self.cli._engine._storage
@@ -2609,7 +2597,7 @@ class TestExport(unittest.TestCase):
             with open(os.path.join(export_dir, 'acc_chcing  .tsv'), 'rb') as f:
                 data = f.read().decode('utf8')
             lines = data.split('\n')
-            self.assertEqual(lines[1], '2018-01-01\t\t\t1,000.00\tOpening Balances')
+            self.assertEqual(lines[1], '2018-01-01\t\t1,000.00\tOpening Balances')
         engine._storage._db_connection.close()
 
 
@@ -2642,7 +2630,8 @@ class TestImport(unittest.TestCase):
         self.assertEqual(checking.alternate_id, 'A000025')
         txns = engine.get_transactions(account=checking)
         self.assertEqual(len(txns), 4)
-        self.assertEqual(txns[1].payee.name, 'A restaurant')
+        self.assertEqual(txns[1].splits[1]['payee'].name, 'A restaurant')
+        self.assertEqual(txns[1].splits[1]['account'].name, 'Recreation')
         self.assertEqual(txns[1].entry_date, date(2021, 1, 29))
         self.assertEqual(txns[1].alternate_id, 'T000000000000000002')
         balances = engine.get_current_balances_for_display(account=checking)

@@ -238,7 +238,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         payee = bb.Payee('some payee')
         gui._engine.save_payee(payee)
         txn = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': food, 'amount': 5}], txn_date=date(2017, 1, 3))
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -17, 'type': 'ACH', 'status': bb.Transaction.CLEARED}, {'account': restaurants, 'amount': 17}], txn_date=date(2017, 5, 2), payee=payee, description='description')
+        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -17, 'type': 'ACH', 'status': bb.Transaction.CLEARED}, {'account': restaurants, 'amount': 17, 'payee': payee}], txn_date=date(2017, 5, 2), description='description')
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
@@ -251,12 +251,12 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['account_combo'].get(), 'Restaurants')
 
         #update values & save
-        gui.ledger_display.edit_transaction_form.payee_combo.delete(0, tkinter.END)
-        gui.ledger_display.edit_transaction_form.payee_combo.insert(0, 'New Payee')
         gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '21')
         gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].delete(0, tkinter.END)
         gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].insert(0, '21')
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['payee_combo'].delete(0, tkinter.END)
+        gui.ledger_display.edit_transaction_form.splits_form._splits[1]['payee_combo'].insert(0, 'New Payee')
         gui.ledger_display.edit_transaction_form.save_button.invoke()
 
         #verify transaction updates saved
@@ -269,7 +269,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[1].splits[0]['status'], bb.Transaction.CLEARED)
         self.assertEqual(txns[1].splits[1]['account'], restaurants)
         self.assertEqual(txns[1].splits[1]['amount'], 21)
-        self.assertEqual(txns[1].payee.name, 'New Payee')
+        self.assertEqual(txns[1].splits[1]['payee'].name, 'New Payee')
         self.assertEqual(txns[1].description, 'description')
 
     def test_ledger_update_transaction_security(self):
@@ -404,18 +404,19 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.scheduled_transactions_display.add_button.invoke()
         gui.scheduled_transactions_display.new_form.name_entry.insert(0, 'test 1')
         gui.scheduled_transactions_display.new_form.next_due_date_entry.insert(0, '2020-01-16')
-        gui.scheduled_transactions_display.new_form.payee_combo.insert(0, 'New Payee')
         gui.scheduled_transactions_display.new_form.splits_form._splits[0]['account_combo'].current(1)
         gui.scheduled_transactions_display.new_form.splits_form._splits[0]['withdrawal_entry'].insert(0, '100')
         gui.scheduled_transactions_display.new_form.splits_form._splits[1]['account_combo'].current(2)
         gui.scheduled_transactions_display.new_form.splits_form._splits[1]['deposit_entry'].insert(0, '100')
+        gui.scheduled_transactions_display.new_form.splits_form._splits[1]['payee_combo'].insert(0, 'New Payee')
         gui.scheduled_transactions_display.new_form.save_button.invoke()
         scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].name, 'test 1')
-        self.assertEqual(scheduled_txns[0].payee.name, 'New Payee')
         self.assertEqual(scheduled_txns[0].splits[0], {'account': checking, 'amount': -100, 'quantity': -100})
-        self.assertEqual(scheduled_txns[0].splits[1], {'account': savings, 'amount': 100, 'quantity': 100})
+        self.assertEqual(scheduled_txns[0].splits[1]['account'],  savings)
+        self.assertEqual(scheduled_txns[0].splits[1]['amount'],  100)
+        self.assertEqual(scheduled_txns[0].splits[1]['payee'].name, 'New Payee')
 
     @patch('bricbooks.handle_error')
     def test_scheduled_transaction_error(self, mock_method):
