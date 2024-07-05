@@ -1922,22 +1922,25 @@ def import_kmymoney(kmy_file, engine):
     print(f'{datetime.now()} migrating transactions...')
     transactions = root.find('TRANSACTIONS')
     for transaction in transactions.iter('TRANSACTION'):
+        has_income_or_expense = False
+        payee_ids = []
         splits = []
-        account = None
         txn_id = transaction.attrib['id']
         entry_date = transaction.attrib['entrydate']
         try:
             splits_el = transaction.find('SPLITS')
-            payee = None
             for split_el in splits_el.iter('SPLIT'):
                 split = {}
+                account_orig_id = split_el.attrib['account']
+                account = engine.get_account(account_mapping_info[account_orig_id])
+                split['account'] = account
+                if account.type in [AccountType.INCOME, AccountType.EXPENSE]:
+                    has_income_or_expense = True
                 amount = split_el.attrib['value']
                 quantity = split_el.attrib['shares']
                 for key, value in split_el.attrib.items():
                     if key == 'account':
-                        account_orig_id = split_el.attrib['account']
-                        account = engine.get_account(account_mapping_info[account_orig_id])
-                        split['account'] = account
+                        pass # already handled
                     elif key == 'value':
                         split['amount'] = value
                     elif key == 'shares':
@@ -1957,6 +1960,7 @@ def import_kmymoney(kmy_file, engine):
                             split['reconcile_date'] = get_date(value)
                     elif key == 'payee':
                         if value:
+                            payee_ids.append(value)
                             split['payee'] = engine.get_payee(id_=payee_mapping_info[value])
                     elif key == 'number':
                         split['type'] = value
@@ -1984,6 +1988,10 @@ def import_kmymoney(kmy_file, engine):
                             if value:
                                 raise DataImportError(f'unhandled txn attribute: {key} = {value}')
                 splits.append(split)
+            if has_income_or_expense and len(payee_ids) > 1 and len(set([p for p in payee_ids])) == 1:
+                for s in splits:
+                    if s['account'].type not in [AccountType.INCOME, AccountType.EXPENSE]:
+                        s.pop('payee', None)
             engine.save_transaction(
                     Transaction(
                         splits=splits,
