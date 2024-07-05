@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 '''
 Architecture:
     Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
