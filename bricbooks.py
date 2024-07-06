@@ -476,11 +476,17 @@ def get_display_strings_for_ledger(account, txn):
             payee = payees[0].name
         else:
             payee = ''
+    if split.get('description'):
+        description = split['description']
+    elif txn.description:
+        description = txn.description
+    else:
+        description = ''
     display_strings = {
             'withdrawal': withdrawal,
             'deposit': deposit,
             'quantity': quantity,
-            'description': txn.description or '',
+            'description': description,
             'payee': payee,
             'categories': _categories_display(splits=txn.splits, main_account=account),
             'action': split.get('action', '')
@@ -1258,7 +1264,7 @@ class SQLiteStorage:
         txn_date = get_date(txn_date)
         cur = self._db_connection.cursor()
         splits = []
-        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id, description FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
@@ -1274,6 +1280,8 @@ class SQLiteStorage:
                 split['action'] = split_record[7]
                 if split_record[8]:
                     split['payee'] = self.get_payee(id_=split_record[8])
+                if split_record[9]:
+                    split['description'] = split_record[9]
                 splits.append(split)
         return Transaction(splits=splits, txn_date=txn_date, description=description,
                            id_=id_, alternate_id=alternate_id, entry_date=entry_date)
