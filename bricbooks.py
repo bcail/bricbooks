@@ -1316,7 +1316,7 @@ class SQLiteStorage:
                     else:
                         self.save_payee(split['payee'])
         field_names = ['date', 'description']
-        field_values = [txn.txn_date.strftime('%Y-%m-%d'), normalize(txn.description)]
+        field_values = [txn.txn_date.strftime('%Y-%m-%d'), normalize(txn.description or '')]
         if txn.alternate_id is not None:
             field_names.append('alternate_id')
             field_values.append(normalize(txn.alternate_id))

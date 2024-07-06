@@ -1000,7 +1000,7 @@ class TestSQLiteStorage(unittest.TestCase):
                                              (2, 1, groceries.id, 51, 1, 51, 1, 'R', today_str, '', 'flour', restaurant_a.id),
                                              (3, 1, groceries.id, 50, 1, 50, 1, 'R', today_str, '', 'rice', None)])
 
-    def test_save_txn_payee_string(self):
+    def test_save_txn_payee_string_and_none_description(self):
         checking = get_test_account()
         savings = get_test_account(name='Savings')
         self.storage.save_account(checking)
@@ -1008,6 +1008,7 @@ class TestSQLiteStorage(unittest.TestCase):
         t = bb.Transaction(
                 splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101, 'payee': 'someone'}],
                 txn_date=date.today(),
+                description=None,
             )
         self.storage.save_txn(t)
         txn_from_db = self.storage.get_txn(t.id)
