@@ -1933,6 +1933,7 @@ def import_kmymoney(kmy_file, engine):
     for transaction in transactions.iter('TRANSACTION'):
         has_income_or_expense = False
         payee_ids = []
+        descriptions = []
         splits = []
         txn_id = transaction.attrib['id']
         entry_date = transaction.attrib['entrydate']
@@ -1974,6 +1975,7 @@ def import_kmymoney(kmy_file, engine):
                     elif key == 'number':
                         split['type'] = value
                     elif key == 'memo':
+                        descriptions.append(value)
                         split['description'] = value
                     elif key == 'action':
                         if not value:
@@ -1997,15 +1999,23 @@ def import_kmymoney(kmy_file, engine):
                             if value:
                                 raise DataImportError(f'unhandled txn attribute: {key} = {value}')
                 splits.append(split)
-            if has_income_or_expense and len(payee_ids) > 1 and len(set([p for p in payee_ids])) == 1:
+            if has_income_or_expense and len(payee_ids) > 1 and len(set(payee_ids)) == 1:
                 for s in splits:
                     if s['account'].type not in [AccountType.INCOME, AccountType.EXPENSE]:
                         s.pop('payee', None)
+            if transaction.attrib.get('memo'):
+                description = transaction.attrib['memo']
+            elif len(descriptions) > 1 and len(set(descriptions)) == 1:
+                description = descriptions[0]
+                for s in splits:
+                    s.pop('description', None)
+            else:
+                description = None
             engine.save_transaction(
                     Transaction(
                         splits=splits,
                         txn_date=transaction.attrib['postdate'],
-                        description=transaction.attrib['memo'],
+                        description=description,
                         alternate_id=txn_id,
                         entry_date=entry_date or None,
                     )
