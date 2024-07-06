@@ -2947,16 +2947,6 @@ class LedgerDisplay:
             self.txns_widget.column(column_name, width=100, anchor='center')
 
         sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
-        for txn in sorted_txns:
-            tds = get_display_strings_for_ledger(account, txn)
-            if self._account.type == AccountType.SECURITY:
-                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
-                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            else:
-                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
-                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
-
 
         if not any([status, filter_text, filter_account]):
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
@@ -2972,6 +2962,16 @@ class LedgerDisplay:
         else:
             self.balance_var.set('')
             self.cleared_var.set('')
+
+        for txn in list(reversed(sorted_txns)):
+            tds = get_display_strings_for_ledger(account, txn)
+            if self._account.type == AccountType.SECURITY:
+                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+            else:
+                values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+            self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
 
         self.txns_widget.bind('<Button-1>', self._item_selected)
         self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)

@@ -242,7 +242,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
-        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=12)
 
         #verify that data is loaded into form
         self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '17.00')
@@ -350,7 +350,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_scheduled_transaction(scheduled_txn)
 
         gui.ledger_button.invoke()
-        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=12)
         gui.ledger_display.edit_scheduled_transaction_form.save_button.invoke()
 
         scheduled_txns = gui._engine.get_scheduled_transactions()
@@ -383,7 +383,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_scheduled_transaction(scheduled_txn)
 
         gui.ledger_button.invoke()
-        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=25)
+        gui.ledger_display.txns_widget.event_generate('<Button-1>', x=1, y=12)
         gui.ledger_display.edit_scheduled_transaction_form.skip_button.invoke()
 
         scheduled_txns = gui._engine.get_scheduled_transactions()
