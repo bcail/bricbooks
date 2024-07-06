@@ -2669,6 +2669,7 @@ class SplitsForm:
         ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=3)
         ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=4)
         ttk.Label(master=self.frame, text='Payee').grid(row=0, column=5)
+        ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
 
         self._show_splits(self._splits)
@@ -2720,6 +2721,8 @@ class SplitsForm:
                     payee_index = index + 1 #because of first empty item
             split['payee_combo']['values'] = payee_values
             split['payee_combo'].current(payee_index)
+            split['description_entry'] = ttk.Entry(master=self.frame)
+            split['description_entry'].insert(0, split.get('description', ''))
             if selected_account and selected_account.type == AccountType.SECURITY:
                 split['action_combo'] = ttk.Combobox(master=self.frame)
                 action_values = [a.value for a in TransactionAction]
@@ -2734,13 +2737,14 @@ class SplitsForm:
             split['deposit_entry'].grid(row=row_index, column=3)
             split['withdrawal_entry'].grid(row=row_index, column=4)
             split['payee_combo'].grid(row=row_index, column=5)
+            split['description_entry'].grid(row=row_index, column=6)
             if selected_account and selected_account.type == AccountType.SECURITY:
                 self.action_label = ttk.Label(master=self.frame, text='Action')
-                self.action_label.grid(row=0, column=6)
+                self.action_label.grid(row=0, column=7)
                 self.shares_label = ttk.Label(master=self.frame, text='Shares')
-                self.shares_label.grid(row=0, column=7)
-                split['action_combo'].grid(row=row_index, column=6)
-                split['shares_entry'].grid(row=row_index, column=7)
+                self.shares_label.grid(row=0, column=8)
+                split['action_combo'].grid(row=row_index, column=7)
+                split['shares_entry'].grid(row=row_index, column=8)
             split['row_index'] = row_index
             row_index += 1
         self.add_button.grid(row=row_index, column=0)
@@ -2763,8 +2767,8 @@ class SplitsForm:
             action_values = [a.value for a in TransactionAction]
             split['action_combo']['values'] = action_values
             split['shares_entry'] = ttk.Entry(master=self.frame)
-            split['action_combo'].grid(row=row_index, column=6)
-            split['shares_entry'].grid(row=row_index, column=7)
+            split['action_combo'].grid(row=row_index, column=7)
+            split['shares_entry'].grid(row=row_index, column=8)
         else:
             if self.action_label:
                 self.action_label.destroy()
@@ -2801,18 +2805,19 @@ class SplitsForm:
             s['type'] = split['type_entry'].get()
             if split['status_combo'].get() != '':
                 s['status'] = split['status_combo'].get()
+            s['payee'] = split['payee_combo'].get()
+            s['description'] = split['description_entry'].get()
             if 'action_combo' in split:
                 s['action'] = split['action_combo'].get()
             if 'shares_entry' in split:
                 s['quantity'] = split['shares_entry'].get()
-            s['payee'] = split['payee_combo'].get()
             splits.append(s)
         return splits
 
 
 class TransactionForm:
 
-    def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, tds=None, splits=None):
+    def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, txn_info=None, splits=None):
         self._accounts = accounts
         self._account = account
         self._payees = payees
@@ -2821,7 +2826,7 @@ class TransactionForm:
         self._skip_transaction = skip_transaction
         self._delete_transaction = delete_transaction
         self._id = id_
-        self._tds = tds or {}
+        self._txn_info = txn_info or {}
         self._splits = splits or []
 
     def get_widget(self):
@@ -2834,8 +2839,8 @@ class TransactionForm:
                 ttk.Label(master=self.form, text=label).grid(row=2, column=col)
         self.date_entry = ttk.Entry(master=self.form)
         self.description_entry = ttk.Entry(master=self.form)
-        self.date_entry.insert(0, self._tds.get('txn_date', str(date.today())))
-        self.description_entry.insert(0, self._tds.get('description', ''))
+        self.date_entry.insert(0, self._txn_info.get('date', str(date.today())))
+        self.description_entry.insert(0, self._txn_info.get('description', ''))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
@@ -3031,7 +3036,6 @@ class LedgerDisplay:
             payees = self._engine.get_payees()
             save_txn = partial(self._enter_scheduled_transaction, scheduled_transaction=scheduled_transaction)
             skip_txn = partial(self._skip_scheduled_transaction, scheduled_transaction_id=scheduled_transaction.id)
-            tds = get_display_strings_for_ledger(self._account, scheduled_transaction)
             self.edit_scheduled_transaction_form = TransactionForm(
                     accounts=accounts,
                     payees=payees,
@@ -3039,7 +3043,7 @@ class LedgerDisplay:
                     account=self._account,
                     update_display=self._show_transactions,
                     skip_transaction=skip_txn,
-                    tds=tds,
+                    txn_info={'date': scheduled_transaction.next_due_date, 'description': scheduled_transaction.description},
                     splits=scheduled_transaction.splits,
                 )
             widget = self.edit_scheduled_transaction_form.get_widget()
@@ -3049,10 +3053,11 @@ class LedgerDisplay:
             transaction = self._engine.get_transaction(id_=txn_id)
             accounts = self._engine.get_accounts()
             payees = self._engine.get_payees()
-            tds = get_display_strings_for_ledger(self._account, transaction)
             self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
                     save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
-                    delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id, tds=tds, splits=transaction.splits)
+                    delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id,
+                    txn_info={'date': transaction.txn_date, 'description': transaction.description},
+                    splits=transaction.splits)
             widget = self.edit_transaction_form.get_widget()
             widget.grid()
 
