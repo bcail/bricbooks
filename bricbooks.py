@@ -381,7 +381,7 @@ def handle_txn_splits(splits):
             amount = get_validated_amount(split['amount'])
         except InvalidAmount as e:
             raise InvalidTransactionError('invalid split: %s' % e)
-        if 'quantity' not in split:
+        if 'quantity' not in split or split['quantity'] == '':
             split['quantity'] = amount
         split['quantity'] = get_validated_quantity(split['quantity'])
         split['amount'] = amount
@@ -2657,12 +2657,12 @@ class AccountsDisplay:
 
 class SplitsForm:
 
-    def __init__(self, master, splits, accounts, payees):
+    def __init__(self, master, splits, accounts, payees, default_account=None):
         self._master = master
         if splits:
             self._splits = copy.deepcopy(splits)
         else:
-            self._splits = [{}, {}]
+            self._splits = [{'account': default_account}, {}]
         self._accounts = accounts
         self._payees = payees
         self.action_label = None
@@ -2670,8 +2670,15 @@ class SplitsForm:
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(1, weight=1)
-        self.frame.rowconfigure(1, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(1, weight=1)
+        self.frame.grid_columnconfigure(2, weight=1)
+        self.frame.grid_columnconfigure(3, weight=1)
+        self.frame.grid_columnconfigure(4, weight=1)
+        self.frame.grid_columnconfigure(5, weight=1)
+        self.frame.grid_columnconfigure(6, weight=1)
+        self.frame.grid_columnconfigure(7, weight=1)
+        self.frame.grid_columnconfigure(8, weight=1)
 
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
         ttk.Label(master=self.frame, text='Type').grid(row=0, column=1)
@@ -2770,9 +2777,9 @@ class SplitsForm:
             row_index = split['row_index']
             if not self.action_label:
                 self.action_label = ttk.Label(master=self.frame, text='Action')
-                self.action_label.grid(row=0, column=6)
+                self.action_label.grid(row=0, column=7)
                 self.shares_label = ttk.Label(master=self.frame, text='Shares')
-                self.shares_label.grid(row=0, column=7)
+                self.shares_label.grid(row=0, column=8)
             split['action_combo'] = ttk.Combobox(master=self.frame)
             action_values = [a.value for a in TransactionAction]
             split['action_combo']['values'] = action_values
@@ -2841,12 +2848,15 @@ class TransactionForm:
 
     def get_widget(self):
         self.top_level = tk.Toplevel()
+        self.top_level.grid_columnconfigure(0, weight=1)
         self.form = ttk.Frame(master=self.top_level)
+        self.form.grid_columnconfigure(0, weight=1)
+        self.form.grid_columnconfigure(2, weight=1)
+        self.form.grid_columnconfigure(4, weight=1)
+
         for col, label in [(0, 'Date'), (1, 'Description')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
-        if self._account.type == AccountType.SECURITY:
-            for col, label in [(0, 'Shares')]:
-                ttk.Label(master=self.form, text=label).grid(row=2, column=col)
+
         self.date_entry = ttk.Entry(master=self.form)
         self.description_entry = ttk.Entry(master=self.form)
         self.date_entry.insert(0, self._txn_info.get('date', str(date.today())))
@@ -2854,8 +2864,7 @@ class TransactionForm:
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.date_entry.grid(row=1, column=0, sticky=(tk.N, tk.S))
         self.description_entry.grid(row=1, column=1, sticky=(tk.N, tk.S))
-        self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts, payees=self._payees)
-        self.splits_form.get_widget().grid(row=2, column=0, columnspan=5)
+
         entries = [self.save_button]
         if self._skip_transaction:
             self.save_button['text'] = 'Enter New'
@@ -2867,7 +2876,10 @@ class TransactionForm:
         for index, entry in enumerate(entries):
             entry.grid(row=1, column=index+3)
 
-        self.form.grid()
+        self.splits_form = SplitsForm(master=self.form, splits=self._splits, accounts=self._accounts, payees=self._payees, default_account=self._account)
+        self.splits_form.get_widget().grid(row=2, column=0, columnspan=5, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+        self.form.grid(sticky=(tk.N, tk.S, tk.E, tk.W))
         return self.top_level
 
     def _handle_save(self):
