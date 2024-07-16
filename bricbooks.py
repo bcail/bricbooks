@@ -2713,7 +2713,11 @@ class SplitsForm:
             account_index = 0
             selected_account = split.get('account')
             for index, account in enumerate(self._accounts):
-                account_values.append(account.name)
+                if account.child_level:
+                    name = '- ' * account.child_level + account.name
+                else:
+                    name = account.name
+                account_values.append(name)
                 if account == selected_account:
                     account_index = index + 1 #because of first empty item
             split['account_combo']['values'] = account_values
@@ -2997,7 +3001,11 @@ class LedgerDisplay:
         selected = -1
         account_values = []
         for index, account in enumerate(self._accounts):
-            account_values.append(str(account))
+            if account.child_level:
+                name = ' - ' * account.child_level + account.name
+            else:
+                name = account.name
+            account_values.append(name)
             if account == self._account:
                 selected = index
         self.account_select_combo['values'] = account_values
