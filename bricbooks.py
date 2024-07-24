@@ -320,7 +320,7 @@ def get_validated_amount(value):
         try:
             amount = Fraction(value)
         except Exception:
-            raise InvalidAmount('invalid value "{value}"')
+            raise InvalidAmount(f'invalid value "{value}"')
     else:
         raise InvalidAmount(f'invalid value type: {type(value)} {value}')
     if (100 % amount.denominator) != 0:
@@ -338,7 +338,7 @@ def get_validated_quantity(value):
         try:
             quantity = Fraction(value)
         except InvalidOperation:
-            raise InvalidQuantity('error generating Fraction from "{value}"')
+            raise InvalidQuantity(f'error generating Fraction from "{value}"')
     else:
         raise InvalidQuantity(f'invalid value type: {type(value)} {value}')
     return quantity
