@@ -1257,6 +1257,21 @@ class SQLiteStorage:
                 accounts.extend(self._get_accounts_by_type(type_))
             return accounts
 
+    def delete_account(self, account_id, set_children_parent_id_to_null=False):
+        cur = self._db_connection.cursor()
+        SQLiteStorage.begin_txn(cur)
+        try:
+            if set_children_parent_id_to_null:
+                query = 'SELECT id FROM accounts WHERE parent_id = ?'
+                db_records = cur.execute(query, (account_id,)).fetchall()
+                for r in db_records:
+                    if r[0]:
+                        cur.execute('UPDATE accounts SET parent_id = null WHERE id = ?', (r[0],))
+            cur.execute('DELETE FROM accounts where id = ?', (account_id,))
+        except: # we always want to rollback, regardless of the exception
+            SQLiteStorage.rollback(cur)
+            raise
+
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')

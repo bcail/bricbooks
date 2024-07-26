@@ -950,6 +950,50 @@ class TestSQLiteStorage(unittest.TestCase):
         mortgage = self.storage.get_account(mortgage_id)
         self.assertEqual(mortgage.other_data, {'interest-rate-percent': Fraction(5)})
 
+    def test_delete_account_existing_txns(self):
+        checking = get_test_account()
+        groceries = get_test_account(name='Groceries')
+        self.storage.save_account(checking)
+        self.storage.save_account(groceries)
+        self.storage.save_txn(
+            bb.Transaction(
+                splits=[
+                    {'account': checking, 'amount': '-101'},
+                    {'account': groceries, 'amount': 101},
+                ],
+                txn_date=date.today(),
+            )
+        )
+        with self.assertRaises(Exception) as cm:
+            self.storage.delete_account(checking.id)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_delete_parent_account(self):
+        checking = get_test_account()
+        sub_checking = get_test_account(name='Sub', parent=checking)
+        self.storage.save_account(checking)
+        self.storage.save_account(sub_checking)
+        with self.assertRaises(Exception) as cm:
+            self.storage.delete_account(checking.id)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_delete_parent_account_unset_parent_id_from_children(self):
+        checking = get_test_account()
+        sub_checking = get_test_account(name='Sub', parent=checking)
+        self.storage.save_account(checking)
+        self.storage.save_account(sub_checking)
+        self.storage.delete_account(checking.id, set_children_parent_id_to_null=True)
+        records = self.storage._db_connection.execute('SELECT id,parent_id FROM accounts').fetchall()
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0], (sub_checking.id, None))
+
+    def test_delete_account(self):
+        checking = get_test_account()
+        self.storage.save_account(checking)
+        self.storage.delete_account(checking.id)
+        records = self.storage._db_connection.execute('SELECT * FROM accounts').fetchall()
+        self.assertEqual(records, [])
+
     def test_payee_unique(self):
         payee = bb.Payee('payee')
         self.storage.save_payee(payee)
