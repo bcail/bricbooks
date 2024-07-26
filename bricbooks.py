@@ -1268,6 +1268,7 @@ class SQLiteStorage:
                     if r[0]:
                         cur.execute('UPDATE accounts SET parent_id = null WHERE id = ?', (r[0],))
             cur.execute('DELETE FROM accounts where id = ?', (account_id,))
+            cur.execute('COMMIT')
         except: # we always want to rollback, regardless of the exception
             SQLiteStorage.rollback(cur)
             raise

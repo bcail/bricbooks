@@ -967,6 +967,10 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             self.storage.delete_account(checking.id)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+        records = self.storage._db_connection.execute('SELECT id FROM accounts').fetchall()
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0], (checking.id,))
+        self.assertEqual(records[1], (groceries.id,))
 
     def test_delete_parent_account(self):
         checking = get_test_account()
@@ -976,6 +980,10 @@ class TestSQLiteStorage(unittest.TestCase):
         with self.assertRaises(Exception) as cm:
             self.storage.delete_account(checking.id)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+        records = self.storage._db_connection.execute('SELECT id FROM accounts').fetchall()
+        self.assertEqual(len(records), 2)
+        self.assertEqual(records[0], (checking.id,))
+        self.assertEqual(records[1], (sub_checking.id,))
 
     def test_delete_parent_account_unset_parent_id_from_children(self):
         checking = get_test_account()
