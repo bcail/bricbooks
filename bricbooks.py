@@ -3522,9 +3522,18 @@ class GUI_TK:
 
     def _open_file(self):
         from tkinter import filedialog as fd
-        file_names = fd.askopenfilenames()
-        if file_names:
-            self._load_db(file_name=file_names[0])
+        # https://stackoverflow.com/a/54068050
+        # call a dummy dialog with an impossible option to initialize the file
+        # dialog without really getting a dialog window; this will throw a
+        # TclError, so we need a try...except :
+        try:
+            self.root.tk.call('tk_getOpenFile', '-foobarbaz')
+        except tk.TclError:
+            pass
+        self.root.tk.call('set', '::tk::dialog::file::showHiddenVar', '0')
+        file_name = fd.askopenfilename()
+        if file_name:
+            self._load_db(file_name=file_name)
 
     def _load_db(self, file_name):
         try:
