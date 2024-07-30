@@ -2697,11 +2697,11 @@ class SplitsForm:
         self.frame.grid_columnconfigure(8, weight=1)
 
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
-        ttk.Label(master=self.frame, text='Type').grid(row=0, column=1)
-        ttk.Label(master=self.frame, text='Status').grid(row=0, column=2)
-        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=3)
-        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=4)
-        ttk.Label(master=self.frame, text='Payee').grid(row=0, column=5)
+        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
+        ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
+        ttk.Label(master=self.frame, text='Payee').grid(row=0, column=3)
+        ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
+        ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
         ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
 
@@ -2739,15 +2739,9 @@ class SplitsForm:
             split['account_combo']['values'] = account_values
             split['account_combo'].current(account_index)
             split['account_combo'].bind('<<ComboboxSelected>>', partial(self._account_selected, split_index=split_index))
-            split['type_entry'] = ttk.Entry(master=self.frame)
-            split['type_entry'].insert(0, split.get('type', ''))
             split['deposit_entry'] = ttk.Entry(master=self.frame)
-            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
-            split['status_combo'] = ttk.Combobox(master=self.frame)
-            status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
-            split['status_combo']['values'] = status_values
-            split['status_combo'].set(split.get('status', ''))
             split['deposit_entry'].insert(0, deposit_amount)
+            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
             split['withdrawal_entry'].insert(0, withdrawal_amount)
             split['payee_combo'] = ttk.Combobox(master=self.frame)
             payee_values = ['']
@@ -2758,6 +2752,12 @@ class SplitsForm:
                     payee_index = index + 1 #because of first empty item
             split['payee_combo']['values'] = payee_values
             split['payee_combo'].current(payee_index)
+            split['status_combo'] = ttk.Combobox(master=self.frame)
+            status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
+            split['status_combo']['values'] = status_values
+            split['status_combo'].set(split.get('status', ''))
+            split['type_entry'] = ttk.Entry(master=self.frame)
+            split['type_entry'].insert(0, split.get('type', ''))
             split['description_entry'] = ttk.Entry(master=self.frame)
             split['description_entry'].insert(0, split.get('description', ''))
             if selected_account and selected_account.type == AccountType.SECURITY:
@@ -2769,11 +2769,11 @@ class SplitsForm:
                 split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
 
             split['account_combo'].grid(row=row_index, column=0)
-            split['type_entry'].grid(row=row_index, column=1)
-            split['status_combo'].grid(row=row_index, column=2)
-            split['deposit_entry'].grid(row=row_index, column=3)
-            split['withdrawal_entry'].grid(row=row_index, column=4)
-            split['payee_combo'].grid(row=row_index, column=5)
+            split['deposit_entry'].grid(row=row_index, column=1)
+            split['withdrawal_entry'].grid(row=row_index, column=2)
+            split['payee_combo'].grid(row=row_index, column=3)
+            split['status_combo'].grid(row=row_index, column=4)
+            split['type_entry'].grid(row=row_index, column=5)
             split['description_entry'].grid(row=row_index, column=6)
             if selected_account and selected_account.type == AccountType.SECURITY:
                 self.action_label = ttk.Label(master=self.frame, text='Action')
