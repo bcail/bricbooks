@@ -9,6 +9,7 @@ Architecture:
     No objects should use private/hidden members of other objects.
 '''
 from collections import namedtuple
+from contextlib import contextmanager
 import copy
 from datetime import datetime, date, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -805,6 +806,16 @@ class Budget:
 
 ### Storage ###
 
+@contextmanager
+def sqlite_txn(cursor):
+    cursor.execute('BEGIN IMMEDIATE')
+    try:
+        yield
+        cursor.execute('COMMIT')
+    except BaseException as e:
+        cursor.execute('ROLLBACK')
+        raise
+
 class SQLiteStorage:
 
     SCHEMA_VERSION = 0
@@ -1028,33 +1039,14 @@ class SQLiteStorage:
             log(msg)
             raise SQLiteStorageError(msg)
 
-    @staticmethod
-    def begin_txn(cursor):
-        cursor.execute('BEGIN IMMEDIATE')
-
-    @staticmethod
-    def rollback(cursor):
-        try:
-            cursor.execute('ROLLBACK')
-        except sqlite3.OperationalError as e:
-            if str(e) == 'cannot rollback - no transaction is active':
-                pass
-            else:
-                raise
-
     def _setup_db(self):
         '''
         Initialize empty DB.
         '''
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             for statement in self.DB_INIT_STATEMENTS:
                 cur.execute(statement)
-            cur.execute('COMMIT')
-        except: # no matter the exception, we want to rollback the transaction
-            SQLiteStorage.rollback(cur)
-            raise
 
     def get_commodity(self, id_=None, code=None):
         if id_:
@@ -1074,10 +1066,10 @@ class SQLiteStorage:
 
     def save_commodity(self, commodity):
         cur = self._db_connection.cursor()
-        cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)',
-                    (commodity.type.value, normalize(commodity.code), normalize(commodity.name)))
-        commodity.id = cur.lastrowid
-        self._db_connection.commit()
+        with sqlite_txn(cur):
+            cur.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)',
+                        (commodity.type.value, normalize(commodity.code), normalize(commodity.name)))
+            commodity.id = cur.lastrowid
 
     def get_account(self, id_=None, number=None, name=None):
         fields = ['id', 'type', 'commodity_id', 'number', 'name', 'parent_id', 'alternate_id', 'description', 'closed', 'other_data']
@@ -1123,7 +1115,6 @@ class SQLiteStorage:
             )
 
     def save_account(self, account):
-        cur = self._db_connection.cursor()
         parent_id = None
         if account.parent:
             parent_id = account.parent.id
@@ -1173,21 +1164,22 @@ class SQLiteStorage:
                     ir = Fraction(ir)
                     other_data['interest-rate-percent'] = f'{ir.numerator}/{ir.denominator}'
             field_values.append(normalize(json.dumps(other_data)))
-        if account.id:
-            field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
-            field_values.append(account.id)
-            cur.execute(f'UPDATE accounts SET {field_names_s} WHERE id = ?', field_values)
-            if cur.rowcount < 1:
-                raise Exception('no account with id %s to update' % account.id)
-        else:
-            if 'commodity_id' not in field_names:
-                field_names.append('commodity_id')
-                field_values.append(1) # default USD commodity
-            field_names_s = ','.join(field_names)
-            field_names_q = ','.join(['?' for _ in field_names])
-            cur.execute(f'INSERT INTO accounts({field_names_s}) VALUES({field_names_q})', field_values)
-            account.id = cur.lastrowid
-        self._db_connection.commit()
+        cur = self._db_connection.cursor()
+        with sqlite_txn(cur):
+            if account.id:
+                field_names_s = ','.join([f'{fn} = ?' for fn in field_names])
+                field_values.append(account.id)
+                cur.execute(f'UPDATE accounts SET {field_names_s} WHERE id = ?', field_values)
+                if cur.rowcount < 1:
+                    raise Exception('no account with id %s to update' % account.id)
+            else:
+                if 'commodity_id' not in field_names:
+                    field_names.append('commodity_id')
+                    field_values.append(1) # default USD commodity
+                field_names_s = ','.join(field_names)
+                field_names_q = ','.join(['?' for _ in field_names])
+                cur.execute(f'INSERT INTO accounts({field_names_s}) VALUES({field_names_q})', field_values)
+                account.id = cur.lastrowid
 
     def get_payee(self, id_=None, name=None):
         '''return None if object can't be found for whatever reason'''
@@ -1215,17 +1207,17 @@ class SQLiteStorage:
         return payees
 
     def save_payee(self, payee):
-        cur = self._db_connection.cursor()
         field_values = [normalize(payee.name), normalize(payee.notes)]
-        if payee.id:
-            field_values.append(payee.id)
-            cur.execute('UPDATE payees SET name = ?, notes = ? WHERE id = ?', field_values)
-            if cur.rowcount < 1:
-                raise Exception('no payee with id %s to update' % payee.id)
-        else:
-            cur.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', field_values)
-            payee.id = cur.lastrowid
-        self._db_connection.commit()
+        cur = self._db_connection.cursor()
+        with sqlite_txn(cur):
+            if payee.id:
+                field_values.append(payee.id)
+                cur.execute('UPDATE payees SET name = ?, notes = ? WHERE id = ?', field_values)
+                if cur.rowcount < 1:
+                    raise Exception('no payee with id %s to update' % payee.id)
+            else:
+                cur.execute('INSERT INTO payees(name, notes) VALUES(?, ?)', field_values)
+                payee.id = cur.lastrowid
 
     def _get_account_children(self, account, child_level):
         children = []
@@ -1259,8 +1251,7 @@ class SQLiteStorage:
 
     def delete_account(self, account_id, set_children_parent_id_to_null=False):
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             if set_children_parent_id_to_null:
                 query = 'SELECT id FROM accounts WHERE parent_id = ?'
                 db_records = cur.execute(query, (account_id,)).fetchall()
@@ -1268,10 +1259,6 @@ class SQLiteStorage:
                     if r[0]:
                         cur.execute('UPDATE accounts SET parent_id = null WHERE id = ?', (r[0],))
             cur.execute('DELETE FROM accounts where id = ?', (account_id,))
-            cur.execute('COMMIT')
-        except: # we always want to rollback, regardless of the exception
-            SQLiteStorage.rollback(cur)
-            raise
 
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
@@ -1340,8 +1327,7 @@ class SQLiteStorage:
             field_names.append('entry_date')
             field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             if txn.id:
                 field_names_s = ', '.join([f'{name} = ?' for name in field_names])
                 field_values.append(txn.id)
@@ -1395,27 +1381,17 @@ class SQLiteStorage:
                     field_names_s = ','.join(field_names)
                     field_names_q = ','.join(['?' for _ in field_names])
                     cur.execute(f'INSERT INTO transaction_splits({field_names_s}) VALUES({field_names_q})', field_values)
-            cur.execute('COMMIT')
             txn.id = txn_id
-        except: # we always want to rollback, regardless of the exception
-            SQLiteStorage.rollback(cur)
-            raise
 
     def delete_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             cur.execute('DELETE FROM transaction_splits WHERE transaction_id = ?', (txn_id,))
             cur.execute('DELETE FROM transactions WHERE id = ?', (txn_id,))
-            cur.execute('COMMIT')
-        except:
-            SQLiteStorage.rollback(cur)
-            raise
 
     def save_budget(self, budget):
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             if budget.id:
                 cur.execute('UPDATE budgets SET name = ?, start_date = ?, end_date = ? WHERE id = ?',
                     (normalize(budget.name), str(budget.start_date), str(budget.end_date), budget.id))
@@ -1461,10 +1437,6 @@ class SQLiteStorage:
                         amount = info['amount']
                         values = (budget.id, account.id, amount.numerator, amount.denominator, carryover_numerator, carryover_denominator, notes)
                         cur.execute('INSERT INTO budget_values(budget_id, account_id, amount_numerator, amount_denominator, carryover_numerator, carryover_denominator, notes) VALUES (?, ?, ?, ?, ?, ?, ?)', values)
-            cur.execute('COMMIT')
-        except:
-            SQLiteStorage.rollback(cur)
-            raise
 
     def get_budget(self, id_):
         cur = self._db_connection.cursor()
@@ -1531,8 +1503,7 @@ class SQLiteStorage:
         field_values = [normalize(scheduled_txn.name), scheduled_txn.frequency.value, next_due_date, normalize(scheduled_txn.description)]
 
         cur = self._db_connection.cursor()
-        SQLiteStorage.begin_txn(cur)
-        try:
+        with sqlite_txn(cur):
             #update existing scheduled transaction
             if scheduled_txn.id:
                 field_names_s = ', '.join([f'{name} = ?' for name in field_names])
@@ -1576,10 +1547,6 @@ class SQLiteStorage:
                     quantity = amount
                     status = split.get('status', '')
                     cur.execute('INSERT INTO scheduled_transaction_splits(scheduled_transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, payee_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', (scheduled_txn.id, account.id, amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, payee))
-            cur.execute('COMMIT')
-        except:
-            SQLiteStorage.rollback(cur)
-            raise
 
     def get_scheduled_transaction(self, id_):
         cur = self._db_connection.cursor()
