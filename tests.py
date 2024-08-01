@@ -631,7 +631,7 @@ class TestSQLiteStorage(unittest.TestCase):
             storage._db_connection.close()
             self.assertEqual(tables, TABLES)
 
-    def test_save_commodity(self):
+    def test_commodity_sqlite_checks(self):
         c = self.storage._db_connection.cursor()
         with self.assertRaises(sqlite3.IntegrityError) as cm:
             c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 20))
@@ -649,8 +649,17 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', ''))
         self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
+    def test_save_commodity_fail(self):
+        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
+        commodity.code = ''
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
+            self.storage.save_commodity(commodity)
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: code != ""')
+
+    def test_save_commodity_success(self):
         commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
         self.storage.save_commodity(commodity)
+        c = self.storage._db_connection.cursor()
         record = c.execute('SELECT type, code, name, trading_currency_id FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
         self.assertEqual(record, ('currency', 'EUR', 'Euro', None))
 
@@ -859,7 +868,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_save_account_parent_not_in_db(self):
         checking = get_test_account(type_=bb.AccountType.ASSET, id_=9)
         checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_account(checking_child)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
@@ -887,7 +896,7 @@ class TestSQLiteStorage(unittest.TestCase):
         checking = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
         checking2 = get_test_account(type_=bb.AccountType.ASSET, number='4-1', name='Checking')
         self.storage.save_account(checking)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_account(checking2)
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.number')
         #make sure saving works once number is updated
@@ -899,7 +908,7 @@ class TestSQLiteStorage(unittest.TestCase):
         checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
         self.storage.save_account(bank_accounts)
         self.storage.save_account(checking)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_account(
                     get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
                 )
@@ -1005,7 +1014,7 @@ class TestSQLiteStorage(unittest.TestCase):
     def test_payee_unique(self):
         payee = bb.Payee('payee')
         self.storage.save_payee(payee)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_payee(bb.Payee('payee'))
         self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: payees.name')
 
@@ -1203,7 +1212,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception), 'actions can only be used with SECURITY accounts')
 
         txn = bb.Transaction(splits=[{'account': checking, 'amount': -100}, {'account': fund, 'amount': 100, 'action': 'asdf'}], txn_date=date.today())
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_txn(txn)
         self.assertIn('FOREIGN KEY constraint failed', str(cm.exception))
 
@@ -1325,7 +1334,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 splits=[{'account': checking, 'amount': '-101'}, {'account': savings, 'amount': 101, 'payee': payee}],
                 txn_date=date.today(),
             )
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_txn(t)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
@@ -1338,7 +1347,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 splits=[{'account': checking, 'amount': '-101', 'status': 'd'}, {'account': savings, 'amount': 101}],
                 txn_date=date.today(),
             )
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_txn(t)
         self.assertIn('reconciled_state = "" OR reconciled_state = "C" OR reconciled_state = "R"', str(cm.exception))
 
@@ -1579,7 +1588,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 food: {'amount': 25, 'carryover': 0}
             }
         b = bb.Budget(year=2018, account_budget_info=account_budget_info)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_budget(b)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 
@@ -1784,7 +1793,7 @@ class TestSQLiteStorage(unittest.TestCase):
                     {'account': savings, 'amount': 101},
                 ]
             )
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
             self.storage.save_scheduled_transaction(st)
         self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
 

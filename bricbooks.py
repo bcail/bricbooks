@@ -814,7 +814,7 @@ def sqlite_txn(cursor):
         cursor.execute('COMMIT')
     except BaseException as e:
         cursor.execute('ROLLBACK')
-        raise
+        raise SQLiteStorageError(str(e)) from e
 
 class SQLiteStorage:
 
