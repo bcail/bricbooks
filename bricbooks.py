@@ -2677,6 +2677,14 @@ class SplitsForm:
         self.frame.grid()
         return self.frame
 
+    def deposit_entered(self, event, split_index=None):
+        if len(self._splits) == 2:
+            self._splits[(split_index+1)%2]['withdrawal_amount'].set(self._splits[split_index]['deposit_amount'].get())
+
+    def withdrawal_entered(self, event, split_index=None):
+        if len(self._splits) == 2:
+            self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
+
     def _show_splits(self, splits):
         row_index = 1
         for split_index, split in enumerate(self._splits):
@@ -2684,13 +2692,6 @@ class SplitsForm:
                 # we already set up this split
                 row_index += 1
                 continue
-            deposit_amount = ''
-            withdrawal_amount = ''
-            if 'amount' in split:
-                if split['amount'] >= 0:
-                    deposit_amount = amount_display(split['amount'])
-                else:
-                    withdrawal_amount = amount_display(abs(split['amount']))
             split['account_combo'] = ttk.Combobox(master=self.frame)
             account_values = ['']
             account_index = 0
@@ -2706,10 +2707,23 @@ class SplitsForm:
             split['account_combo']['values'] = account_values
             split['account_combo'].current(account_index)
             split['account_combo'].bind('<<ComboboxSelected>>', partial(self._account_selected, split_index=split_index))
-            split['deposit_entry'] = ttk.Entry(master=self.frame)
-            split['deposit_entry'].insert(0, deposit_amount)
-            split['withdrawal_entry'] = ttk.Entry(master=self.frame)
-            split['withdrawal_entry'].insert(0, withdrawal_amount)
+            deposit_amount = tk.StringVar()
+            withdrawal_amount = tk.StringVar()
+            deposit_amount.set('')
+            withdrawal_amount.set('')
+            split['deposit_entry'] = ttk.Entry(master=self.frame, textvariable=deposit_amount)
+            split['withdrawal_entry'] = ttk.Entry(master=self.frame, textvariable=withdrawal_amount)
+            if 'amount' in split:
+                if split['amount'] >= 0:
+                    deposit_amount.set(amount_display(split['amount']))
+                else:
+                    withdrawal_amount.set(amount_display(abs(split['amount'])))
+            else:
+                if split_index == 0 and len(self._splits) == 2:
+                    split['deposit_entry'].bind('<FocusOut>', partial(self.deposit_entered, split_index=split_index))
+                    split['withdrawal_entry'].bind('<FocusOut>', partial(self.withdrawal_entered, split_index=split_index))
+            split['deposit_amount'] = deposit_amount
+            split['withdrawal_amount'] = withdrawal_amount
             split['payee_combo'] = ttk.Combobox(master=self.frame)
             payee_values = ['']
             payee_index = 0
@@ -2791,8 +2805,8 @@ class SplitsForm:
         for split in self._splits:
             s = {}
             account = split['account_combo'].current()
-            deposit = split['deposit_entry'].get()
-            withdrawal = split['withdrawal_entry'].get()
+            deposit = split['deposit_amount'].get()
+            withdrawal = split['withdrawal_amount'].get()
             if account > 0:
                 s['account'] = self._accounts[account-1]
                 if deposit and withdrawal:
