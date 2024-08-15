@@ -233,7 +233,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
         food = get_test_account(name='Food')
-        restaurants = get_test_account(name='Restaurants')
+        restaurants = get_test_account(name='Restaurants', type_=bb.AccountType.EXPENSE)
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)

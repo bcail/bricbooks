@@ -2688,10 +2688,6 @@ class SplitsForm:
     def _show_splits(self, splits):
         row_index = 1
         for split_index, split in enumerate(self._splits):
-            if 'deposit_entry' in split:
-                # we already set up this split
-                row_index += 1
-                continue
             split['account_combo'] = ttk.Combobox(master=self.frame)
             account_values = ['']
             account_index = 0
@@ -2741,13 +2737,16 @@ class SplitsForm:
             split['type_entry'].insert(0, split.get('type', ''))
             split['description_entry'] = ttk.Entry(master=self.frame)
             split['description_entry'].insert(0, split.get('description', ''))
-            if selected_account and selected_account.type == AccountType.SECURITY:
-                split['action_combo'] = ttk.Combobox(master=self.frame)
-                action_values = [a.value for a in TransactionAction]
-                split['action_combo']['values'] = action_values
-                split['action_combo'].set(split.get('action', ''))
-                split['shares_entry'] = ttk.Entry(master=self.frame)
-                split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
+            if selected_account:
+                if selected_account.type == AccountType.SECURITY:
+                    split['action_combo'] = ttk.Combobox(master=self.frame)
+                    action_values = [a.value for a in TransactionAction]
+                    split['action_combo']['values'] = action_values
+                    split['action_combo'].set(split.get('action', ''))
+                    split['shares_entry'] = ttk.Entry(master=self.frame)
+                    split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
+                if selected_account.type not in [AccountType.INCOME, AccountType.EXPENSE]:
+                    split['payee_combo'].state(['disabled'])
 
             split['account_combo'].grid(row=row_index, column=0)
             split['deposit_entry'].grid(row=row_index, column=1)
@@ -2799,6 +2798,10 @@ class SplitsForm:
             if 'shares_entry' in split:
                 split['shares_entry'].destroy()
                 split.pop('shares_entry')
+        if account_index > 0 and self._accounts[account_index-1].type in [AccountType.INCOME, AccountType.EXPENSE]:
+            split['payee_combo'].state(['!disabled'])
+        else:
+            split['payee_combo'].state(['disabled'])
 
     def get_splits(self):
         splits = []
