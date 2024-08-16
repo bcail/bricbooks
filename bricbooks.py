@@ -2685,90 +2685,93 @@ class SplitsForm:
         if len(self._splits) == 2:
             self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
 
-    def _show_splits(self, splits):
-        row_index = 1
-        for split_index, split in enumerate(self._splits):
-            split['account_combo'] = ttk.Combobox(master=self.frame)
-            account_values = ['']
-            account_index = 0
-            selected_account = split.get('account')
-            for index, account in enumerate(self._accounts):
-                if account.child_level:
-                    name = '- ' * account.child_level + account.name
-                else:
-                    name = account.name
-                account_values.append(name)
-                if account == selected_account:
-                    account_index = index + 1 #because of first empty item
-            split['account_combo']['values'] = account_values
-            split['account_combo'].current(account_index)
-            split['account_combo'].bind('<<ComboboxSelected>>', partial(self._account_selected, split_index=split_index))
-            deposit_amount = tk.StringVar()
-            withdrawal_amount = tk.StringVar()
-            deposit_amount.set('')
-            withdrawal_amount.set('')
-            split['deposit_entry'] = ttk.Entry(master=self.frame, textvariable=deposit_amount)
-            split['withdrawal_entry'] = ttk.Entry(master=self.frame, textvariable=withdrawal_amount)
-            if 'amount' in split:
-                if split['amount'] >= 0:
-                    deposit_amount.set(amount_display(split['amount']))
-                else:
-                    withdrawal_amount.set(amount_display(abs(split['amount'])))
+    def _show_split(self, split, split_index):
+        split['account_combo'] = ttk.Combobox(master=self.frame)
+        account_values = ['']
+        account_index = 0
+        selected_account = split.get('account')
+        for index, account in enumerate(self._accounts):
+            if account.child_level:
+                name = '- ' * account.child_level + account.name
             else:
-                if split_index == 0 and len(self._splits) == 2:
-                    split['deposit_entry'].bind('<FocusOut>', partial(self.deposit_entered, split_index=split_index))
-                    split['withdrawal_entry'].bind('<FocusOut>', partial(self.withdrawal_entered, split_index=split_index))
-            split['deposit_amount'] = deposit_amount
-            split['withdrawal_amount'] = withdrawal_amount
-            split['payee_combo'] = ttk.Combobox(master=self.frame)
-            payee_values = ['']
-            payee_index = 0
-            for index, payee in enumerate(self._payees):
-                payee_values.append(payee.name)
-                if split.get('payee') and split['payee'] == payee:
-                    payee_index = index + 1 #because of first empty item
-            split['payee_combo']['values'] = payee_values
-            split['payee_combo'].current(payee_index)
-            split['status_combo'] = ttk.Combobox(master=self.frame)
-            status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
-            split['status_combo']['values'] = status_values
-            split['status_combo'].set(split.get('status', ''))
-            split['type_entry'] = ttk.Entry(master=self.frame)
-            split['type_entry'].insert(0, split.get('type', ''))
-            split['description_entry'] = ttk.Entry(master=self.frame)
-            split['description_entry'].insert(0, split.get('description', ''))
-            if selected_account:
-                if selected_account.type == AccountType.SECURITY:
-                    split['action_combo'] = ttk.Combobox(master=self.frame)
-                    action_values = [a.value for a in TransactionAction]
-                    split['action_combo']['values'] = action_values
-                    split['action_combo'].set(split.get('action', ''))
-                    split['shares_entry'] = ttk.Entry(master=self.frame)
-                    split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
-                if selected_account.type not in [AccountType.INCOME, AccountType.EXPENSE]:
-                    split['payee_combo'].state(['disabled'])
+                name = account.name
+            account_values.append(name)
+            if account == selected_account:
+                account_index = index + 1 #because of first empty item
+        split['account_combo']['values'] = account_values
+        split['account_combo'].current(account_index)
+        split['account_combo'].bind('<<ComboboxSelected>>', partial(self._account_selected, split_index=split_index))
+        deposit_amount = tk.StringVar()
+        withdrawal_amount = tk.StringVar()
+        deposit_amount.set('')
+        withdrawal_amount.set('')
+        split['deposit_entry'] = ttk.Entry(master=self.frame, textvariable=deposit_amount)
+        split['withdrawal_entry'] = ttk.Entry(master=self.frame, textvariable=withdrawal_amount)
+        if 'amount' in split:
+            if split['amount'] >= 0:
+                deposit_amount.set(amount_display(split['amount']))
+            else:
+                withdrawal_amount.set(amount_display(abs(split['amount'])))
+        else:
+            if split_index == 0 and len(self._splits) == 2:
+                split['deposit_entry'].bind('<FocusOut>', partial(self.deposit_entered, split_index=split_index))
+                split['withdrawal_entry'].bind('<FocusOut>', partial(self.withdrawal_entered, split_index=split_index))
+        split['deposit_amount'] = deposit_amount
+        split['withdrawal_amount'] = withdrawal_amount
+        split['payee_combo'] = ttk.Combobox(master=self.frame)
+        payee_values = ['']
+        payee_index = 0
+        for index, payee in enumerate(self._payees):
+            payee_values.append(payee.name)
+            if split.get('payee') and split['payee'] == payee:
+                payee_index = index + 1 #because of first empty item
+        split['payee_combo']['values'] = payee_values
+        split['payee_combo'].current(payee_index)
+        split['status_combo'] = ttk.Combobox(master=self.frame)
+        status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
+        split['status_combo']['values'] = status_values
+        split['status_combo'].set(split.get('status', ''))
+        split['type_entry'] = ttk.Entry(master=self.frame)
+        split['type_entry'].insert(0, split.get('type', ''))
+        split['description_entry'] = ttk.Entry(master=self.frame)
+        split['description_entry'].insert(0, split.get('description', ''))
+        if selected_account:
+            if selected_account.type == AccountType.SECURITY:
+                split['action_combo'] = ttk.Combobox(master=self.frame)
+                action_values = [a.value for a in TransactionAction]
+                split['action_combo']['values'] = action_values
+                split['action_combo'].set(split.get('action', ''))
+                split['shares_entry'] = ttk.Entry(master=self.frame)
+                split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
+            if selected_account.type not in [AccountType.INCOME, AccountType.EXPENSE]:
+                split['payee_combo'].state(['disabled'])
 
-            split['account_combo'].grid(row=row_index, column=0)
-            split['deposit_entry'].grid(row=row_index, column=1)
-            split['withdrawal_entry'].grid(row=row_index, column=2)
-            split['payee_combo'].grid(row=row_index, column=3)
-            split['status_combo'].grid(row=row_index, column=4)
-            split['type_entry'].grid(row=row_index, column=5)
-            split['description_entry'].grid(row=row_index, column=6)
-            if selected_account and selected_account.type == AccountType.SECURITY:
-                self.action_label = ttk.Label(master=self.frame, text='Action')
-                self.action_label.grid(row=0, column=7)
-                self.shares_label = ttk.Label(master=self.frame, text='Shares')
-                self.shares_label.grid(row=0, column=8)
-                split['action_combo'].grid(row=row_index, column=7)
-                split['shares_entry'].grid(row=row_index, column=8)
-            split['row_index'] = row_index
-            row_index += 1
-        self.add_button.grid(row=row_index, column=0)
+        row_index = split_index + 1
+        split['account_combo'].grid(row=row_index, column=0)
+        split['deposit_entry'].grid(row=row_index, column=1)
+        split['withdrawal_entry'].grid(row=row_index, column=2)
+        split['payee_combo'].grid(row=row_index, column=3)
+        split['status_combo'].grid(row=row_index, column=4)
+        split['type_entry'].grid(row=row_index, column=5)
+        split['description_entry'].grid(row=row_index, column=6)
+        if selected_account and selected_account.type == AccountType.SECURITY:
+            self.action_label = ttk.Label(master=self.frame, text='Action')
+            self.action_label.grid(row=0, column=7)
+            self.shares_label = ttk.Label(master=self.frame, text='Shares')
+            self.shares_label.grid(row=0, column=8)
+            split['action_combo'].grid(row=row_index, column=7)
+            split['shares_entry'].grid(row=row_index, column=8)
+        split['row_index'] = row_index
+
+    def _show_splits(self, splits):
+        for split_index, split in enumerate(self._splits):
+            self._show_split(split, split_index)
+        self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def _add_row(self):
         self._splits.append({})
-        self._show_splits(self._splits)
+        self._show_split(self._splits[-1], len(self._splits)-1)
+        self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def _account_selected(self, event, split_index):
         split = self._splits[split_index]
