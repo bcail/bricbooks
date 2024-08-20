@@ -41,8 +41,20 @@ SQLITE_VERSION = sqlite3.sqlite_version_info
 
 if sys.platform == 'darwin':
     USER_DIR = os.path.expanduser('~/Library/Application Support')
+    CONFIG_DIR = USER_DIR
+elif sys.platform == 'win32':
+    USER_DIR = os.path.expanduser('~')
+    CONFIG_DIR = USER_DIR
 else:
     USER_DIR = os.path.expanduser('~')
+    CONFIG_DIR = os.path.expanduser('~/.config/bricbooks')
+
+
+if SQLITE_VERSION < (3, 37, 0):
+    msg = f'SQLite version {SQLITE_VERSION} is too old: need at least 3.37.0'
+    log(msg)
+    print(msg)
+    sys.exit(1)
 
 
 def log(msg):
@@ -53,11 +65,30 @@ def log(msg):
         f.write(msg.encode('utf8'))
 
 
-if SQLITE_VERSION < (3, 37, 0):
-    msg = f'SQLite version {SQLITE_VERSION} is too old: need at least 3.37.0'
-    log(msg)
-    print(msg)
-    sys.exit(1)
+class Config:
+
+    @staticmethod
+    def save_recently_used_file(file_path):
+        config_path = os.path.join(CONFIG_DIR, 'bricbooks_config.sqlite3')
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        db = sqlite3.connect(config_path, isolation_level=None)
+        cursor = db.cursor()
+        tables = cursor.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+        if not tables:
+            with sqlite_txn(cursor):
+                cursor.execute('CREATE TABLE recently_used (path TEXT NOT NULL) STRICT')
+        with sqlite_txn(cursor):
+            cursor.execute('INSERT INTO recently_used (path) VALUES (?)', (file_path,))
+
+    @staticmethod
+    def get_recently_used_files():
+        config_path = os.path.join(CONFIG_DIR, 'bricbooks_config.sqlite3')
+        db = sqlite3.connect(config_path, isolation_level=None)
+        try:
+            results = db.execute('SELECT path FROM recently_used').fetchall()
+            return [r[0] for r in results]
+        except Exception:
+            return []
 
 
 class CommodityType(Enum):

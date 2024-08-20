@@ -25,6 +25,21 @@ def get_test_account(id_=None, commodity=None, name=CHECKING, type_=bb.AccountTy
     return bb.Account(id_=id_, commodity=commodity, type_=type_, number=number, name=name, parent=parent, other_data=other_data)
 
 
+class TestConfig(unittest.TestCase):
+
+    def test_recently_used_files(self):
+        file1 = '/path/to/file1.sqlite3'
+        file2 = '/path/to/file2.sqlite3'
+        old_config_dir = bb.CONFIG_DIR
+        with tempfile.TemporaryDirectory() as tmp:
+            bb.CONFIG_DIR = tmp
+            bb.Config.save_recently_used_file(file1)
+            bb.Config.save_recently_used_file(file2)
+
+            self.assertEqual(bb.Config.get_recently_used_files(), [file1, file2])
+        bb.CONFIG_DIR = old_config_dir
+
+
 class TestUtils(unittest.TestCase):
 
     def test_get_date(self):
