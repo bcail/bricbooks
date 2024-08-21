@@ -80,7 +80,9 @@ class Config:
                     cursor.execute('CREATE TABLE recently_used (path TEXT NOT NULL UNIQUE) STRICT')
             with sqlite_txn(cursor):
                 cursor.execute('INSERT INTO recently_used (path) VALUES (?)', (os.path.abspath(file_path),))
+            db.close()
         except Exception:
+            db.close()
             if suppress_errors:
                 pass
             else:
@@ -92,8 +94,10 @@ class Config:
         db = sqlite3.connect(config_path, isolation_level=None)
         try:
             results = db.execute('SELECT path FROM recently_used').fetchall()
+            db.close()
             return [r[0] for r in results]
         except Exception:
+            db.close()
             return []
 
 
