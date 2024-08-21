@@ -91,7 +91,10 @@ class Config:
     @staticmethod
     def get_recently_used_files():
         config_path = os.path.join(CONFIG_DIR, 'bricbooks_config.sqlite3')
-        db = sqlite3.connect(config_path, isolation_level=None)
+        if os.path.exists(config_path):
+            db = sqlite3.connect(config_path, isolation_level=None)
+        else:
+            return []
         try:
             results = db.execute('SELECT path FROM recently_used').fetchall()
             db.close()
