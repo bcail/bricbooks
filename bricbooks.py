@@ -68,17 +68,23 @@ def log(msg):
 class Config:
 
     @staticmethod
-    def save_recently_used_file(file_path):
+    def save_recently_used_file(file_path, suppress_errors=False):
         config_path = os.path.join(CONFIG_DIR, 'bricbooks_config.sqlite3')
         os.makedirs(CONFIG_DIR, exist_ok=True)
         db = sqlite3.connect(config_path, isolation_level=None)
         cursor = db.cursor()
-        tables = cursor.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        if not tables:
+        try:
+            tables = cursor.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            if not tables:
+                with sqlite_txn(cursor):
+                    cursor.execute('CREATE TABLE recently_used (path TEXT NOT NULL UNIQUE) STRICT')
             with sqlite_txn(cursor):
-                cursor.execute('CREATE TABLE recently_used (path TEXT NOT NULL) STRICT')
-        with sqlite_txn(cursor):
-            cursor.execute('INSERT INTO recently_used (path) VALUES (?)', (file_path,))
+                cursor.execute('INSERT INTO recently_used (path) VALUES (?)', (os.path.abspath(file_path),))
+        except Exception:
+            if suppress_errors:
+                pass
+            else:
+                raise
 
     @staticmethod
     def get_recently_used_files():
@@ -166,11 +172,6 @@ def get_date(val):
     if isinstance(val, date):
         return val
     raise RuntimeError('invalid date %s' % val)
-
-
-def get_files(directory):
-    d = Path(directory)
-    return list(d.glob('*.sqlite3'))
 
 
 def increment_month(date_obj):
@@ -3523,11 +3524,11 @@ class GUI_TK:
         new_button.grid(row=0, column=0)
         open_button = ttk.Button(master=self.main_frame, text='Open...', command=self._open_file)
         open_button.grid(row=1, column=0)
-        files = get_files(USER_DIR)
+        files = Config.get_recently_used_files()
         if files:
-            ttk.Label(master=self.main_frame, text=f'Files in {USER_DIR}:').grid(row=2, column=0)
+            ttk.Label(master=self.main_frame, text='Recently used files:').grid(row=2, column=0)
             for index, f in enumerate(files, start=3):
-                button = ttk.Button(master=self.main_frame, text=f.name, command=partial(self._load_db, file_name=str(f)))
+                button = ttk.Button(master=self.main_frame, text=f, command=partial(self._load_db, file_name=str(f)))
                 button.grid(row=index, column=0)
         self.main_frame.grid()
 
@@ -3551,11 +3552,13 @@ class GUI_TK:
         self.root.tk.call('set', '::tk::dialog::file::showHiddenVar', '0')
         file_name = fd.askopenfilename()
         if file_name:
-            self._load_db(file_name=file_name)
+            self._load_db(file_name=file_name, save_recently_used=True)
 
-    def _load_db(self, file_name):
+    def _load_db(self, file_name, save_recently_used=False):
         try:
             self._engine = Engine(file_name)
+            if save_recently_used:
+                Config.save_recently_used_file(file_name)
         except InvalidStorageFile as e:
             if 'file is not a database' in str(e):
                 handle_error(f'File {file_name} is not a database')
