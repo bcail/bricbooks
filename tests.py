@@ -36,7 +36,8 @@ class TestConfig(unittest.TestCase):
             bb.Config.save_recently_used_file(file1)
             bb.Config.save_recently_used_file(file2)
 
-            self.assertEqual(bb.Config.get_recently_used_files(), [file1, file2])
+            self.assertEqual(bb.Config.get_recently_used_files(),
+                             [os.path.abspath(file1), os.path.abspath(file2)])
         bb.CONFIG_DIR = old_config_dir
 
 
