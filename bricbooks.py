@@ -1620,6 +1620,12 @@ class SQLiteStorage:
             scheduled_txns.append(self.get_scheduled_transaction(st_record[0]))
         return scheduled_txns
 
+    def delete_scheduled_transaction(self, id_):
+        cur = self._db_connection.cursor()
+        with sqlite_txn(cur):
+            cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
+            cur.execute('DELETE FROM scheduled_transactions WHERE id = ?', (id_,))
+
 
 ### ENGINE ###
 
@@ -1766,6 +1772,9 @@ class Engine:
         scheduled_txn = self.get_scheduled_transaction(id_)
         scheduled_txn.advance_to_next_due_date()
         self.save_scheduled_transaction(scheduled_txn)
+
+    def delete_scheduled_transaction(self, id_):
+        return self._storage.delete_scheduled_transaction(id_)
 
     def get_budget(self, id_):
         return self._storage.get_budget(id_=id_)
@@ -3350,11 +3359,12 @@ class BudgetDisplay:
 class ScheduledTransactionForm:
     '''Used for editing Scheduled Transactions (ie. frequency, ...)'''
 
-    def __init__(self, accounts, payees, save_scheduled_transaction, scheduled_transaction=None):
+    def __init__(self, accounts, payees, save_scheduled_transaction, delete_scheduled_transaction, scheduled_transaction=None):
         self._accounts = accounts
         self._payees = payees
         self._scheduled_transaction = scheduled_transaction
         self._save_scheduled_txn = save_scheduled_transaction
+        self._delete_scheduled_txn = delete_scheduled_transaction
 
     def get_widget(self):
         self._form = tk.Toplevel()
@@ -3386,16 +3396,20 @@ class ScheduledTransactionForm:
         self.frequency_combo.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.next_due_date_entry.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.W, tk.E))
 
+        self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
+        self.save_button.grid(row=1, column=3)
+
+        if self._scheduled_transaction:
+            self.delete_button = ttk.Button(master=self.content, text='Delete', command=self._delete)
+            self.delete_button.grid(row=1, column=4)
+
         if self._scheduled_transaction:
             splits = self._scheduled_transaction.splits
         else:
             splits = []
 
         self.splits_form = SplitsForm(master=self.content, splits=splits, accounts=self._accounts, payees=self._payees)
-        self.splits_form.get_widget().grid(row=2, column=0, columnspan=3)
-
-        self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
-        self.save_button.grid(row=2, column=3)
+        self.splits_form.get_widget().grid(row=2, column=0, columnspan=5)
 
         self.content.grid(sticky=(tk.N, tk.S, tk.W, tk.E))
 
@@ -3420,6 +3434,16 @@ class ScheduledTransactionForm:
             handle_error(e)
             return
         self._form.destroy()
+
+    def _delete(self):
+        if self._scheduled_transaction:
+            try:
+                id_ = self._scheduled_transaction.id
+                self._delete_scheduled_txn(id_)
+            except Exception as e:
+                handle_error(e)
+                return
+            self._form.destroy()
 
 
 class ScheduledTransactionsDisplay:
@@ -3477,7 +3501,7 @@ class ScheduledTransactionsDisplay:
         accounts = self._engine.get_accounts()
         payees = self._engine.get_payees()
         self.new_form = ScheduledTransactionForm(accounts, payees=payees,
-                save_scheduled_transaction=self._save_and_reload)
+                save_scheduled_transaction=self._save_and_reload, delete_scheduled_transaction=None)
         widget = self.new_form.get_widget()
         widget.grid()
 
@@ -3491,12 +3515,17 @@ class ScheduledTransactionsDisplay:
         payees = self._engine.get_payees()
         self.edit_form = ScheduledTransactionForm(accounts, payees=payees,
                 save_scheduled_transaction=self._save_and_reload,
+                delete_scheduled_transaction=self._delete_and_reload,
                 scheduled_transaction=scheduled_transaction)
         widget = self.edit_form.get_widget()
         widget.grid()
 
     def _save_and_reload(self, scheduled_txn):
         self._engine.save_scheduled_transaction(scheduled_txn=scheduled_txn)
+        self._show_scheduled_transactions()
+
+    def _delete_and_reload(self, scheduled_txn_id):
+        self._engine.delete_scheduled_transaction(scheduled_txn_id)
         self._show_scheduled_transactions()
 
 

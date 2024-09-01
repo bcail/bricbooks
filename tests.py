@@ -1899,6 +1899,38 @@ class TestSQLiteStorage(unittest.TestCase):
         scheduled_txn = self.storage.get_scheduled_transaction(st.id)
         self.assertEqual(scheduled_txn.next_due_date, date(2019, 1, 2))
 
+    def test_delete_scheduled_transaction(self):
+        checking = get_test_account()
+        savings = get_test_account(name='Savings')
+        self.storage.save_account(checking)
+        self.storage.save_account(savings)
+        valid_splits = [
+                {'account': checking, 'amount': -101},
+                {'account': savings, 'amount': 101},
+            ]
+        st = bb.ScheduledTransaction(
+                name='weekly 1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date='2019-01-02',
+                splits=valid_splits,
+            )
+        st2 = bb.ScheduledTransaction(
+                name='monthly',
+                frequency=bb.ScheduledTransactionFrequency.MONTHLY,
+                next_due_date='2019-05-15',
+                splits=valid_splits,
+            )
+        self.storage.save_scheduled_transaction(st)
+        self.storage.save_scheduled_transaction(st2)
+        self.storage.delete_scheduled_transaction(st.id)
+        cur = self.storage._db_connection.cursor()
+        results = cur.execute('SELECT id FROM scheduled_transactions').fetchall()
+        for r in results:
+            self.assertEqual(r[0], st2.id)
+        results = cur.execute('SELECT scheduled_transaction_id FROM scheduled_transaction_splits').fetchall()
+        for r in results:
+            self.assertEqual(r[0], st2.id)
+
 
 def create_test_accounts(engine):
     accounts = {
@@ -2102,6 +2134,27 @@ class TestEngine(unittest.TestCase):
         scheduled_txns_due = self.engine.get_scheduled_transactions_due()
         self.assertEqual(len(scheduled_txns_due), 1)
         self.assertEqual(scheduled_txns_due[0].id, st1.id)
+
+    def test_delete_scheduled_transaction(self):
+        create_test_accounts(self.engine)
+        checking = self.engine.get_account(name='Checking')
+        savings = self.engine.get_account(name='Savings')
+        st1 = bb.ScheduledTransaction(
+                name='st1',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+                next_due_date=date(2024, 3, 14)
+            )
+        st2 = bb.ScheduledTransaction(
+                name='st2',
+                frequency=bb.ScheduledTransactionFrequency.WEEKLY,
+            )
+        self.engine.save_scheduled_transaction(st1)
+        self.engine.save_scheduled_transaction(st2)
+        self.engine.delete_scheduled_transaction(st1.id)
+
+        scheduled_txns = self.engine.get_scheduled_transactions()
+        self.assertEqual(len(scheduled_txns), 1)
+        self.assertEqual(scheduled_txns[0].id, st2.id)
 
 
 class TestCLI(unittest.TestCase):
