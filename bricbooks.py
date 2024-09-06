@@ -301,7 +301,7 @@ class Account:
 
     def __str__(self):
         if self.number:
-            return '%s - %s' % (self.number, self.name)
+            return '%s: %s' % (self.number, self.name)
         else:
             return self.name
 
@@ -2113,7 +2113,7 @@ def pager(items, num_txns_in_page, page=1):
 
 class CLI:
 
-    ACCOUNT_LIST_HEADER = ' ID   | Type        | Number | Name                           | Parent\n'\
+    ACCOUNT_LIST_HEADER = ' ID   | Type        | Name                           | Parent\n'\
         '==============================================================================================='
 
     TXN_LIST_HEADER = ' ID   | Date       |  Description                   | Payee                          |  Transfer Account              | Withdrawal | Deposit    | Balance\n'\
@@ -2139,15 +2139,11 @@ class CLI:
     def _list_accounts(self):
         self.print(self.ACCOUNT_LIST_HEADER)
         for a in self._engine.get_accounts():
-            if a.number:
-                number = a.number
-            else:
-                number = ''
             if a.parent:
                 parent = a.parent.name
             else:
                 parent = ''
-            self.print(' {0:<4} | {1:<11} | {2:<7} | {3:<30} | {4:<30}'.format(a.id, a.type.name, number[:7], a.name[:30], parent[:30]))
+            self.print(' {0:<4} | {1:<11} | {2:<30} | {3:<30}'.format(a.id, a.type.name, str(a)[:30], parent[:30]))
 
     def _get_and_save_account(self, account=None):
         acc_id = None
@@ -2637,19 +2633,18 @@ class AccountsDisplay:
         if self.tree:
             self.tree.destroy()
 
-        columns = ('type', 'number', 'name')
+        columns = ('type', 'name')
 
         self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
         self.tree.heading('type', text='Type')
-        self.tree.heading('number', text='Number')
         self.tree.heading('name', text='Name')
 
         accounts = self._engine.get_accounts()
         for account in accounts:
-            name = account.name
+            name = str(account)
             if account.child_level:
                 name = ' -  ' * account.child_level + name
-            values = (account.type.name, account.number or '', name)
+            values = (account.type.name, name)
             self.tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
         self.tree.bind('<Button-1>', self._item_selected)
@@ -2740,9 +2735,9 @@ class SplitsForm:
         selected_account = split.get('account')
         for index, account in enumerate(self._accounts):
             if account.child_level:
-                name = '- ' * account.child_level + account.name
+                name = '- ' * account.child_level + str(account)
             else:
-                name = account.name
+                name = str(account)
             account_values.append(name)
             if account == selected_account:
                 account_index = index + 1 #because of first empty item
@@ -3053,9 +3048,9 @@ class LedgerDisplay:
         account_values = []
         for index, account in enumerate(self._accounts):
             if account.child_level:
-                name = ' - ' * account.child_level + account.name
+                name = ' - ' * account.child_level + str(account)
             else:
-                name = account.name
+                name = str(account)
             account_values.append(name)
             if account == self._account:
                 selected = index
@@ -3075,7 +3070,7 @@ class LedgerDisplay:
         accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
         for a in accounts:
             if a != self._account:
-                filter_account_values.append(a.name)
+                filter_account_values.append(str(a))
                 self.filter_account_items.append(a)
         self.filter_account_combo['values'] = filter_account_values
         self.filter_account_combo.current(0)

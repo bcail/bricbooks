@@ -101,7 +101,7 @@ class TestAccount(unittest.TestCase):
 
     def test_str(self):
         a = bb.Account(id_=1, type_=bb.AccountType.ASSET, number='400', name='Checking')
-        self.assertEqual(str(a), '400 - Checking')
+        self.assertEqual(str(a), '400: Checking')
 
     def test_account_type(self):
         with self.assertRaises(bb.InvalidAccountError) as cm:
@@ -2182,7 +2182,7 @@ class TestCLI(unittest.TestCase):
         self.cli._engine._storage.save_account(checking)
         self.cli._list_accounts()
         output = '%s\n' % bb.CLI.ACCOUNT_LIST_HEADER
-        output += ' 1    | ASSET       |         | Checking account with long nam |                               \n'
+        output += ' 1    | ASSET       | Checking account with long nam |                               \n'
         self.assertEqual(self.memory_buffer.getvalue(), output)
 
     @patch('builtins.input')

@@ -61,7 +61,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_button.invoke()
         gui.accounts_button.invoke()
         child_items = gui.accounts_display.tree.get_children()
-        first_account_name = gui.accounts_display.tree.item(child_items[0])['values'][2]
+        first_account_name = gui.accounts_display.tree.item(child_items[0])['values'][1]
         self.assertEqual(first_account_name, CHECKING)
 
     def test_add_account(self):
