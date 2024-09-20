@@ -2626,33 +2626,49 @@ class AccountsDisplay:
     def __init__(self, master, engine):
         self._master = master
         self._engine = engine
-        self.tree = None
+        self.assets_tree = None
+        self.income_tree = None
         self.frame = None
 
     def _show_accounts(self):
-        if self.tree:
-            self.tree.destroy()
+        if self.assets_tree:
+            self.assets_tree.destroy()
+        if self.income_tree:
+            self.income_tree.destroy()
 
-        columns = ('type', 'name')
+        columns = ('name')
 
-        self.tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
-        self.tree.heading('type', text='Type')
-        self.tree.heading('name', text='Name')
+        self.assets_tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
+        self.assets_tree.heading('name', text='Assets/Liabilities')
+        self.income_tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
+        self.income_tree.heading('name', text='Income/Expense')
 
-        accounts = self._engine.get_accounts()
+        accounts = self._engine.get_accounts(types=[AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.EQUITY])
         for account in accounts:
             name = str(account)
             if account.child_level:
                 name = ' -  ' * account.child_level + name
-            values = (account.type.name, name)
-            self.tree.insert(parent='', index=tk.END, iid=account.id, values=values)
+            values = (name,)
+            self.assets_tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
-        self.tree.bind('<Button-1>', self._item_selected)
-        self.tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.assets_tree.bind('<Button-1>', partial(self._item_selected, tree=self.assets_tree))
+        self.assets_tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+        accounts = self._engine.get_accounts(types=[AccountType.INCOME, AccountType.EXPENSE])
+        for account in accounts:
+            name = str(account)
+            if account.child_level:
+                name = ' -  ' * account.child_level + name
+            values = (name,)
+            self.income_tree.insert(parent='', index=tk.END, iid=account.id, values=values)
+
+        self.income_tree.bind('<Button-1>', partial(self._item_selected, tree=self.income_tree))
+        self.income_tree.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
         self.frame.columnconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
         self.add_button = ttk.Button(master=self.frame, text='New Account', command=self._open_new_account_form)
@@ -2668,13 +2684,13 @@ class AccountsDisplay:
         widget = self.add_account_form.get_widget()
         widget.grid()
 
-    def _item_selected(self, event):
-        row_id = self.tree.identify_row(event.y)
+    def _item_selected(self, event, tree=None):
+        row_id = tree.identify_row(event.y)
         if not row_id:
             return
-        account_id = int(row_id)
-        accounts = self._engine.get_accounts()
+        account_id = int(row_id) # iid was set to account.id above
         account = self._engine.get_account(id_=account_id)
+        accounts = self._engine.get_accounts()
         self.edit_account_form = AccountForm(accounts, save_account=self._engine.save_account,
                 update_display=self._show_accounts, account=account)
         widget = self.edit_account_form.get_widget()

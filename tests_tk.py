@@ -60,8 +60,8 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         #switch to ledger, then back to accounts to pick up the new accounts
         gui.ledger_button.invoke()
         gui.accounts_button.invoke()
-        child_items = gui.accounts_display.tree.get_children()
-        first_account_name = gui.accounts_display.tree.item(child_items[0])['values'][1]
+        child_items = gui.accounts_display.assets_tree.get_children()
+        first_account_name = gui.accounts_display.assets_tree.item(child_items[0])['values'][0]
         self.assertEqual(first_account_name, CHECKING)
 
     def test_add_account(self):
@@ -85,7 +85,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_button.invoke()
         gui.accounts_button.invoke()
         #click on a the checking account item, so it opens for editing
-        gui.accounts_display.tree.event_generate('<Button-1>', x=1, y=25)
+        gui.accounts_display.assets_tree.event_generate('<Button-1>', x=1, y=25)
         edit_account_form = gui.accounts_display.edit_account_form
         self.assertEqual(edit_account_form.name_entry.get(), CHECKING)
         self.assertEqual(edit_account_form.parent_combo.get(), 'All Assets')
