@@ -2904,8 +2904,8 @@ class TransactionForm:
         self._accounts = accounts
         self._account = account
         self._payees = payees
-        self._save_transaction = save_transaction
         self._update_display = update_display
+        self._save_transaction = save_transaction
         self._skip_transaction = skip_transaction
         self._delete_transaction = delete_transaction
         self._id = id_
@@ -2934,7 +2934,7 @@ class TransactionForm:
         entries = [self.save_button]
         if self._skip_transaction:
             self.save_button['text'] = 'Enter New'
-            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._skip_transaction)
+            self.skip_button = ttk.Button(master=self.form, text='Skip Next', command=self._handle_skip)
             entries.append(self.skip_button)
         elif self._delete_transaction:
             self.delete_button = ttk.Button(master=self.form, text='Delete', command=self._handle_delete)
@@ -2969,6 +2969,10 @@ class TransactionForm:
     def _handle_delete(self):
         self.top_level.destroy()
         self._delete_transaction()
+
+    def _handle_skip(self):
+        self.top_level.destroy()
+        self._skip_transaction()
 
 
 class LedgerDisplay:
