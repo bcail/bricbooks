@@ -2725,7 +2725,7 @@ class SplitsForm:
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
         ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
         ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
-        ttk.Label(master=self.frame, text='Payee').grid(row=0, column=3)
+        ttk.Label(master=self.frame, text='Payer/Payee').grid(row=0, column=3)
         ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
         ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
         ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
