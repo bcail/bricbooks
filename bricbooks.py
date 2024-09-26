@@ -3405,7 +3405,7 @@ class ScheduledTransactionForm:
             self.frequency_combo.current(frequency_index)
         self.next_due_date_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
-            self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date))
+            self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date or ''))
 
         self.name_entry.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.frequency_combo.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
@@ -3493,7 +3493,7 @@ class ScheduledTransactionsDisplay:
                 payee = payees[0].name
             else:
                 payee = ''
-            values = (scheduled_txn.name, scheduled_txn.frequency.value, str(scheduled_txn.next_due_date), payee, splits_display(scheduled_txn.splits))
+            values = (scheduled_txn.name, scheduled_txn.frequency.value, str(scheduled_txn.next_due_date or ''), payee, splits_display(scheduled_txn.splits))
             self.tree.insert('', tk.END, iid=scheduled_txn.id, values=values)
 
         self.tree.bind('<Button-1>', self._item_selected)
