@@ -2651,8 +2651,12 @@ class AccountsDisplay:
             values = (name,)
             self.assets_tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
+        assets_scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.assets_tree.yview)
+        self.assets_tree.configure(yscrollcommand=assets_scrollbar.set)
+
         self.assets_tree.bind('<Button-1>', partial(self._item_selected, tree=self.assets_tree))
         self.assets_tree.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        assets_scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
 
         accounts = self._engine.get_accounts(types=[AccountType.INCOME, AccountType.EXPENSE])
         for account in accounts:
@@ -2662,13 +2666,17 @@ class AccountsDisplay:
             values = (name,)
             self.income_tree.insert(parent='', index=tk.END, iid=account.id, values=values)
 
+        income_scrollbar = ttk.Scrollbar(self.frame, orient=tk.VERTICAL, command=self.income_tree.yview)
+        self.income_tree.configure(yscrollcommand=income_scrollbar.set)
+
         self.income_tree.bind('<Button-1>', partial(self._item_selected, tree=self.income_tree))
-        self.income_tree.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.S, tk.E))
+        self.income_tree.grid(row=1, column=2, sticky=(tk.N, tk.W, tk.S, tk.E))
+        income_scrollbar.grid(row=1, column=3, sticky=(tk.N, tk.S))
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
         self.frame.columnconfigure(0, weight=1)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(2, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
         self.add_button = ttk.Button(master=self.frame, text='New Account', command=self._open_new_account_form)
@@ -2997,7 +3005,10 @@ class LedgerDisplay:
         if self.txns_widget:
             self.txns_widget.destroy()
 
-        master = self.frame
+        self.txns_widget = ttk.Frame(master=self.frame)
+        self.txns_widget.columnconfigure(0, weight=1)
+        self.txns_widget.rowconfigure(0, weight=1)
+
         account = self._account
         columns = {
             'date': {'text': 'Date'},
@@ -3022,11 +3033,11 @@ class LedgerDisplay:
                 'transfer account': {'text': 'Transfer Account'},
             }
 
-        self.txns_widget = ttk.Treeview(master=master, columns=tuple(columns.keys()), show='headings')
-        self.txns_widget.tag_configure('scheduled', background='gray')
+        self.txns_tree = ttk.Treeview(master=self.txns_widget, columns=tuple(columns.keys()), show='headings')
+        self.txns_tree.tag_configure('scheduled', background='gray')
         for column_name, column_info in columns.items():
-            self.txns_widget.heading(column_name, text=column_info['text'])
-            self.txns_widget.column(column_name, width=100, anchor='center')
+            self.txns_tree.heading(column_name, text=column_info['text'])
+            self.txns_tree.column(column_name, width=100, anchor='center')
 
         sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
 
@@ -3036,7 +3047,7 @@ class LedgerDisplay:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
                 iid = f'st{st.id}'
-                self.txns_widget.insert('', tk.END, iid=iid, values=values, tags='scheduled')
+                self.txns_tree.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
             balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
             self.balance_var.set(f'Current Balance: {balances.current}')
@@ -3053,10 +3064,16 @@ class LedgerDisplay:
             else:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
-            self.txns_widget.insert('', tk.END, iid=txn.id, values=values)
+            self.txns_tree.insert('', tk.END, iid=txn.id, values=values)
 
-        self.txns_widget.bind('<Button-1>', self._item_selected)
-        self.txns_widget.grid(row=1, column=0, columnspan=6, sticky=(tk.N, tk.W, tk.S, tk.E), padx=2)
+        scrollbar = ttk.Scrollbar(self.txns_widget, orient=tk.VERTICAL, command=self.txns_tree)
+        self.txns_tree.configure(yscrollcommand=scrollbar.set)
+
+        self.txns_tree.bind('<Button-1>', self._item_selected)
+        self.txns_tree.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+        self.txns_widget.grid(row=1, column=0, columnspan=7, sticky=(tk.N, tk.W, tk.S, tk.E))
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
@@ -3124,7 +3141,7 @@ class LedgerDisplay:
         widget.grid()
 
     def _item_selected(self, event):
-        txn_id = self.txns_widget.identify_row(event.y)
+        txn_id = self.txns_tree.identify_row(event.y)
         if isinstance(txn_id, str) and txn_id.startswith('st'):
             st_id = int(txn_id.replace('st', ''))
             scheduled_transaction = self._engine.get_scheduled_transaction(id_=st_id)
@@ -3466,15 +3483,20 @@ class ScheduledTransactionsDisplay:
     def __init__(self, master, engine):
         self._master = master
         self._engine = engine
+        self.scheduled_txns_frame = None
         self.tree = None
 
     def _show_scheduled_transactions(self):
-        if self.tree:
-            self.tree.destroy()
+        if self.scheduled_txns_frame:
+            self.scheduled_txns_frame.destroy()
+
+        self.scheduled_txns_frame = ttk.Frame(master=self.frame)
+        self.scheduled_txns_frame.rowconfigure(0, weight=1)
+        self.scheduled_txns_frame.columnconfigure(0, weight=1)
 
         columns = ('name', 'frequency', 'next_due_date', 'payee', 'splits')
 
-        self.tree = ttk.Treeview(self.frame, columns=columns, show='headings')
+        self.tree = ttk.Treeview(self.scheduled_txns_frame, columns=columns, show='headings')
         self.tree.heading('name', text='Name')
         self.tree.column('name', width=50, anchor='center')
         self.tree.heading('frequency', text='Frequency')
@@ -3498,7 +3520,14 @@ class ScheduledTransactionsDisplay:
 
         self.tree.bind('<Button-1>', self._item_selected)
 
-        self.tree.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+        scrollbar = ttk.Scrollbar(self.scheduled_txns_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+
+        self.tree.grid(row=0, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+        scrollbar.grid(row=0, column=1, columnspan=2, sticky=(tk.N, tk.S))
+
+        self.scheduled_txns_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.S, tk.E, tk.W))
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
