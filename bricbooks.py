@@ -256,6 +256,7 @@ def to_ascii(s):
 
 
 class Commodity:
+    __slots__ = ('id', 'type', 'code', 'name')
 
     def __init__(self, id_=None, type_=None, code=None, name=None):
         self.id = id_
@@ -280,6 +281,8 @@ class Commodity:
 
 
 class Account:
+    __slots__ = ('id', 'type', 'commodity', 'number', 'name', 'parent', 'description', 'alternate_id', 'closed',
+                 'other_data', 'child_level')
 
     def __init__(self, id_=None, type_=None, commodity=None, number=None, name=None, parent=None, alternate_id=None,
                  description=None, closed=None, other_data=None, child_level=0):
@@ -330,6 +333,7 @@ class Account:
 
 
 class Payee:
+    __slots__ = ('id', 'name', 'notes')
 
     def __init__(self, name, notes='', id_=None):
         if not name:
@@ -442,6 +446,7 @@ def handle_txn_splits(splits):
 
 
 class Transaction:
+    __slots__ = ('id', 'splits', 'txn_date', 'entry_date', 'description', 'alternate_id', 'balance')
 
     CLEARED = 'C'
     RECONCILED = 'R'
@@ -566,6 +571,7 @@ class ScheduledTransactionFrequency(Enum):
 
 
 class ScheduledTransaction:
+    __slots__ = ('id', 'name', 'frequency', 'next_due_date', 'splits', 'description', 'status')
 
     def __init__(self, name, frequency, next_due_date=None, splits=None, description='', status='', id_=None):
         self.name = name
@@ -621,6 +627,7 @@ class Budget:
     empty strings are dropped (so we can pass empty string from user form), and strings are converted to
     Fraction values. Note: all accounts are passed in - if there's no budget info, it just has an empty {}.
     '''
+    __slots__ = ('id', 'start_date', 'end_date', 'name', '_budget_data', '_income_spending_info')
 
     @staticmethod
     def round_percent_available(percent):
