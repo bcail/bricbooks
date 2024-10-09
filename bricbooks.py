@@ -1050,7 +1050,7 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (key != "")) STRICT',
-        'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE id = old.id; END;',
+        'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE key = old.key; END;',
     ] + [
         f'INSERT INTO commodity_types(type) VALUES("{commodity_type.value}")' for commodity_type in CommodityType
     ] + [

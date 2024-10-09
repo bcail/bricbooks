@@ -595,9 +595,12 @@ class TestSQLiteStorage(unittest.TestCase):
         tables = self.storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         self.assertEqual(tables, TABLES)
         misc_table_records = self.storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
-        self.assertEqual(misc_table_records, [('schema_version', 0)])
+        self.assertEqual(misc_table_records, [('schema_version', bb.SQLiteStorage.SCHEMA_VERSION)])
         commodities_table_records = self.storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
         self.assertEqual(commodities_table_records, [(1, 'currency', 'USD', 'US Dollar')])
+
+    def test_update_misc_value(self):
+        self.storage._db_connection.execute(f'UPDATE misc SET value = {bb.SQLiteStorage.SCHEMA_VERSION+1} WHERE key=\'schema_version\'')
 
     def test_init_no_filename(self):
         with self.assertRaises(bb.SQLiteStorageError) as exc_cm:
