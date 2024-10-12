@@ -1834,6 +1834,26 @@ class Engine:
             with open(file_name, 'wb') as f:
                 f.write('account\n'.encode('utf8'))
 
+    def get_income_expense_report(self):
+        report = {'heading': 'Income/Expense Report'}
+        income_accounts = self.get_accounts(types=[AccountType.INCOME])
+        expense_accounts = self.get_accounts(types=[AccountType.EXPENSE])
+        total_income = Fraction(0)
+        total_expense = Fraction(0)
+        for a in income_accounts:
+            txns = self.get_transactions(account=a)
+            for t in txns:
+                split = [s for s in t.splits if s['account'] == a][0]
+                total_income += split['amount']
+        for a in expense_accounts:
+            txns = self.get_transactions(account=a)
+            for t in txns:
+                split = [s for s in t.splits if s['account'] == a][0]
+                total_expense += split['amount']
+        report['total_income'] = total_income * -1 # incomes are listed as negative amounts
+        report['total_expense'] = total_expense
+        return report
+
 
 ### IMPORT ###
 kmymoney_action_mapping = {
@@ -2484,6 +2504,12 @@ class CLI:
                 )
             )
 
+    def _display_reports(self):
+        report = self._engine.get_income_expense_report()
+        print(report['heading'])
+        print('Total Income: ' + amount_display(report['total_income']))
+        print('Total Expense: ' + amount_display(report['total_expense']))
+
     def _print_help(self, info):
         help_msg = 'h - help'
         for cmd, info in info.items():
@@ -2521,6 +2547,7 @@ class CLI:
             'bdr': {'description': 'display budget report', 'function': self._display_budget_report},
             'bc': {'description': 'create budget', 'function': self._create_budget},
             'be': {'description': 'edit budget', 'function': self._edit_budget},
+            'r': {'description': 'reports', 'function': self._display_reports},
         }
         self.print(f'*** {TITLE} ***')
         self._print_help(info)

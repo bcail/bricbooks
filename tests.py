@@ -2159,6 +2159,39 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(len(scheduled_txns), 1)
         self.assertEqual(scheduled_txns[0].id, st2.id)
 
+    def test_get_income_expense_report(self):
+        create_test_accounts(self.engine)
+        checking = self.engine.get_account(name='Checking')
+        wages = self.engine.get_account(name='Wages')
+        housing = self.engine.get_account(name='Housing')
+        txns = [
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': 500}, {'account': wages, 'amount': -500} ], txn_date=date(2017, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': 550}, {'account': wages, 'amount': -550} ], txn_date=date(2018, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': 600}, {'account': wages, 'amount': -600} ], txn_date=date(2019, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': -225}, {'account': housing, 'amount': 225} ], txn_date=date(2017, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': -150}, {'account': housing, 'amount': 150} ], txn_date=date(2018, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': -125}, {'account': housing, 'amount': 125} ], txn_date=date(2019, 1, 15)
+            ),
+        ]
+        for txn in txns:
+            self.engine.save_transaction(txn)
+        report = self.engine.get_income_expense_report()
+        self.assertEqual(report['heading'], 'Income/Expense Report')
+        self.assertEqual(report['total_income'], 1650)
+        self.assertEqual(report['total_expense'], 500)
+
+
 
 class TestCLI(unittest.TestCase):
 
