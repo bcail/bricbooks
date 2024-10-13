@@ -1840,18 +1840,28 @@ class Engine:
         expense_accounts = self.get_accounts(types=[AccountType.EXPENSE])
         total_income = Fraction(0)
         total_expense = Fraction(0)
+        account_incomes = {}
+        account_expenses = {}
         for a in income_accounts:
             txns = self.get_transactions(account=a)
+            account_income = Fraction(0)
             for t in txns:
                 split = [s for s in t.splits if s['account'] == a][0]
                 total_income += split['amount']
+                account_income += split['amount']
+            account_incomes[a] = account_income * -1 # incomes are listed as negative amounts
         for a in expense_accounts:
             txns = self.get_transactions(account=a)
+            account_expense = Fraction(0)
             for t in txns:
                 split = [s for s in t.splits if s['account'] == a][0]
                 total_expense += split['amount']
+                account_expense += split['amount']
+            account_expenses[a] = account_expense
         report['total_income'] = total_income * -1 # incomes are listed as negative amounts
         report['total_expense'] = total_expense
+        report['account_incomes'] = account_incomes
+        report['account_expenses'] = account_expenses
         return report
 
 
@@ -2508,7 +2518,11 @@ class CLI:
         report = self._engine.get_income_expense_report()
         print(report['heading'])
         print('Total Income: ' + amount_display(report['total_income']))
+        for account, income in report['account_incomes'].items():
+            print(f'  {account} : {amount_display(income)}')
         print('Total Expense: ' + amount_display(report['total_expense']))
+        for account, expense in report['account_expenses'].items():
+            print(f'  {account} : {amount_display(expense)}')
 
     def _print_help(self, info):
         help_msg = 'h - help'
@@ -2520,15 +2534,15 @@ class CLI:
     def _command_loop(self, info):
         while True:
             cmd = self.input('>>> ')
-            try:
-                if cmd == 'h':
-                    self._print_help(info)
-                elif cmd == 'q':
-                    raise EOFError()
-                else:
+            if cmd == 'h':
+                self._print_help(info)
+            elif cmd == 'q':
+                raise EOFError()
+            else:
+                if cmd in info:
                     info[cmd]['function']()
-            except KeyError:
-                self.print('Invalid command: "%s"' % cmd)
+                else:
+                    self.print('Invalid command: "%s"' % cmd)
 
     def run(self):
         info = {

@@ -1945,6 +1945,7 @@ def create_test_accounts(engine):
         'Stock A': {'type': bb.AccountType.SECURITY, 'parent': 'Retirement 401k'},
         'Mortgage': {'type': bb.AccountType.LIABILITY},
         'Wages': {'type': bb.AccountType.INCOME},
+        'Interest': {'type': bb.AccountType.INCOME},
         'Housing': {'type': bb.AccountType.EXPENSE},
         'Mortgage Interest': {'type': bb.AccountType.EXPENSE, 'parent': 'Housing'},
         'Food': {'type': bb.AccountType.EXPENSE},
@@ -1989,7 +1990,7 @@ class TestEngine(unittest.TestCase):
     def test_get_accounts(self):
         create_test_accounts(self.engine)
         accounts = self.engine.get_accounts()
-        self.assertEqual(len(accounts), 12)
+        self.assertEqual(len(accounts), 13)
         self.assertEqual(accounts[0].name, 'Bank Accounts')
         self.assertEqual(accounts[0].child_level, 0)
         self.assertEqual(accounts[1].name, 'Checking')
@@ -2163,6 +2164,7 @@ class TestEngine(unittest.TestCase):
         create_test_accounts(self.engine)
         checking = self.engine.get_account(name='Checking')
         wages = self.engine.get_account(name='Wages')
+        interest = self.engine.get_account(name='Interest')
         housing = self.engine.get_account(name='Housing')
         txns = [
             bb.Transaction(
@@ -2173,6 +2175,9 @@ class TestEngine(unittest.TestCase):
             ),
             bb.Transaction(
                 splits=[{'account': checking, 'amount': 600}, {'account': wages, 'amount': -600} ], txn_date=date(2019, 1, 15)
+            ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': 5}, {'account': interest, 'amount': -5} ], txn_date=date(2019, 1, 31)
             ),
             bb.Transaction(
                 splits=[{'account': checking, 'amount': -225}, {'account': housing, 'amount': 225} ], txn_date=date(2017, 1, 15)
@@ -2188,9 +2193,9 @@ class TestEngine(unittest.TestCase):
             self.engine.save_transaction(txn)
         report = self.engine.get_income_expense_report()
         self.assertEqual(report['heading'], 'Income/Expense Report')
-        self.assertEqual(report['total_income'], 1650)
+        self.assertEqual(report['total_income'], 1655)
         self.assertEqual(report['total_expense'], 500)
-
+        self.assertEqual(report['account_incomes'], {wages: 1650, interest: 5})
 
 
 class TestCLI(unittest.TestCase):
