@@ -2193,9 +2193,10 @@ class TestEngine(unittest.TestCase):
             self.engine.save_transaction(txn)
         report = self.engine.get_income_expense_report()
         self.assertEqual(report['heading'], 'Income/Expense Report')
-        self.assertEqual(report['total_income'], 1655)
-        self.assertEqual(report['total_expense'], 500)
-        self.assertEqual(report['account_incomes'], {wages: 1650, interest: 5})
+        self.assertEqual(report['income']['total'], 1655)
+        self.assertEqual(report['income']['accounts'][wages], {'total': 1650, 2017: 500, 2018: 550, 2019: 600})
+        self.assertEqual(report['income']['accounts'][interest], {'total': 5, 2019: 5})
+        self.assertEqual(report['expense'], {'total': 500, 'accounts': {housing: {'total': 500, 2017: 225, 2018: 150, 2019: 125}}})
 
 
 class TestCLI(unittest.TestCase):

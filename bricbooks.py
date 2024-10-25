@@ -1838,30 +1838,34 @@ class Engine:
         report = {'heading': 'Income/Expense Report'}
         income_accounts = self.get_accounts(types=[AccountType.INCOME])
         expense_accounts = self.get_accounts(types=[AccountType.EXPENSE])
-        total_income = Fraction(0)
-        total_expense = Fraction(0)
-        account_incomes = {}
-        account_expenses = {}
+        income = {'total': Fraction(0), 'accounts': {}}
+        expense = {'total': Fraction(0), 'accounts': {}}
         for a in income_accounts:
             txns = self.get_transactions(account=a)
-            account_income = Fraction(0)
-            for t in txns:
-                split = [s for s in t.splits if s['account'] == a][0]
-                total_income += split['amount']
-                account_income += split['amount']
-            account_incomes[a] = account_income * -1 # incomes are listed as negative amounts
+            if txns:
+                income['accounts'][a] = {'total': Fraction(0)}
+                for t in txns:
+                    year = t.txn_date.year
+                    if year not in income['accounts'][a]:
+                        income['accounts'][a][year] = Fraction(0)
+                    split = [s for s in t.splits if s['account'] == a][0]
+                    income['total'] += split['amount'] * -1 # incomes are listed as negative amounts
+                    income['accounts'][a]['total'] += split['amount'] * -1
+                    income['accounts'][a][year] += split['amount'] * -1
         for a in expense_accounts:
             txns = self.get_transactions(account=a)
-            account_expense = Fraction(0)
-            for t in txns:
-                split = [s for s in t.splits if s['account'] == a][0]
-                total_expense += split['amount']
-                account_expense += split['amount']
-            account_expenses[a] = account_expense
-        report['total_income'] = total_income * -1 # incomes are listed as negative amounts
-        report['total_expense'] = total_expense
-        report['account_incomes'] = account_incomes
-        report['account_expenses'] = account_expenses
+            if txns:
+                expense['accounts'][a] = {'total': Fraction(0)}
+                for t in txns:
+                    year = t.txn_date.year
+                    if year not in expense['accounts'][a]:
+                        expense['accounts'][a][year] = Fraction(0)
+                    split = [s for s in t.splits if s['account'] == a][0]
+                    expense['total'] += split['amount']
+                    expense['accounts'][a]['total'] += split['amount']
+                    expense['accounts'][a][year] += split['amount']
+        report['income'] = income
+        report['expense'] = expense
         return report
 
 
@@ -2517,12 +2521,12 @@ class CLI:
     def _display_reports(self):
         report = self._engine.get_income_expense_report()
         print(report['heading'])
-        print('Total Income: ' + amount_display(report['total_income']))
-        for account, income in report['account_incomes'].items():
-            print(f'  {account} : {amount_display(income)}')
-        print('Total Expense: ' + amount_display(report['total_expense']))
-        for account, expense in report['account_expenses'].items():
-            print(f'  {account} : {amount_display(expense)}')
+        print('Total Income: ' + amount_display(report['income']['total']))
+        for account, data in report['income']['accounts'].items():
+            print(f'  {account} : {amount_display(data["total"])}')
+        print('Total Expense: ' + amount_display(report['expense']['total']))
+        for account, data in report['expense']['accounts'].items():
+            print(f'  {account} : {amount_display(data["total"])}')
 
     def _print_help(self, info):
         help_msg = 'h - help'
