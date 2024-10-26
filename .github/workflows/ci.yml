@@ -12,9 +12,9 @@ jobs:
         python-version: ['3.11', '3.14.0-alpha.1']
     name: Python ${{ matrix.python-version }} Linux tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
@@ -30,9 +30,9 @@ jobs:
         python-version: ['3.7', '3.12', '3.13']
     name: Python ${{ matrix.python-version }} Linux tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
@@ -48,9 +48,9 @@ jobs:
         python-version: ['3.11', '3.12', '3.13']
     name: Python ${{ matrix.python-version }} Windows tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
@@ -64,9 +64,9 @@ jobs:
         python-version: ['3.12']
     name: Python ${{ matrix.python-version }} Macos tests
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
