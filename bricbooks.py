@@ -1679,6 +1679,9 @@ class Engine:
         self._storage.save_account(account)
         return account
 
+    def delete_account(self, account_id):
+        self._storage.delete_account(account_id)
+
     @staticmethod
     def sort_txns(txns, key='date'):
         return sorted(txns, key=lambda t: t.txn_date)
@@ -2213,6 +2216,11 @@ class CLI:
         account = self._engine.get_account(id_=acc_id)
         self._get_and_save_account(account=account)
 
+    def _delete_account(self):
+        acc_id = self.input('ID of account to delete: ')
+        if acc_id:
+            self._engine.delete_account(int(acc_id))
+
     def _list_account_txns(self, num_txns_in_page=None):
         if not num_txns_in_page:
             num_txns_in_page = self.NUM_TXNS_IN_PAGE
@@ -2553,6 +2561,7 @@ class CLI:
             'a': {'description': 'list accounts', 'function': self._list_accounts},
             'ac': {'description': 'create account', 'function': self._create_account},
             'ae': {'description': 'edit account', 'function': self._edit_account},
+            'ad': {'description': 'delete account', 'function': self._delete_account},
             't': {'description': 'list txns', 'function': self._list_account_txns},
             'tc': {'description': 'create transaction', 'function': self._create_txn},
             'te': {'description': 'edit transaction', 'function': self._edit_txn},
