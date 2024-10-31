@@ -2814,7 +2814,7 @@ class SplitsForm:
             self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
 
     def _show_split(self, split, split_index):
-        split['account_combo'] = ttk.Combobox(master=self.frame)
+        split['account_combo'] = ttk.Combobox(master=self.frame, height=20)
         account_values = ['']
         account_index = 0
         selected_account = split.get('account')
@@ -2846,7 +2846,7 @@ class SplitsForm:
                 split['withdrawal_entry'].bind('<FocusOut>', partial(self.withdrawal_entered, split_index=split_index))
         split['deposit_amount'] = deposit_amount
         split['withdrawal_amount'] = withdrawal_amount
-        split['payee_combo'] = ttk.Combobox(master=self.frame)
+        split['payee_combo'] = ttk.Combobox(master=self.frame, height=20)
         payee_values = ['']
         payee_index = 0
         for index, payee in enumerate(self._payees):
