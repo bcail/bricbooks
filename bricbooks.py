@@ -3141,7 +3141,7 @@ class LedgerDisplay:
         self.frame.columnconfigure(1, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
-        self.account_select_combo = ttk.Combobox(master=self.frame)
+        self.account_select_combo = ttk.Combobox(master=self.frame, height=20)
         selected = -1
         account_values = []
         for index, account in enumerate(self._accounts):
