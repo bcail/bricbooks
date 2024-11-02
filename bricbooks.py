@@ -3046,11 +3046,10 @@ class TransactionForm:
 
 class LedgerDisplay:
 
-    def __init__(self, master, accounts, current_account, show_ledger, engine):
+    def __init__(self, master, accounts, current_account, engine):
         if not current_account:
             raise Exception('must pass current_account into LedgerDisplay')
         self._master = master
-        self.show_ledger = show_ledger
         self._accounts = accounts
         self._account = current_account
         self._engine = engine
@@ -3709,7 +3708,11 @@ class GUI_TK:
         self._action_buttons_frame = self._init_action_buttons_frame(self.content_frame)
         self._action_buttons_frame.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-        self._show_accounts()
+        accounts = self._engine.get_accounts()
+        if accounts:
+            self._show_ledger(accounts=accounts)
+        else:
+            self._show_accounts()
 
     def _init_action_buttons_frame(self, master):
         frame = ttk.Frame(master=master)
@@ -3745,18 +3748,18 @@ class GUI_TK:
         self.main_frame = self.accounts_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
-    def _show_ledger(self, current_account=None):
-        if not current_account:
+    def _show_ledger(self, accounts=None):
+        if not accounts:
             accounts = self._engine.get_accounts()
-            if accounts:
-                current_account = accounts[0]
-            else:
-                handle_error('Please create an account first.')
-                return
+        if accounts:
+            current_account = accounts[0]
+        else:
+            handle_error('Please create an account first.')
+            return
         if self.main_frame:
             self.main_frame.destroy()
         self._update_action_buttons(display='ledger')
-        self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, show_ledger=self._show_ledger, engine=self._engine)
+        self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, engine=self._engine)
         self.main_frame = self.ledger_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
