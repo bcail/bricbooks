@@ -2769,18 +2769,27 @@ class AccountsDisplay:
 class SplitsForm:
 
     def __init__(self, master, splits, accounts, payees, default_account=None):
-        self._master = master
+        self._has_security_account = False
         if splits:
             self._splits = copy.deepcopy(splits)
+            if any([split['account'] for split in self._splits if 'account' in split and split['account'].type == AccountType.SECURITY]):
+                self._has_security_account = True
+            self.mode = 'advanced'
         else:
-            self._splits = [{'account': default_account}, {}]
+            if default_account:
+                self._splits = [{'account': default_account}, {}]
+            else:
+                self._splits = [{}, {}]
+            self.mode = 'simple'
         self._accounts = accounts
         self._payees = payees
         self.action_label = None
         self.shares_label = None
+        self.frame = ttk.Frame(master=master)
 
     def get_widget(self):
-        self.frame = ttk.Frame(master=self._master)
+        self._create_splits_widgets(self._splits)
+
         self.frame.grid_columnconfigure(0, weight=1)
         self.frame.grid_columnconfigure(1, weight=1)
         self.frame.grid_columnconfigure(2, weight=1)
@@ -2791,19 +2800,46 @@ class SplitsForm:
         self.frame.grid_columnconfigure(7, weight=1)
         self.frame.grid_columnconfigure(8, weight=1)
 
+        self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
+
         ttk.Label(master=self.frame, text='Account').grid(row=0, column=0)
-        ttk.Label(master=self.frame, text='Deposits').grid(row=0, column=1)
+        ttk.Label(master=self.frame, text='Deposit').grid(row=0, column=1)
         ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
         ttk.Label(master=self.frame, text='Payer/Payee').grid(row=0, column=3)
-        ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
-        ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
-        ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
-        self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
+
+        if self.mode == 'advanced':
+            ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
+            ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
+            ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
+            if self._has_security_account:
+                self.action_label = ttk.Label(master=self.frame, text='Action')
+                self.action_label.grid(row=0, column=7)
+                self.shares_label = ttk.Label(master=self.frame, text='Shares')
+                self.shares_label.grid(row=0, column=8)
+            self.add_button.grid(row=len(self._splits)+2, column=0)
+        else:
+            self.category_label = ttk.Label(master=self.frame, text='Category/Account')
+            self.category_label.grid(row=0, column=4)
+            self.switch_mode_button = ttk.Button(master=self.frame, text='Advanced', command=self._switch_mode)
+            self.switch_mode_button.grid(row=3, column=0)
 
         self._show_splits(self._splits)
 
         self.frame.grid()
         return self.frame
+
+    def _switch_mode(self):
+        # only switch to advanced mode, for now (no switching back to simple)
+        if self.mode == 'advanced':
+            return
+        self.mode = 'advanced'
+        self.category_label.destroy()
+        self.switch_mode_button.destroy()
+        ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
+        ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
+        ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
+        self._show_splits(self._splits)
+        self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def deposit_entered(self, event, split_index=None):
         if len(self._splits) == 2:
@@ -2813,7 +2849,7 @@ class SplitsForm:
         if len(self._splits) == 2:
             self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
 
-    def _show_split(self, split, split_index):
+    def _create_widgets_for_split(self, split_index, split):
         split['account_combo'] = ttk.Combobox(master=self.frame, height=20)
         account_values = ['']
         account_index = 0
@@ -2863,6 +2899,7 @@ class SplitsForm:
         split['type_entry'].insert(0, split.get('type', ''))
         split['description_entry'] = ttk.Entry(master=self.frame)
         split['description_entry'].insert(0, split.get('description', ''))
+
         if selected_account:
             if selected_account.type == AccountType.SECURITY:
                 split['action_combo'] = ttk.Combobox(master=self.frame)
@@ -2874,6 +2911,11 @@ class SplitsForm:
             if selected_account.type not in [AccountType.INCOME, AccountType.EXPENSE]:
                 split['payee_combo'].state(['disabled'])
 
+    def _create_splits_widgets(self, splits):
+        for split_index, split in enumerate(self._splits):
+            self._create_widgets_for_split(split_index, split)
+
+    def _show_split(self, split_index, split):
         row_index = split_index + 1
         split['account_combo'].grid(row=row_index, column=0)
         split['deposit_entry'].grid(row=row_index, column=1)
@@ -2882,29 +2924,36 @@ class SplitsForm:
         split['status_combo'].grid(row=row_index, column=4)
         split['type_entry'].grid(row=row_index, column=5)
         split['description_entry'].grid(row=row_index, column=6)
-        if selected_account and selected_account.type == AccountType.SECURITY:
-            self.action_label = ttk.Label(master=self.frame, text='Action')
-            self.action_label.grid(row=0, column=7)
-            self.shares_label = ttk.Label(master=self.frame, text='Shares')
-            self.shares_label.grid(row=0, column=8)
+        if 'account' in split and split['account'].type == AccountType.SECURITY:
             split['action_combo'].grid(row=row_index, column=7)
             split['shares_entry'].grid(row=row_index, column=8)
         split['row_index'] = row_index
 
     def _show_splits(self, splits):
-        for split_index, split in enumerate(self._splits):
-            self._show_split(split, split_index)
-        self.add_button.grid(row=len(self._splits)+2, column=0)
+        if self.mode == 'advanced':
+            for split_index, split in enumerate(self._splits):
+                self._show_split(split_index, split)
+        else:
+            splits[0]['account_combo'].grid(row=1, column=0)
+            splits[0]['deposit_entry'].grid(row=1, column=1)
+            splits[0]['withdrawal_entry'].grid(row=1, column=2)
+            splits[1]['payee_combo'].grid(row=1, column=3)
+            splits[1]['account_combo'].grid(row=1, column=4)
 
     def _add_row(self):
-        self._splits.append({})
-        self._show_split(self._splits[-1], len(self._splits)-1)
+        split = {}
+        split_index = len(self._splits)
+        self._splits.append(split)
+        self._create_widgets_for_split(split_index, split)
+        self._show_split(split_index, split)
         self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def _account_selected(self, event, split_index):
         split = self._splits[split_index]
         account_index = split['account_combo'].current()
         if account_index > 0 and self._accounts[account_index-1].type == AccountType.SECURITY:
+            if self.mode != 'advanced':
+                self._switch_mode()
             row_index = split['row_index']
             if not self.action_label:
                 self.action_label = ttk.Label(master=self.frame, text='Action')
