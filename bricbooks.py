@@ -2772,8 +2772,10 @@ class SplitsForm:
         self._master = master
         if splits:
             self._splits = copy.deepcopy(splits)
+            self.mode = 'advanced'
         else:
             self._splits = [{'account': default_account}, {}]
+            self.mode = 'simple'
         self._accounts = accounts
         self._payees = payees
         self.action_label = None
@@ -2796,14 +2798,33 @@ class SplitsForm:
         ttk.Label(master=self.frame, text='Withdrawal').grid(row=0, column=2)
         ttk.Label(master=self.frame, text='Payer/Payee').grid(row=0, column=3)
         ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
-        ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
-        ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
+
         self.add_button = ttk.Button(master=self.frame, text='New Split', command=self._add_row)
+
+        if self.mode == 'advanced':
+            ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
+            ttk.Label(master=self.frame, text='Description').grid(row=0, column=6)
+            self.add_button.grid(row=len(self._splits)+2, column=0)
+        else:
+            self.switch_mode_button = ttk.Button(master=self.frame, text='Advanced', command=self._switch_mode)
+            self.switch_mode_button.grid(row=3, column=0)
 
         self._show_splits(self._splits)
 
         self.frame.grid()
         return self.frame
+
+    def _switch_mode(self):
+        # only switch to advanced mode, for now (no switching back to simple)
+        if self.mode == 'advanced':
+            return
+        self.mode = 'advanced'
+        self.switch_mode_button.destroy()
+        for split_index, split in enumerate(self._splits):
+            row_index = split_index + 1
+            split['type_entry'].grid(row=row_index, column=5)
+            split['description_entry'].grid(row=row_index, column=6)
+        self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def deposit_entered(self, event, split_index=None):
         if len(self._splits) == 2:
@@ -2880,21 +2901,21 @@ class SplitsForm:
         split['withdrawal_entry'].grid(row=row_index, column=2)
         split['payee_combo'].grid(row=row_index, column=3)
         split['status_combo'].grid(row=row_index, column=4)
-        split['type_entry'].grid(row=row_index, column=5)
-        split['description_entry'].grid(row=row_index, column=6)
-        if selected_account and selected_account.type == AccountType.SECURITY:
-            self.action_label = ttk.Label(master=self.frame, text='Action')
-            self.action_label.grid(row=0, column=7)
-            self.shares_label = ttk.Label(master=self.frame, text='Shares')
-            self.shares_label.grid(row=0, column=8)
-            split['action_combo'].grid(row=row_index, column=7)
-            split['shares_entry'].grid(row=row_index, column=8)
+        if self.mode == 'advanced':
+            split['type_entry'].grid(row=row_index, column=5)
+            split['description_entry'].grid(row=row_index, column=6)
+            if selected_account and selected_account.type == AccountType.SECURITY:
+                self.action_label = ttk.Label(master=self.frame, text='Action')
+                self.action_label.grid(row=0, column=7)
+                self.shares_label = ttk.Label(master=self.frame, text='Shares')
+                self.shares_label.grid(row=0, column=8)
+                split['action_combo'].grid(row=row_index, column=7)
+                split['shares_entry'].grid(row=row_index, column=8)
         split['row_index'] = row_index
 
     def _show_splits(self, splits):
         for split_index, split in enumerate(self._splits):
             self._show_split(split, split_index)
-        self.add_button.grid(row=len(self._splits)+2, column=0)
 
     def _add_row(self):
         self._splits.append({})
