@@ -3240,7 +3240,11 @@ class LedgerDisplay:
         self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
 
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
-        self.bookmark_account_button = ttk.Button(master=self.frame, text='Bookmark Account', command=self._bookmark_account)
+        if self._account in self._bookmarked_accounts:
+            bookmark_text = 'Remove Bookmark'
+        else:
+            bookmark_text = 'Bookmark Account'
+        self.bookmark_button = ttk.Button(master=self.frame, text=bookmark_text, command=self._toggle_bookmark)
 
         self.filter_entry = ttk.Entry(master=self.frame)
         self.filter_account_combo = ttk.Combobox(master=self.frame)
@@ -3264,7 +3268,7 @@ class LedgerDisplay:
 
         self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
-        self.bookmark_account_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.bookmark_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.filter_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_account_combo.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
@@ -3291,8 +3295,13 @@ class LedgerDisplay:
         widget = self.add_transaction_form.get_widget()
         widget.grid()
 
-    def _bookmark_account(self):
-        self._engine.bookmark_account(self._account.id)
+    def _toggle_bookmark(self):
+        if self._account in self._bookmarked_accounts:
+            self._engine.remove_account_bookmark(self._account.id)
+            self.bookmark_button.configure(text='Bookmark Account')
+        else:
+            self._engine.bookmark_account(self._account.id)
+            self.bookmark_button.configure(text='Remove Bookmark')
 
     def _item_selected(self, event):
         txn_id = self.txns_tree.identify_row(event.y)
