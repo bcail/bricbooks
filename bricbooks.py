@@ -1051,6 +1051,10 @@ class SQLiteStorage:
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'CHECK (key != "")) STRICT',
         'CREATE TRIGGER misc_updated UPDATE ON misc BEGIN UPDATE misc SET updated = CURRENT_TIMESTAMP WHERE key = old.key; END;',
+        'CREATE TABLE bookmarked_accounts ('
+            'account_id INTEGER UNIQUE NOT NULL,'
+            'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            'FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE) STRICT',
     ] + [
         f'INSERT INTO commodity_types(type) VALUES("{commodity_type.value}")' for commodity_type in CommodityType
     ] + [
@@ -1060,8 +1064,8 @@ class SQLiteStorage:
     ] + [
         f'INSERT INTO transaction_actions(action) VALUES("{action.value}")' for action in TransactionAction
     ] + [
-        'INSERT INTO misc(key, value) VALUES("%s", %s)' % ('schema_version', SCHEMA_VERSION),
-        'INSERT INTO commodities(type, code, name) VALUES("%s", "%s", "%s")' %
+        "INSERT INTO misc(key, value) VALUES('%s', %s)" % ('schema_version', SCHEMA_VERSION),
+        "INSERT INTO commodities(type, code, name) VALUES('%s', '%s', '%s')" %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
     ]
 
@@ -1227,6 +1231,16 @@ class SQLiteStorage:
                 cur.execute(f'INSERT INTO accounts({field_names_s}) VALUES({field_names_q})', field_values)
                 account.id = cur.lastrowid
 
+    def bookmark_account(self, account_id):
+        cur = self._db_connection.cursor()
+        with sqlite_txn(cur):
+            cur.execute('INSERT INTO bookmarked_accounts(account_id) VALUES(?) ON CONFLICT(account_id) DO NOTHING', (account_id,))
+
+    def remove_account_bookmark(self, account_id):
+        cur = self._db_connection.cursor()
+        with sqlite_txn(cur):
+            cur.execute('DELETE FROM bookmarked_accounts WHERE account_id = ?', (account_id,))
+
     def get_payee(self, id_=None, name=None):
         '''return None if object can't be found for whatever reason'''
         if id_:
@@ -1294,6 +1308,14 @@ class SQLiteStorage:
             for type_ in [AccountType.ASSET, AccountType.SECURITY, AccountType.LIABILITY, AccountType.INCOME, AccountType.EXPENSE, AccountType.EQUITY]:
                 accounts.extend(self._get_accounts_by_type(type_))
             return accounts
+
+    def get_bookmarked_accounts(self):
+        query = 'SELECT account_id FROM bookmarked_accounts ORDER BY created'
+        db_records = self._db_connection.execute(query).fetchall()
+        accounts = []
+        for r in db_records:
+            accounts.append(self.get_account(r[0]))
+        return accounts
 
     def delete_account(self, account_id, set_children_parent_id_to_null=False):
         cur = self._db_connection.cursor()
@@ -1665,6 +1687,15 @@ class Engine:
             return accounts
         else:
             return self._storage.get_accounts()
+
+    def get_bookmarked_accounts(self):
+        return self._storage.get_bookmarked_accounts()
+
+    def bookmark_account(self, account_id):
+        return self._storage.bookmark_account(account_id)
+
+    def remove_account_bookmark(self, account_id):
+        return self._storage.remove_account_bookmark(account_id)
 
     def save_account(self, account=None, id_=None, name=None, type_=None, commodity_id=None, number=None, parent_id=None):
         if not account:
@@ -3095,13 +3126,15 @@ class TransactionForm:
 
 class LedgerDisplay:
 
-    def __init__(self, master, accounts, current_account, engine):
-        if not current_account:
-            raise Exception('must pass current_account into LedgerDisplay')
+    def __init__(self, master, accounts, engine):
         self._master = master
         self._accounts = accounts
-        self._account = current_account
+        self._bookmarked_accounts = engine.get_bookmarked_accounts()
         self._engine = engine
+        if self._bookmarked_accounts:
+            self._account = self._bookmarked_accounts[0]
+        else:
+            self._account = self._accounts[0]
         self.txns_widget = None
         self.filter_account_items = []
         self.cleared_var = tk.StringVar()
@@ -3186,30 +3219,30 @@ class LedgerDisplay:
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(2, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
         self.account_select_combo = ttk.Combobox(master=self.frame, height=20)
         selected = -1
         account_values = []
-        for index, account in enumerate(self._accounts):
-            if account.child_level:
+        for index, account in enumerate(self._bookmarked_accounts + self._accounts):
+            if index < len(self._bookmarked_accounts):
+                name = '* ' + str(account)
+            elif account.child_level:
                 name = ' - ' * account.child_level + str(account)
             else:
                 name = str(account)
             account_values.append(name)
-            if account == self._account:
+            if account == self._account and selected == -1:
                 selected = index
         self.account_select_combo['values'] = account_values
         self.account_select_combo.current(selected)
         self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
-        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
 
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
-        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.bookmark_account_button = ttk.Button(master=self.frame, text='Bookmark Account', command=self._bookmark_account)
 
         self.filter_entry = ttk.Entry(master=self.frame)
-        self.filter_entry.grid(row=0, column=2, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_account_combo = ttk.Combobox(master=self.frame)
         filter_account_values = ['All Transfer Accounts']
         self.filter_account_items.append(None)
@@ -3220,18 +3253,24 @@ class LedgerDisplay:
                 self.filter_account_items.append(a)
         self.filter_account_combo['values'] = filter_account_values
         self.filter_account_combo.current(0)
-        self.filter_account_combo.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_button = ttk.Button(master=self.frame, text='Filter', command=self._filter_transactions)
-        self.filter_button.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
-        self.show_all_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
 
         balances_frame = ttk.Frame(master=self.frame)
         balances_frame.columnconfigure(0, weight=1)
         balances_frame.columnconfigure(1, weight=1)
         ttk.Label(master=balances_frame, textvariable=self.cleared_var).grid(row=0, column=0, sticky=(tk.W, tk.E))
         ttk.Label(master=balances_frame, textvariable=self.balance_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
-        balances_frame.grid(row=2, column=1, columnspan=6, sticky=(tk.W, tk.E))
+
+        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.bookmark_account_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.filter_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
+        self.filter_account_combo.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
+        self.filter_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
+        self.show_all_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E), padx=2)
+
+        balances_frame.grid(row=2, column=1, columnspan=7, sticky=(tk.W, tk.E))
 
         self._show_transactions()
 
@@ -3239,7 +3278,10 @@ class LedgerDisplay:
 
     def _update_account(self, event):
         current_account_index = self.account_select_combo.current()
-        self._account = self._accounts[current_account_index]
+        if current_account_index < len(self._bookmarked_accounts):
+            self._account = self._bookmarked_accounts[current_account_index]
+        else:
+            self._account = self._accounts[current_account_index-len(self._bookmarked_accounts)]
         self._show_transactions()
 
     def _open_new_transaction_form(self):
@@ -3248,6 +3290,9 @@ class LedgerDisplay:
         self.add_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
         widget = self.add_transaction_form.get_widget()
         widget.grid()
+
+    def _bookmark_account(self):
+        self._engine.bookmark_account(self._account.id)
 
     def _item_selected(self, event):
         txn_id = self.txns_tree.identify_row(event.y)
@@ -3800,15 +3845,13 @@ class GUI_TK:
     def _show_ledger(self, accounts=None):
         if not accounts:
             accounts = self._engine.get_accounts()
-        if accounts:
-            current_account = accounts[0]
-        else:
+        if not accounts:
             handle_error('Please create an account first.')
             return
         if self.main_frame:
             self.main_frame.destroy()
         self._update_action_buttons(display='ledger')
-        self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, current_account=current_account, engine=self._engine)
+        self.ledger_display = LedgerDisplay(master=self.content_frame, accounts=accounts, engine=self._engine)
         self.main_frame = self.ledger_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 

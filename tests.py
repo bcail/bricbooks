@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from fractions import Fraction
@@ -580,7 +581,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transaction_actions',), ('transactions',), ('transaction_splits',), ('misc',)]
+TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transaction_actions',), ('transactions',), ('transaction_splits',), ('misc',), ('bookmarked_accounts',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -2004,6 +2005,27 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(accounts[3].child_level, 2)
         self.assertEqual(accounts[4].name, 'Retirement 401k')
         self.assertEqual(accounts[5].name, 'Stock A')
+
+    def test_bookmarked_accounts(self):
+        create_test_accounts(self.engine)
+        accounts = self.engine.get_accounts()
+        acc = accounts[0]
+        self.engine.bookmark_account(acc.id)
+        bookmarked = self.engine.get_bookmarked_accounts()
+        self.assertEqual(bookmarked, [acc])
+
+        # check conflict
+        self.engine.bookmark_account(acc.id)
+        bookmarked = self.engine.get_bookmarked_accounts()
+        self.assertEqual(bookmarked, [acc])
+
+        # remove bookmarks
+        self.engine.remove_account_bookmark(acc.id)
+        bookmarked = self.engine.get_bookmarked_accounts()
+        self.assertEqual(bookmarked, [])
+
+        # check that removing bookmark already removed doesn't throw exception
+        self.engine.remove_account_bookmark(acc.id)
 
     def test_payees(self):
         self.engine.save_payee(bb.Payee('New Payee'))
