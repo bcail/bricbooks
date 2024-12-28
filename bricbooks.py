@@ -3049,10 +3049,11 @@ class SplitsForm:
 
 class TransactionForm:
 
-    def __init__(self, accounts, account, payees, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, txn_info=None, splits=None):
-        self._accounts = accounts
+    def __init__(self, engine, account, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, txn_info=None, splits=None):
+        self._engine = engine
+        self._accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
         self._account = account
-        self._payees = payees
+        self._payees = self._engine.get_payees()
         self._update_display = update_display
         self._save_transaction = save_transaction
         self._skip_transaction = skip_transaction
@@ -3250,7 +3251,7 @@ class LedgerDisplay:
         self.filter_account_combo = ttk.Combobox(master=self.frame)
         filter_account_values = ['All Transfer Accounts']
         self.filter_account_items.append(None)
-        accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
+        accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.LIABILITY, AccountType.ASSET, AccountType.EQUITY, AccountType.SECURITY])
         for a in accounts:
             if a != self._account:
                 filter_account_values.append(str(a))
@@ -3289,9 +3290,7 @@ class LedgerDisplay:
         self._show_transactions()
 
     def _open_new_transaction_form(self):
-        accounts = self._engine.get_accounts()
-        payees = self._engine.get_payees()
-        self.add_transaction_form = TransactionForm(accounts, account=self._account, payees=payees, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
+        self.add_transaction_form = TransactionForm(self._engine, account=self._account, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
         widget = self.add_transaction_form.get_widget()
         widget.grid()
 
@@ -3308,13 +3307,10 @@ class LedgerDisplay:
         if isinstance(txn_id, str) and txn_id.startswith('st'):
             st_id = int(txn_id.replace('st', ''))
             scheduled_transaction = self._engine.get_scheduled_transaction(id_=st_id)
-            accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY])
-            payees = self._engine.get_payees()
             save_txn = partial(self._enter_scheduled_transaction, scheduled_transaction=scheduled_transaction)
             skip_txn = partial(self._skip_scheduled_transaction, scheduled_transaction_id=scheduled_transaction.id)
             self.edit_scheduled_transaction_form = TransactionForm(
-                    accounts=accounts,
-                    payees=payees,
+                    engine=self._engine,
                     save_transaction=save_txn,
                     account=self._account,
                     update_display=self._show_transactions,
@@ -3327,9 +3323,7 @@ class LedgerDisplay:
         elif txn_id:
             txn_id = int(txn_id)
             transaction = self._engine.get_transaction(id_=txn_id)
-            accounts = self._engine.get_accounts()
-            payees = self._engine.get_payees()
-            self.edit_transaction_form = TransactionForm(accounts, account=self._account, payees=payees,
+            self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
                     save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
                     delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id,
                     txn_info={'date': transaction.txn_date, 'description': transaction.description},
@@ -3554,9 +3548,10 @@ class BudgetDisplay:
 class ScheduledTransactionForm:
     '''Used for editing Scheduled Transactions (ie. frequency, ...)'''
 
-    def __init__(self, accounts, payees, save_scheduled_transaction, delete_scheduled_transaction, scheduled_transaction=None):
-        self._accounts = accounts
-        self._payees = payees
+    def __init__(self, engine, save_scheduled_transaction, delete_scheduled_transaction, scheduled_transaction=None):
+        self._engine = engine
+        self._accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
+        self._payees = self._engine.get_payees()
         self._scheduled_transaction = scheduled_transaction
         self._save_scheduled_txn = save_scheduled_transaction
         self._delete_scheduled_txn = delete_scheduled_transaction
@@ -3705,9 +3700,7 @@ class ScheduledTransactionsDisplay:
         return self.frame
 
     def _open_new_form(self):
-        accounts = self._engine.get_accounts()
-        payees = self._engine.get_payees()
-        self.new_form = ScheduledTransactionForm(accounts, payees=payees,
+        self.new_form = ScheduledTransactionForm(self._engine,
                 save_scheduled_transaction=self._save_and_reload, delete_scheduled_transaction=None)
         widget = self.new_form.get_widget()
         widget.grid()
@@ -3718,9 +3711,7 @@ class ScheduledTransactionsDisplay:
             return
         scheduled_transaction_id = int(row_id)
         scheduled_transaction = self._engine.get_scheduled_transaction(id_=scheduled_transaction_id)
-        accounts = self._engine.get_accounts()
-        payees = self._engine.get_payees()
-        self.edit_form = ScheduledTransactionForm(accounts, payees=payees,
+        self.edit_form = ScheduledTransactionForm(self._engine,
                 save_scheduled_transaction=self._save_and_reload,
                 delete_scheduled_transaction=self._delete_and_reload,
                 scheduled_transaction=scheduled_transaction)
