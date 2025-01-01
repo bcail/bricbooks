@@ -345,6 +345,8 @@ class Payee:
     def __eq__(self, other_payee):
         if not other_payee:
             return False
+        if not isinstance(other_payee, Payee):
+            return False
         if self.id and other_payee.id:
             return self.id == other_payee.id
         else:
@@ -2619,6 +2621,65 @@ class CLI:
             sys.exit(1)
 
 
+class Combobox:
+    def __init__(self, master, choices, selected=None):
+        # choices is dict of display: value items
+        self._choices = choices
+        self._combo = ttk.Combobox(master=master, height=20)
+        self._combo['values'] = list(self._choices.keys())
+        self._set_selected(selected)
+        self.bind('<KeyRelease>', self.filter)
+
+    def _set_selected(self, selected):
+        if selected is not None:
+            for index, display in enumerate(list(self._choices.keys())):
+                if display == selected:
+                    self._combo.current(index)
+                    return
+            for index, value in enumerate(list(self._choices.values())):
+                if value == selected:
+                    self._combo.current(index)
+                    return
+
+    def get_widget(self):
+        return self._combo
+
+    def filter(self, e):
+        val = self._combo.get()
+        if val:
+            self._combo['values'] = [v for v in self._choices.keys() if val.lower() in v.lower()]
+        else:
+            self._combo['values'] = list(self._choices.keys())
+
+    def current_value(self):
+        current_selection = self._combo.get()
+        if current_selection in self._choices:
+            return self._choices[current_selection]
+        else:
+            return current_selection
+
+    def current_display(self):
+        return self._combo.get()
+
+    def set_current_index(self, index):
+        return self._combo.current(index)
+
+    def bind(self, event, function):
+        self._combo.bind(event, function)
+
+    def state(self, arg):
+        self._combo.state(arg)
+
+    def insert(self, position, text):
+        self._combo.insert(position, text)
+
+    def delete(self, start, end):
+        self._combo.delete(start, end)
+
+    def event_generate(self, event):
+        self._combo.event_generate(event)
+
+
 class ErrorForm:
 
     def __init__(self, msg):
@@ -2913,15 +2974,10 @@ class SplitsForm:
                 split['withdrawal_entry'].bind('<FocusOut>', partial(self.withdrawal_entered, split_index=split_index))
         split['deposit_amount'] = deposit_amount
         split['withdrawal_amount'] = withdrawal_amount
-        split['payee_combo'] = ttk.Combobox(master=self.frame, height=20)
-        payee_values = ['']
-        payee_index = 0
-        for index, payee in enumerate(self._payees):
-            payee_values.append(payee.name)
-            if split.get('payee') and split['payee'] == payee:
-                payee_index = index + 1 #because of first empty item
-        split['payee_combo']['values'] = payee_values
-        split['payee_combo'].current(payee_index)
+        payee_choices = {}
+        for p in self._payees:
+            payee_choices[p.name] = p
+        split['payee_combo'] = Combobox(master=self.frame, choices=payee_choices, selected=split.get('payee'))
         split['status_combo'] = ttk.Combobox(master=self.frame)
         status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
         split['status_combo']['values'] = status_values
@@ -2951,7 +3007,7 @@ class SplitsForm:
         split['account_combo'].grid(row=row_index, column=0)
         split['deposit_entry'].grid(row=row_index, column=1)
         split['withdrawal_entry'].grid(row=row_index, column=2)
-        split['payee_combo'].grid(row=row_index, column=3)
+        split['payee_combo'].get_widget().grid(row=row_index, column=3)
         split['status_combo'].grid(row=row_index, column=4)
         split['type_entry'].grid(row=row_index, column=5)
         split['description_entry'].grid(row=row_index, column=6)
@@ -2968,7 +3024,7 @@ class SplitsForm:
             splits[0]['account_combo'].grid(row=1, column=0)
             splits[0]['deposit_entry'].grid(row=1, column=1)
             splits[0]['withdrawal_entry'].grid(row=1, column=2)
-            splits[1]['payee_combo'].grid(row=1, column=3)
+            splits[1]['payee_combo'].get_widget().grid(row=1, column=3)
             splits[1]['account_combo'].grid(row=1, column=4)
 
     def _add_row(self):
@@ -3037,7 +3093,7 @@ class SplitsForm:
             s['type'] = split['type_entry'].get()
             if split['status_combo'].get() != '':
                 s['status'] = split['status_combo'].get()
-            s['payee'] = split['payee_combo'].get()
+            s['payee'] = split['payee_combo'].current_value()
             s['description'] = split['description_entry'].get()
             if 'action_combo' in split:
                 s['action'] = split['action_combo'].get()
