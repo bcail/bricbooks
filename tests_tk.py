@@ -184,7 +184,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.ledger_display.add_button.invoke()
         add_form = gui.ledger_display.add_transaction_form
         add_form.splits_form._splits[1]['payee_combo'].insert(0, 'tw')
-        add_form.splits_form._splits[1]['payee_combo'].filter(None)
+        add_form.splits_form._splits[1]['payee_combo'].filter()
         add_form.splits_form._splits[1]['payee_combo'].set_current_index(0)
         self.assertEqual(add_form.splits_form._splits[1]['payee_combo'].current_display(), 'Two')
         self.assertEqual(add_form.splits_form._splits[1]['payee_combo'].current_value().name, 'Two')
