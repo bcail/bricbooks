@@ -2628,7 +2628,7 @@ class Combobox:
         self._combo = ttk.Combobox(master=master, height=20)
         self._combo['values'] = list(self._choices.keys())
         self._set_selected(selected)
-        self.bind('<KeyRelease>', self.handle_key_release)
+        self._combo.bind('<KeyRelease>', self.handle_key_release)
         self.popdown = self._tk(tk.Toplevel, master)
 
     # https://stackoverflow.com/a/59913585
@@ -2653,16 +2653,17 @@ class Combobox:
         return self._combo
 
     def handle_key_release(self, e):
-        self.filter()
-
         if e.widget == self._combo:
-            state = self.popdown.state()
+            if e.keysym not in ['Up', 'Down']:
+                self.filter()
 
-            if state != 'withdrawn':
-                self.popdown.withdraw()
+                state = self.popdown.state()
 
-            self._combo.event_generate('<Button-1>')
-            self._combo.after(100, self._combo.focus_set)
+                if state != 'withdrawn':
+                    self.popdown.withdraw()
+
+                self._combo.event_generate('<Button-1>')
+                self._combo.after(100, self._combo.focus_set)
 
     def filter(self):
         val = self._combo.get()
@@ -2683,9 +2684,6 @@ class Combobox:
 
     def set_current_index(self, index):
         return self._combo.current(index)
-
-    def bind(self, event, function):
-        self._combo.bind(event, function)
 
     def state(self, arg):
         self._combo.state(arg)
