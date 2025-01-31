@@ -2628,14 +2628,19 @@ class Combobox:
         self._combo = ttk.Combobox(master=master, height=20)
         self._combo['values'] = list(self._choices.keys())
         self._set_selected(selected)
+        self._combo.bind('<KeyPress>', self.handle_key_press)
         self._combo.bind('<KeyRelease>', self.handle_key_release)
         self.popdown = self._tk(tk.Toplevel, master)
+        self.listbox = self._tk(tk.Listbox, self.popdown)
 
     # https://stackoverflow.com/a/59913585
     def _tk(self, cls, parent):
         obj = cls(parent)
         obj.destroy()
-        obj._w = self._combo.tk.call('ttk::combobox::PopdownWindow', self._combo)
+        if cls is tk.Toplevel:
+            obj._w = self._combo.tk.call('ttk::combobox::PopdownWindow', self._combo)
+        else:
+            obj._w = '{}.{}'.format(parent._w, 'f.l')
         return obj
 
     def _set_selected(self, selected):
@@ -2652,12 +2657,29 @@ class Combobox:
     def get_widget(self):
         return self._combo
 
+    def handle_key_press(self, e):
+        # Default Combobox event: 'Down' keypress event handler shows the dropdown
+        # We want to be able to move down the options in the ListBox, so we disable
+        #   the default handling.
+        if e.keysym == 'Down':
+            return 'break'
+
     def handle_key_release(self, e):
         if e.widget == self._combo:
-            if e.keysym not in ['Up', 'Down']:
-                self.filter()
+            state = self.popdown.state()
 
-                state = self.popdown.state()
+            if e.keysym in ['Up', 'Down']:
+                current_selection = self.listbox.curselection()
+
+                if current_selection:
+                    self.listbox.selection_clear(current_selection[0])
+                    if e.keysym == 'Up':
+                        new_cur = current_selection[0]-1
+                    else:
+                        new_cur = current_selection[0]+1
+                    self.listbox.selection_set(new_cur)
+            else:
+                self.filter()
 
                 if state != 'withdrawn':
                     self.popdown.withdraw()
