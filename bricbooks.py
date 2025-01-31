@@ -2678,7 +2678,7 @@ class Combobox:
                     else:
                         new_cur = current_selection[0]+1
                     self.listbox.selection_set(new_cur)
-            else:
+            elif e.keysym_num < 60000 or e.keysym_num == 65288: # 65288 is <BackSpace>
                 self.filter()
 
                 if state != 'withdrawn':
