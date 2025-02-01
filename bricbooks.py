@@ -2765,13 +2765,10 @@ class AccountForm:
         self.form = ttk.Frame(master=self.toplevel)
         for col, label in [(0, 'Type'), (1, 'Number'), (2, 'Name'), (3, 'Parent')]:
             ttk.Label(master=self.form, text=label).grid(row=0, column=col)
-        self.account_type_combo = ttk.Combobox(master=self.form)
-        selected = 0
-        for index, type_ in enumerate(AccountType):
-            if self._account and self._account.type == type_:
-                selected = index
-        self.account_type_combo['values'] = list(self._account_types.keys())
-        self.account_type_combo.current(selected)
+        selected = AccountType.ASSET
+        if self._account:
+            selected = self._account.type
+        self.account_type_combo = Combobox(master=self.form, choices=self._account_types, selected=selected)
         self.number_entry = ttk.Entry(master=self.form)
         self.name_entry = ttk.Entry(master=self.form)
         self.parent_combo = ttk.Combobox(master=self.form)
@@ -2786,7 +2783,7 @@ class AccountForm:
         if self._account:
             self.number_entry.insert(0, self._account.number or '')
             self.name_entry.insert(0, self._account.name)
-        self.account_type_combo.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S))
+        self.account_type_combo.get_widget().grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S))
         self.number_entry.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.S))
         self.name_entry.grid(row=1, column=2, sticky=(tk.N, tk.W, tk.S))
         self.parent_combo.grid(row=1, column=3, sticky=(tk.N, tk.W, tk.S))
@@ -2799,7 +2796,7 @@ class AccountForm:
         id_ = None
         if self._account:
             id_ = self._account.id
-        type_ = self._account_types[self.account_type_combo.get()]
+        type_ = self.account_type_combo.current_value()
         number = self.number_entry.get()
         name = self.name_entry.get()
         parent_index = self.parent_combo.current()
