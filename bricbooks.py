@@ -2722,9 +2722,6 @@ class Combobox:
     def delete(self, start, end):
         self._combo.delete(start, end)
 
-    def event_generate(self, event):
-        self._combo.event_generate(event)
-
 
 class ErrorForm:
 
