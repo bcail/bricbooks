@@ -2667,20 +2667,18 @@ class Combobox:
     def handle_key_release(self, e):
         if e.widget == self._combo:
             state = self.popdown.state()
+            current_selection = self.listbox.curselection()
 
-            if e.keysym in ['Up', 'Down']:
-                current_selection = self.listbox.curselection()
-
-                if current_selection:
+            if e.keysym == 'Up' and current_selection[0] > 0:
                     self.listbox.selection_clear(current_selection[0])
-                    if e.keysym == 'Up':
-                        new_cur = current_selection[0]-1
-                    else:
-                        new_cur = current_selection[0]+1
+                    new_cur = current_selection[0]-1
+                    self.listbox.selection_set(new_cur)
+            elif e.keysym == 'Down' and current_selection[0] < (len(self._combo['values'])-1):
+                    self.listbox.selection_clear(current_selection[0])
+                    new_cur = current_selection[0]+1
                     self.listbox.selection_set(new_cur)
             elif e.keysym == 'Return':
                 if state == 'normal':
-                    current_selection = self.listbox.curselection()
                     value = self.listbox.get(current_selection[0])
                     self._combo.set(value)
                     self.popdown.withdraw()
