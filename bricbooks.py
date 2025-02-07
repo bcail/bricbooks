@@ -314,6 +314,8 @@ class Account:
     def __eq__(self, other_account):
         if not other_account:
             return False
+        if not isinstance(other_account, Account):
+            return False
         if self.id and other_account.id:
             return self.id == other_account.id
         else:
@@ -2769,22 +2771,17 @@ class AccountForm:
         self.account_type_combo = Combobox(master=self.form, choices=self._account_types, selected=selected)
         self.number_entry = ttk.Entry(master=self.form)
         self.name_entry = ttk.Entry(master=self.form)
-        self.parent_combo = ttk.Combobox(master=self.form)
-        account_values = ['']
-        selected = 0
-        for index, account in enumerate(self._accounts):
-            account_values.append(str(account))
-            if self._account and self._account.parent == account:
-                selected = index + 1
-        self.parent_combo['values'] = account_values
-        self.parent_combo.current(selected)
+        parents = {}
+        for account in self._accounts:
+            parents[str(account)] = account
+        self.parent_combo = Combobox(master=self.form, choices=parents, selected=getattr(self._account, 'parent', None))
         if self._account:
             self.number_entry.insert(0, self._account.number or '')
             self.name_entry.insert(0, self._account.name)
         self.account_type_combo.get_widget().grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S))
         self.number_entry.grid(row=1, column=1, sticky=(tk.N, tk.W, tk.S))
         self.name_entry.grid(row=1, column=2, sticky=(tk.N, tk.W, tk.S))
-        self.parent_combo.grid(row=1, column=3, sticky=(tk.N, tk.W, tk.S))
+        self.parent_combo.get_widget().grid(row=1, column=3, sticky=(tk.N, tk.W, tk.S))
         self.save_button = ttk.Button(master=self.form, text='Save', command=self._handle_save)
         self.save_button.grid(row=1, column=4, sticky=(tk.N, tk.W, tk.S))
         self.form.grid()
@@ -2797,12 +2794,10 @@ class AccountForm:
         type_ = self.account_type_combo.current_value()
         number = self.number_entry.get()
         name = self.name_entry.get()
-        parent_index = self.parent_combo.current()
+        parent = self.parent_combo.current_value()
         parent_id=None
-        if parent_index != 0:
-            parent = self._accounts[parent_index-1]
-            if self._account != parent:
-                parent_id = parent.id
+        if parent:
+            parent_id = parent.id
         try:
             self._save_account(id_=id_, type_=type_, number=number, name=name, parent_id=parent_id)
         except Exception as e:

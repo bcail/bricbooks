@@ -89,12 +89,12 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.accounts_display.assets_tree.event_generate('<Button-1>', x=1, y=25)
         edit_account_form = gui.accounts_display.edit_account_form
         self.assertEqual(edit_account_form.name_entry.get(), CHECKING)
-        self.assertEqual(edit_account_form.parent_combo.get(), 'All Assets')
+        self.assertEqual(edit_account_form.parent_combo.current_display(), 'All Assets')
         #update some data and save
         new_name = f'{CHECKING} updated'
         edit_account_form.name_entry.delete(0, tkinter.END)
         edit_account_form.name_entry.insert(0, new_name)
-        edit_account_form.parent_combo.current(2)
+        edit_account_form.parent_combo.set_current_index(1)
         edit_account_form.save_button.invoke()
         #verify changes
         accounts = gui._engine.get_accounts()
