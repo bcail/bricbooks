@@ -2630,10 +2630,10 @@ class Combobox:
         self._combo = ttk.Combobox(master=master, height=20)
         self._combo['values'] = list(self._choices.keys())
         self._set_selected(selected)
-        self._combo.bind('<KeyPress>', self.handle_key_press)
-        self._combo.bind('<KeyRelease>', self.handle_key_release)
         self.popdown = self._tk(tk.Toplevel, master)
         self.listbox = self._tk(tk.Listbox, self.popdown)
+        self.bind('<KeyPress>', self.handle_key_press)
+        self.bind('<KeyRelease>', self.handle_key_release)
 
     # https://stackoverflow.com/a/59913585
     def _tk(self, cls, parent):
@@ -2721,6 +2721,12 @@ class Combobox:
 
     def delete(self, start, end):
         self._combo.delete(start, end)
+
+    def bind(self, *args, **kwargs):
+        self._combo.bind(*args, **kwargs)
+
+    def event_generate(self, *args, **kwargs):
+        self._combo.event_generate(*args, **kwargs)
 
 
 class ErrorForm:
@@ -2975,20 +2981,15 @@ class SplitsForm:
             self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
 
     def _create_widgets_for_split(self, split_index, split):
-        split['account_combo'] = ttk.Combobox(master=self.frame, height=20)
-        account_values = ['']
-        account_index = 0
         selected_account = split.get('account')
-        for index, account in enumerate(self._accounts):
+        account_choices = {}
+        for account in self._accounts:
             if account.child_level:
                 name = '- ' * account.child_level + str(account)
             else:
                 name = str(account)
-            account_values.append(name)
-            if account == selected_account:
-                account_index = index + 1 #because of first empty item
-        split['account_combo']['values'] = account_values
-        split['account_combo'].current(account_index)
+            account_choices[name] = account
+        split['account_combo'] = Combobox(master=self.frame, choices=account_choices, selected=selected_account)
         split['account_combo'].bind('<<ComboboxSelected>>', partial(self._account_selected, split_index=split_index))
         deposit_amount = tk.StringVar()
         withdrawal_amount = tk.StringVar()
@@ -3037,7 +3038,7 @@ class SplitsForm:
 
     def _show_split(self, split_index, split):
         row_index = split_index + 1
-        split['account_combo'].grid(row=row_index, column=0)
+        split['account_combo'].get_widget().grid(row=row_index, column=0)
         split['deposit_entry'].grid(row=row_index, column=1)
         split['withdrawal_entry'].grid(row=row_index, column=2)
         split['payee_combo'].get_widget().grid(row=row_index, column=3)
@@ -3054,11 +3055,11 @@ class SplitsForm:
             for split_index, split in enumerate(self._splits):
                 self._show_split(split_index, split)
         else:
-            splits[0]['account_combo'].grid(row=1, column=0)
+            splits[0]['account_combo'].get_widget().grid(row=1, column=0)
             splits[0]['deposit_entry'].grid(row=1, column=1)
             splits[0]['withdrawal_entry'].grid(row=1, column=2)
             splits[1]['payee_combo'].get_widget().grid(row=1, column=3)
-            splits[1]['account_combo'].grid(row=1, column=4)
+            splits[1]['account_combo'].get_widget().grid(row=1, column=4)
 
     def _add_row(self):
         split = {}
@@ -3070,8 +3071,8 @@ class SplitsForm:
 
     def _account_selected(self, event, split_index):
         split = self._splits[split_index]
-        account_index = split['account_combo'].current()
-        if account_index > 0 and self._accounts[account_index-1].type == AccountType.SECURITY:
+        account = split['account_combo'].current_value()
+        if account and account.type == AccountType.SECURITY:
             if self.mode != 'advanced':
                 self._switch_mode()
             row_index = split['row_index']
@@ -3098,7 +3099,7 @@ class SplitsForm:
             if 'shares_entry' in split:
                 split['shares_entry'].destroy()
                 split.pop('shares_entry')
-        if account_index > 0 and self._accounts[account_index-1].type in [AccountType.INCOME, AccountType.EXPENSE]:
+        if account and account.type in [AccountType.INCOME, AccountType.EXPENSE]:
             split['payee_combo'].state(['!disabled'])
         else:
             split['payee_combo'].state(['disabled'])
@@ -3107,11 +3108,11 @@ class SplitsForm:
         splits = []
         for split in self._splits:
             s = {}
-            account = split['account_combo'].current()
+            account = split['account_combo'].current_value()
             deposit = split['deposit_amount'].get()
             withdrawal = split['withdrawal_amount'].get()
-            if account > 0:
-                s['account'] = self._accounts[account-1]
+            if account:
+                s['account'] = account
                 if deposit and withdrawal:
                     raise Exception('can\'t have both deposit and withdrawal set')
                 if deposit:
