@@ -3012,10 +3012,10 @@ class SplitsForm:
         for p in self._payees:
             payee_choices[p.name] = p
         split['payee_combo'] = Combobox(master=self.frame, choices=payee_choices, selected=split.get('payee'))
-        split['status_combo'] = ttk.Combobox(master=self.frame)
-        status_values = ['', Transaction.CLEARED, Transaction.RECONCILED]
-        split['status_combo']['values'] = status_values
-        split['status_combo'].set(split.get('status', ''))
+        status_choices = {}
+        for c in ['', Transaction.CLEARED, Transaction.RECONCILED]:
+            status_choices[c] = c
+        split['status_combo'] = Combobox(master=self.frame, choices=status_choices, selected=split.get('status', ''))
         split['type_entry'] = ttk.Entry(master=self.frame)
         split['type_entry'].insert(0, split.get('type', ''))
         split['description_entry'] = ttk.Entry(master=self.frame)
@@ -3042,7 +3042,7 @@ class SplitsForm:
         split['deposit_entry'].grid(row=row_index, column=1)
         split['withdrawal_entry'].grid(row=row_index, column=2)
         split['payee_combo'].get_widget().grid(row=row_index, column=3)
-        split['status_combo'].grid(row=row_index, column=4)
+        split['status_combo'].get_widget().grid(row=row_index, column=4)
         split['type_entry'].grid(row=row_index, column=5)
         split['description_entry'].grid(row=row_index, column=6)
         if 'account' in split and split['account'].type == AccountType.SECURITY:
@@ -3125,8 +3125,8 @@ class SplitsForm:
                 else:
                     continue
             s['type'] = split['type_entry'].get()
-            if split['status_combo'].get() != '':
-                s['status'] = split['status_combo'].get()
+            if split['status_combo'].current_value() != '':
+                s['status'] = split['status_combo'].current_value()
             s['payee'] = split['payee_combo'].current_value()
             s['description'] = split['description_entry'].get()
             if 'action_combo' in split:
