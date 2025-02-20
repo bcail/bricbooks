@@ -127,6 +127,18 @@ class TransactionAction(Enum):
     ADD = 'share-add'
     REMOVE = 'share-remove'
 
+    @staticmethod
+    def get_combobox_choices():
+        return {
+            '': '',
+            'Buy Shares': 'share-buy',
+            'Sell Shares': 'share-sell',
+            'Split Shares': 'share-split',
+            'Reinvest': 'share-reinvest',
+            'Add Shares': 'share-add',
+            'Remove Shares': 'share-remove',
+        }
+
 
 class InvalidCommodityError(RuntimeError):
     pass
@@ -2980,6 +2992,9 @@ class SplitsForm:
         if len(self._splits) == 2:
             self._splits[(split_index+1)%2]['deposit_amount'].set(self._splits[split_index]['withdrawal_amount'].get())
 
+    def _get_action_combo(self, selected):
+        return Combobox(master=self.frame, choices=TransactionAction.get_combobox_choices(), selected=selected)
+
     def _create_widgets_for_split(self, split_index, split):
         selected_account = split.get('account')
         account_choices = {}
@@ -3023,10 +3038,7 @@ class SplitsForm:
 
         if selected_account:
             if selected_account.type == AccountType.SECURITY:
-                split['action_combo'] = ttk.Combobox(master=self.frame)
-                action_values = [a.value for a in TransactionAction]
-                split['action_combo']['values'] = action_values
-                split['action_combo'].set(split.get('action', ''))
+                split['action_combo'] = self._get_action_combo(selected=split.get('action', ''))
                 split['shares_entry'] = ttk.Entry(master=self.frame)
                 split['shares_entry'].insert(0, quantity_display(split.get('quantity', '')))
             if selected_account.type not in [AccountType.INCOME, AccountType.EXPENSE]:
@@ -3046,7 +3058,7 @@ class SplitsForm:
         split['type_entry'].grid(row=row_index, column=5)
         split['description_entry'].grid(row=row_index, column=6)
         if 'account' in split and split['account'].type == AccountType.SECURITY:
-            split['action_combo'].grid(row=row_index, column=7)
+            split['action_combo'].get_widget().grid(row=row_index, column=7)
             split['shares_entry'].grid(row=row_index, column=8)
         split['row_index'] = row_index
 
@@ -3081,11 +3093,9 @@ class SplitsForm:
                 self.action_label.grid(row=0, column=7)
                 self.shares_label = ttk.Label(master=self.frame, text='Shares')
                 self.shares_label.grid(row=0, column=8)
-            split['action_combo'] = ttk.Combobox(master=self.frame)
-            action_values = [a.value for a in TransactionAction]
-            split['action_combo']['values'] = action_values
+            split['action_combo'] = self._get_action_combo(selected='')
             split['shares_entry'] = ttk.Entry(master=self.frame)
-            split['action_combo'].grid(row=row_index, column=7)
+            split['action_combo'].get_widget().grid(row=row_index, column=7)
             split['shares_entry'].grid(row=row_index, column=8)
         else:
             if self.action_label:
@@ -3094,7 +3104,7 @@ class SplitsForm:
                 self.shares_label.destroy()
                 self.shares_label = None
             if 'action_combo' in split:
-                split['action_combo'].destroy()
+                split['action_combo'].get_widget().destroy()
                 split.pop('action_combo')
             if 'shares_entry' in split:
                 split['shares_entry'].destroy()
@@ -3130,7 +3140,7 @@ class SplitsForm:
             s['payee'] = split['payee_combo'].current_value()
             s['description'] = split['description_entry'].get()
             if 'action_combo' in split:
-                s['action'] = split['action_combo'].get()
+                s['action'] = split['action_combo'].current_value()
             if 'shares_entry' in split:
                 s['quantity'] = split['shares_entry'].get()
             splits.append(s)

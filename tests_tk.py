@@ -223,7 +223,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         add_form.splits_form._splits[1]['account_combo'].set_current_index(2)
         add_form.splits_form._splits[1]['account_combo'].event_generate('<<ComboboxSelected>>')
         add_form.splits_form._splits[1]['deposit_entry'].insert(0, '20.05')
-        add_form.splits_form._splits[1]['action_combo'].current(1)
+        add_form.splits_form._splits[1]['action_combo'].set_current_index(1)
         add_form.splits_form._splits[1]['shares_entry'].insert(0, '4.5')
 
         # verify that stock elements are removed if the account is changed to a different type
@@ -234,7 +234,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
 
         add_form.splits_form._splits[1]['account_combo'].set_current_index(2)
         add_form.splits_form._splits[1]['account_combo'].event_generate('<<ComboboxSelected>>')
-        add_form.splits_form._splits[1]['action_combo'].current(1)
+        add_form.splits_form._splits[1]['action_combo'].set_current_index(1)
         add_form.splits_form._splits[1]['shares_entry'].insert(0, '4.5')
         add_form.save_button.invoke()
 
@@ -328,7 +328,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[0]['withdrawal_entry'].get(), '50.00')
         self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['shares_entry'].get(), '4.5')
         self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['deposit_entry'].get(), '50.00')
-        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['action_combo'].get(), 'share-buy')
+        self.assertEqual(gui.ledger_display.edit_transaction_form.splits_form._splits[1]['action_combo'].current_value(), 'share-buy')
 
         #update values & save
         gui.ledger_display.edit_transaction_form.splits_form._splits[1]['shares_entry'].delete(0, tkinter.END)
