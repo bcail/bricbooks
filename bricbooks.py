@@ -3323,9 +3323,7 @@ class LedgerDisplay:
         self.frame.columnconfigure(2, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
-        self.account_select_combo = ttk.Combobox(master=self.frame, height=20)
-        selected = -1
-        account_values = []
+        account_choices = {}
         for index, account in enumerate(self._bookmarked_accounts + self._accounts):
             if index < len(self._bookmarked_accounts):
                 name = '* ' + str(account)
@@ -3333,11 +3331,8 @@ class LedgerDisplay:
                 name = ' - ' * account.child_level + str(account)
             else:
                 name = str(account)
-            account_values.append(name)
-            if account == self._account and selected == -1:
-                selected = index
-        self.account_select_combo['values'] = account_values
-        self.account_select_combo.current(selected)
+            account_choices[name] = account
+        self.account_select_combo = Combobox(master=self.frame, choices=account_choices, selected=self._account)
         self.account_select_combo.bind('<<ComboboxSelected>>', self._update_account)
 
         self.add_button = ttk.Button(master=self.frame, text='New Transaction', command=self._open_new_transaction_form)
@@ -3367,7 +3362,7 @@ class LedgerDisplay:
         ttk.Label(master=balances_frame, textvariable=self.cleared_var).grid(row=0, column=0, sticky=(tk.W, tk.E))
         ttk.Label(master=balances_frame, textvariable=self.balance_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
 
-        self.account_select_combo.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
+        self.account_select_combo.get_widget().grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.bookmark_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.filter_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
@@ -3382,11 +3377,7 @@ class LedgerDisplay:
         return self.frame
 
     def _update_account(self, event):
-        current_account_index = self.account_select_combo.current()
-        if current_account_index < len(self._bookmarked_accounts):
-            self._account = self._bookmarked_accounts[current_account_index]
-        else:
-            self._account = self._accounts[current_account_index-len(self._bookmarked_accounts)]
+        self._account = self.account_select_combo.current_value()
         self._show_transactions()
 
     def _open_new_transaction_form(self):

@@ -131,9 +131,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
             )
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
-        gui.ledger_display.account_select_combo.current(1)
+        gui.ledger_display.account_select_combo.set_current_index(1)
         gui.ledger_display.account_select_combo.event_generate('<<ComboboxSelected>>')
-        self.assertEqual(gui.ledger_display.account_select_combo.get(), 'Fund')
+        self.assertEqual(gui.ledger_display.account_select_combo.current_display(), 'Fund')
         self.assertEqual(gui.ledger_display._account.name, 'Fund')
         self.assertEqual(gui.ledger_display.balance_var.get(), 'Current Balance: 2.34')
 
@@ -211,7 +211,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=fund)
         gui.ledger_button.invoke()
-        gui.ledger_display.account_select_combo.current(2)
+        gui.ledger_display.account_select_combo.set_current_index(2)
         gui.ledger_display.account_select_combo.event_generate('<<ComboboxSelected>>')
         gui.ledger_display.add_button.invoke()
         add_form = gui.ledger_display.add_transaction_form
@@ -320,7 +320,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
             )
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
-        gui.ledger_display.account_select_combo.current(1)
+        gui.ledger_display.account_select_combo.set_current_index(1)
         gui.ledger_display.account_select_combo.event_generate('<<ComboboxSelected>>')
         gui.ledger_display.txns_tree.event_generate('<Button-1>', x=1, y=10)
 
