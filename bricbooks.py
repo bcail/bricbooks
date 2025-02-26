@@ -729,6 +729,8 @@ class Budget:
     def __eq__(self, other_budget):
         if not other_budget:
             return False
+        if not isinstance(other_budget, Budget):
+            return False
         if self.id and other_budget.id:
             return self.id == other_budget.id
         else:
@@ -3547,19 +3549,13 @@ class BudgetDisplay:
         self.frame.columnconfigure(2, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
-        self.budget_select_combo = ttk.Combobox(master=self.frame)
-        current_index = 0
+        budget_choices = {}
         budgets = self._engine.get_budgets()
-        budget_values = []
-        for index, budget in enumerate(budgets):
-            if budget == self._current_budget:
-                current_index = index
-            budget_values.append(budget.display(show_id=False))
-        self.budget_select_combo['values'] = budget_values
-        if budgets:
-            self.budget_select_combo.current(current_index)
+        for budget in budgets:
+            budget_choices[budget.display(show_id=False)] = budget
+        self.budget_select_combo = Combobox(master=self.frame, choices=budget_choices, selected=self._current_budget)
         self.budget_select_combo.bind('<<ComboboxSelected>>', self._update_budget)
-        self.budget_select_combo.grid(row=0, column=0, sticky=(tk.W,))
+        self.budget_select_combo.get_widget().grid(row=0, column=0, sticky=(tk.W,))
 
         self.add_button = ttk.Button(master=self.frame, text='New Budget', command=partial(self._open_form, budget=None))
         self.add_button.grid(row=0, column=1, sticky=(tk.W,))
@@ -3613,9 +3609,7 @@ class BudgetDisplay:
         self.tree.grid(row=1, column=0, columnspan=3, sticky=(tk.N, tk.S, tk.W, tk.E))
 
     def _update_budget(self, event):
-        budget_index = self.budget_select_combo.current()
-        budgets = self._engine.get_budgets()
-        self._current_budget = budgets[budget_index]
+        self._current_budget = self.budget_select_combo.current_value()
         self._display_budget()
 
     def _open_form(self, budget):
