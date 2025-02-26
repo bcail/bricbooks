@@ -3654,24 +3654,21 @@ class ScheduledTransactionForm:
         self.name_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.name_entry.insert(0, self._scheduled_transaction.name)
-        self.frequency_combo = ttk.Combobox(master=self.content)
-        frequency_index = 0
-        self.frequency_values = []
-        self.frequencies = []
-        for index, frequency in enumerate(ScheduledTransactionFrequency):
-            self.frequency_values.append(frequency.name)
-            self.frequencies.append(frequency)
-            if self._scheduled_transaction and frequency == self._scheduled_transaction.frequency:
-                frequency_index = index
-        self.frequency_combo['values'] = self.frequency_values
+        frequency_choices = {}
+        selected_frequency = None
         if self._scheduled_transaction:
-            self.frequency_combo.current(frequency_index)
+            selected_frequency = self._scheduled_transaction.frequency
+        else:
+            selected_frequency = ScheduledTransactionFrequency.WEEKLY
+        for index, frequency in enumerate(ScheduledTransactionFrequency):
+            frequency_choices[frequency.name] = frequency
+        self.frequency_combo = Combobox(master=self.content, choices=frequency_choices, selected=selected_frequency)
         self.next_due_date_entry = ttk.Entry(master=self.content)
         if self._scheduled_transaction:
             self.next_due_date_entry.insert(0, str(self._scheduled_transaction.next_due_date or ''))
 
         self.name_entry.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
-        self.frequency_combo.grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
+        self.frequency_combo.get_widget().grid(row=1, column=1, sticky=(tk.N, tk.S, tk.W, tk.E))
         self.next_due_date_entry.grid(row=1, column=2, sticky=(tk.N, tk.S, tk.W, tk.E))
 
         self.save_button = ttk.Button(master=self.content, text='Save', command=self._save)
@@ -3702,7 +3699,7 @@ class ScheduledTransactionForm:
         try:
             st = ScheduledTransaction(
                     name=self.name_entry.get(),
-                    frequency=self.frequencies[self.frequency_combo.current()],
+                    frequency=self.frequency_combo.current_value(),
                     next_due_date=self.next_due_date_entry.get(),
                     splits=splits,
                     id_=id_,
