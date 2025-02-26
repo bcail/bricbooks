@@ -3237,7 +3237,6 @@ class LedgerDisplay:
         else:
             self._account = self._accounts[0]
         self.txns_widget = None
-        self.filter_account_items = []
         self.cleared_var = tk.StringVar()
         self.balance_var = tk.StringVar()
 
@@ -3343,16 +3342,15 @@ class LedgerDisplay:
         self.bookmark_button = ttk.Button(master=self.frame, text=bookmark_text, command=self._toggle_bookmark)
 
         self.filter_entry = ttk.Entry(master=self.frame)
-        self.filter_account_combo = ttk.Combobox(master=self.frame)
-        filter_account_values = ['All Transfer Accounts']
-        self.filter_account_items.append(None)
+        all_accounts_text = 'All Transfer Accounts'
+        filter_account_choices = {
+            all_accounts_text: None,
+        }
         accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.LIABILITY, AccountType.ASSET, AccountType.EQUITY, AccountType.SECURITY])
         for a in accounts:
             if a != self._account:
-                filter_account_values.append(str(a))
-                self.filter_account_items.append(a)
-        self.filter_account_combo['values'] = filter_account_values
-        self.filter_account_combo.current(0)
+                filter_account_choices[str(a)] = a
+        self.filter_account_combo = Combobox(master=self.frame, choices=filter_account_choices, selected=all_accounts_text)
         self.filter_button = ttk.Button(master=self.frame, text='Filter', command=self._filter_transactions)
         self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
 
@@ -3366,7 +3364,7 @@ class LedgerDisplay:
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.bookmark_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.filter_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
-        self.filter_account_combo.grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
+        self.filter_account_combo.get_widget().grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.show_all_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E), padx=2)
 
@@ -3437,8 +3435,7 @@ class LedgerDisplay:
         self._show_transactions()
 
     def _filter_transactions(self):
-        filter_account_index = self.filter_account_combo.current()
-        filter_account = self.filter_account_items[filter_account_index]
+        filter_account = self.filter_account_combo.current_value()
         filter_entry_value = self.filter_entry.get().strip()
         filter_parts = filter_entry_value.split()
         filter_text = ''
@@ -3453,7 +3450,7 @@ class LedgerDisplay:
 
     def _show_all_transactions(self):
         self.filter_entry.delete(0, tk.END)
-        self.filter_account_combo.current(0)
+        self.filter_account_combo.set_current_index(0)
         self._show_transactions()
 
 
