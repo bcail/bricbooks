@@ -3806,6 +3806,36 @@ class ScheduledTransactionsDisplay:
         self._show_scheduled_transactions()
 
 
+class ReportsDisplay:
+
+    def __init__(self, master, engine):
+        self._master = master
+        self._engine = engine
+
+    def get_widget(self):
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(1, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        self.income_expense_button = ttk.Button(master=self.frame, text='Income/Expense', command=self._show_income_expense)
+        self.income_expense_button.grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S))
+
+        return self.frame
+
+    def _show_income_expense(self):
+        report = self._engine.get_income_expense_report()
+        row = 1
+        ttk.Label(master=self.frame, text=report['heading']).grid(row=row, column=0)
+        row += 1
+        ttk.Label(master=self.frame, text='Total Income: ' + amount_display(report['income']['total'])).grid(row=row, column=0)
+        row += 1
+        # for account, data in report['income']['accounts'].items():
+        #     print(f'  {account} : {amount_display(data["total"])}')
+        ttk.Label(master=self.frame, text='Total Expense: ' + amount_display(report['expense']['total'])).grid(row=row, column=0)
+        # for account, data in report['expense']['accounts'].items():
+        #     print(f'  {account} : {amount_display(data["total"])}')
+
+
 class GUI_TK:
 
     def __init__(self, file_name):
@@ -3897,6 +3927,8 @@ class GUI_TK:
         self.budget_button.grid(row=0, column=2, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         self.scheduled_transactions_button = ttk.Button(master=frame, text='Scheduled Transactions', command=self._show_scheduled_transactions)
         self.scheduled_transactions_button.grid(row=0, column=3, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
+        self.reports_button = ttk.Button(master=frame, text='Reports', command=self._show_reports)
+        self.reports_button.grid(row=0, column=4, sticky=(tk.N, tk.W, tk.S), padx=2, pady=2)
         return frame
 
     def _update_action_buttons(self, display):
@@ -3904,12 +3936,15 @@ class GUI_TK:
         self.ledger_button['state'] = tk.NORMAL
         self.budget_button['state'] = tk.NORMAL
         self.scheduled_transactions_button['state'] = tk.NORMAL
+        self.reports_button['state'] = tk.NORMAL
         if display == 'accounts':
             self.accounts_button['state'] = tk.DISABLED
         elif display == 'budget':
             self.budget_button['state'] = tk.DISABLED
         elif display == 'scheduled_transactions':
             self.scheduled_transactions_button['state'] = tk.DISABLED
+        elif display == 'reports':
+            self.reports_button['state'] = tk.DISABLED
         else:
             self.ledger_button['state'] = tk.DISABLED
 
@@ -3948,6 +3983,14 @@ class GUI_TK:
         self._update_action_buttons(display='scheduled_transactions')
         self.scheduled_transactions_display = ScheduledTransactionsDisplay(master=self.content_frame, engine=self._engine)
         self.main_frame = self.scheduled_transactions_display.get_widget()
+        self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
+
+    def _show_reports(self):
+        if self.main_frame:
+            self.main_frame.destroy()
+        self._update_action_buttons(display='reports')
+        self.reports_display = ReportsDisplay(master=self.content_frame, engine=self._engine)
+        self.main_frame = self.reports_display.get_widget()
         self.main_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.S, tk.E))
 
 
