@@ -1888,6 +1888,7 @@ class Engine:
 
     def get_income_expense_report(self):
         report = {'heading': 'Income/Expense Report'}
+        years = set()
         income_accounts = self.get_accounts(types=[AccountType.INCOME])
         expense_accounts = self.get_accounts(types=[AccountType.EXPENSE])
         income = {'total': Fraction(0), 'accounts': {}}
@@ -1898,6 +1899,7 @@ class Engine:
                 income['accounts'][a] = {'total': Fraction(0)}
                 for t in txns:
                     year = t.txn_date.year
+                    years.add(year)
                     if year not in income['accounts'][a]:
                         income['accounts'][a][year] = Fraction(0)
                     split = [s for s in t.splits if s['account'] == a][0]
@@ -1910,6 +1912,7 @@ class Engine:
                 expense['accounts'][a] = {'total': Fraction(0)}
                 for t in txns:
                     year = t.txn_date.year
+                    years.add(year)
                     if year not in expense['accounts'][a]:
                         expense['accounts'][a][year] = Fraction(0)
                     split = [s for s in t.splits if s['account'] == a][0]
@@ -1918,6 +1921,7 @@ class Engine:
                     expense['accounts'][a][year] += split['amount']
         report['income'] = income
         report['expense'] = expense
+        report['years'] = sorted(years)
         return report
 
 

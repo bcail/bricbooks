@@ -2188,6 +2188,7 @@ class TestEngine(unittest.TestCase):
         wages = self.engine.get_account(name='Wages')
         interest = self.engine.get_account(name='Interest')
         housing = self.engine.get_account(name='Housing')
+        food = self.engine.get_account(name='Food')
         txns = [
             bb.Transaction(
                 splits=[{'account': checking, 'amount': 500}, {'account': wages, 'amount': -500} ], txn_date=date(2017, 1, 15)
@@ -2210,15 +2211,21 @@ class TestEngine(unittest.TestCase):
             bb.Transaction(
                 splits=[{'account': checking, 'amount': -125}, {'account': housing, 'amount': 125} ], txn_date=date(2019, 1, 15)
             ),
+            bb.Transaction(
+                splits=[{'account': checking, 'amount': -26}, {'account': food, 'amount': 26} ], txn_date=date(2019, 1, 22)
+            ),
         ]
         for txn in txns:
             self.engine.save_transaction(txn)
         report = self.engine.get_income_expense_report()
         self.assertEqual(report['heading'], 'Income/Expense Report')
+        self.assertEqual(report['years'], [2017, 2018, 2019])
         self.assertEqual(report['income']['total'], 1655)
         self.assertEqual(report['income']['accounts'][wages], {'total': 1650, 2017: 500, 2018: 550, 2019: 600})
         self.assertEqual(report['income']['accounts'][interest], {'total': 5, 2019: 5})
-        self.assertEqual(report['expense'], {'total': 500, 'accounts': {housing: {'total': 500, 2017: 225, 2018: 150, 2019: 125}}})
+        self.assertEqual(report['expense']['total'], 526)
+        self.assertEqual(report['expense']['accounts'][housing], {'total': 500, 2017: 225, 2018: 150, 2019: 125})
+        self.assertEqual(report['expense']['accounts'][food], {'total': 26, 2019: 26})
 
 
 class TestCLI(unittest.TestCase):
