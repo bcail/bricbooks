@@ -2581,13 +2581,30 @@ class CLI:
 
     def _display_reports(self):
         report = self._engine.get_income_expense_report()
-        print(report['heading'])
-        print('Total Income: ' + amount_display(report['income']['total']))
+        years = report['years'][-5:]
+        self.print(report['heading'])
+        self.print('                       ', end='')
+        for year in years:
+            self.print(f'   {year}     ', end='')
+        self.print('   Total   ')
         for account, data in report['income']['accounts'].items():
-            print(f'  {account} : {amount_display(data["total"])}')
-        print('Total Expense: ' + amount_display(report['expense']['total']))
+            self.print('  {0:<20} :'.format(str(account)), end='')
+            for year in years:
+                if year in data:
+                    self.print(' {0:<10} '.format(amount_display(data[year])), end='')
+                else:
+                    self.print('      ', end='')
+            self.print(f' {amount_display(data["total"])} ')
+        self.print('Total Income: ' + amount_display(report['income']['total']))
         for account, data in report['expense']['accounts'].items():
-            print(f'  {account} : {amount_display(data["total"])}')
+            self.print('  {0:<20} :'.format(str(account)), end='')
+            for year in years:
+                if year in data:
+                    self.print(' {0:<10} '.format(amount_display(data[year])), end='')
+                else:
+                    self.print('      ', end='')
+            self.print(f' {amount_display(data["total"])} ')
+        self.print('Total Expense: ' + amount_display(report['expense']['total']))
 
     def _print_help(self, info):
         help_msg = 'h - help'
