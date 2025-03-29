@@ -3827,6 +3827,51 @@ class ScheduledTransactionsDisplay:
         self._show_scheduled_transactions()
 
 
+class IncomeExpenseReport:
+
+    def __init__(self, master, report):
+        self._master = master
+        self._report = report
+
+    def get_widget(self):
+        report = self._report
+        self.frame = ttk.Frame(master=self._master)
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.rowconfigure(1, weight=1)
+
+        ttk.Label(master=self.frame, text=report['heading']).grid(row=0, column=0)
+
+        years = report['years'][-4:]
+
+        columns = ('account',) + tuple([str(y) for y in years]) + ('total',)
+
+        report_tree = ttk.Treeview(master=self.frame, columns=columns, show='headings')
+        report_tree.heading('account', text='Account')
+
+        for year in years:
+            report_tree.heading(str(year), text=str(year))
+
+        report_tree.heading('total', text='Total')
+
+        for account, data in report['income']['accounts'].items():
+            values = (str(account),) + tuple([amount_display(data.get(year, Fraction(0))) for year in years]) + (amount_display(data['total']),)
+            report_tree.insert('', tk.END, values=values)
+
+        values = ['Total Income'] + ['' for y in years] + [amount_display(report['income']['total'])]
+        report_tree.insert('', tk.END, values=values)
+
+        for account, data in report['expense']['accounts'].items():
+            values = (str(account),) + tuple([amount_display(data.get(year, Fraction(0))) for year in years]) + (amount_display(data['total']),)
+            report_tree.insert('', tk.END, values=values)
+
+        values = ['Total Expense'] + ['' for y in years] + [amount_display(report['income']['total'])]
+        report_tree.insert('', tk.END, values=values)
+
+        report_tree.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+        return self.frame
+
+
 class ReportsDisplay:
 
     def __init__(self, master, engine):
@@ -3835,7 +3880,7 @@ class ReportsDisplay:
 
     def get_widget(self):
         self.frame = ttk.Frame(master=self._master)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(0, weight=1)
         self.frame.rowconfigure(1, weight=1)
 
         self.income_expense_button = ttk.Button(master=self.frame, text='Income/Expense', command=self._show_income_expense)
@@ -3845,16 +3890,9 @@ class ReportsDisplay:
 
     def _show_income_expense(self):
         report = self._engine.get_income_expense_report()
-        row = 1
-        ttk.Label(master=self.frame, text=report['heading']).grid(row=row, column=0)
-        row += 1
-        ttk.Label(master=self.frame, text='Total Income: ' + amount_display(report['income']['total'])).grid(row=row, column=0)
-        row += 1
-        # for account, data in report['income']['accounts'].items():
-        #     print(f'  {account} : {amount_display(data["total"])}')
-        ttk.Label(master=self.frame, text='Total Expense: ' + amount_display(report['expense']['total'])).grid(row=row, column=0)
-        # for account, data in report['expense']['accounts'].items():
-        #     print(f'  {account} : {amount_display(data["total"])}')
+        report_display = IncomeExpenseReport(self.frame, report)
+        widget = report_display.get_widget()
+        widget.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
 
 
 class GUI_TK:
