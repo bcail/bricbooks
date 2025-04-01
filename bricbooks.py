@@ -1888,7 +1888,7 @@ class Engine:
 
     def get_income_expense_report(self):
         report = {'heading': 'Income/Expense Report'}
-        years = set()
+        year_totals = {}
         income_accounts = self.get_accounts(types=[AccountType.INCOME])
         expense_accounts = self.get_accounts(types=[AccountType.EXPENSE])
         income = {'total': Fraction(0), 'accounts': {}}
@@ -1899,29 +1899,34 @@ class Engine:
                 income['accounts'][a] = {'total': Fraction(0)}
                 for t in txns:
                     year = t.txn_date.year
-                    years.add(year)
+                    if year not in year_totals:
+                        year_totals[year] = {'income': 0, 'expense': 0}
                     if year not in income['accounts'][a]:
                         income['accounts'][a][year] = Fraction(0)
                     split = [s for s in t.splits if s['account'] == a][0]
-                    income['total'] += split['amount'] * -1 # incomes are listed as negative amounts
-                    income['accounts'][a]['total'] += split['amount'] * -1
-                    income['accounts'][a][year] += split['amount'] * -1
+                    amount = split['amount'] * -1 # incomes are listed as negative amounts
+                    year_totals[year]['income'] += amount
+                    income['total'] += amount
+                    income['accounts'][a]['total'] += amount
+                    income['accounts'][a][year] += amount
         for a in expense_accounts:
             txns = self.get_transactions(account=a)
             if txns:
                 expense['accounts'][a] = {'total': Fraction(0)}
                 for t in txns:
                     year = t.txn_date.year
-                    years.add(year)
+                    if year not in year_totals:
+                        year_totals[year] = {'income': 0, 'expense': 0}
                     if year not in expense['accounts'][a]:
                         expense['accounts'][a][year] = Fraction(0)
                     split = [s for s in t.splits if s['account'] == a][0]
+                    year_totals[year]['expense'] += split['amount']
                     expense['total'] += split['amount']
                     expense['accounts'][a]['total'] += split['amount']
                     expense['accounts'][a][year] += split['amount']
         report['income'] = income
         report['expense'] = expense
-        report['years'] = sorted(years)
+        report['year_totals'] = year_totals
         return report
 
 

@@ -2219,7 +2219,11 @@ class TestEngine(unittest.TestCase):
             self.engine.save_transaction(txn)
         report = self.engine.get_income_expense_report()
         self.assertEqual(report['heading'], 'Income/Expense Report')
-        self.assertEqual(report['years'], [2017, 2018, 2019])
+        self.assertEqual(report['year_totals'], {
+            2017: {'income': 500, 'expense': 225},
+            2018: {'income': 550, 'expense': 150},
+            2019: {'income': 605, 'expense': 151},
+        })
         self.assertEqual(report['income']['total'], 1655)
         self.assertEqual(report['income']['accounts'][wages], {'total': 1650, 2017: 500, 2018: 550, 2019: 600})
         self.assertEqual(report['income']['accounts'][interest], {'total': 5, 2019: 5})
