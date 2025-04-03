@@ -3846,7 +3846,7 @@ class IncomeExpenseReport:
 
         ttk.Label(master=self.frame, text=report['heading']).grid(row=0, column=0)
 
-        years = report['years'][-4:]
+        years = list(report['year_totals'].keys())[-5:]
 
         columns = ('account',) + tuple([str(y) for y in years]) + ('total',)
 
@@ -3862,14 +3862,18 @@ class IncomeExpenseReport:
             values = (str(account),) + tuple([amount_display(data.get(year, Fraction(0))) for year in years]) + (amount_display(data['total']),)
             report_tree.insert('', tk.END, values=values)
 
-        values = ['Total Income'] + ['' for y in years] + [amount_display(report['income']['total'])]
+        values = ['Total Income']
+        values += [amount_display(report['year_totals'].get(y, {}).get('income', Fraction(0))) for y in years]
+        values += [amount_display(report['income']['total'])]
         report_tree.insert('', tk.END, values=values)
 
         for account, data in report['expense']['accounts'].items():
             values = (str(account),) + tuple([amount_display(data.get(year, Fraction(0))) for year in years]) + (amount_display(data['total']),)
             report_tree.insert('', tk.END, values=values)
 
-        values = ['Total Expense'] + ['' for y in years] + [amount_display(report['income']['total'])]
+        values = ['Total Expense']
+        values += [amount_display(report['year_totals'].get(y, {}).get('expense', Fraction(0))) for y in years]
+        values += [amount_display(report['income']['total'])]
         report_tree.insert('', tk.END, values=values)
 
         report_tree.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
