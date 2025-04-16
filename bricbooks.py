@@ -2732,7 +2732,7 @@ class Combobox:
                     self.popdown.withdraw()
 
                 self._combo.event_generate('<Button-1>')
-                self._combo.after(100, self._combo.focus_set)
+                self._combo.after(50, self._combo.focus_set)
 
     def filter(self):
         val = self._combo.get()
