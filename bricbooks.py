@@ -2724,6 +2724,7 @@ class Combobox:
                     value = self.listbox.get(current_selection[0])
                     self._combo.set(value)
                     self.popdown.withdraw()
+                    self._combo.event_generate('<<ComboboxSelected>>')
             elif e.keysym_num < 60000 or e.keysym_num == 65288: # 65288 is <BackSpace>
                 self.filter()
 
