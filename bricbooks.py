@@ -34,7 +34,7 @@ except ImportError:
     tk = None
 
 
-__version__ = '0.5.3.dev'
+__version__ = '0.6'
 TITLE = f'bricbooks {__version__}'
 SQLITE_VERSION = sqlite3.sqlite_version_info
 
@@ -882,7 +882,7 @@ def sqlite_txn(cursor):
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 0
+    SCHEMA_VERSION = 1
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
