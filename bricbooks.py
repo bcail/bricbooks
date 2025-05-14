@@ -34,7 +34,7 @@ except ImportError:
     tk = None
 
 
-__version__ = '0.6'
+__version__ = '0.6.1.dev'
 TITLE = f'bricbooks {__version__}'
 SQLITE_VERSION = sqlite3.sqlite_version_info
 
