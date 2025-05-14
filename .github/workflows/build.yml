@@ -20,7 +20,7 @@ jobs:
       - run: pip install pyinstaller==6.1.0
       - run: pyinstaller --onefile bricbooks.py
       - name: 'Upload Artifact'
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
             name: bricbooks.exe
             path: dist/bricbooks.exe
