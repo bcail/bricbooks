@@ -2733,12 +2733,13 @@ class Combobox:
                     self.popdown.withdraw()
 
                 self._combo.event_generate('<Button-1>')
-                self._combo.after(50, self._combo.focus_set)
+                self._combo.after(10, self._combo.focus_set)
 
     def filter(self):
         val = self._combo.get()
         if val:
-            self._combo['values'] = [v for v in self._choices.keys() if val.lower() in v.lower()]
+            val_lower = val.lower()
+            self._combo['values'] = [v for v in self._choices.keys() if val_lower in v.lower()]
         else:
             self._combo['values'] = list(self._choices.keys())
 
