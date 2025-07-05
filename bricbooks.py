@@ -2201,7 +2201,7 @@ def import_kmymoney(kmy_file, engine):
 
 def pager(items, num_txns_in_page, page=1):
     start = 0 + (page-1)*num_txns_in_page
-    end = start+num_txns_in_page
+    end = start + num_txns_in_page
     page_items = items[start:end]
     if end < len(items):
         more_items = True
@@ -3267,6 +3267,7 @@ class LedgerDisplay:
         self.txns_widget = None
         self.cleared_var = tk.StringVar()
         self.balance_var = tk.StringVar()
+        self.show_all_txns = False
 
     def _get_txns(self, status=None, filter_text='', filter_account=None):
         return self._engine.get_transactions(account=self._account, status=status, filter_account=filter_account, query=filter_text)
@@ -3326,7 +3327,12 @@ class LedgerDisplay:
             self.balance_var.set('')
             self.cleared_var.set('')
 
-        for txn in list(reversed(sorted_txns)):
+        reversed_txns = list(reversed(sorted_txns))
+        if self.show_all_txns:
+            txns = reversed_txns
+        else:
+            txns = reversed_txns[:100]
+        for txn in txns:
             tds = get_display_strings_for_ledger(account, txn)
             if self._account.type == AccountType.SECURITY:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
@@ -3380,13 +3386,15 @@ class LedgerDisplay:
                 filter_account_choices[str(a)] = a
         self.filter_account_combo = Combobox(master=self.frame, choices=filter_account_choices, selected=all_accounts_text)
         self.filter_button = ttk.Button(master=self.frame, text='Filter', command=self._filter_transactions)
-        self.show_all_button = ttk.Button(master=self.frame, text='Show all', command=self._show_all_transactions)
+        self.clear_filter_button = ttk.Button(master=self.frame, text='Clear Filter', command=self._clear_filter)
 
         balances_frame = ttk.Frame(master=self.frame)
         balances_frame.columnconfigure(0, weight=1)
         balances_frame.columnconfigure(1, weight=1)
         ttk.Label(master=balances_frame, textvariable=self.cleared_var).grid(row=0, column=0, sticky=(tk.W, tk.E))
         ttk.Label(master=balances_frame, textvariable=self.balance_var).grid(row=0, column=1, sticky=(tk.W, tk.E))
+        self.show_all_button = ttk.Button(master=balances_frame, text='Show All', command=self._show_all_txns)
+        self.show_all_button.grid(row=0, column=2)
 
         self.account_select_combo.get_widget().grid(row=0, column=0, sticky=(tk.N, tk.W, tk.S), padx=2)
         self.add_button.grid(row=0, column=1, sticky=(tk.N, tk.W, tk.S), padx=2)
@@ -3394,7 +3402,7 @@ class LedgerDisplay:
         self.filter_entry.grid(row=0, column=3, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_account_combo.get_widget().grid(row=0, column=4, sticky=(tk.N, tk.S, tk.E), padx=2)
         self.filter_button.grid(row=0, column=5, sticky=(tk.N, tk.S, tk.E), padx=2)
-        self.show_all_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E), padx=2)
+        self.clear_filter_button.grid(row=0, column=6, sticky=(tk.N, tk.S, tk.E), padx=2)
 
         balances_frame.grid(row=2, column=1, columnspan=7, sticky=(tk.W, tk.E))
 
@@ -3404,6 +3412,7 @@ class LedgerDisplay:
 
     def _update_account(self, event):
         self._account = self.account_select_combo.current_value()
+        self.show_all_txns = False
         self._show_transactions()
 
     def _open_new_transaction_form(self):
@@ -3476,9 +3485,13 @@ class LedgerDisplay:
         status = status or None
         self._show_transactions(status=status, filter_text=filter_text.strip(), filter_account=filter_account)
 
-    def _show_all_transactions(self):
+    def _clear_filter(self):
         self.filter_entry.delete(0, tk.END)
         self.filter_account_combo.set_current_index(0)
+        self._show_transactions()
+
+    def _show_all_txns(self):
+        self.show_all_txns = True
         self._show_transactions()
 
 
