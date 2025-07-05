@@ -1750,7 +1750,7 @@ class Engine:
     def get_transaction(self, id_):
         return self._storage.get_txn(id_)
 
-    def get_transactions(self, account, filter_account=None, query=None, status=None, sort='date', reverse=False):
+    def get_transactions(self, account, filter_account=None, query=None, status=None, sort='date'):
         results = self._storage.get_transactions(account_id=account.id)
         if filter_account:
             results = [t for t in results if filter_account in [s['account'] for s in t.splits]]
@@ -1771,10 +1771,7 @@ class Engine:
             if account.type == AccountType.SECURITY:
                 balance_field = 'quantity'
             sorted_results = Engine.add_balance_to_txns(sorted_results, account=account, balance_field=balance_field)
-        if reverse:
-            return list(reversed(sorted_results))
-        else:
-            return sorted_results
+        return sorted_results
 
     def get_current_balances_for_display(self, account, sorted_txns=None):
         if not sorted_txns:
