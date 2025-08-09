@@ -1,9 +1,6 @@
 bricbooks
 =========
 
-![Build Status](https://github.com/bcail/bricbooks/workflows/.github/workflows/ci.yml/badge.svg)
-
-
 ARCHITECTURE DECISIONS
 ----------------------
 - [sqlite3 file](https://sqlite.org/appfileformat.html) for data storage
@@ -28,6 +25,6 @@ LICENSES
 
 RESOURCES
 ---------
-- [KMyMoney](https://kmymoney.org/) - [Handbook](https://docs.kde.org/stable5/en/extragear-office/kmymoney/index.html)
+- [KMyMoney](https://kmymoney.org/) - [Handbook](https://kmymoney.org/documentation.html)
 - [GnuCash](https://www.gnucash.org/) - [Docs](https://www.gnucash.org/docs.phtml)
 
