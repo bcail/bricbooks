@@ -3797,6 +3797,7 @@ class ScheduledTransactionsDisplay:
             self.tree.insert('', tk.END, iid=scheduled_txn.id, values=values)
 
         self.tree.bind('<Button-1>', self._item_selected)
+        self.tree.bind('<Button-3>', self._item_selected)
 
         scrollbar = ttk.Scrollbar(self.scheduled_txns_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -3831,10 +3832,27 @@ class ScheduledTransactionsDisplay:
             return
         scheduled_transaction_id = int(row_id)
         scheduled_transaction = self._engine.get_scheduled_transaction(id_=scheduled_transaction_id)
-        self.edit_form = ScheduledTransactionForm(self._engine,
+
+        # If it's right-click, show form for entering/skipping next scheduled txn
+        if event.num == 3:
+            account = scheduled_transaction.splits[0]
+
+            self.edit_form = TransactionForm(
+                engine=self._engine,
+                save_transaction=self._engine.save_transaction,
+                account=account,
+                txn_info={'date': scheduled_transaction.next_due_date, 'description': scheduled_transaction.description},
+                splits=scheduled_transaction.splits,
+            )
+        # Normal click - allow editing the scheduled txn
+        else:
+            self.edit_form = ScheduledTransactionForm(
+                self._engine,
                 save_scheduled_transaction=self._save_and_reload,
                 delete_scheduled_transaction=self._delete_and_reload,
-                scheduled_transaction=scheduled_transaction)
+                scheduled_transaction=scheduled_transaction
+            )
+
         widget = self.edit_form.get_widget()
         widget.grid()
 
