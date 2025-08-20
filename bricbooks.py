@@ -3177,12 +3177,11 @@ class SplitsForm:
 
 class TransactionForm:
 
-    def __init__(self, engine, account, save_transaction, update_display, skip_transaction=None, delete_transaction=None, id_=None, txn_info=None, splits=None):
+    def __init__(self, engine, account, save_transaction, skip_transaction=None, delete_transaction=None, id_=None, txn_info=None, splits=None):
         self._engine = engine
         self._accounts = self._engine.get_accounts(types=[AccountType.EXPENSE, AccountType.INCOME, AccountType.ASSET, AccountType.LIABILITY, AccountType.EQUITY, AccountType.SECURITY])
         self._account = account
         self._payees = self._engine.get_payees()
-        self._update_display = update_display
         self._save_transaction = save_transaction
         self._skip_transaction = skip_transaction
         self._delete_transaction = delete_transaction
@@ -3241,8 +3240,8 @@ class TransactionForm:
         except Exception as e:
             handle_error(e)
             return
+
         self.top_level.destroy()
-        self._update_display()
 
     def _handle_delete(self):
         self.top_level.destroy()
@@ -3416,7 +3415,7 @@ class LedgerDisplay:
         self._show_transactions()
 
     def _open_new_transaction_form(self):
-        self.add_transaction_form = TransactionForm(self._engine, account=self._account, save_transaction=self._engine.save_transaction, update_display=self._show_transactions)
+        self.add_transaction_form = TransactionForm(self._engine, account=self._account, save_transaction=self._save)
         widget = self.add_transaction_form.get_widget()
         widget.grid()
 
@@ -3439,7 +3438,6 @@ class LedgerDisplay:
                     engine=self._engine,
                     save_transaction=save_txn,
                     account=self._account,
-                    update_display=self._show_transactions,
                     skip_transaction=skip_txn,
                     txn_info={'date': scheduled_transaction.next_due_date, 'description': scheduled_transaction.description},
                     splits=scheduled_transaction.splits,
@@ -3450,12 +3448,16 @@ class LedgerDisplay:
             txn_id = int(txn_id)
             transaction = self._engine.get_transaction(id_=txn_id)
             self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
-                    save_transaction=self._engine.save_transaction, update_display=self._show_transactions,
+                    save_transaction=self._save,
                     delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id,
                     txn_info={'date': transaction.txn_date, 'description': transaction.description},
                     splits=transaction.splits)
             widget = self.edit_transaction_form.get_widget()
             widget.grid()
+
+    def _save(self, transaction):
+        self._engine.save_transaction(transaction)
+        self._show_transactions()
 
     def _delete(self, transaction_id):
         self._engine.delete_transaction(transaction_id=transaction_id)
