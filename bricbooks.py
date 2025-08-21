@@ -3837,9 +3837,11 @@ class ScheduledTransactionsDisplay:
         if event.num == 3:
             account = scheduled_transaction.splits[0]
 
+            save_function = partial(self._enter_new_scheduled_txn, scheduled_txn=scheduled_transaction)
+
             self.edit_form = TransactionForm(
                 engine=self._engine,
-                save_transaction=self._engine.save_transaction,
+                save_transaction=save_function,
                 account=account,
                 txn_info={'date': scheduled_transaction.next_due_date, 'description': scheduled_transaction.description},
                 splits=scheduled_transaction.splits,
@@ -3862,6 +3864,12 @@ class ScheduledTransactionsDisplay:
 
     def _delete_and_reload(self, scheduled_txn_id):
         self._engine.delete_scheduled_transaction(scheduled_txn_id)
+        self._show_scheduled_transactions()
+
+    def _enter_new_scheduled_txn(self, transaction, scheduled_txn):
+        self._engine.save_transaction(transaction=transaction)
+        scheduled_txn.advance_to_next_due_date()
+        self._engine.save_scheduled_transaction(scheduled_txn)
         self._show_scheduled_transactions()
 
 
