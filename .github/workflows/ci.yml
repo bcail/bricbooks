@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        python-version: ['3.11', '3.14.0-rc.3']
+        python-version: ['3.11', '3.14.0']
     name: Python ${{ matrix.python-version }} Linux tests
     steps:
       - uses: actions/checkout@v4
