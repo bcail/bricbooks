@@ -4,6 +4,7 @@ Architecture:
     Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
     Storage - SQLiteStorage (or another storage class). Handles saving & retrieving business objects from storage.
         - normalize user strings to NFC
+        - store numbers as fractions - numerator integer field and denominator integer field
     Engine - has a storage object, and implements application logic.
     Outer Layer - UI (GUI, console). Has an engine object, and handles displaying data to the user and sending user actions to the engine.
     No objects should use private/hidden members of other objects.
