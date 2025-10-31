@@ -3718,13 +3718,16 @@ class ScheduledTransactionForm:
             self.delete_button = ttk.Button(master=self.content, text='Delete', command=self._delete)
             self.delete_button.grid(row=1, column=4)
 
+            self.enter_new_txn_button = ttk.Button(master=self.content, text='Enter New Txn', command=self._open_enter_new_form)
+            self.enter_new_txn_button.grid(row=1, column=5)
+
         if self._scheduled_transaction:
             splits = self._scheduled_transaction.splits
         else:
             splits = []
 
         self.splits_form = SplitsForm(master=self.content, splits=splits, accounts=self._accounts, payees=self._payees)
-        self.splits_form.get_widget().grid(row=2, column=0, columnspan=5)
+        self.splits_form.get_widget().grid(row=2, column=0, columnspan=6)
 
         self.content.grid(sticky=(tk.N, tk.S, tk.W, tk.E))
 
@@ -3759,6 +3762,28 @@ class ScheduledTransactionForm:
                 handle_error(e)
                 return
             self._form.destroy()
+
+    def _open_enter_new_form(self):
+        scheduled_transaction = self._scheduled_transaction
+        save_txn = partial(self._enter_new_transaction, scheduled_transaction=scheduled_transaction)
+        skip_txn = partial(self._skip_transaction, scheduled_transaction=scheduled_transaction)
+        self._new_txn_form = TransactionForm(
+            engine=self._engine,
+            save_transaction=save_txn,
+            account=scheduled_transaction.splits[0]['account'],
+            skip_transaction=skip_txn,
+            splits=scheduled_transaction.splits,
+        )
+        widget = self._new_txn_form.get_widget()
+        widget.grid()
+
+        self._form.destroy()
+
+    def _enter_new_transaction(self, scheduled_transaction, transaction):
+        self._engine.enter_scheduled_transaction(scheduled_transaction, transaction)
+
+    def _skip_transaction(self, scheduled_transaction):
+        self._engine.skip_scheduled_transaction(scheduled_transaction.id)
 
 
 class ScheduledTransactionsDisplay:
