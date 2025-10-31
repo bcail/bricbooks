@@ -1825,6 +1825,11 @@ class Engine:
     def save_scheduled_transaction(self, scheduled_txn):
         return self._storage.save_scheduled_transaction(scheduled_txn)
 
+    def enter_scheduled_transaction(self, scheduled_txn, txn):
+        self.save_transaction(transaction=txn)
+        scheduled_txn.advance_to_next_due_date()
+        self.save_scheduled_transaction(scheduled_txn)
+
     def skip_scheduled_transaction(self, id_):
         scheduled_txn = self.get_scheduled_transaction(id_)
         scheduled_txn.advance_to_next_due_date()
@@ -3465,9 +3470,7 @@ class LedgerDisplay:
         self._show_transactions()
 
     def _enter_scheduled_transaction(self, scheduled_transaction, transaction):
-        self._engine.save_transaction(transaction=transaction)
-        scheduled_transaction.advance_to_next_due_date()
-        self._engine.save_scheduled_transaction(scheduled_transaction)
+        self._engine.enter_scheduled_transaction(scheduled_transaction, transaction)
         self._show_transactions()
 
     def _skip_scheduled_transaction(self, scheduled_transaction_id):
