@@ -2400,7 +2400,7 @@ class CLI:
         txn_info['description'] = self.input(prompt='  description: ', prefill=description_prefill)
         return txn_info
 
-    def _get_and_save_txn(self, is_scheduled_txn=False, txn=None):
+    def _get_txn(self, is_scheduled_txn=False, txn=None):
         info = {}
         if txn:
             if isinstance(txn, ScheduledTransaction):
@@ -2412,16 +2412,18 @@ class CLI:
             date_prefill = ''
         info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
         info.update(self._get_common_txn_info(is_scheduled_txn=is_scheduled_txn, txn=txn))
-        self._engine.save_transaction(Transaction(**info))
+        return Transaction(**info)
 
     def _create_txn(self):
         self.print('Create Transaction:')
-        self._get_and_save_txn()
+        txn = self._get_txn()
+        self._engine.save_transaction(txn)
 
     def _edit_txn(self):
         txn_id = self.input(prompt='Txn ID: ')
         txn = self._engine.get_transaction(id_=txn_id)
-        self._get_and_save_txn(txn=txn)
+        updated_txn = self._get_txn(txn=txn)
+        self._engine.save_transaction(updated_txn)
 
     def _list_payees(self):
         for p in self._engine.get_payees():
@@ -2439,9 +2441,8 @@ class CLI:
             scheduled_txn_id = self.input('Scheduled txn ID (blank to quit): ')
             if scheduled_txn_id:
                 scheduled_txn = self._engine.get_scheduled_transaction(scheduled_txn_id)
-                self._get_and_save_txn(is_scheduled_txn=True, txn=scheduled_txn)
-                scheduled_txn.advance_to_next_due_date()
-                self._engine.save_scheduled_transaction(scheduled_txn)
+                txn = self._get_txn(is_scheduled_txn=True, txn=scheduled_txn)
+                self._engine.enter_scheduled_transaction(scheduled_txn, txn)
             else:
                 break
 
