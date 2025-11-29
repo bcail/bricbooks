@@ -536,9 +536,10 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui._engine.save_scheduled_transaction(scheduled_txn)
 
         gui.scheduled_transactions_button.invoke()
-        gui.scheduled_transactions_display.tree.event_generate('<Button-3>', x=1, y=10)
+        gui.scheduled_transactions_display.tree.event_generate('<Button-1>', x=1, y=10)
 
-        gui.scheduled_transactions_display.edit_form.save_button.invoke()
+        gui.scheduled_transactions_display.edit_form.enter_new_txn_button.invoke()
+        gui.scheduled_transactions_display.edit_form._new_txn_form.save_button.invoke()
 
         scheduled_txns = gui._engine.get_scheduled_transactions()
         self.assertEqual(len(scheduled_txns), 1)

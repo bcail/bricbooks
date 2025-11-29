@@ -3863,27 +3863,12 @@ class ScheduledTransactionsDisplay:
         scheduled_transaction_id = int(row_id)
         scheduled_transaction = self._engine.get_scheduled_transaction(id_=scheduled_transaction_id)
 
-        # If it's right-click, show form for entering/skipping next scheduled txn
-        if event.num == 3:
-            account = scheduled_transaction.splits[0]
-
-            save_function = partial(self._enter_new_scheduled_txn, scheduled_txn=scheduled_transaction)
-
-            self.edit_form = TransactionForm(
-                engine=self._engine,
-                save_transaction=save_function,
-                account=account,
-                txn_info={'date': scheduled_transaction.next_due_date, 'description': scheduled_transaction.description},
-                splits=scheduled_transaction.splits,
-            )
-        # Normal click - allow editing the scheduled txn
-        else:
-            self.edit_form = ScheduledTransactionForm(
-                self._engine,
-                save_scheduled_transaction=self._save_and_reload,
-                delete_scheduled_transaction=self._delete_and_reload,
-                scheduled_transaction=scheduled_transaction
-            )
+        self.edit_form = ScheduledTransactionForm(
+            self._engine,
+            save_scheduled_transaction=self._save_and_reload,
+            delete_scheduled_transaction=self._delete_and_reload,
+            scheduled_transaction=scheduled_transaction
+        )
 
         widget = self.edit_form.get_widget()
         widget.grid()
@@ -3894,12 +3879,6 @@ class ScheduledTransactionsDisplay:
 
     def _delete_and_reload(self, scheduled_txn_id):
         self._engine.delete_scheduled_transaction(scheduled_txn_id)
-        self._show_scheduled_transactions()
-
-    def _enter_new_scheduled_txn(self, transaction, scheduled_txn):
-        self._engine.save_transaction(transaction=transaction)
-        scheduled_txn.advance_to_next_due_date()
-        self._engine.save_scheduled_transaction(scheduled_txn)
         self._show_scheduled_transactions()
 
 
