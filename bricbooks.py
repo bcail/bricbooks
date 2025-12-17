@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 '''
 Architecture:
-    Business Objects - Account, Category, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
+    Business Objects - Account, Transaction, Ledger, ... classes. They know nothing about the storage or UI.
     Storage - SQLiteStorage (or another storage class). Handles saving & retrieving business objects from storage.
         - normalize user strings to NFC
         - store numbers as fractions - numerator integer field and denominator integer field
@@ -509,7 +509,7 @@ class Transaction:
             self.splits[account]['status'] = Transaction.CLEARED
 
 
-def _categories_display(splits, main_account):
+def _transfer_account_display(splits, main_account):
     if len(splits) == 2:
         for split in splits:
             account = split['account']
@@ -550,7 +550,7 @@ def get_display_strings_for_ledger(account, txn):
             'quantity': quantity,
             'description': description,
             'payee': payee,
-            'categories': _categories_display(splits=txn.splits, main_account=account),
+            'transfer_account': _transfer_account_display(splits=txn.splits, main_account=account),
             'action': split.get('action', '')
         }
     if isinstance(txn, ScheduledTransaction):
@@ -2318,7 +2318,7 @@ class CLI:
             for t in paged_txns:
                 tds = get_display_strings_for_ledger(account, t)
                 self.print(' {7:<4} | {0:<6} | {1:<30} | {2:<30} | {3:30} | {4:<10} | {5:<10} | {6:<10}'.format(
-                    tds['txn_date'], tds['description'], tds['payee'], tds['categories'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
+                    tds['txn_date'], tds['description'], tds['payee'], tds['transfer_account'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
                 )
             if more_txns:
                 prompt = '(o) older txns'
@@ -2996,8 +2996,8 @@ class SplitsForm:
                 self.shares_label.grid(row=0, column=8)
             self.add_button.grid(row=len(self._splits)+2, column=0)
         else:
-            self.category_label = ttk.Label(master=self.frame, text='Category/Account')
-            self.category_label.grid(row=0, column=4)
+            self.transfer_account_label = ttk.Label(master=self.frame, text='Transfer Account')
+            self.transfer_account_label.grid(row=0, column=4)
             self.switch_mode_button = ttk.Button(master=self.frame, text='Advanced', command=self._switch_mode)
             self.switch_mode_button.grid(row=3, column=0)
 
@@ -3011,7 +3011,7 @@ class SplitsForm:
         if self.mode == 'advanced':
             return
         self.mode = 'advanced'
-        self.category_label.destroy()
+        self.transfer_account_label.destroy()
         self.switch_mode_button.destroy()
         ttk.Label(master=self.frame, text='Status').grid(row=0, column=4)
         ttk.Label(master=self.frame, text='Type').grid(row=0, column=5)
@@ -3322,7 +3322,7 @@ class LedgerDisplay:
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
                 tds = get_display_strings_for_ledger(account, st)
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
-                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['transfer_account'])
                 iid = f'st{st.id}'
                 self.txns_tree.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
@@ -3342,10 +3342,10 @@ class LedgerDisplay:
             tds = get_display_strings_for_ledger(account, txn)
             if self._account.type == AccountType.SECURITY:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
-                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['transfer_account'])
             else:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'],
-                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['categories'])
+                          tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['transfer_account'])
             self.txns_tree.insert('', tk.END, iid=txn.id, values=values)
 
         scrollbar = ttk.Scrollbar(self.txns_widget, orient=tk.VERTICAL, command=self.txns_tree)

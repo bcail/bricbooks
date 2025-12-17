@@ -244,7 +244,7 @@ class TestTransaction(unittest.TestCase):
                     'status': 'C',
                     'action': '',
                     'type': '',
-                    'categories': 'Savings',
+                    'transfer_account': 'Savings',
                     'balance': '5.00',
                 }
             )
@@ -260,7 +260,7 @@ class TestTransaction(unittest.TestCase):
                     'status': '',
                     'action': '',
                     'type': '',
-                    'categories': CHECKING,
+                    'transfer_account': CHECKING,
                     'balance': '5.00',
                 }
             )
@@ -281,11 +281,11 @@ class TestTransaction(unittest.TestCase):
                     'status': '',
                     'action': '',
                     'type': '',
-                    'categories': 'Savings',
+                    'transfer_account': 'Savings',
                 }
             )
 
-    def test_txn_categories_display(self):
+    def test_txn_transfer_account_display(self):
         a = get_test_account(id_=1)
         a2 = get_test_account(id_=2, name='Savings')
         a3 = get_test_account(id_=3, name='Other')
@@ -297,7 +297,7 @@ class TestTransaction(unittest.TestCase):
                 ],
                 txn_date=date.today(),
             )
-        self.assertEqual(bb._categories_display(t.splits, main_account=a), 'multiple')
+        self.assertEqual(bb._transfer_account_display(t.splits, main_account=a), 'multiple')
         t = bb.Transaction(
                 splits=[
                     {'account': a, 'amount': -100},
@@ -305,7 +305,7 @@ class TestTransaction(unittest.TestCase):
                 ],
                 txn_date=date.today(),
             )
-        self.assertEqual(bb._categories_display(t.splits, main_account=a), 'Savings')
+        self.assertEqual(bb._transfer_account_display(t.splits, main_account=a), 'Savings')
 
 
 class TestScheduledTransaction(unittest.TestCase):
@@ -1539,7 +1539,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(records[0][0], 35)
         self.assertEqual(records[1][0], 45)
 
-    def test_save_budget_empty_category_info(self):
+    def test_save_budget_empty_account_budget_info(self):
         housing = get_test_account(type_=bb.AccountType.EXPENSE, name='Housing')
         self.storage.save_account(housing)
         food = get_test_account(type_=bb.AccountType.EXPENSE, name='Food')
