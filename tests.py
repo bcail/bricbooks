@@ -581,7 +581,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transaction_actions',), ('transactions',), ('transaction_splits',), ('misc',), ('bookmarked_accounts',)]
+TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transaction_actions',), ('transactions',), ('transaction_splits',), ('misc',), ('bookmarked_accounts',), ('preferences',)]
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -639,6 +639,31 @@ class TestSQLiteStorage(unittest.TestCase):
             tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
             init_storage._db_connection.close()
             storage._db_connection.close()
+            self.assertEqual(tables, TABLES)
+
+    def test_migrate_v1_to_v2(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+
+            conn = bb.SQLiteStorage.get_db_connection(file_name)
+
+            cur = conn.cursor()
+            with bb.sqlite_txn(cur):
+                for statement in bb.SQLiteStorage.DB_INIT_STATEMENTS:
+                    cur.execute(statement)
+
+            # Verify schema version is one
+            result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 1)
+
+            # Initialize SQLiteStorage
+            storage = bb.SQLiteStorage(file_name)
+
+            # Verify that it migrated to v2
+            result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 2)
+
+            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
             self.assertEqual(tables, TABLES)
 
     def test_commodity_sqlite_checks(self):

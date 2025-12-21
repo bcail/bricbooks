@@ -883,7 +883,7 @@ def sqlite_txn(cursor):
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
@@ -1083,30 +1083,62 @@ class SQLiteStorage:
     ] + [
         f'INSERT INTO transaction_actions(action) VALUES("{action.value}")' for action in TransactionAction
     ] + [
-        "INSERT INTO misc(key, value) VALUES('%s', %s)" % ('schema_version', SCHEMA_VERSION),
+        "INSERT INTO misc(key, value) VALUES('%s', %s)" % ('schema_version', 1),
         "INSERT INTO commodities(type, code, name) VALUES('%s', '%s', '%s')" %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
     ]
 
-    def __init__(self, conn_name):
-        if not conn_name:
-            raise SQLiteStorageError('must pass in conn_name')
+    MIGRATIONS = {
+        1: [
+            'CREATE TABLE preferences ('
+                'name TEXT NOT NULL PRIMARY KEY,'
+                'value ANY NOT NULL,'
+                'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' #UTC
+                'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+                'CHECK (name != "")) STRICT',
+            'CREATE TRIGGER preferences_updated UPDATE ON preferences BEGIN UPDATE preferences SET updated = CURRENT_TIMESTAMP WHERE name = old.name; END;',
+            "UPDATE misc SET value = 2 WHERE key = 'schema_version'",
+        ],
+    }
+
+    @staticmethod
+    def get_db_connection(conn_name):
         #conn_name is either ':memory:' or the name of the data file
-        self._db_connection = sqlite3.connect(conn_name, isolation_level=None)
-        self._db_connection.execute('PRAGMA foreign_keys = ON;')
-        result = self._db_connection.execute('PRAGMA foreign_keys').fetchall()
+        conn = sqlite3.connect(conn_name, isolation_level=None)
+        conn.execute('PRAGMA foreign_keys = ON;')
+        result = conn.execute('PRAGMA foreign_keys').fetchall()
         if result[0][0] != 1:
             msg = 'WARNING: can\'t enable sqlite3 foreign_keys'
             log(msg)
             print(msg)
+        return conn
+
+    def __init__(self, conn_name):
+        if not conn_name:
+            raise SQLiteStorageError('must pass in conn_name')
+        self._db_connection = SQLiteStorage.get_db_connection(conn_name)
         tables = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
         if not tables:
             self._setup_db()
         schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
         if schema_version != SQLiteStorage.SCHEMA_VERSION:
-            msg = f'ERROR: wrong schema version: {schema_version}'
-            log(msg)
-            raise SQLiteStorageError(msg)
+            if schema_version == 1:
+                log('Starting to migrate from version 1 to version 2')
+                try:
+                    cur = self._db_connection.cursor()
+                    with sqlite_txn(cur):
+                        for statement in self.MIGRATIONS[1]:
+                            cur.execute(statement)
+                except Exception as e:
+                    log(f'Error migrating to version 2 {e}')
+                    import tracback
+                    log(traceback.format_exc())
+                    raise SQLiteStorageError('Error migrating DB to version 2') from e
+                log('Migrated to version 2')
+            else:
+                msg = f'ERROR: wrong schema version: {schema_version}'
+                log(msg)
+                raise SQLiteStorageError(msg)
 
     def _setup_db(self):
         '''
@@ -1116,6 +1148,11 @@ class SQLiteStorage:
         with sqlite_txn(cur):
             for statement in self.DB_INIT_STATEMENTS:
                 cur.execute(statement)
+
+        for schema, migrations in self.MIGRATIONS.items():
+            with sqlite_txn(cur):
+                for statement in migrations:
+                    cur.execute(statement)
 
     def get_commodity(self, id_=None, code=None):
         if id_:
