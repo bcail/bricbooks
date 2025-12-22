@@ -1117,8 +1117,7 @@ class SQLiteStorage:
         if not conn_name:
             raise SQLiteStorageError('must pass in conn_name')
         self._db_connection = SQLiteStorage.get_db_connection(conn_name)
-        tables = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        if not tables:
+        if not self._tables():
             self._setup_db()
         schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
         if schema_version != SQLiteStorage.SCHEMA_VERSION:
@@ -1139,6 +1138,11 @@ class SQLiteStorage:
                 msg = f'ERROR: wrong schema version: {schema_version}'
                 log(msg)
                 raise SQLiteStorageError(msg)
+
+    def _tables(self):
+        results = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+
+        return [r[0] for r in results]
 
     def _setup_db(self):
         '''

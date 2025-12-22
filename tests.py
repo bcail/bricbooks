@@ -581,7 +581,7 @@ class TestBudget(unittest.TestCase):
             )
 
 
-TABLES = [('commodity_types',), ('commodities',), ('institutions',), ('account_types',), ('accounts',), ('budgets',), ('budget_values',), ('payees',), ('scheduled_transaction_frequencies',), ('scheduled_transactions',), ('scheduled_transaction_splits',), ('transaction_actions',), ('transactions',), ('transaction_splits',), ('misc',), ('bookmarked_accounts',), ('preferences',)]
+TABLES = ['commodity_types', 'commodities', 'institutions', 'account_types', 'accounts', 'budgets', 'budget_values', 'payees', 'scheduled_transaction_frequencies', 'scheduled_transactions', 'scheduled_transaction_splits', 'transaction_actions', 'transactions', 'transaction_splits', 'misc', 'bookmarked_accounts', 'preferences']
 
 
 class TestSQLiteStorage(unittest.TestCase):
@@ -593,8 +593,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.storage._db_connection.close()
 
     def test_init(self):
-        tables = self.storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-        self.assertEqual(tables, TABLES)
+        self.assertEqual(self.storage._tables(), TABLES)
         misc_table_records = self.storage._db_connection.execute('SELECT key,value FROM misc').fetchall()
         self.assertEqual(misc_table_records, [('schema_version', bb.SQLiteStorage.SCHEMA_VERSION)])
         commodities_table_records = self.storage._db_connection.execute('SELECT id,type,code,name FROM commodities').fetchall()
@@ -613,7 +612,7 @@ class TestSQLiteStorage(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             file_name = os.path.join(tmp, 'test.sqlite3')
             storage = bb.SQLiteStorage(file_name)
-            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = storage._tables()
             storage._db_connection.close()
         self.assertEqual(tables, TABLES)
 
@@ -623,7 +622,7 @@ class TestSQLiteStorage(unittest.TestCase):
             with open(file_name, 'wb') as f:
                 pass
             storage = bb.SQLiteStorage(file_name)
-            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = storage._tables()
             storage._db_connection.close()
         self.assertEqual(tables, TABLES)
 
@@ -632,11 +631,11 @@ class TestSQLiteStorage(unittest.TestCase):
             file_name = os.path.join(tmp, 'test.sqlite3')
             #set up file
             init_storage = bb.SQLiteStorage(file_name)
-            tables = init_storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = init_storage._tables()
             self.assertEqual(tables, TABLES)
             #and now open it again and make sure everything's fine
             storage = bb.SQLiteStorage(file_name)
-            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = storage._tables()
             init_storage._db_connection.close()
             storage._db_connection.close()
             self.assertEqual(tables, TABLES)
@@ -663,7 +662,7 @@ class TestSQLiteStorage(unittest.TestCase):
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
             self.assertEqual(result[0], 2)
 
-            tables = storage._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+            tables = storage._tables()
             self.assertEqual(tables, TABLES)
 
     def test_commodity_sqlite_checks(self):
