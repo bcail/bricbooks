@@ -655,6 +655,8 @@ class TestSQLiteStorage(unittest.TestCase):
             result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
             self.assertEqual(result[0], 1)
 
+            conn.close()
+
             # Initialize SQLiteStorage
             storage = bb.SQLiteStorage(file_name)
 
@@ -664,6 +666,8 @@ class TestSQLiteStorage(unittest.TestCase):
 
             tables = storage._tables()
             self.assertEqual(tables, TABLES)
+
+            storage._db_connection.close()
 
     def test_commodity_sqlite_checks(self):
         c = self.storage._db_connection.cursor()
