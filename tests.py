@@ -1963,6 +1963,41 @@ class TestSQLiteStorage(unittest.TestCase):
         for r in results:
             self.assertEqual(r[0], st2.id)
 
+    def test_get_preference(self):
+        cur = self.storage._db_connection.cursor()
+
+        date_format = '%d/%m/%y'
+
+        with bb.sqlite_txn(cur):
+            cur.execute('INSERT INTO preferences (name, value) VALUES (?, ?)', ('date-display-format', date_format))
+
+        date_format_from_db = self.storage.get_preference('date-display-format')
+
+        self.assertEqual(date_format_from_db, date_format)
+
+    def test_get_preference_no_result(self):
+        preference = self.storage.get_preference('not-there')
+
+        self.assertIsNone(preference)
+
+    def test_save_preference(self):
+        date_format = '%d/%m/%y'
+
+        self.storage.save_preference('date-display-format', date_format)
+
+        result = self.storage._db_connection.execute('SELECT value FROM preferences WHERE name = ?', ('date-display-format',)).fetchone()
+
+        self.assertEqual(result[0], date_format)
+
+    def test_save_preference_update(self):
+        self.storage.save_preference('date-display-format', '%d/%m/%y')
+
+        self.storage.save_preference('date-display-format', '%m-%d-%Y')
+
+        result = self.storage._db_connection.execute('SELECT value FROM preferences WHERE name = ?', ('date-display-format',)).fetchone()
+
+        self.assertEqual(result[0], '%m-%d-%Y')
+
 
 def create_test_accounts(engine):
     accounts = {

@@ -1715,6 +1715,17 @@ class SQLiteStorage:
             cur.execute('DELETE FROM scheduled_transaction_splits WHERE scheduled_transaction_id = ?', (id_,))
             cur.execute('DELETE FROM scheduled_transactions WHERE id = ?', (id_,))
 
+    def get_preference(self, name):
+        result = self._db_connection.execute('SELECT value FROM preferences WHERE name = ?', (name,)).fetchone()
+        if result:
+            return result[0]
+
+    def save_preference(self, name, value):
+        cur = self._db_connection.cursor()
+        sql = 'INSERT INTO preferences (name, value) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET value = ?'
+        with sqlite_txn(cur):
+            cur.execute(sql, (name, value, value))
+
 
 ### ENGINE ###
 
