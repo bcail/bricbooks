@@ -50,7 +50,7 @@ class AbstractTkTest:
         self.root.withdraw()
 
 
-class TestTkGUI(AbstractTkTest, unittest.TestCase):
+class TestTkGUIAccounts(AbstractTkTest, unittest.TestCase):
 
     def test_accounts_display(self):
         gui = bb.GUI_TK(':memory:')
@@ -109,6 +109,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         gui.accounts_display.add_button.invoke()
         gui.accounts_display.add_account_form.save_button.invoke()
         mock_method.assert_called_once()
+
+
+class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
 
     @patch('bricbooks.handle_error')
     def test_ledger_display_no_accounts(self, mock_method):
@@ -427,6 +430,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(len(txns), 1)
         self.assertEqual(txns[0].txn_date, date(2017, 1, 3))
 
+
+class TestTkGUIScheduledTransactions(AbstractTkTest, unittest.TestCase):
+
     def test_scheduled_transaction_add(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
@@ -550,6 +556,9 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(txns[0].splits[0]['account'], checking)
         self.assertEqual(txns[0].splits[1]['account'], housing)
 
+
+class TestTkGUIBudget(AbstractTkTest, unittest.TestCase):
+
     def test_new_budget(self):
         gui = bb.GUI_TK(':memory:')
         checking = get_test_account()
@@ -601,6 +610,7 @@ class TestTkGUI(AbstractTkTest, unittest.TestCase):
         self.assertEqual(budget.start_date, date(2020, 1, 1))
         self.assertEqual(budget.end_date, date(2020, 6, 30))
         self.assertEqual(budget.get_budget_data()[food]['amount'], 20)
+
 
 if __name__ == '__main__':
     import sys
