@@ -3115,9 +3115,10 @@ class SplitsForm:
             payee_choices[p.name] = p
         split['payee_combo'] = Combobox(master=self.frame, choices=payee_choices, selected=split.get('payee'))
         status_choices = {}
-        for c in ['', Transaction.CLEARED, Transaction.RECONCILED]:
+        for c in ['', Transaction.CLEARED]:
             status_choices[c] = c
         split['status_combo'] = Combobox(master=self.frame, choices=status_choices, selected=split.get('status', ''))
+        split['status_combo'].state(['readonly'])
         split['type_entry'] = ttk.Entry(master=self.frame)
         split['type_entry'].insert(0, split.get('type', ''))
         split['description_entry'] = ttk.Entry(master=self.frame)
