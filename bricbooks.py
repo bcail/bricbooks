@@ -500,13 +500,14 @@ class Transaction:
 
     def update_reconciled_state(self, account):
         #this updates the txn, instead of creating a new one - might want to change it
-        cur_status = self.splits[account].get('status', '')
-        if cur_status == Transaction.CLEARED:
-            self.splits[account]['status'] = Transaction.RECONCILED
-        elif cur_status == Transaction.RECONCILED:
-            self.splits[account].pop('status')
-        else:
-            self.splits[account]['status'] = Transaction.CLEARED
+        for split in self.splits:
+            if split['account'] == account:
+                cur_status = split.get('status', '')
+                if cur_status == Transaction.CLEARED:
+                    split.pop('status')
+                else:
+                    split['status'] = Transaction.CLEARED
+                return
 
 
 def _transfer_account_display(splits, main_account):
@@ -3507,13 +3508,19 @@ class LedgerDisplay:
         elif txn_id:
             txn_id = int(txn_id)
             transaction = self._engine.get_transaction(id_=txn_id)
-            self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
-                    save_transaction=self._save,
-                    delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id,
-                    txn_info={'date': transaction.txn_date, 'description': transaction.description},
-                    splits=transaction.splits)
-            widget = self.edit_transaction_form.get_widget()
-            widget.grid()
+            col = self.txns_tree.identify_column(event.x)
+            if col == '#4':  # Status column is '#4'
+                transaction.update_reconciled_state(self._account)
+                self._engine.save_transaction(transaction)
+                self._show_transactions()
+            else:
+                self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
+                        save_transaction=self._save,
+                        delete_transaction=partial(self._delete, transaction_id=txn_id), id_=txn_id,
+                        txn_info={'date': transaction.txn_date, 'description': transaction.description},
+                        splits=transaction.splits)
+                widget = self.edit_transaction_form.get_widget()
+                widget.grid()
 
     def _save(self, transaction):
         self._engine.save_transaction(transaction)
