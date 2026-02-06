@@ -498,6 +498,11 @@ class Transaction:
         except Exception:
             raise InvalidTransactionError('invalid txn_date "%s"' % txn_date)
 
+    def get_status(self, account):
+        for split in self.splits:
+            if split['account'] == account:
+                return split.get('status', '')
+
     def update_reconciled_state(self, account):
         #this updates the txn, instead of creating a new one - might want to change it
         for split in self.splits:
@@ -3489,7 +3494,8 @@ class LedgerDisplay:
             self.bookmark_button.configure(text='Remove Bookmark')
 
     def _item_selected(self, event):
-        txn_id = self.txns_tree.identify_row(event.y)
+        row = self.txns_tree.identify_row(event.y)
+        txn_id = row
         if isinstance(txn_id, str) and txn_id.startswith('st'):
             st_id = int(txn_id.replace('st', ''))
             scheduled_transaction = self._engine.get_scheduled_transaction(id_=st_id)
@@ -3512,7 +3518,9 @@ class LedgerDisplay:
             if col == '#4':  # Status column is '#4'
                 transaction.update_reconciled_state(self._account)
                 self._engine.save_transaction(transaction)
-                self._show_transactions()
+                status = transaction.get_status(self._account)
+                self.txns_tree.set(row, column=col, value=status)
+                return 'break'  # So that default event handler doesn't run
             else:
                 self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
                         save_transaction=self._save,
