@@ -226,6 +226,8 @@ class TestTransaction(unittest.TestCase):
         self.assertEqual(t.splits[0]['status'], 'C')
 
     def test_get_display_strings(self):
+        date_format = '%Y-%m-%d'
+
         t = bb.Transaction(
                 splits=[{'account': self.checking, 'amount': '-1.2', 'status': 'C'}, {'account': self.savings, 'amount': '1.2', 'payee': 'asdf'}],
                 txn_date=date.today(),
@@ -233,7 +235,7 @@ class TestTransaction(unittest.TestCase):
             )
         t.balance = Fraction(5)
         self.assertDictEqual(
-                bb.get_display_strings_for_ledger(account=self.checking, txn=t),
+                bb.get_display_strings_for_ledger(account=self.checking, txn=t, date_format=date_format),
                 {
                     'withdrawal': '1.20',
                     'deposit': '',
@@ -249,7 +251,7 @@ class TestTransaction(unittest.TestCase):
                 }
             )
         self.assertDictEqual(
-                bb.get_display_strings_for_ledger(account=self.savings, txn=t),
+                bb.get_display_strings_for_ledger(account=self.savings, txn=t, date_format=date_format),
                 {
                     'withdrawal': '',
                     'deposit': '1.20',
@@ -266,11 +268,13 @@ class TestTransaction(unittest.TestCase):
             )
 
     def test_get_display_strings_sparse(self):
+        date_format = '%Y-%m-%d'
+
         t = bb.Transaction(
                 splits=self.valid_splits,
                 txn_date=date.today(),
             )
-        self.assertDictEqual(bb.get_display_strings_for_ledger(account=self.checking, txn=t),
+        self.assertDictEqual(bb.get_display_strings_for_ledger(account=self.checking, txn=t, date_format=date_format),
                 {
                     'withdrawal': '',
                     'deposit': '100.00',
@@ -371,6 +375,8 @@ class TestScheduledTransaction(unittest.TestCase):
         self.assertEqual(st.splits[1]['payee'].name, 'restaurant')
 
     def test_display_strings(self):
+        date_format = '%Y-%m-%d'
+
         st = bb.ScheduledTransaction(
                 name='weekly 1',
                 frequency=bb.ScheduledTransactionFrequency.WEEKLY,
@@ -378,7 +384,7 @@ class TestScheduledTransaction(unittest.TestCase):
                 splits=self.valid_splits,
                 description='something',
             )
-        tds = bb.get_display_strings_for_ledger(account=self.checking, txn=st)
+        tds = bb.get_display_strings_for_ledger(account=self.checking, txn=st, date_format=date_format)
 
     def test_advance_to_next_due_date(self):
         #WEEKLY
@@ -2293,6 +2299,11 @@ class TestEngine(unittest.TestCase):
         self.assertEqual(report['expense']['total'], 526)
         self.assertEqual(report['expense']['accounts'][housing], {'total': 500, 2017: 225, 2018: 150, 2019: 125})
         self.assertEqual(report['expense']['accounts'][food], {'total': 26, 2019: 26})
+
+    def test_get_date_display_format(self):
+        date_format = self.engine.get_date_display_format()
+
+        self.assertEqual(date_format, '%Y-%m-%d')
 
 
 class TestCLI(unittest.TestCase):

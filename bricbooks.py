@@ -524,7 +524,7 @@ def _transfer_account_display(splits, main_account):
     return 'multiple'
 
 
-def get_display_strings_for_ledger(account, txn):
+def get_display_strings_for_ledger(account, txn, date_format):
     '''txn can be either Transaction or ScheduledTransaction'''
     split = [s for s in txn.splits if s['account'] == account][0]
     amount = split['amount']
@@ -561,13 +561,13 @@ def get_display_strings_for_ledger(account, txn):
         }
     if isinstance(txn, ScheduledTransaction):
         display_strings['name'] = txn.name
-        display_strings['next_due_date'] = str(txn.next_due_date)
+        display_strings['next_due_date'] = txn.next_due_date.strftime(date_format)
         display_strings['frequency'] = str(txn.frequency)
-        display_strings['txn_date'] = str(txn.next_due_date)
+        display_strings['txn_date'] = txn.next_due_date.strftime(date_format)
     else:
         display_strings['status'] = split.get('status', '')
         display_strings['type'] = split.get('type', '')
-        display_strings['txn_date'] = str(txn.txn_date)
+        display_strings['txn_date'] = txn.txn_date.strftime(date_format)
     if hasattr(txn, 'balance'):
         display_strings['balance'] = amount_display(txn.balance)
     return display_strings
@@ -1905,6 +1905,9 @@ class Engine:
     def save_budget(self, budget):
         return self._storage.save_budget(budget)
 
+    def get_date_display_format(self):
+        return '%Y-%m-%d'
+
     def _create_export_line(self, fields):
         return '\t'.join([f.replace('\t', '\\t') for f in fields])
 
@@ -2374,7 +2377,7 @@ class CLI:
         while True:
             paged_txns, more_txns = pager(reversed_txns, num_txns_in_page=num_txns_in_page, page=page_index)
             for t in paged_txns:
-                tds = get_display_strings_for_ledger(account, t)
+                tds = get_display_strings_for_ledger(account, t, self._engine.get_date_display_format())
                 self.print(' {7:<4} | {0:<6} | {1:<30} | {2:<30} | {3:30} | {4:<10} | {5:<10} | {6:<10}'.format(
                     tds['txn_date'], tds['description'], tds['payee'], tds['transfer_account'], tds['withdrawal'], tds['deposit'], tds.get('balance', ''), t.id)
                 )
@@ -3377,9 +3380,11 @@ class LedgerDisplay:
 
         sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
 
+        date_format = self._engine.get_date_display_format()
+
         if not any([status, filter_text, filter_account]):
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
-                tds = get_display_strings_for_ledger(account, st)
+                tds = get_display_strings_for_ledger(account, st, date_format)
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['transfer_account'])
                 iid = f'st{st.id}'
@@ -3398,7 +3403,7 @@ class LedgerDisplay:
         else:
             txns = reversed_txns[:100]
         for txn in txns:
-            tds = get_display_strings_for_ledger(account, txn)
+            tds = get_display_strings_for_ledger(account, txn, date_format)
             if self._account.type == AccountType.SECURITY:
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds['status'], tds['quantity'],
                           tds['withdrawal'], tds['deposit'], tds.get('balance', ''), tds['transfer_account'])
