@@ -3333,14 +3333,37 @@ class LedgerDisplay:
         else:
             self._account = self._accounts[0]
         self.txns_widget = None
+        self.filter_var = tk.StringVar()
         self.cleared_var = tk.StringVar()
         self.balance_var = tk.StringVar()
+        self.txns_are_filtered = False
         self.show_all_txns = False
 
-    def _get_txns(self, status=None, filter_text='', filter_account=None):
+    def _get_txns(self):
+        filter_account = self.filter_account_combo.current_value()
+
+        status, filter_text = self._get_status_and_filter_text()
+
+        if any([status, filter_text, filter_account]):
+            self.txns_are_filtered = True
+        else:
+            self.txns_are_filtered = False
+
         return self._engine.get_transactions(account=self._account, status=status, filter_account=filter_account, query=filter_text)
 
-    def _show_transactions(self, status=None, filter_text='', filter_account=None):
+    def set_cleared_and_balance(self, sorted_txns=None):
+        if self.txns_are_filtered:
+            self.balance_var.set('')
+            self.cleared_var.set('')
+        else:
+            if sorted_txns is None:
+                sorted_txns = self._get_txns()
+
+            balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
+            self.balance_var.set(f'Current Balance: {balances.current}')
+            self.cleared_var.set(f'Cleared: {balances.current_cleared}')
+
+    def _show_transactions(self):
         if self.txns_widget:
             self.txns_widget.destroy()
 
@@ -3378,11 +3401,11 @@ class LedgerDisplay:
             self.txns_tree.heading(column_name, text=column_info['text'])
             self.txns_tree.column(column_name, width=100, anchor='center')
 
-        sorted_txns = self._get_txns(status=status, filter_text=filter_text, filter_account=filter_account)
+        sorted_txns = self._get_txns()
 
         date_format = self._engine.get_date_display_format()
 
-        if not any([status, filter_text, filter_account]):
+        if not self.txns_are_filtered:
             for st in self._engine.get_scheduled_transactions_due(accounts=[account]):
                 tds = get_display_strings_for_ledger(account, st, date_format)
                 values = (tds['txn_date'], tds['payee'], tds['description'], tds.get('status', ''),
@@ -3390,12 +3413,7 @@ class LedgerDisplay:
                 iid = f'st{st.id}'
                 self.txns_tree.insert('', tk.END, iid=iid, values=values, tags='scheduled')
 
-            balances = self._engine.get_current_balances_for_display(account=self._account, sorted_txns=sorted_txns)
-            self.balance_var.set(f'Current Balance: {balances.current}')
-            self.cleared_var.set(f'Cleared: {balances.current_cleared}')
-        else:
-            self.balance_var.set('')
-            self.cleared_var.set('')
+        self.set_cleared_and_balance(sorted_txns=sorted_txns)
 
         reversed_txns = list(reversed(sorted_txns))
         if self.show_all_txns:
@@ -3445,7 +3463,7 @@ class LedgerDisplay:
             bookmark_text = 'Bookmark Account'
         self.bookmark_button = ttk.Button(master=self.frame, text=bookmark_text, command=self._toggle_bookmark)
 
-        self.filter_entry = ttk.Entry(master=self.frame)
+        self.filter_entry = ttk.Entry(master=self.frame, textvariable=self.filter_var)
         all_accounts_text = 'All Transfer Accounts'
         filter_account_choices = {
             all_accounts_text: None,
@@ -3525,6 +3543,7 @@ class LedgerDisplay:
                 self._engine.save_transaction(transaction)
                 status = transaction.get_status(self._account)
                 self.txns_tree.set(row, column=col, value=status)
+                self.set_cleared_and_balance()
                 return 'break'  # So that default event handler doesn't run
             else:
                 self.edit_transaction_form = TransactionForm(self._engine, account=self._account,
@@ -3551,9 +3570,8 @@ class LedgerDisplay:
         self._engine.skip_scheduled_transaction(scheduled_transaction_id)
         self._show_transactions()
 
-    def _filter_transactions(self):
-        filter_account = self.filter_account_combo.current_value()
-        filter_entry_value = self.filter_entry.get().strip()
+    def _get_status_and_filter_text(self):
+        filter_entry_value = self.filter_var.get().strip()
         filter_parts = filter_entry_value.split()
         filter_text = ''
         status = ''
@@ -3563,10 +3581,13 @@ class LedgerDisplay:
             else:
                 filter_text += f' {fp}'
         status = status or None
-        self._show_transactions(status=status, filter_text=filter_text.strip(), filter_account=filter_account)
+        return status, filter_text.strip()
+
+    def _filter_transactions(self):
+        self._show_transactions()
 
     def _clear_filter(self):
-        self.filter_entry.delete(0, tk.END)
+        self.filter_var.set('')
         self.filter_account_combo.set_current_index(0)
         self._show_transactions()
 

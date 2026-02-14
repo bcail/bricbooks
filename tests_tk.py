@@ -358,7 +358,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3), description='eat out')
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
-        gui.ledger_display.filter_entry.insert(0, 'eat')
+        gui.ledger_display.filter_var.set('eat')
         gui.ledger_display.filter_button.invoke()
         child_ids = gui.ledger_display.txns_tree.get_children()
         self.assertEqual(child_ids, ('1',))
