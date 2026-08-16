@@ -257,6 +257,17 @@ def increment_year(date_obj):
     return date(date_obj.year+1, date_obj.month, date_obj.day)
 
 
+def fraction_to_numerator_denominator(f, denominator):
+    if f.denominator == denominator:
+        return f.numerator, f.denominator
+    else:
+        remainder = denominator % f.denominator
+        if remainder != 0:
+            raise RuntimeError(f'Error converting {f} to denominator {denominator}')
+        factor = int(denominator / f.denominator)
+        return f.numerator * factor, denominator
+
+
 def normalize(s):
     # save all user data as NFC
     if s:
@@ -889,7 +900,7 @@ def sqlite_txn(cursor):
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
@@ -905,6 +916,7 @@ class SQLiteStorage:
             'trading_market TEXT NOT NULL DEFAULT "",'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            # migration 2 added: denominator INTEGER NOT NULL DEFAULT 100 CHECK (denominator > 0 AND (denominator = 1 OR denominator % 10 = 0))
             'CHECK (type != ""),'
             'CHECK (code != ""),'
             'CHECK (name != ""),'
@@ -941,6 +953,7 @@ class SQLiteStorage:
             'close_date TEXT,'
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
             'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+            # migration 2 added: quantity_denominator INTEGER NULL CHECK (quantity_denominator IS NULL OR (quantity_denominator > 0 AND (quantity_denominator = 1 OR quantity_denominator % 10 = 0)))
             'CHECK (number != ""),'
             'CHECK (name != ""),'
             'CHECK (json_type(other_data) IS "object"),'
@@ -1092,6 +1105,7 @@ class SQLiteStorage:
         "INSERT INTO misc(key, value) VALUES('%s', %s)" % ('schema_version', 1),
         "INSERT INTO commodities(type, code, name) VALUES('%s', '%s', '%s')" %
             (CommodityType.CURRENCY.value, 'USD', 'US Dollar'),
+        # migration 1 added: preferences table
     ]
 
     MIGRATIONS = {
@@ -1105,6 +1119,13 @@ class SQLiteStorage:
             'CREATE TRIGGER preferences_updated UPDATE ON preferences BEGIN UPDATE preferences SET updated = CURRENT_TIMESTAMP WHERE name = old.name; END;',
             "UPDATE misc SET value = 2 WHERE key = 'schema_version'",
         ],
+        2: [
+            "UPDATE misc SET value = 2.5 WHERE key = 'schema_version'",  # Mark schema as 2.5 to show upgrade is in-process
+            "ALTER TABLE commodities ADD COLUMN denominator INTEGER NOT NULL DEFAULT 100 CHECK (denominator > 0 AND (denominator = 1 OR denominator % 10 = 0))",
+            "UPDATE commodities SET denominator = 10000 WHERE type = '%s'" % CommodityType.SECURITY.value,
+            "ALTER TABLE accounts ADD COLUMN quantity_denominator INTEGER NULL CHECK (quantity_denominator IS NULL OR (quantity_denominator > 0 AND (quantity_denominator = 1 OR quantity_denominator % 10 = 0)))",
+            "UPDATE misc SET value = 3 WHERE key = 'schema_version'",
+        ]
     }
 
     @staticmethod
@@ -1128,18 +1149,10 @@ class SQLiteStorage:
         schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
         if schema_version != SQLiteStorage.SCHEMA_VERSION:
             if schema_version == 1:
-                log('Starting to migrate from version 1 to version 2')
-                try:
-                    cur = self._db_connection.cursor()
-                    with sqlite_txn(cur):
-                        for statement in self.MIGRATIONS[1]:
-                            cur.execute(statement)
-                except Exception as e:
-                    log(f'Error migrating to version 2 {e}')
-                    import tracback
-                    log(traceback.format_exc())
-                    raise SQLiteStorageError('Error migrating DB to version 2') from e
-                log('Migrated to version 2')
+                self._migrate(from_version=1, to_version=2)
+                self._migrate(from_version=2, to_version=3)
+            elif schema_version == 2:
+                self._migrate(from_version=2, to_version=3)
             else:
                 msg = f'ERROR: wrong schema version: {schema_version}'
                 log(msg)
@@ -1163,6 +1176,20 @@ class SQLiteStorage:
             with sqlite_txn(cur):
                 for statement in migrations:
                     cur.execute(statement)
+
+    def _migrate(self, from_version, to_version):
+        log(f'Starting to migrate from version {from_version} to version {to_version}')
+        try:
+            cur = self._db_connection.cursor()
+            with sqlite_txn(cur):
+                for statement in self.MIGRATIONS[from_version]:
+                    cur.execute(statement)
+        except Exception as e:
+            log(f'Error migrating to version {to_version} {e}')
+            import traceback
+            log(traceback.format_exc())
+            raise SQLiteStorageError(f'Error migrating DB to version {to_version}') from e
+        log(f'Migrated to version {to_version}')
 
     def get_commodity(self, id_=None, code=None):
         if id_:

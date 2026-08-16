@@ -90,6 +90,35 @@ class TestUtils(unittest.TestCase):
         new_date = bb.increment_quarter(date(2018, 11, 30))
         self.assertEqual(new_date, date(2019, 2, 28))
 
+    def test_fraction_to_numerator_denominator(self):
+        tests = {
+            Fraction('13.01'): (1301, 100),
+            Fraction('13'): (1300, 100),
+            Fraction('13'): (13, 1),
+            Fraction('13'): (13000, 1000),
+            Fraction('2.5'): (250, 100),
+            Fraction('2.672'): (2672, 1000),
+        }
+
+        for f, (num, denom) in tests.items():
+            with self.subTest(f=f, num=num, denom=denom):
+                result = bb.fraction_to_numerator_denominator(f, denominator=denom)
+                self.assertEqual(result[0], num)
+                self.assertIsInstance(result[0], int)
+                self.assertEqual(result[1], denom)
+                self.assertIsInstance(result[0], int)
+
+    def test_fraction_to_numerator_denominator_error(self):
+        tests = {
+            Fraction('13.01'): 10,
+            Fraction('3.257'): 100,
+        }
+
+        for f, denom in tests.items():
+            with self.subTest(f=f, denom=denom):
+                with self.assertRaisesRegex(RuntimeError, 'Error converting.*'):
+                    bb.fraction_to_numerator_denominator(f, denominator=denom)
+
 
 class TestAccount(unittest.TestCase):
 
@@ -646,7 +675,7 @@ class TestSQLiteStorage(unittest.TestCase):
             storage._db_connection.close()
             self.assertEqual(tables, TABLES)
 
-    def test_migrate_v1_to_v2(self):
+    def test_migrate_v1_to_v3(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_name = os.path.join(tmp, 'test.sqlite3')
 
@@ -668,7 +697,39 @@ class TestSQLiteStorage(unittest.TestCase):
 
             # Verify that it migrated to v2
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 3)
+
+            tables = storage._tables()
+            self.assertEqual(tables, TABLES)
+
+            storage._db_connection.close()
+
+    def test_migrate_v2_to_v3(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+
+            conn = bb.SQLiteStorage.get_db_connection(file_name)
+
+            cur = conn.cursor()
+            with bb.sqlite_txn(cur):
+                for statement in bb.SQLiteStorage.DB_INIT_STATEMENTS:
+                    cur.execute(statement)
+
+                for statement in bb.SQLiteStorage.MIGRATIONS[1]:
+                    cur.execute(statement)
+
+            # Verify schema version is two
+            result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
             self.assertEqual(result[0], 2)
+
+            conn.close()
+
+            # Initialize SQLiteStorage
+            storage = bb.SQLiteStorage(file_name)
+
+            # Verify that it migrated to v3
+            result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 3)
 
             tables = storage._tables()
             self.assertEqual(tables, TABLES)
@@ -693,6 +754,23 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('INSERT INTO commodities(type, code, name) VALUES(?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', ''))
         self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
+        denominator_check = 'CHECK constraint failed: denominator > 0 AND (denominator = 1 OR denominator % 10 = 0)'
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', -10))
+        self.assertEqual(str(cm.exception), denominator_check)
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', 95))
+        self.assertEqual(str(cm.exception), denominator_check)
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', 0))
+        self.assertEqual(str(cm.exception), denominator_check)
+
+        # A denominator of `1` should be allowed
+        c.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', 1))
+
     def test_save_commodity_fail(self):
         commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
         commodity.code = ''
@@ -704,8 +782,8 @@ class TestSQLiteStorage(unittest.TestCase):
         commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
         self.storage.save_commodity(commodity)
         c = self.storage._db_connection.cursor()
-        record = c.execute('SELECT type, code, name, trading_currency_id FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
-        self.assertEqual(record, ('currency', 'EUR', 'Euro', None))
+        record = c.execute('SELECT type, code, name, trading_currency_id, denominator FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
+        self.assertEqual(record, ('currency', 'EUR', 'Euro', None, 100))
 
     def test_get_commodity(self):
         c = self.storage._db_connection.cursor()
@@ -729,6 +807,30 @@ class TestSQLiteStorage(unittest.TestCase):
             c.execute('INSERT INTO account_types(type) VALUES(?)', ('',))
         self.assertEqual(str(cm.exception), 'CHECK constraint failed: type != ""')
 
+    def test_account_type_check(self):
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(commodity_id, type, name) VALUES(?, ?, ?)', (1, 'checking', 'Checking'))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_quantity_denominator_check(self):
+        quantity_denominator_check = 'quantity_denominator IS NULL OR (quantity_denominator > 0 AND (quantity_denominator = 1 OR quantity_denominator % 10 = 0))'
+
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(commodity_id, type, name, quantity_denominator) VALUES(?, ?, ?, ?)', (1, 'asset', 'Checking', 95))
+        self.assertEqual(str(cm.exception), f'CHECK constraint failed: {quantity_denominator_check}')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(commodity_id, type, name, quantity_denominator) VALUES(?, ?, ?, ?)', (1, 'asset', 'Checking', 0))
+        self.assertEqual(str(cm.exception), f'CHECK constraint failed: {quantity_denominator_check}')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(commodity_id, type, name, quantity_denominator) VALUES(?, ?, ?, ?)', (1, 'asset', 'Checking', -10))
+        self.assertEqual(str(cm.exception), f'CHECK constraint failed: {quantity_denominator_check}')
+
+        c.execute('INSERT INTO accounts(commodity_id, type, name, quantity_denominator) VALUES(?, ?, ?, ?)', (1, 'asset', 'Checking', 1))
+
     def test_save_account(self):
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
         self.storage.save_account(assets)
@@ -738,11 +840,11 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(assets.id, 1)
         self.assertEqual(checking.id, 2)
         c = self.storage._db_connection.cursor()
-        account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,created,updated'
+        account_fields = 'id,type,commodity_id,institution_id,number,name,parent_id,closed,quantity_denominator,created,updated'
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', CHECKING_NFC, assets.id, 0))
+                (checking.id, 'asset', 1, None, '4010', CHECKING_NFC, assets.id, 0, None))
         #check created/updated default timestamp fields (which are in UTC time)
         utc_now = datetime.now(timezone.utc)
         created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
@@ -756,7 +858,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (checking.id,))
         db_info = c.fetchone()
         self.assertEqual(db_info[:len(db_info)-2],
-                (checking.id, 'asset', 1, None, '4010', 'checking updated', assets.id, 0))
+                (checking.id, 'asset', 1, None, '4010', 'checking updated', assets.id, 0, None))
         new_created = datetime.fromisoformat(f'{db_info[-2]}+00:00')
         self.assertEqual(created, new_created)
         new_updated = datetime.fromisoformat(f'{db_info[-1]}+00:00')
@@ -767,7 +869,7 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'SELECT {account_fields} FROM accounts WHERE id = ?', (savings.id,))
         db_info = c.fetchall()
         self.assertEqual(db_info[0][:len(db_info[0])-2],
-                (savings.id, 'asset', 1, None, None, 'Savings', None, 0))
+                (savings.id, 'asset', 1, None, None, 'Savings', None, 0, None))
 
     def test_save_account_commodity(self):
         c = self.storage._db_connection.cursor()
