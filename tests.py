@@ -619,7 +619,8 @@ class TestBudget(unittest.TestCase):
 TABLES = ['commodity_types', 'commodities', 'institutions', 'account_types', 'accounts', 'budgets', 'budget_values', 'payees', 'scheduled_transaction_frequencies', 'scheduled_transactions', 'scheduled_transaction_splits', 'transaction_actions', 'transactions', 'transaction_splits', 'misc', 'bookmarked_accounts', 'preferences']
 
 
-class TestSQLiteStorage(unittest.TestCase):
+class TestSQLiteDB(unittest.TestCase):
+    ''' Test the SQLite-level configuration/code (eg. checks, constraints, migrations, ...)'''
 
     def setUp(self):
         self.storage = bb.SQLiteStorage(':memory:')
@@ -771,29 +772,6 @@ class TestSQLiteStorage(unittest.TestCase):
         # A denominator of `1` should be allowed
         c.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', 1))
 
-    def test_save_commodity_fail(self):
-        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
-        commodity.code = ''
-        with self.assertRaises(bb.SQLiteStorageError) as cm:
-            self.storage.save_commodity(commodity)
-        self.assertEqual(str(cm.exception), 'CHECK constraint failed: code != ""')
-
-    def test_save_commodity_success(self):
-        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
-        self.storage.save_commodity(commodity)
-        c = self.storage._db_connection.cursor()
-        record = c.execute('SELECT type, code, name, trading_currency_id, denominator FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
-        self.assertEqual(record, ('currency', 'EUR', 'Euro', None, 100))
-
-    def test_get_commodity(self):
-        c = self.storage._db_connection.cursor()
-        c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
-        commodity_id = c.lastrowid
-        commodity = self.storage.get_commodity(id_=commodity_id)
-        self.assertEqual(commodity.name, 'A Big Co')
-        commodity = self.storage.get_commodity(code='ABC')
-        self.assertEqual(commodity.name, 'A Big Co')
-
     def test_institution_name_cant_be_empty(self):
         c = self.storage._db_connection.cursor()
 
@@ -830,6 +808,89 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(str(cm.exception), f'CHECK constraint failed: {quantity_denominator_check}')
 
         c.execute('INSERT INTO accounts(commodity_id, type, name, quantity_denominator) VALUES(?, ?, ?, ?)', (1, 'asset', 'Checking', 1))
+
+    def test_save_account_parent_not_in_db(self):
+        checking = get_test_account(type_=bb.AccountType.ASSET, id_=9)
+        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
+            self.storage.save_account(checking_child)
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_cant_delete_parent_account(self):
+        checking = get_test_account(type_=bb.AccountType.ASSET)
+        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
+        self.storage.save_account(checking)
+        self.storage.save_account(checking_child)
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            self.storage._db_connection.execute(f'DELETE FROM accounts WHERE id={checking.id}')
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_name_and_parent_must_be_unique(self):
+        bank_accounts = get_test_account(type_=bb.AccountType.ASSET, name='Bank Accounts')
+        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+        self.storage.save_account(bank_accounts)
+        self.storage.save_account(checking)
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
+            self.storage.save_account(
+                    get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
+                )
+        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
+
+    def test_account_institution_id_foreign_key(self):
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, institution_id, number, name) VALUES (?, ?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 1, '4010', 'Checking'))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_type_must_be_valid(self):
+        checking = get_test_account(type_=bb.AccountType.ASSET)
+        self.storage.save_account(checking)
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('UPDATE accounts SET type = ? WHERE id = ?', ('invalid', checking.id))
+        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
+
+    def test_account_number_and_name_not_empty(self):
+        c = self.storage._db_connection.cursor()
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '', 'Checking'))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: number != ""')
+
+        with self.assertRaises(sqlite3.IntegrityError) as cm:
+            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', ''))
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
+
+
+class TestSQLiteStorage(unittest.TestCase):
+
+    def setUp(self):
+        self.storage = bb.SQLiteStorage(':memory:')
+
+    def tearDown(self):
+        self.storage._db_connection.close()
+
+    def test_save_commodity_fail(self):
+        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
+        commodity.code = ''
+        with self.assertRaises(bb.SQLiteStorageError) as cm:
+            self.storage.save_commodity(commodity)
+        self.assertEqual(str(cm.exception), 'CHECK constraint failed: code != ""')
+
+    def test_save_commodity_success(self):
+        commodity = bb.Commodity(type_=bb.CommodityType.CURRENCY, code='EUR', name='Euro')
+        self.storage.save_commodity(commodity)
+        c = self.storage._db_connection.cursor()
+        record = c.execute('SELECT type, code, name, trading_currency_id, denominator FROM commodities WHERE id = ?', (commodity.id,)).fetchone()
+        self.assertEqual(record, ('currency', 'EUR', 'Euro', None, 100))
+
+    def test_get_commodity(self):
+        c = self.storage._db_connection.cursor()
+        c.execute('INSERT INTO commodities(type, code, name, trading_currency_id) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'A Big Co', 1))
+        commodity_id = c.lastrowid
+        commodity = self.storage.get_commodity(id_=commodity_id)
+        self.assertEqual(commodity.name, 'A Big Co')
+        commodity = self.storage.get_commodity(code='ABC')
+        self.assertEqual(commodity.name, 'A Big Co')
 
     def test_save_account(self):
         assets = get_test_account(type_=bb.AccountType.ASSET, name='All Assets')
@@ -1011,22 +1072,6 @@ class TestSQLiteStorage(unittest.TestCase):
         account_records = self.storage._db_connection.execute('SELECT * FROM accounts').fetchall()
         self.assertEqual(account_records, [])
 
-    def test_save_account_parent_not_in_db(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET, id_=9)
-        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
-        with self.assertRaises(bb.SQLiteStorageError) as cm:
-            self.storage.save_account(checking_child)
-        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
-
-    def test_cant_delete_parent_account(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET)
-        checking_child = get_test_account(type_=bb.AccountType.ASSET, name='Checking Child', parent=checking)
-        self.storage.save_account(checking)
-        self.storage.save_account(checking_child)
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
-            self.storage._db_connection.execute(f'DELETE FROM accounts WHERE id={checking.id}')
-        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
-
     def test_cant_delete_account_with_txns(self):
         checking = get_test_account(type_=bb.AccountType.ASSET)
         savings = get_test_account(type_=bb.AccountType.ASSET, name='Savings')
@@ -1048,41 +1093,6 @@ class TestSQLiteStorage(unittest.TestCase):
         #make sure saving works once number is updated
         checking2 = get_test_account(type_=bb.AccountType.INCOME, number='5-1', name='Checking')
         self.storage.save_account(checking2)
-
-    def test_account_name_and_parent_must_be_unique(self):
-        bank_accounts = get_test_account(type_=bb.AccountType.ASSET, name='Bank Accounts')
-        checking = get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
-        self.storage.save_account(bank_accounts)
-        self.storage.save_account(checking)
-        with self.assertRaises(bb.SQLiteStorageError) as cm:
-            self.storage.save_account(
-                    get_test_account(type_=bb.AccountType.ASSET, name='Checking', parent=bank_accounts)
-                )
-        self.assertEqual(str(cm.exception), 'UNIQUE constraint failed: accounts.name, accounts.parent_id')
-
-    def test_account_institution_id_foreign_key(self):
-        c = self.storage._db_connection.cursor()
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('INSERT INTO accounts(type, commodity_id, institution_id, number, name) VALUES (?, ?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, 1, '4010', 'Checking'))
-        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
-
-    def test_account_type_must_be_valid(self):
-        checking = get_test_account(type_=bb.AccountType.ASSET)
-        self.storage.save_account(checking)
-        c = self.storage._db_connection.cursor()
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('UPDATE accounts SET type = ? WHERE id = ?', ('invalid', checking.id))
-        self.assertEqual(str(cm.exception), 'FOREIGN KEY constraint failed')
-
-    def test_account_number_and_name_not_empty(self):
-        c = self.storage._db_connection.cursor()
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '', 'Checking'))
-        self.assertEqual(str(cm.exception), 'CHECK constraint failed: number != ""')
-
-        with self.assertRaises(sqlite3.IntegrityError) as cm:
-            c.execute('INSERT INTO accounts(type, commodity_id, number, name) VALUES (?, ?, ?, ?)', (bb.AccountType.EXPENSE.value, 1, '4010', ''))
-        self.assertEqual(str(cm.exception), 'CHECK constraint failed: name != ""')
 
     def test_get_account(self):
         c = self.storage._db_connection.cursor()
