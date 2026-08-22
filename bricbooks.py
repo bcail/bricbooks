@@ -1467,6 +1467,9 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
+        # Only one commodity supported for now - this will need to be dynamic if I support multiple commodities
+        commodity_id = 1
+
         check_txn_splits(txn.splits)
         for split in txn.splits:
             account = split['account']
@@ -1488,6 +1491,7 @@ class SQLiteStorage:
             field_names.append('entry_date')
             field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
         cur = self._db_connection.cursor()
+        denominator = cur.execute('SELECT denominator FROM commodities WHERE id = ?', (commodity_id,)).fetchone()[0]
         with sqlite_txn(cur):
             if txn.id:
                 field_names_s = ', '.join([f'{name} = ?' for name in field_names])
@@ -1498,7 +1502,7 @@ class SQLiteStorage:
                 txn_id = txn.id
             else:
                 field_names.append('commodity_id')
-                field_values.append(1)
+                field_values.append(commodity_id)
                 field_names_s = ','.join(field_names)
                 field_names_q = ','.join(['?' for _ in field_names])
                 cur.execute(f'INSERT INTO transactions({field_names_s}) VALUES({field_names_q})', field_values)
@@ -1526,8 +1530,9 @@ class SQLiteStorage:
                     reconcile_date = None
                 type_ = normalize(split.get('type', ''))
                 description = normalize(split.get('description', ''))
+                value_numerator, value_denominator = fraction_to_numerator_denominator(amount, denominator)
                 field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'payee_id']
-                field_values = [amount.numerator, amount.denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, payee_id]
+                field_values = [value_numerator, value_denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, payee_id]
                 action = split.get('action')
                 if action is not None:
                     field_names.append('action')

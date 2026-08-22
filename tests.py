@@ -1213,9 +1213,9 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue((utc_now - created) < timedelta(seconds=20))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,reconcile_date,type,description,payee_id FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, checking.id, -101, 1, -101, 1, 'C', None, '100', '', None),
-                                             (2, 1, groceries.id, 51, 1, 51, 1, 'R', today_str, '', 'flour', restaurant_a.id),
-                                             (3, 1, groceries.id, 50, 1, 50, 1, 'R', today_str, '', 'rice', None)])
+        self.assertEqual(txn_split_records, [(1, 1, checking.id, -10100, 100, -101, 1, 'C', None, '100', '', None),
+                                             (2, 1, groceries.id, 5100, 100, 51, 1, 'R', today_str, '', 'flour', restaurant_a.id),
+                                             (3, 1, groceries.id, 5000, 100, 50, 1, 'R', today_str, '', 'rice', None)])
 
     def test_save_txn_payee_string_and_none_description(self):
         checking = get_test_account()
@@ -1539,8 +1539,8 @@ class TestSQLiteStorage(unittest.TestCase):
                 (1, 1, today_str, '', today_str))
         c.execute('SELECT id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,payee_id FROM transaction_splits')
         txn_split_records = c.fetchall()
-        self.assertEqual(txn_split_records, [(1, 1, 1, 101, 1, 101, 1, None),
-                                             (2, 1, 2, -101, 1, -101, 1, None)])
+        self.assertEqual(txn_split_records, [(1, 1, 1, 10100, 100, 101, 1, None),
+                                             (2, 1, 2, -10100, 100, -101, 1, None)])
 
     def test_round_trip(self):
         checking = get_test_account()
@@ -1567,8 +1567,8 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_split_fields = 'id,transaction_id,account_id,value_numerator,value_denominator,quantity_numerator,quantity_denominator,reconciled_state,description,action,payee_id'
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, 'C', '', '', None),
-                 (2, txn_id, savings.id, 101, 1, 101, 1, '', '', '', payee.id)])
+                [(1, txn_id, checking.id, -10100, 100, -101, 1, 'C', '', '', None),
+                 (2, txn_id, savings.id, 10100, 100, 101, 1, '', '', '', payee.id)])
         #update it & save again
         splits = [
                 {'account': checking, 'amount': '-101'},
@@ -1591,8 +1591,8 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertTrue(updated > created)
         splits_db_info = c.execute(f'SELECT {txn_split_fields} FROM transaction_splits').fetchall()
         self.assertEqual(splits_db_info,
-                [(1, txn_id, checking.id, -101, 1, -101, 1, '', '', '', None),
-                 (2, txn_id, another_acct.id, 101, 1, 101, 1, '', '', '', None)])
+                [(1, txn_id, checking.id, -10100, 100, -101, 1, '', '', '', None),
+                 (2, txn_id, another_acct.id, 10100, 100, 101, 1, '', '', '', None)])
 
     def test_get_txn(self):
         checking = get_test_account()
