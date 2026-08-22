@@ -682,10 +682,7 @@ class TestSQLiteDB(unittest.TestCase):
 
             conn = bb.SQLiteStorage.get_db_connection(file_name)
 
-            cur = conn.cursor()
-            with bb.sqlite_txn(cur):
-                for statement in bb.SQLiteStorage.DB_INIT_STATEMENTS:
-                    cur.execute(statement)
+            bb.SQLiteStorage.setup_db(conn)
 
             # Verify schema version is one
             result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
@@ -696,7 +693,7 @@ class TestSQLiteDB(unittest.TestCase):
             # Initialize SQLiteStorage
             storage = bb.SQLiteStorage(file_name)
 
-            # Verify that it migrated to v2
+            # Verify that it migrated to v3
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
             self.assertEqual(result[0], 3)
 
@@ -711,13 +708,9 @@ class TestSQLiteDB(unittest.TestCase):
 
             conn = bb.SQLiteStorage.get_db_connection(file_name)
 
-            cur = conn.cursor()
-            with bb.sqlite_txn(cur):
-                for statement in bb.SQLiteStorage.DB_INIT_STATEMENTS:
-                    cur.execute(statement)
+            bb.SQLiteStorage.setup_db(conn)
 
-                for statement in bb.SQLiteStorage.MIGRATIONS[1]:
-                    cur.execute(statement)
+            bb.SQLiteStorage.migrate(conn, from_version=1, to_version=2)
 
             # Verify schema version is two
             result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()

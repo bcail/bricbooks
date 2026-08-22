@@ -1140,49 +1140,23 @@ class SQLiteStorage:
             print(msg)
         return conn
 
-    def __init__(self, conn_name):
-        if not conn_name:
-            raise SQLiteStorageError('must pass in conn_name')
-        self._db_connection = SQLiteStorage.get_db_connection(conn_name)
-        if not self._tables():
-            self._setup_db()
-        schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
-        if schema_version != SQLiteStorage.SCHEMA_VERSION:
-            if schema_version == 1:
-                self._migrate(from_version=1, to_version=2)
-                self._migrate(from_version=2, to_version=3)
-            elif schema_version == 2:
-                self._migrate(from_version=2, to_version=3)
-            else:
-                msg = f'ERROR: wrong schema version: {schema_version}'
-                log(msg)
-                raise SQLiteStorageError(msg)
-
-    def _tables(self):
-        results = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
-
-        return [r[0] for r in results]
-
-    def _setup_db(self):
+    @staticmethod
+    def setup_db(db):
         '''
-        Initialize empty DB.
+        Initialize empty DB to schema version one (migrations will be run from __init__ to bring it up-to-date)
         '''
-        cur = self._db_connection.cursor()
+        cur = db.cursor()
         with sqlite_txn(cur):
-            for statement in self.DB_INIT_STATEMENTS:
+            for statement in SQLiteStorage.DB_INIT_STATEMENTS:
                 cur.execute(statement)
 
-        for schema, migrations in self.MIGRATIONS.items():
-            with sqlite_txn(cur):
-                for statement in migrations:
-                    cur.execute(statement)
-
-    def _migrate(self, from_version, to_version):
+    @staticmethod
+    def migrate(db, from_version, to_version):
         log(f'Starting to migrate from version {from_version} to version {to_version}')
         try:
-            cur = self._db_connection.cursor()
+            cur = db.cursor()
             with sqlite_txn(cur):
-                for statement in self.MIGRATIONS[from_version]:
+                for statement in SQLiteStorage.MIGRATIONS[from_version]:
                     cur.execute(statement)
         except Exception as e:
             log(f'Error migrating to version {to_version} {e}')
@@ -1190,6 +1164,32 @@ class SQLiteStorage:
             log(traceback.format_exc())
             raise SQLiteStorageError(f'Error migrating DB to version {to_version}') from e
         log(f'Migrated to version {to_version}')
+
+    def __init__(self, conn_name):
+        if not conn_name:
+            raise SQLiteStorageError('must pass in conn_name')
+        self._db_connection = SQLiteStorage.get_db_connection(conn_name)
+        if not self._tables():
+            SQLiteStorage.setup_db(self._db_connection)
+        self._run_migrations()
+
+    def _tables(self):
+        results = self._db_connection.execute('SELECT name from sqlite_master WHERE type="table"').fetchall()
+
+        return [r[0] for r in results]
+
+    def _run_migrations(self):
+        schema_version = self._db_connection.execute('SELECT value FROM misc WHERE key="schema_version"').fetchall()[0][0]
+        if schema_version != SQLiteStorage.SCHEMA_VERSION:
+            if schema_version == 1:
+                SQLiteStorage.migrate(self._db_connection, from_version=1, to_version=2)
+                SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
+            elif schema_version == 2:
+                SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
+            else:
+                msg = f'ERROR: wrong schema version: {schema_version}'
+                log(msg)
+                raise SQLiteStorageError(msg)
 
     def get_commodity(self, id_=None, code=None):
         if id_:
