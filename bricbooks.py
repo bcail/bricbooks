@@ -900,7 +900,7 @@ def sqlite_txn(cursor):
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
@@ -1108,26 +1108,6 @@ class SQLiteStorage:
         # migration 1 added: preferences table
     ]
 
-    MIGRATIONS = {
-        1: [
-            'CREATE TABLE preferences ('
-                'name TEXT NOT NULL PRIMARY KEY,'
-                'value ANY NOT NULL,'
-                'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' #UTC
-                'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
-                'CHECK (name != "")) STRICT',
-            'CREATE TRIGGER preferences_updated UPDATE ON preferences BEGIN UPDATE preferences SET updated = CURRENT_TIMESTAMP WHERE name = old.name; END;',
-            "UPDATE misc SET value = 2 WHERE key = 'schema_version'",
-        ],
-        2: [
-            "UPDATE misc SET value = 2.5 WHERE key = 'schema_version'",  # Mark schema as 2.5 to show upgrade is in-process
-            "ALTER TABLE commodities ADD COLUMN denominator INTEGER NOT NULL DEFAULT 100 CHECK (denominator > 0 AND (denominator = 1 OR denominator % 10 = 0))",
-            "UPDATE commodities SET denominator = 10000 WHERE type = '%s'" % CommodityType.SECURITY.value,
-            "ALTER TABLE accounts ADD COLUMN quantity_denominator INTEGER NULL CHECK (quantity_denominator IS NULL OR (quantity_denominator > 0 AND (quantity_denominator = 1 OR quantity_denominator % 10 = 0)))",
-            "UPDATE misc SET value = 3 WHERE key = 'schema_version'",
-        ]
-    }
-
     @staticmethod
     def get_db_connection(conn_name):
         #conn_name is either ':memory:' or the name of the data file
@@ -1151,13 +1131,58 @@ class SQLiteStorage:
                 cur.execute(statement)
 
     @staticmethod
+    def _migration_changes(cur, from_version):
+        one_statements = [
+            'CREATE TABLE preferences ('
+                'name TEXT NOT NULL PRIMARY KEY,'
+                'value ANY NOT NULL,'
+                'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,' #UTC
+                'updated TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,'
+                'CHECK (name != "")) STRICT',
+            'CREATE TRIGGER preferences_updated UPDATE ON preferences BEGIN UPDATE preferences SET updated = CURRENT_TIMESTAMP WHERE name = old.name; END;',
+        ]
+
+        two_statements = [
+            "ALTER TABLE commodities ADD COLUMN denominator INTEGER NOT NULL DEFAULT 100 CHECK (denominator > 0 AND (denominator = 1 OR denominator % 10 = 0))",
+            "UPDATE commodities SET denominator = 10000 WHERE type = '%s'" % CommodityType.SECURITY.value,
+            "ALTER TABLE accounts ADD COLUMN quantity_denominator INTEGER NULL CHECK (quantity_denominator IS NULL OR (quantity_denominator > 0 AND (quantity_denominator = 1 OR quantity_denominator % 10 = 0)))",
+        ]
+
+        if from_version == 1:
+            for statement in one_statements:
+                cur.execute(statement)
+        elif from_version == 2:
+            for statement in two_statements:
+                cur.execute(statement)
+        elif from_version == 3:
+            sql = '''
+                SELECT c.denominator, s.id, s.value_numerator, s.value_denominator FROM transaction_splits s
+                  JOIN transactions t ON t.id = s.transaction_id
+                  JOIN commodities c ON c.id = t.commodity_id
+                  WHERE c.denominator != s.value_denominator
+                  ORDER BY t.id, s.id'''
+            results = cur.execute(sql).fetchall()
+            for commodity_denom, split_id, split_num, split_denom in results:
+                amount = Fraction(split_num, split_denom)
+                numer, denom = fraction_to_numerator_denominator(amount, commodity_denom)
+                cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ? WHERE id = ?', (numer, denom, split_id))
+        else:
+            raise SQLiteStorageError(f'Invalid migration number: {from_version}')
+
+    @staticmethod
     def migrate(db, from_version, to_version):
         log(f'Starting to migrate from version {from_version} to version {to_version}')
         try:
             cur = db.cursor()
             with sqlite_txn(cur):
-                for statement in SQLiteStorage.MIGRATIONS[from_version]:
-                    cur.execute(statement)
+                # Mark schema as x.5 to show upgrade is in-process
+                in_process_version = from_version + 0.5
+                cur.execute("UPDATE misc SET value = ? WHERE key = 'schema_version'", (in_process_version,))
+
+                SQLiteStorage._migration_changes(cur, from_version)
+
+                # Set new schema version
+                cur.execute("UPDATE misc SET value = ? WHERE key = 'schema_version'", (to_version,))
         except Exception as e:
             log(f'Error migrating to version {to_version} {e}')
             import traceback
@@ -1184,8 +1209,12 @@ class SQLiteStorage:
             if schema_version == 1:
                 SQLiteStorage.migrate(self._db_connection, from_version=1, to_version=2)
                 SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
+                SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
             elif schema_version == 2:
                 SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
+                SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
+            elif schema_version == 3:
+                SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
             else:
                 msg = f'ERROR: wrong schema version: {schema_version}'
                 log(msg)
