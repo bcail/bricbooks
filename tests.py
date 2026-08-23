@@ -1642,9 +1642,9 @@ class TestSQLiteStorage(unittest.TestCase):
         c.execute(f'INSERT INTO transactions(commodity_id,date,alternate_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
         txn_id = c.lastrowid
         c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
-                  (txn_id,checking.id, '1a', '', -100, 1))
+                  (txn_id,checking.id, '1a', '', -10000, 1))  # incorrect denom - make sure it's using commodity denom
         c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
-                  (txn_id,fund.id, '', 'share-buy', 100, 1))
+                  (txn_id,fund.id, '', 'share-buy', 10000, 1))
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
         self.assertEqual(txn.alternate_id, 'ID001')

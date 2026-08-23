@@ -1453,27 +1453,27 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, commodity_id, txn_date, description, alternate_id, entry_date = db_info
+        id_, txn_date, description, alternate_id, entry_date, value_denominator = db_info
         txn_date = get_date(txn_date)
         cur = self._db_connection.cursor()
         splits = []
-        split_records = cur.execute('SELECT account_id, type, value_numerator, value_denominator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id, description FROM transaction_splits WHERE transaction_id = ?', (id_,))
+        split_records = cur.execute('SELECT account_id, type, value_numerator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id, description FROM transaction_splits WHERE transaction_id = ?', (id_,))
         if split_records:
             for split_record in split_records:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
                 type_ = split_record[1]
-                amount = Fraction(split_record[2], split_record[3])
+                amount = Fraction(split_record[2], value_denominator)
                 split = {'account': account, 'amount': amount, 'type': type_}
-                if split_record[4]:
-                    quantity = Fraction(split_record[4], split_record[5])
+                if split_record[3]:
+                    quantity = Fraction(split_record[3], split_record[4])
                     split['quantity'] = quantity
-                if split_record[6]:
-                    split['status'] = split_record[6]
-                split['action'] = split_record[7]
+                if split_record[5]:
+                    split['status'] = split_record[5]
+                split['action'] = split_record[6]
+                if split_record[7]:
+                    split['payee'] = self.get_payee(id_=split_record[7])
                 if split_record[8]:
-                    split['payee'] = self.get_payee(id_=split_record[8])
-                if split_record[9]:
                     split['description'] = split_record[9]
                 splits.append(split)
         return Transaction(splits=splits, txn_date=txn_date, description=description,
@@ -1481,7 +1481,11 @@ class SQLiteStorage:
 
     def get_txn(self, txn_id):
         cur = self._db_connection.cursor()
-        cur.execute('SELECT id,commodity_id,date,description,alternate_id,entry_date FROM transactions WHERE id = ?', (txn_id,))
+        sql = '''
+            SELECT t.id,t.date,t.description,t.alternate_id,t.entry_date,c.denominator FROM transactions t
+              JOIN commodities c ON c.id = t.commodity_id
+              WHERE t.id = ?'''
+        cur.execute(sql, (txn_id,))
         db_info = cur.fetchone()
         return self._txn_from_db_record(db_info=db_info)
 
