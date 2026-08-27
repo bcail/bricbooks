@@ -1563,7 +1563,8 @@ class SQLiteStorage:
                     reconcile_date = None
                 type_ = normalize(split.get('type', ''))
                 description = normalize(split.get('description', ''))
-                value_numerator, value_denominator = fraction_to_numerator_denominator(amount, denominator)
+                value_numerator, _ = fraction_to_numerator_denominator(amount, denominator)
+                value_denominator = -1  # Not used anymore, but it's not-null in the DB
                 field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'payee_id']
                 field_values = [value_numerator, value_denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, payee_id]
                 action = split.get('action')
@@ -1653,7 +1654,14 @@ class SQLiteStorage:
             #get spent & income values for each expense account
             spent = Fraction(0)
             income = Fraction(0)
-            txn_splits_records = self._db_connection.execute('SELECT transaction_splits.value_numerator, transaction_splits.value_denominator FROM transaction_splits INNER JOIN transactions ON transaction_splits.transaction_id = transactions.id WHERE transaction_splits.account_id = ? AND transactions.date > ? AND transactions.date < ?', (account.id, str(start_date), str(end_date))).fetchall()
+            sql = '''
+                SELECT ts.value_numerator, c.denominator FROM transaction_splits ts
+                  JOIN transactions t ON ts.transaction_id = t.id
+                  JOIN commodities c ON t.commodity_id = c.id
+                  WHERE ts.account_id = ?
+                    AND t.date > ?
+                    AND t.date < ?'''
+            txn_splits_records = self._db_connection.execute(sql, (account.id, str(start_date), str(end_date))).fetchall()
             for record in txn_splits_records:
                 amt = Fraction(record[0], record[1])
                 if amt < Fraction(0):
