@@ -8,6 +8,7 @@ from unittest.mock import patch
 import bricbooks as bb
 from tests import get_test_account
 from load_test_data import CHECKING
+from test_utils import get_test_txn
 
 
 def destroy_default_root():
@@ -125,7 +126,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=fund)
-        txn = bb.Transaction(
+        txn = get_test_txn(
                 splits=[
                     {'account': checking, 'amount': -50},
                     {'account': fund, 'amount': 50, 'quantity': '2.34'}
@@ -273,8 +274,8 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=restaurants)
         payee = bb.Payee('some payee')
         gui._engine.save_payee(payee)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': food, 'amount': 5}], txn_date=date(2017, 1, 3))
-        txn2 = bb.Transaction(splits=[{'account': checking, 'amount': -17, 'type': 'ACH', 'status': bb.Transaction.CLEARED}, {'account': restaurants, 'amount': 17, 'payee': payee}], txn_date=date(2017, 5, 2), description='description')
+        txn = get_test_txn(splits=[{'account': checking, 'amount': -5}, {'account': food, 'amount': 5}], txn_date=date(2017, 1, 3))
+        txn2 = get_test_txn(splits=[{'account': checking, 'amount': -17, 'type': 'ACH', 'status': bb.Transaction.CLEARED}, {'account': restaurants, 'amount': 17, 'payee': payee}], txn_date=date(2017, 5, 2), description='description')
         gui._engine.save_transaction(txn)
         gui._engine.save_transaction(txn2)
         gui.ledger_button.invoke()
@@ -314,7 +315,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=fund)
-        txn = bb.Transaction(
+        txn = get_test_txn(
                 splits=[
                     {'account': checking, 'amount': -50},
                     {'account': fund, 'amount': 50, 'quantity': '4.5', 'action': 'share-buy'}
@@ -355,7 +356,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=food)
         gui._engine.save_account(account=restaurants)
         splits = [{'account': checking, 'amount': -20}, {'account': food, 'amount': 5}, {'account': restaurants, 'amount': 15}]
-        txn = bb.Transaction(splits=splits, txn_date=date(2017, 1, 3), description='eat out')
+        txn = get_test_txn(splits=splits, txn_date=date(2017, 1, 3), description='eat out')
         gui._engine.save_transaction(txn)
         gui.ledger_button.invoke()
         gui.ledger_display.filter_var.set('eat')
@@ -374,7 +375,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': savings, 'amount': 5}], txn_date=date(2017, 1, 3))
+        txn = get_test_txn(splits=[{'account': checking, 'amount': -5}, {'account': savings, 'amount': 5}], txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
         splits = [{'account': checking, 'amount': -100}, {'account': housing, 'amount': 100}]
         scheduled_txn = bb.ScheduledTransaction(
@@ -407,7 +408,7 @@ class TestTkGUILedger(AbstractTkTest, unittest.TestCase):
         gui._engine.save_account(account=checking)
         gui._engine.save_account(account=savings)
         gui._engine.save_account(account=housing)
-        txn = bb.Transaction(splits=[{'account': checking, 'amount': -5}, {'account': savings, 'amount': 5}], txn_date=date(2017, 1, 3))
+        txn = get_test_txn(splits=[{'account': checking, 'amount': -5}, {'account': savings, 'amount': 5}], txn_date=date(2017, 1, 3))
         gui._engine.save_transaction(txn)
         splits = [{'account': checking, 'amount': -100}, {'account': housing, 'amount': 100}]
         scheduled_txn = bb.ScheduledTransaction(

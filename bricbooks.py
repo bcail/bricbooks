@@ -479,7 +479,9 @@ class Transaction:
     CLEARED = 'C'
     RECONCILED = 'R'
 
-    def __init__(self, txn_date=None, entry_date=None, splits=None, description='', id_=None, alternate_id=None):
+    def __init__(self, txn_date=None, entry_date=None, currency=None, splits=None, description='', id_=None, alternate_id=None):
+        if not (currency and 'denominator' in currency):
+            raise RuntimeError('Must pass in currency denominator')
         self.splits = handle_txn_splits(splits)
         self.txn_date = self._check_txn_date(txn_date)
         if entry_date and isinstance(entry_date, str):
@@ -1453,8 +1455,9 @@ class SQLiteStorage:
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
-        id_, txn_date, description, alternate_id, entry_date, value_denominator = db_info
+        id_, txn_date, description, alternate_id, entry_date, currency_denominator = db_info
         txn_date = get_date(txn_date)
+        currency = {'denominator': currency_denominator}
         cur = self._db_connection.cursor()
         splits = []
         split_records = cur.execute('SELECT account_id, type, value_numerator, quantity_numerator, quantity_denominator, reconciled_state, action, payee_id, description FROM transaction_splits WHERE transaction_id = ?', (id_,))
@@ -1463,7 +1466,7 @@ class SQLiteStorage:
                 account_id = split_record[0]
                 account = self.get_account(account_id)
                 type_ = split_record[1]
-                amount = Fraction(split_record[2], value_denominator)
+                amount = Fraction(split_record[2], currency_denominator)
                 split = {'account': account, 'amount': amount, 'type': type_}
                 if split_record[3]:
                     quantity = Fraction(split_record[3], split_record[4])
@@ -1476,7 +1479,7 @@ class SQLiteStorage:
                 if split_record[8]:
                     split['description'] = split_record[9]
                 splits.append(split)
-        return Transaction(splits=splits, txn_date=txn_date, description=description,
+        return Transaction(currency=currency, splits=splits, txn_date=txn_date, description=description,
                            id_=id_, alternate_id=alternate_id, entry_date=entry_date)
 
     def get_txn(self, txn_id):
@@ -1862,6 +1865,12 @@ class Engine:
 
     def delete_account(self, account_id):
         self._storage.delete_account(account_id)
+
+    def transaction(self, **kwargs):
+        if 'currency' not in kwargs:
+            # If multiple currencies are supported, this will have to be dynamic
+            kwargs['currency'] = {'denominator': 100}
+        return Transaction(**kwargs)
 
     @staticmethod
     def sort_txns(txns, key='date'):
@@ -2282,7 +2291,7 @@ def import_kmymoney(kmy_file, engine):
             else:
                 description = None
             engine.save_transaction(
-                    Transaction(
+                    engine.transaction(
                         splits=splits,
                         txn_date=transaction.attrib['postdate'],
                         description=description,
@@ -2546,7 +2555,7 @@ class CLI:
             date_prefill = ''
         info['txn_date'] = self.input(prompt='  date: ', prefill=date_prefill)
         info.update(self._get_common_txn_info(is_scheduled_txn=is_scheduled_txn, txn=txn))
-        return Transaction(**info)
+        return self._engine.transaction(**info)
 
     def _create_txn(self):
         self.print('Create Transaction:')
@@ -3377,7 +3386,7 @@ class TransactionForm:
                 'description': self.description_entry.get(),
                 'splits': splits,
             }
-            transaction = Transaction(**kwargs)
+            transaction = self._engine.transaction(**kwargs)
             self._save_transaction(transaction=transaction)
         except Exception as e:
             handle_error(e)
