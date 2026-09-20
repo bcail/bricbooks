@@ -1630,7 +1630,7 @@ class TestSQLiteStorage(unittest.TestCase):
                 [(1, txn_id, checking.id, -10100, -101, 1, '', '', '', None),
                  (2, txn_id, another_acct.id, 10100, 101, 1, '', '', '', None)])
 
-    def test_get_test_txn(self):
+    def test_get_txn(self):
         checking = get_test_account()
         self.storage.save_account(checking)
         fund = get_test_account(type_=bb.AccountType.SECURITY, name='Fund')
@@ -1639,15 +1639,14 @@ class TestSQLiteStorage(unittest.TestCase):
         txn_fields = 'id,commodity_id,date,payee_id,description'
         c.execute(f'INSERT INTO transactions(commodity_id,date,alternate_id) VALUES(?,?,?)', (1, '2019-05-10', 'ID001'))
         txn_id = c.lastrowid
-        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
-                  (txn_id,checking.id, '1a', '', -10000, 1))  # incorrect denom - make sure it's using commodity denom
-        c.execute(f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator) VALUES(?,?,?,?,?, ?)',
-                  (txn_id,fund.id, '', 'share-buy', 10000, 1))
+        sql = f'INSERT INTO transaction_splits(transaction_id,account_id,type,action,value_numerator,value_denominator,description) VALUES(?,?,?,?,?,?,?)'
+        c.execute(sql, (txn_id,checking.id, '1a', '', -10000, -1, 'description'))  # incorrect denom - make sure it's using commodity denom
+        c.execute(sql, (txn_id,fund.id, '', 'share-buy', 10000, -1, 'description 2'))
         txn = self.storage.get_txn(txn_id)
         self.assertEqual(txn.txn_date, date(2019, 5, 10))
         self.assertEqual(txn.alternate_id, 'ID001')
-        self.assertEqual(txn.splits[0], {'account': checking, 'amount': -100, 'quantity': -100, 'type': '1a', 'action': ''})
-        self.assertEqual(txn.splits[1], {'account': fund, 'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy'})
+        self.assertEqual(txn.splits[0], {'account': checking, 'amount': -100, 'quantity': -100, 'type': '1a', 'action': '', 'description': 'description'})
+        self.assertEqual(txn.splits[1], {'account': fund, 'amount': 100, 'quantity': 100, 'type': '', 'action': 'share-buy', 'description': 'description 2'})
 
     def test_delete_txn_from_db(self):
         checking = get_test_account()

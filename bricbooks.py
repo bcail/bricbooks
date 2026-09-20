@@ -1477,7 +1477,7 @@ class SQLiteStorage:
                 if split_record[7]:
                     split['payee'] = self.get_payee(id_=split_record[7])
                 if split_record[8]:
-                    split['description'] = split_record[9]
+                    split['description'] = split_record[8]
                 splits.append(split)
         return Transaction(currency=currency, splits=splits, txn_date=txn_date, description=description,
                            id_=id_, alternate_id=alternate_id, entry_date=entry_date)
