@@ -1829,6 +1829,10 @@ class Engine:
         commodities = self._storage.get_commodities()
         return [c for c in commodities if c.type == CommodityType.CURRENCY]
 
+    def get_securities(self):
+        commodities = self._storage.get_commodities()
+        return [c for c in commodities if c.type == CommodityType.SECURITY]
+
     def get_account(self, id_=None, number=None, name=None):
         return self._storage.get_account(id_=id_, number=number, name=name)
 
@@ -2113,7 +2117,7 @@ def import_kmymoney(kmy_file, engine):
     securities = root.find('SECURITIES')
     for security in securities.iter('SECURITY'):
         security_id = security.attrib['id']
-        commodity = Commodity(type_=CommodityType.SECURITY, code=security_id, name=currency.attrib['name'])
+        commodity = Commodity(type_=CommodityType.SECURITY, code=security_id, name=security.attrib['name'])
         try:
             engine.save_commodity(commodity)
             commodity_mapping_info[security_id] = commodity.id

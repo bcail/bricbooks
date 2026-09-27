@@ -3026,6 +3026,10 @@ class TestImport(unittest.TestCase):
         with open(filename, 'rb') as f:
             bb.import_kmymoney(kmy_file=f, engine=engine)
         currencies = engine.get_currencies()
+        self.assertEqual(len(currencies), 2)
+        securities = engine.get_securities()
+        self.assertEqual(len(securities), 3)
+        self.assertEqual(securities[0].name, 'A Big Company D. stock')
         accounts = engine.get_accounts()
         self.assertEqual(len(accounts), 38)
         assets = engine.get_accounts(types=[bb.AccountType.ASSET])
