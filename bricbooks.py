@@ -1045,7 +1045,7 @@ class SQLiteStorage:
             'created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP) STRICT',
         'CREATE TABLE transactions ('
             'id INTEGER PRIMARY KEY,'
-            'commodity_id INTEGER NOT NULL,'
+            'commodity_id INTEGER NOT NULL,' # currency this txn is valued in (rename to `currency_id`?)
             'date TEXT,' # date the transaction took place
             'description TEXT NOT NULL DEFAULT "",'
             'entry_date TEXT NOT NULL DEFAULT (date(\'now\', \'localtime\')),' # date the transaction was entered
@@ -1452,6 +1452,14 @@ class SQLiteStorage:
                         cur.execute('UPDATE accounts SET parent_id = null WHERE id = ?', (r[0],))
             cur.execute('DELETE FROM accounts where id = ?', (account_id,))
 
+    def _get_account_quantity_denominator(self, account_id):
+        sql = 'SELECT commodity_id,quantity_denominator FROM accounts WHERE id = ?'
+        commodity_id, account_quantity_denominator = self._db_connection.execute(sql, (account_id,)).fetchone()
+        if account_quantity_denominator:
+            return account_quantity_denominator
+        sql = 'SELECT denominator FROM commodities WHERE id = ?'
+        return self._db_connection.execute(sql, (commodity_id,)).fetchone()[0]
+
     def _txn_from_db_record(self, db_info=None):
         if not db_info:
             raise InvalidTransactionError('no db_info to construct transaction')
@@ -1503,8 +1511,8 @@ class SQLiteStorage:
         return txns
 
     def save_txn(self, txn):
-        # Only one commodity supported for now - this will need to be dynamic if I support multiple commodities
-        commodity_id = 1
+        # Only one currency supported for now - this will need to be dynamic if I support multiple currencies
+        currency_id = 1
 
         check_txn_splits(txn.splits)
         for split in txn.splits:
@@ -1527,7 +1535,7 @@ class SQLiteStorage:
             field_names.append('entry_date')
             field_values.append(txn.entry_date.strftime('%Y-%m-%d'))
         cur = self._db_connection.cursor()
-        denominator = cur.execute('SELECT denominator FROM commodities WHERE id = ?', (commodity_id,)).fetchone()[0]
+        currency_denominator = cur.execute('SELECT denominator FROM commodities WHERE id = ?', (currency_id,)).fetchone()[0]
         with sqlite_txn(cur):
             if txn.id:
                 field_names_s = ', '.join([f'{name} = ?' for name in field_names])
@@ -1538,7 +1546,7 @@ class SQLiteStorage:
                 txn_id = txn.id
             else:
                 field_names.append('commodity_id')
-                field_values.append(commodity_id)
+                field_values.append(currency_id)
                 field_names_s = ','.join(field_names)
                 field_names_q = ','.join(['?' for _ in field_names])
                 cur.execute(f'INSERT INTO transactions({field_names_s}) VALUES({field_names_q})', field_values)
@@ -1566,15 +1574,17 @@ class SQLiteStorage:
                     reconcile_date = None
                 type_ = normalize(split.get('type', ''))
                 description = normalize(split.get('description', ''))
-                value_numerator, _ = fraction_to_numerator_denominator(amount, denominator)
+                value_numerator, _ = fraction_to_numerator_denominator(amount, currency_denominator)
                 value_denominator = -1  # Not used anymore, but it's not-null in the DB
+                account = split['account']
+                quantity_denominator = self._get_account_quantity_denominator(account.id)
+                quantity_numerator, _ = fraction_to_numerator_denominator(quantity, quantity_denominator)
                 field_names = ['value_numerator', 'value_denominator', 'quantity_numerator', 'quantity_denominator', 'reconciled_state', 'reconcile_date', 'type', 'description', 'payee_id']
-                field_values = [value_numerator, value_denominator, quantity.numerator, quantity.denominator, status, reconcile_date, type_, description, payee_id]
+                field_values = [value_numerator, value_denominator, quantity_numerator, quantity_denominator, status, reconcile_date, type_, description, payee_id]
                 action = split.get('action')
                 if action is not None:
                     field_names.append('action')
                     field_values.append(action)
-                account = split['account']
                 field_values.extend([txn_id, account.id]) #add txn id and account id for insert and update
                 if account.id in old_txn_split_account_ids:
                     field_names_s = ', '.join([f'{name} = ?' for name in field_names])
