@@ -674,7 +674,7 @@ class TestSQLiteDB(unittest.TestCase):
             storage._db_connection.close()
             self.assertEqual(tables, TABLES)
 
-    def test_migrate_v1_to_v4(self):
+    def test_migrate_v1_to_v5(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_name = os.path.join(tmp, 'test.sqlite3')
 
@@ -691,16 +691,16 @@ class TestSQLiteDB(unittest.TestCase):
             # Initialize SQLiteStorage
             storage = bb.SQLiteStorage(file_name)
 
-            # Verify that it migrated to v4
+            # Verify that it migrated to v5
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
-            self.assertEqual(result[0], 4)
+            self.assertEqual(result[0], 5)
 
             tables = storage._tables()
             self.assertEqual(tables, TABLES)
 
             storage._db_connection.close()
 
-    def test_migrate_v2_to_v4(self):
+    def test_migrate_v2_to_v5(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_name = os.path.join(tmp, 'test.sqlite3')
 
@@ -719,16 +719,16 @@ class TestSQLiteDB(unittest.TestCase):
             # Initialize SQLiteStorage
             storage = bb.SQLiteStorage(file_name)
 
-            # Verify that it migrated to v3
+            # Verify that it migrated to v5
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
-            self.assertEqual(result[0], 4)
+            self.assertEqual(result[0], 5)
 
             tables = storage._tables()
             self.assertEqual(tables, TABLES)
 
             storage._db_connection.close()
 
-    def test_migrate_v3_to_v4(self):
+    def test_migrate_v3_to_v5(self):
         with tempfile.TemporaryDirectory() as tmp:
             file_name = os.path.join(tmp, 'test.sqlite3')
 
@@ -751,17 +751,20 @@ class TestSQLiteDB(unittest.TestCase):
             food_id = cur.lastrowid
             cur.execute('INSERT INTO transactions (commodity_id) VALUES (?)', (1,))
             txn_id = cur.lastrowid
-            cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator) VALUES (?, ?, ?, ?)', (txn_id, food_id, 13, 1))
-            cur.execute('INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator) VALUES (?, ?, ?, ?)', (txn_id, checking_id, -13, 1))
+            sql = '''
+                INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator)
+                VALUES (?, ?, ?, ?, ?, ?)'''
+            cur.execute(sql, (txn_id, food_id, 13, 1, 13, 1))
+            cur.execute(sql, (txn_id, checking_id, -13, 1, 13, 1))
 
             conn.close()
 
             # Initialize SQLiteStorage
             storage = bb.SQLiteStorage(file_name)
 
-            # Verify that it migrated to v4
+            # Verify that it migrated to v5
             result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
-            self.assertEqual(result[0], 4)
+            self.assertEqual(result[0], 5)
 
             tables = storage._tables()
             self.assertEqual(tables, TABLES)
@@ -770,6 +773,70 @@ class TestSQLiteDB(unittest.TestCase):
 
             self.assertEqual(results[0], (100,))
             self.assertEqual(results[1], (100,))
+
+            storage._db_connection.close()
+
+    def test_migrate_v4_to_v5(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file_name = os.path.join(tmp, 'test.sqlite3')
+
+            conn = bb.SQLiteStorage.get_db_connection(file_name)
+
+            bb.SQLiteStorage.setup_db(conn)
+
+            bb.SQLiteStorage.migrate(conn, from_version=1, to_version=2)
+            bb.SQLiteStorage.migrate(conn, from_version=2, to_version=3)
+            bb.SQLiteStorage.migrate(conn, from_version=3, to_version=4)
+
+            # Verify schema version is four
+            result = conn.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 4)
+
+            # set up data
+            cur = conn.cursor()
+
+            cur.execute('INSERT INTO commodities(type, code, name, denominator) VALUES(?, ?, ?, ?)', (bb.CommodityType.SECURITY.value, 'ABC', 'stock a', 10_000))
+            stock_commodity_id = cur.lastrowid
+
+            sql = 'INSERT INTO accounts (name, type, commodity_id, quantity_denominator) VALUES (?, ?, ?, ?)'
+            cur.execute(sql, ('Checking', bb.AccountType.ASSET.value, 1, None))
+            checking_id = cur.lastrowid
+            cur.execute(sql, ('Stock', bb.AccountType.SECURITY.value, stock_commodity_id, None))
+            stock_acct_id = cur.lastrowid
+            cur.execute(sql, ('Custom denom stock account', bb.AccountType.SECURITY.value, stock_commodity_id, 10))
+            denom_stock_acct_id = cur.lastrowid
+
+            cur.execute('INSERT INTO transactions (commodity_id) VALUES (?)', (1,))
+            txn_id = cur.lastrowid
+            cur.execute('INSERT INTO transactions (commodity_id) VALUES (?)', (1,))
+            txn2_id = cur.lastrowid
+
+            sql = '''INSERT INTO transaction_splits(transaction_id, account_id, value_numerator, value_denominator, quantity_numerator, quantity_denominator)
+                VALUES (?, ?, ?, ?, ?, ?)'''
+            cur.execute(sql, (txn_id, stock_acct_id, 5000, 100, 4, 1))
+            cur.execute(sql, (txn_id, checking_id, -5000, 100, -50, 1))
+            cur.execute(sql, (txn2_id, denom_stock_acct_id, 5000, 100, 4, 1))
+            cur.execute(sql, (txn2_id, checking_id, -5000, 100, -50, 1))
+
+            conn.close()
+
+            # Initialize SQLiteStorage
+            storage = bb.SQLiteStorage(file_name)
+
+            # Verify that it migrated to v5
+            result = storage._db_connection.execute('SELECT value FROM misc WHERE key = ?', ('schema_version',)).fetchone()
+            self.assertEqual(result[0], 5)
+
+            tables = storage._tables()
+            self.assertEqual(tables, TABLES)
+
+            sql = 'SELECT transaction_id, account_id, quantity_denominator FROM transaction_splits ORDER BY id'
+            results = storage._db_connection.execute(sql).fetchall()
+
+            self.assertIn( (txn_id, stock_acct_id, 10_000), results)
+            self.assertIn( (txn_id, checking_id, 100), results)
+            self.assertIn( (txn2_id, denom_stock_acct_id, 10), results)
+            self.assertIn( (txn2_id, checking_id, 100), results)
 
             storage._db_connection.close()
 

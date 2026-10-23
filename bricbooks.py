@@ -902,7 +902,7 @@ def sqlite_txn(cursor):
 
 class SQLiteStorage:
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
 
     DB_INIT_STATEMENTS = [
         'CREATE TABLE commodity_types ('
@@ -1168,6 +1168,24 @@ class SQLiteStorage:
                 amount = Fraction(split_num, split_denom)
                 numer, denom = fraction_to_numerator_denominator(amount, commodity_denom)
                 cur.execute('UPDATE transaction_splits SET value_numerator = ?, value_denominator = ? WHERE id = ?', (numer, denom, split_id))
+        elif from_version == 4:
+            sql = '''
+                SELECT c.denominator, a.quantity_denominator, s.id, s.quantity_numerator, s.quantity_denominator FROM transaction_splits s
+                  JOIN transactions t ON t.id = s.transaction_id
+                  JOIN accounts a ON s.account_id = a.id
+                  JOIN commodities c ON c.id = a.commodity_id
+                  ORDER BY t.id, s.id'''
+            results = cur.execute(sql).fetchall()
+            for commodity_denom, account_qty_denominator, split_id, split_qty_num, split_qty_denom in results:
+                denom_to_use = account_qty_denominator or commodity_denom
+
+                if split_qty_denom == denom_to_use:
+                    # we already have the correct denominator - nothing to do
+                    continue
+
+                quantity = Fraction(split_qty_num, split_qty_denom)
+                numer, denom = fraction_to_numerator_denominator(quantity, denom_to_use)
+                cur.execute('UPDATE transaction_splits SET quantity_numerator = ?, quantity_denominator = ? WHERE id = ?', (numer, denom, split_id))
         else:
             raise SQLiteStorageError(f'Invalid migration number: {from_version}')
 
@@ -1212,11 +1230,16 @@ class SQLiteStorage:
                 SQLiteStorage.migrate(self._db_connection, from_version=1, to_version=2)
                 SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
                 SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
+                SQLiteStorage.migrate(self._db_connection, from_version=4, to_version=5)
             elif schema_version == 2:
                 SQLiteStorage.migrate(self._db_connection, from_version=2, to_version=3)
                 SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
+                SQLiteStorage.migrate(self._db_connection, from_version=4, to_version=5)
             elif schema_version == 3:
                 SQLiteStorage.migrate(self._db_connection, from_version=3, to_version=4)
+                SQLiteStorage.migrate(self._db_connection, from_version=4, to_version=5)
+            elif schema_version == 4:
+                SQLiteStorage.migrate(self._db_connection, from_version=4, to_version=5)
             else:
                 msg = f'ERROR: wrong schema version: {schema_version}'
                 log(msg)
